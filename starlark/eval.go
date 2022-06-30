@@ -59,6 +59,8 @@ type Thread struct {
 
 	// proftime holds the accumulated execution time since the last profile event.
 	proftime time.Duration
+
+	requiredCompliance ComplianceFlags
 }
 
 // ExecutionSteps returns a count of abstract computation steps executed
@@ -77,6 +79,15 @@ func (thread *Thread) ExecutionSteps() uint64 {
 // thread.Cancel("too many steps").
 func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
+}
+
+func (thread *Thread) Compliance() ComplianceFlags {
+	return thread.requiredCompliance
+}
+
+func (thread *Thread) RequireCompliance(flags ComplianceFlags) {
+	flags.AssertValid()
+	thread.requiredCompliance |= flags
 }
 
 // Cancel causes execution of Starlark code in the specified thread to
@@ -1213,9 +1224,23 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 
 	fr.callable = c
 
+	// Check what is being called has declared appropriate compliance
+	var newScopeCompliance ComplianceFlags
+	if c, ok := c.(HasCompliance); ok {
+		newScopeCompliance = c.Compliance()
+	}
+	if err := thread.requiredCompliance.Permits(newScopeCompliance); err != nil {
+		return nil, err
+	}
+
+	requiredCompliance := thread.requiredCompliance
+	thread.requiredCompliance = newScopeCompliance
+
 	thread.beginProfSpan()
 	result, err := c.CallInternal(thread, args, kwargs)
 	thread.endProfSpan()
+
+	thread.requiredCompliance = requiredCompliance
 
 	// Sanity check: nil is not a valid Starlark value.
 	if result == nil && err == nil {

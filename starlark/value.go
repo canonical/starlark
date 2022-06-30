@@ -716,9 +716,10 @@ func (fn *Function) HasKwargs() bool  { return fn.funcode.HasKwargs }
 
 // A Builtin is a function implemented in Go.
 type Builtin struct {
-	name string
-	fn   func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)
-	recv Value // for bound methods (e.g. "".startswith)
+	name       string
+	fn         func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)
+	recv       Value // for bound methods (e.g. "".startswith)
+	compliance ComplianceFlags
 }
 
 func (b *Builtin) Name() string { return b.name }
@@ -741,11 +742,21 @@ func (b *Builtin) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Valu
 	return b.fn(thread, b, args, kwargs)
 }
 func (b *Builtin) Truth() Bool { return true }
+func (b *Builtin) SolemnlyDeclareCompliance(flags ComplianceFlags) {
+	flags.AssertValid()
+	b.compliance |= flags
+}
+func (b *Builtin) Compliance() ComplianceFlags { return b.compliance }
 
 // NewBuiltin returns a new 'builtin_function_or_method' value with the specified name
 // and implementation.  It compares unequal with all other values.
 func NewBuiltin(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)) *Builtin {
 	return &Builtin{name: name, fn: fn}
+}
+
+func NewBuiltinComplies(name string, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), compliance ComplianceFlags) *Builtin {
+	compliance.AssertValid()
+	return &Builtin{name: name, fn: fn, compliance: compliance}
 }
 
 // BindReceiver returns a new Builtin value representing a method
