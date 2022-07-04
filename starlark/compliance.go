@@ -73,7 +73,6 @@ func (f ComplianceFlags) AssertValid() {
 func (required ComplianceFlags) Permits(toCheck ComplianceFlags) error {
 	// Test that required ⊆ toCheck
 	missingFlags := required &^ toCheck
-	// missingFlags := toCheck &^ required // TODO(kcza): figure out why this *panics*
 	if missingFlags != 0 {
 		return fmt.Errorf("Missing compliance flags: %s", strings.Join(missingFlags.Names(), ", "))
 	}
