@@ -112,3 +112,22 @@ func testComplianceRoundTrip(t *testing.T, flagNames []string) {
 		t.Errorf("Round-trip flag sets are different: expected %v but got %v", flagNames, returnedNames)
 	}
 }
+
+func TestThreadComplianceSetOnlyGrows(t *testing.T) {
+	initialFlags := starlark.ComplyCPUSafe | starlark.ComplyMemSafe
+	newFlags := starlark.ComplyIOSafe | starlark.ComplyTimeSafe
+	expectedFlags := initialFlags | newFlags
+
+	thread := new(starlark.Thread)
+	thread.RequireCompliance(initialFlags)
+	if thread.Compliance() != initialFlags {
+		t.Errorf("Compliance flags differ from declaration: expected %v but got %v", initialFlags.Names(), thread.Compliance().Names())
+	}
+
+	thread.RequireCompliance(newFlags)
+
+	if thread.Compliance() != expectedFlags {
+		missing := thread.Compliance() &^ expectedFlags
+		t.Errorf("Missing compliance flags %v, expected %v", missing.Names(), expectedFlags.Names())
+	}
+}
