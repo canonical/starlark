@@ -4,7 +4,7 @@
 
 // The starlark command interprets a Starlark file.
 // With no arguments, it starts a read-eval-print loop (REPL).
-package main // import "go.starlark.net/cmd/starlark"
+package main // import "github.com/canonical/starlark/cmd/starlark"
 
 import (
 	"flag"
@@ -15,13 +15,13 @@ import (
 	"runtime/pprof"
 	"strings"
 
-	"go.starlark.net/internal/compile"
-	"go.starlark.net/lib/json"
-	"go.starlark.net/lib/math"
-	"go.starlark.net/lib/time"
-	"go.starlark.net/repl"
-	"go.starlark.net/resolve"
-	"go.starlark.net/starlark"
+	"github.com/canonical/starlark/internal/compile"
+	"github.com/canonical/starlark/lib/json"
+	"github.com/canonical/starlark/lib/math"
+	"github.com/canonical/starlark/lib/time"
+	"github.com/canonical/starlark/repl"
+	"github.com/canonical/starlark/resolve"
+	"github.com/canonical/starlark/starlark"
 )
 
 // flags
@@ -120,7 +120,7 @@ func doMain() int {
 			return 1
 		}
 	case flag.NArg() == 0:
-		fmt.Println("Welcome to Starlark (go.starlark.net)")
+		fmt.Println("Welcome to Starlark (github.com/canonical/starlark)")
 		thread.Name = "REPL"
 		repl.REPL(thread, globals)
 	default:

@@ -15,15 +15,15 @@ import (
 	"strings"
 	"testing"
 
-	"go.starlark.net/internal/chunkedfile"
-	"go.starlark.net/lib/json"
-	starlarkmath "go.starlark.net/lib/math"
-	"go.starlark.net/lib/time"
-	"go.starlark.net/resolve"
-	"go.starlark.net/starlark"
-	"go.starlark.net/starlarkstruct"
-	"go.starlark.net/starlarktest"
-	"go.starlark.net/syntax"
+	"github.com/canonical/starlark/internal/chunkedfile"
+	"github.com/canonical/starlark/lib/json"
+	starlarkmath "github.com/canonical/starlark/lib/math"
+	"github.com/canonical/starlark/lib/time"
+	"github.com/canonical/starlark/resolve"
+	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/starlarkstruct"
+	"github.com/canonical/starlark/starlarktest"
+	"github.com/canonical/starlark/syntax"
 )
 
 // A test may enable non-standard options by containing (e.g.) "option:recursion".
@@ -987,7 +987,7 @@ func TestDeps(t *testing.T) {
 		slash := strings.IndexByte(pkg, '/')
 		dot := strings.IndexByte(pkg, '.')
 		if 0 < dot && dot < slash {
-			if strings.HasPrefix(pkg, "go.starlark.net/") ||
+			if strings.HasPrefix(pkg, "github.com/canonical/starlark/") ||
 				strings.HasPrefix(pkg, "golang.org/x/sys/") {
 				continue // permitted dependencies
 			}
