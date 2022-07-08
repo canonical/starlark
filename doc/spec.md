@@ -9,7 +9,7 @@ originally developed for) the [Bazel build tool](https://bazel.build),
 and [Bazel's build language](https://docs.bazel.build/versions/main/skylark/language.html) is based on Starlark.
 
 This document describes the Go implementation of Starlark
-at github.com/canonical/starlark/starlark.
+at go.starlark.net/starlark.
 The language it defines is similar but not identical to
 [the Java-based implementation](https://github.com/bazelbuild/bazel/blob/master/src/main/java/net/starlark/java/eval/Starlark.java)
 used by Bazel.

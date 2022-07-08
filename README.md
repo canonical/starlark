@@ -1,15 +1,15 @@
 
-<!-- This file is the project homepage for github.com/canonical/starlark -->
+<!-- This file is the project homepage for go.starlark.net -->
 
 # Starlark in Go
 
 [![Go Tests](https://github.com/google/starlark-go/actions/workflows/tests.yml/badge.svg)](https://github.com/google/starlark-go/actions/workflows/tests.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/canonical/starlark/starlark.svg)](https://pkg.go.dev/github.com/canonical/starlark/starlark)
+[![Go Reference](https://pkg.go.dev/badge/go.starlark.net/starlark.svg)](https://pkg.go.dev/go.starlark.net/starlark)
 
 This is the home of the _Starlark in Go_ project.
 Starlark in Go is an interpreter for Starlark, implemented in Go.
 Starlark was formerly known as Skylark.
-The new import path for Go packages is `"github.com/canonical/starlark/starlark"`.
+The new import path for Go packages is `"go.starlark.net/starlark"`.
 
 Starlark is a dialect of Python intended for use as a configuration language.
 Like Python, it is an untyped dynamic language with high-level data
@@ -40,7 +40,7 @@ languages and compilers.
 
 * About the Go implementation: [doc/impl.md](doc/impl.md)
 
-* API documentation: [pkg.go.dev/github.com/canonical/starlark/starlark](https://pkg.go.dev/github.com/canonical/starlark/starlark)
+* API documentation: [pkg.go.dev/go.starlark.net/starlark](https://pkg.go.dev/go.starlark.net/starlark)
 
 * Mailing list: [starlark-go](https://groups.google.com/forum/#!forum/starlark-go)
 
@@ -53,7 +53,7 @@ Build the code:
 ```shell
 # check out the code and dependencies,
 # and install interpreter in $GOPATH/bin
-$ go get -u github.com/canonical/starlark/cmd/starlark
+$ go get -u go.starlark.net/cmd/starlark
 ```
 
 Run the interpreter:
@@ -94,7 +94,7 @@ When you have finished, type `Ctrl-D` to close the REPL's input stream.
 Embed the interpreter in your Go program:
 
 ```go
-import "github.com/canonical/starlark/starlark"
+import "go.starlark.net/starlark"
 
 // Execute Starlark program in a file.
 thread := &starlark.Thread{Name: "my thread"}
