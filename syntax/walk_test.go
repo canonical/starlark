@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"go.starlark.net/syntax"
+	"github.com/canonical/starlark/syntax"
 )
 
 func TestWalk(t *testing.T) {
