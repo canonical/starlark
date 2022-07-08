@@ -3,7 +3,7 @@
 
 # Starlark in Go
 
-[![Go Tests](https://github.com/google/starlark-go/actions/workflows/tests.yml/badge.svg)](https://github.com/google/starlark-go/actions/workflows/tests.yml)
+[![Go Tests](https://github.com/canonical/starlark/actions/workflows/tests.yml/badge.svg)](https://github.com/canonical/starlark/actions/workflows/tests.yml)
 [![Go Reference](https://pkg.go.dev/badge/go.starlark.net/starlark.svg)](https://pkg.go.dev/go.starlark.net/starlark)
 
 This is the home of the _Starlark in Go_ project.
