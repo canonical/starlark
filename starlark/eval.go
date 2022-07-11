@@ -1202,6 +1202,15 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		return nil, fmt.Errorf("invalid call of non-function (%s)", fn.Type())
 	}
 
+	// Check what is being called has declared appropriate compliance
+	var newScopeCompliance ComplianceFlags
+	if c, ok := c.(HasCompliance); ok {
+		newScopeCompliance = c.Compliance()
+	}
+	if err := thread.requiredCompliance.Permits(newScopeCompliance); err != nil {
+		return nil, err
+	}
+
 	// Allocate and push a new frame.
 	var fr *frame
 	// Optimization: use slack portion of thread.stack
@@ -1224,23 +1233,9 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 
 	fr.callable = c
 
-	// Check what is being called has declared appropriate compliance
-	var newScopeCompliance ComplianceFlags
-	if c, ok := c.(HasCompliance); ok {
-		newScopeCompliance = c.Compliance()
-	}
-	if err := thread.requiredCompliance.Permits(newScopeCompliance); err != nil {
-		return nil, err
-	}
-
-	requiredCompliance := thread.requiredCompliance
-	thread.requiredCompliance = newScopeCompliance
-
 	thread.beginProfSpan()
 	result, err := c.CallInternal(thread, args, kwargs)
 	thread.endProfSpan()
-
-	thread.requiredCompliance = requiredCompliance
 
 	// Sanity check: nil is not a valid Starlark value.
 	if result == nil && err == nil {
