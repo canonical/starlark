@@ -23,6 +23,8 @@ import (
 	"go.starlark.net/starlarkstruct"
 )
 
+const _JSON_COMPLIANCE_DEFAULT = starlark.ComplyMemSafe | starlark.ComplyCPUSafe | starlark.ComplyTimeSafe | starlark.ComplyIOSafe
+
 // Module json is a Starlark module of JSON-related functions.
 //
 //   json = module(
@@ -73,9 +75,9 @@ import (
 var Module = &starlarkstruct.Module{
 	Name: "json",
 	Members: starlark.StringDict{
-		"encode": starlark.NewBuiltin("json.encode", encode),
-		"decode": starlark.NewBuiltin("json.decode", decode),
-		"indent": starlark.NewBuiltin("json.indent", indent),
+		"encode": starlark.NewBuiltinComplies("json.encode", encode, _JSON_COMPLIANCE_DEFAULT),
+		"decode": starlark.NewBuiltinComplies("json.decode", decode, _JSON_COMPLIANCE_DEFAULT),
+		"indent": starlark.NewBuiltinComplies("json.indent", indent, _JSON_COMPLIANCE_DEFAULT),
 	},
 }
 

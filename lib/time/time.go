@@ -15,6 +15,8 @@ import (
 	"go.starlark.net/syntax"
 )
 
+const _TIME_COMPLIANCE_DEFAULT = starlark.ComplyMemSafe | starlark.ComplyCPUSafe | starlark.ComplyTimeSafe | starlark.ComplyIOSafe
+
 // Module time is a Starlark module of time-related functions and constants.
 // The module defines the following functions:
 //
@@ -52,12 +54,12 @@ import (
 var Module = &starlarkstruct.Module{
 	Name: "time",
 	Members: starlark.StringDict{
-		"from_timestamp":    starlark.NewBuiltin("from_timestamp", fromTimestamp),
-		"is_valid_timezone": starlark.NewBuiltin("is_valid_timezone", isValidTimezone),
-		"now":               starlark.NewBuiltin("now", now),
-		"parse_duration":    starlark.NewBuiltin("parse_duration", parseDuration),
-		"parse_time":        starlark.NewBuiltin("parse_time", parseTime),
-		"time":              starlark.NewBuiltin("time", newTime),
+		"from_timestamp":    starlark.NewBuiltinComplies("from_timestamp", fromTimestamp, _TIME_COMPLIANCE_DEFAULT),
+		"is_valid_timezone": starlark.NewBuiltinComplies("is_valid_timezone", isValidTimezone, _TIME_COMPLIANCE_DEFAULT),
+		"now":               starlark.NewBuiltinComplies("now", now, _TIME_COMPLIANCE_DEFAULT),
+		"parse_duration":    starlark.NewBuiltinComplies("parse_duration", parseDuration, _TIME_COMPLIANCE_DEFAULT),
+		"parse_time":        starlark.NewBuiltinComplies("parse_time", parseTime, _TIME_COMPLIANCE_DEFAULT),
+		"time":              starlark.NewBuiltinComplies("time", newTime, _TIME_COMPLIANCE_DEFAULT),
 
 		"nanosecond":  Duration(time.Nanosecond),
 		"microsecond": Duration(time.Microsecond),

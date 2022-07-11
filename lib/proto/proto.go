@@ -138,17 +138,19 @@ type DescriptorPool interface {
 	FindFileByPath(string) (protoreflect.FileDescriptor, error)
 }
 
+const _PROTO_COMPLIANCE_DEFAULT = starlark.ComplyMemSafe | starlark.ComplyCPUSafe | starlark.ComplyTimeSafe | starlark.ComplyIOSafe
+
 var Module = &starlarkstruct.Module{
 	Name: "proto",
 	Members: starlark.StringDict{
-		"file":           starlark.NewBuiltin("proto.file", file),
-		"has":            starlark.NewBuiltin("proto.has", has),
-		"marshal":        starlark.NewBuiltin("proto.marshal", marshal),
-		"marshal_text":   starlark.NewBuiltin("proto.marshal_text", marshal),
-		"set_field":      starlark.NewBuiltin("proto.set_field", setFieldStarlark),
-		"get_field":      starlark.NewBuiltin("proto.get_field", getFieldStarlark),
-		"unmarshal":      starlark.NewBuiltin("proto.unmarshal", unmarshal),
-		"unmarshal_text": starlark.NewBuiltin("proto.unmarshal_text", unmarshal_text),
+		"file":           starlark.NewBuiltinComplies("proto.file", file, _PROTO_COMPLIANCE_DEFAULT),
+		"has":            starlark.NewBuiltinComplies("proto.has", has, _PROTO_COMPLIANCE_DEFAULT),
+		"marshal":        starlark.NewBuiltinComplies("proto.marshal", marshal, _PROTO_COMPLIANCE_DEFAULT),
+		"marshal_text":   starlark.NewBuiltinComplies("proto.marshal_text", marshal, _PROTO_COMPLIANCE_DEFAULT),
+		"set_field":      starlark.NewBuiltinComplies("proto.set_field", setFieldStarlark, _PROTO_COMPLIANCE_DEFAULT),
+		"get_field":      starlark.NewBuiltinComplies("proto.get_field", getFieldStarlark, _PROTO_COMPLIANCE_DEFAULT),
+		"unmarshal":      starlark.NewBuiltinComplies("proto.unmarshal", unmarshal, _PROTO_COMPLIANCE_DEFAULT),
+		"unmarshal_text": starlark.NewBuiltinComplies("proto.unmarshal_text", unmarshal_text, _PROTO_COMPLIANCE_DEFAULT),
 
 		// TODO(adonovan):
 		// - merge(msg, msg) -> msg

@@ -33,42 +33,44 @@ import (
 // Starlark programs cannot modify the dictionary.
 var Universe StringDict
 
+const _STDLIB_COMPLIANCE_DEFAULT = ComplyMemSafe | ComplyCPUSafe | ComplyTimeSafe | ComplyIOSafe
+
 func init() {
 	// https://github.com/google/starlark-go/blob/master/doc/spec.md#built-in-constants-and-functions
 	Universe = StringDict{
 		"None":      None,
 		"True":      True,
 		"False":     False,
-		"abs":       NewBuiltin("abs", abs),
-		"any":       NewBuiltin("any", any),
-		"all":       NewBuiltin("all", all),
-		"bool":      NewBuiltin("bool", bool_),
-		"bytes":     NewBuiltin("bytes", bytes_),
-		"chr":       NewBuiltin("chr", chr),
-		"dict":      NewBuiltin("dict", dict),
-		"dir":       NewBuiltin("dir", dir),
-		"enumerate": NewBuiltin("enumerate", enumerate),
-		"fail":      NewBuiltin("fail", fail),
-		"float":     NewBuiltin("float", float),
-		"getattr":   NewBuiltin("getattr", getattr),
-		"hasattr":   NewBuiltin("hasattr", hasattr),
-		"hash":      NewBuiltin("hash", hash),
-		"int":       NewBuiltin("int", int_),
-		"len":       NewBuiltin("len", len_),
-		"list":      NewBuiltin("list", list),
-		"max":       NewBuiltin("max", minmax),
-		"min":       NewBuiltin("min", minmax),
-		"ord":       NewBuiltin("ord", ord),
-		"print":     NewBuiltin("print", print),
-		"range":     NewBuiltin("range", range_),
-		"repr":      NewBuiltin("repr", repr),
-		"reversed":  NewBuiltin("reversed", reversed),
-		"set":       NewBuiltin("set", set), // requires resolve.AllowSet
-		"sorted":    NewBuiltin("sorted", sorted),
-		"str":       NewBuiltin("str", str),
-		"tuple":     NewBuiltin("tuple", tuple),
-		"type":      NewBuiltin("type", type_),
-		"zip":       NewBuiltin("zip", zip),
+		"abs":       NewBuiltinComplies("abs", abs, _STDLIB_COMPLIANCE_DEFAULT),
+		"any":       NewBuiltinComplies("any", any, _STDLIB_COMPLIANCE_DEFAULT),
+		"all":       NewBuiltinComplies("all", all, _STDLIB_COMPLIANCE_DEFAULT),
+		"bool":      NewBuiltinComplies("bool", bool_, _STDLIB_COMPLIANCE_DEFAULT),
+		"bytes":     NewBuiltinComplies("bytes", bytes_, _STDLIB_COMPLIANCE_DEFAULT),
+		"chr":       NewBuiltinComplies("chr", chr, _STDLIB_COMPLIANCE_DEFAULT),
+		"dict":      NewBuiltinComplies("dict", dict, _STDLIB_COMPLIANCE_DEFAULT),
+		"dir":       NewBuiltinComplies("dir", dir, _STDLIB_COMPLIANCE_DEFAULT),
+		"enumerate": NewBuiltinComplies("enumerate", enumerate, _STDLIB_COMPLIANCE_DEFAULT),
+		"fail":      NewBuiltinComplies("fail", fail, _STDLIB_COMPLIANCE_DEFAULT),
+		"float":     NewBuiltinComplies("float", float, _STDLIB_COMPLIANCE_DEFAULT),
+		"getattr":   NewBuiltinComplies("getattr", getattr, _STDLIB_COMPLIANCE_DEFAULT),
+		"hasattr":   NewBuiltinComplies("hasattr", hasattr, _STDLIB_COMPLIANCE_DEFAULT),
+		"hash":      NewBuiltinComplies("hash", hash, _STDLIB_COMPLIANCE_DEFAULT),
+		"int":       NewBuiltinComplies("int", int_, _STDLIB_COMPLIANCE_DEFAULT),
+		"len":       NewBuiltinComplies("len", len_, _STDLIB_COMPLIANCE_DEFAULT),
+		"list":      NewBuiltinComplies("list", list, _STDLIB_COMPLIANCE_DEFAULT),
+		"max":       NewBuiltinComplies("max", minmax, _STDLIB_COMPLIANCE_DEFAULT),
+		"min":       NewBuiltinComplies("min", minmax, _STDLIB_COMPLIANCE_DEFAULT),
+		"ord":       NewBuiltinComplies("ord", ord, _STDLIB_COMPLIANCE_DEFAULT),
+		"print":     NewBuiltinComplies("print", print, _STDLIB_COMPLIANCE_DEFAULT),
+		"range":     NewBuiltinComplies("range", range_, _STDLIB_COMPLIANCE_DEFAULT),
+		"repr":      NewBuiltinComplies("repr", repr, _STDLIB_COMPLIANCE_DEFAULT),
+		"reversed":  NewBuiltinComplies("reversed", reversed, _STDLIB_COMPLIANCE_DEFAULT),
+		"set":       NewBuiltinComplies("set", set, _STDLIB_COMPLIANCE_DEFAULT), // requires resolve.AllowSet
+		"sorted":    NewBuiltinComplies("sorted", sorted, _STDLIB_COMPLIANCE_DEFAULT),
+		"str":       NewBuiltinComplies("str", str, _STDLIB_COMPLIANCE_DEFAULT),
+		"tuple":     NewBuiltinComplies("tuple", tuple, _STDLIB_COMPLIANCE_DEFAULT),
+		"type":      NewBuiltinComplies("type", type_, _STDLIB_COMPLIANCE_DEFAULT),
+		"zip":       NewBuiltinComplies("zip", zip, _STDLIB_COMPLIANCE_DEFAULT),
 	}
 }
 
@@ -76,71 +78,71 @@ func init() {
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#built-in-methods
 var (
 	bytesMethods = map[string]*Builtin{
-		"elems": NewBuiltin("elems", bytes_elems),
+		"elems": NewBuiltinComplies("elems", bytes_elems, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
 	}
 
 	dictMethods = map[string]*Builtin{
-		"clear":      NewBuiltin("clear", dict_clear),
-		"get":        NewBuiltin("get", dict_get),
-		"items":      NewBuiltin("items", dict_items),
-		"keys":       NewBuiltin("keys", dict_keys),
-		"pop":        NewBuiltin("pop", dict_pop),
-		"popitem":    NewBuiltin("popitem", dict_popitem),
-		"setdefault": NewBuiltin("setdefault", dict_setdefault),
-		"update":     NewBuiltin("update", dict_update),
-		"values":     NewBuiltin("values", dict_values),
+		"clear":      NewBuiltinComplies("clear", dict_clear, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"get":        NewBuiltinComplies("get", dict_get, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"items":      NewBuiltinComplies("items", dict_items, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"keys":       NewBuiltinComplies("keys", dict_keys, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"pop":        NewBuiltinComplies("pop", dict_pop, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"popitem":    NewBuiltinComplies("popitem", dict_popitem, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"setdefault": NewBuiltinComplies("setdefault", dict_setdefault, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"update":     NewBuiltinComplies("update", dict_update, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"values":     NewBuiltinComplies("values", dict_values, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
 	}
 
 	listMethods = map[string]*Builtin{
-		"append": NewBuiltin("append", list_append),
-		"clear":  NewBuiltin("clear", list_clear),
-		"extend": NewBuiltin("extend", list_extend),
-		"index":  NewBuiltin("index", list_index),
-		"insert": NewBuiltin("insert", list_insert),
-		"pop":    NewBuiltin("pop", list_pop),
-		"remove": NewBuiltin("remove", list_remove),
+		"append": NewBuiltinComplies("append", list_append, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"clear":  NewBuiltinComplies("clear", list_clear, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"extend": NewBuiltinComplies("extend", list_extend, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"index":  NewBuiltinComplies("index", list_index, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"insert": NewBuiltinComplies("insert", list_insert, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"pop":    NewBuiltinComplies("pop", list_pop, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"remove": NewBuiltinComplies("remove", list_remove, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
 	}
 
 	stringMethods = map[string]*Builtin{
-		"capitalize":     NewBuiltin("capitalize", string_capitalize),
-		"codepoint_ords": NewBuiltin("codepoint_ords", string_iterable),
-		"codepoints":     NewBuiltin("codepoints", string_iterable), // sic
-		"count":          NewBuiltin("count", string_count),
-		"elem_ords":      NewBuiltin("elem_ords", string_iterable),
-		"elems":          NewBuiltin("elems", string_iterable),      // sic
-		"endswith":       NewBuiltin("endswith", string_startswith), // sic
-		"find":           NewBuiltin("find", string_find),
-		"format":         NewBuiltin("format", string_format),
-		"index":          NewBuiltin("index", string_index),
-		"isalnum":        NewBuiltin("isalnum", string_isalnum),
-		"isalpha":        NewBuiltin("isalpha", string_isalpha),
-		"isdigit":        NewBuiltin("isdigit", string_isdigit),
-		"islower":        NewBuiltin("islower", string_islower),
-		"isspace":        NewBuiltin("isspace", string_isspace),
-		"istitle":        NewBuiltin("istitle", string_istitle),
-		"isupper":        NewBuiltin("isupper", string_isupper),
-		"join":           NewBuiltin("join", string_join),
-		"lower":          NewBuiltin("lower", string_lower),
-		"lstrip":         NewBuiltin("lstrip", string_strip), // sic
-		"partition":      NewBuiltin("partition", string_partition),
-		"removeprefix":   NewBuiltin("removeprefix", string_removefix),
-		"removesuffix":   NewBuiltin("removesuffix", string_removefix),
-		"replace":        NewBuiltin("replace", string_replace),
-		"rfind":          NewBuiltin("rfind", string_rfind),
-		"rindex":         NewBuiltin("rindex", string_rindex),
-		"rpartition":     NewBuiltin("rpartition", string_partition), // sic
-		"rsplit":         NewBuiltin("rsplit", string_split),         // sic
-		"rstrip":         NewBuiltin("rstrip", string_strip),         // sic
-		"split":          NewBuiltin("split", string_split),
-		"splitlines":     NewBuiltin("splitlines", string_splitlines),
-		"startswith":     NewBuiltin("startswith", string_startswith),
-		"strip":          NewBuiltin("strip", string_strip),
-		"title":          NewBuiltin("title", string_title),
-		"upper":          NewBuiltin("upper", string_upper),
+		"capitalize":     NewBuiltinComplies("capitalize", string_capitalize, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"codepoint_ords": NewBuiltinComplies("codepoint_ords", string_iterable, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"codepoints":     NewBuiltinComplies("codepoints", string_iterable, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe), // sic
+		"count":          NewBuiltinComplies("count", string_count, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"elem_ords":      NewBuiltinComplies("elem_ords", string_iterable, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"elems":          NewBuiltinComplies("elems", string_iterable, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),      // sic
+		"endswith":       NewBuiltinComplies("endswith", string_startswith, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe), // sic
+		"find":           NewBuiltinComplies("find", string_find, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"format":         NewBuiltinComplies("format", string_format, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"index":          NewBuiltinComplies("index", string_index, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"isalnum":        NewBuiltinComplies("isalnum", string_isalnum, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"isalpha":        NewBuiltinComplies("isalpha", string_isalpha, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"isdigit":        NewBuiltinComplies("isdigit", string_isdigit, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"islower":        NewBuiltinComplies("islower", string_islower, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"isspace":        NewBuiltinComplies("isspace", string_isspace, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"istitle":        NewBuiltinComplies("istitle", string_istitle, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"isupper":        NewBuiltinComplies("isupper", string_isupper, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"join":           NewBuiltinComplies("join", string_join, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"lower":          NewBuiltinComplies("lower", string_lower, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"lstrip":         NewBuiltinComplies("lstrip", string_strip, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe), // sic
+		"partition":      NewBuiltinComplies("partition", string_partition, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"removeprefix":   NewBuiltinComplies("removeprefix", string_removefix, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"removesuffix":   NewBuiltinComplies("removesuffix", string_removefix, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"replace":        NewBuiltinComplies("replace", string_replace, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"rfind":          NewBuiltinComplies("rfind", string_rfind, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"rindex":         NewBuiltinComplies("rindex", string_rindex, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"rpartition":     NewBuiltinComplies("rpartition", string_partition, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe), // sic
+		"rsplit":         NewBuiltinComplies("rsplit", string_split, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),         // sic
+		"rstrip":         NewBuiltinComplies("rstrip", string_strip, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),         // sic
+		"split":          NewBuiltinComplies("split", string_split, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"splitlines":     NewBuiltinComplies("splitlines", string_splitlines, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"startswith":     NewBuiltinComplies("startswith", string_startswith, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"strip":          NewBuiltinComplies("strip", string_strip, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"title":          NewBuiltinComplies("title", string_title, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"upper":          NewBuiltinComplies("upper", string_upper, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
 	}
 
 	setMethods = map[string]*Builtin{
-		"union": NewBuiltin("union", set_union),
+		"union": NewBuiltinComplies("union", set_union, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
 	}
 )
 
