@@ -78,71 +78,71 @@ func init() {
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#built-in-methods
 var (
 	bytesMethods = map[string]*Builtin{
-		"elems": NewBuiltinComplies("elems", bytes_elems, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"elems": NewBuiltinComplies("elems", bytes_elems, stdlibComplianceDefault),
 	}
 
 	dictMethods = map[string]*Builtin{
-		"clear":      NewBuiltinComplies("clear", dict_clear, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"get":        NewBuiltinComplies("get", dict_get, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"items":      NewBuiltinComplies("items", dict_items, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"keys":       NewBuiltinComplies("keys", dict_keys, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"pop":        NewBuiltinComplies("pop", dict_pop, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"popitem":    NewBuiltinComplies("popitem", dict_popitem, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"setdefault": NewBuiltinComplies("setdefault", dict_setdefault, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"update":     NewBuiltinComplies("update", dict_update, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"values":     NewBuiltinComplies("values", dict_values, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"clear":      NewBuiltinComplies("clear", dict_clear, stdlibComplianceDefault),
+		"get":        NewBuiltinComplies("get", dict_get, stdlibComplianceDefault),
+		"items":      NewBuiltinComplies("items", dict_items, stdlibComplianceDefault),
+		"keys":       NewBuiltinComplies("keys", dict_keys, stdlibComplianceDefault),
+		"pop":        NewBuiltinComplies("pop", dict_pop, stdlibComplianceDefault),
+		"popitem":    NewBuiltinComplies("popitem", dict_popitem, stdlibComplianceDefault),
+		"setdefault": NewBuiltinComplies("setdefault", dict_setdefault, stdlibComplianceDefault),
+		"update":     NewBuiltinComplies("update", dict_update, stdlibComplianceDefault),
+		"values":     NewBuiltinComplies("values", dict_values, stdlibComplianceDefault),
 	}
 
 	listMethods = map[string]*Builtin{
-		"append": NewBuiltinComplies("append", list_append, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"clear":  NewBuiltinComplies("clear", list_clear, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"extend": NewBuiltinComplies("extend", list_extend, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"index":  NewBuiltinComplies("index", list_index, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"insert": NewBuiltinComplies("insert", list_insert, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"pop":    NewBuiltinComplies("pop", list_pop, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"remove": NewBuiltinComplies("remove", list_remove, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"append": NewBuiltinComplies("append", list_append, stdlibComplianceDefault),
+		"clear":  NewBuiltinComplies("clear", list_clear, stdlibComplianceDefault),
+		"extend": NewBuiltinComplies("extend", list_extend, stdlibComplianceDefault),
+		"index":  NewBuiltinComplies("index", list_index, stdlibComplianceDefault),
+		"insert": NewBuiltinComplies("insert", list_insert, stdlibComplianceDefault),
+		"pop":    NewBuiltinComplies("pop", list_pop, stdlibComplianceDefault),
+		"remove": NewBuiltinComplies("remove", list_remove, stdlibComplianceDefault),
 	}
 
 	stringMethods = map[string]*Builtin{
-		"capitalize":     NewBuiltinComplies("capitalize", string_capitalize, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"codepoint_ords": NewBuiltinComplies("codepoint_ords", string_iterable, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"codepoints":     NewBuiltinComplies("codepoints", string_iterable, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe), // sic
-		"count":          NewBuiltinComplies("count", string_count, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"elem_ords":      NewBuiltinComplies("elem_ords", string_iterable, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"elems":          NewBuiltinComplies("elems", string_iterable, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),      // sic
-		"endswith":       NewBuiltinComplies("endswith", string_startswith, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe), // sic
-		"find":           NewBuiltinComplies("find", string_find, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"format":         NewBuiltinComplies("format", string_format, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"index":          NewBuiltinComplies("index", string_index, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"isalnum":        NewBuiltinComplies("isalnum", string_isalnum, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"isalpha":        NewBuiltinComplies("isalpha", string_isalpha, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"isdigit":        NewBuiltinComplies("isdigit", string_isdigit, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"islower":        NewBuiltinComplies("islower", string_islower, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"isspace":        NewBuiltinComplies("isspace", string_isspace, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"istitle":        NewBuiltinComplies("istitle", string_istitle, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"isupper":        NewBuiltinComplies("isupper", string_isupper, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"join":           NewBuiltinComplies("join", string_join, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"lower":          NewBuiltinComplies("lower", string_lower, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"lstrip":         NewBuiltinComplies("lstrip", string_strip, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe), // sic
-		"partition":      NewBuiltinComplies("partition", string_partition, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"removeprefix":   NewBuiltinComplies("removeprefix", string_removefix, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"removesuffix":   NewBuiltinComplies("removesuffix", string_removefix, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"replace":        NewBuiltinComplies("replace", string_replace, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"rfind":          NewBuiltinComplies("rfind", string_rfind, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"rindex":         NewBuiltinComplies("rindex", string_rindex, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"rpartition":     NewBuiltinComplies("rpartition", string_partition, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe), // sic
-		"rsplit":         NewBuiltinComplies("rsplit", string_split, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),         // sic
-		"rstrip":         NewBuiltinComplies("rstrip", string_strip, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),         // sic
-		"split":          NewBuiltinComplies("split", string_split, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"splitlines":     NewBuiltinComplies("splitlines", string_splitlines, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"startswith":     NewBuiltinComplies("startswith", string_startswith, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"strip":          NewBuiltinComplies("strip", string_strip, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"title":          NewBuiltinComplies("title", string_title, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
-		"upper":          NewBuiltinComplies("upper", string_upper, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"capitalize":     NewBuiltinComplies("capitalize", string_capitalize, stdlibComplianceDefault),
+		"codepoint_ords": NewBuiltinComplies("codepoint_ords", string_iterable, stdlibComplianceDefault),
+		"codepoints":     NewBuiltinComplies("codepoints", string_iterable, stdlibComplianceDefault), // sic
+		"count":          NewBuiltinComplies("count", string_count, stdlibComplianceDefault),
+		"elem_ords":      NewBuiltinComplies("elem_ords", string_iterable, stdlibComplianceDefault),
+		"elems":          NewBuiltinComplies("elems", string_iterable, stdlibComplianceDefault),      // sic
+		"endswith":       NewBuiltinComplies("endswith", string_startswith, stdlibComplianceDefault), // sic
+		"find":           NewBuiltinComplies("find", string_find, stdlibComplianceDefault),
+		"format":         NewBuiltinComplies("format", string_format, stdlibComplianceDefault),
+		"index":          NewBuiltinComplies("index", string_index, stdlibComplianceDefault),
+		"isalnum":        NewBuiltinComplies("isalnum", string_isalnum, stdlibComplianceDefault),
+		"isalpha":        NewBuiltinComplies("isalpha", string_isalpha, stdlibComplianceDefault),
+		"isdigit":        NewBuiltinComplies("isdigit", string_isdigit, stdlibComplianceDefault),
+		"islower":        NewBuiltinComplies("islower", string_islower, stdlibComplianceDefault),
+		"isspace":        NewBuiltinComplies("isspace", string_isspace, stdlibComplianceDefault),
+		"istitle":        NewBuiltinComplies("istitle", string_istitle, stdlibComplianceDefault),
+		"isupper":        NewBuiltinComplies("isupper", string_isupper, stdlibComplianceDefault),
+		"join":           NewBuiltinComplies("join", string_join, stdlibComplianceDefault),
+		"lower":          NewBuiltinComplies("lower", string_lower, stdlibComplianceDefault),
+		"lstrip":         NewBuiltinComplies("lstrip", string_strip, stdlibComplianceDefault), // sic
+		"partition":      NewBuiltinComplies("partition", string_partition, stdlibComplianceDefault),
+		"removeprefix":   NewBuiltinComplies("removeprefix", string_removefix, stdlibComplianceDefault),
+		"removesuffix":   NewBuiltinComplies("removesuffix", string_removefix, stdlibComplianceDefault),
+		"replace":        NewBuiltinComplies("replace", string_replace, stdlibComplianceDefault),
+		"rfind":          NewBuiltinComplies("rfind", string_rfind, stdlibComplianceDefault),
+		"rindex":         NewBuiltinComplies("rindex", string_rindex, stdlibComplianceDefault),
+		"rpartition":     NewBuiltinComplies("rpartition", string_partition, stdlibComplianceDefault), // sic
+		"rsplit":         NewBuiltinComplies("rsplit", string_split, stdlibComplianceDefault),         // sic
+		"rstrip":         NewBuiltinComplies("rstrip", string_strip, stdlibComplianceDefault),         // sic
+		"split":          NewBuiltinComplies("split", string_split, stdlibComplianceDefault),
+		"splitlines":     NewBuiltinComplies("splitlines", string_splitlines, stdlibComplianceDefault),
+		"startswith":     NewBuiltinComplies("startswith", string_startswith, stdlibComplianceDefault),
+		"strip":          NewBuiltinComplies("strip", string_strip, stdlibComplianceDefault),
+		"title":          NewBuiltinComplies("title", string_title, stdlibComplianceDefault),
+		"upper":          NewBuiltinComplies("upper", string_upper, stdlibComplianceDefault),
 	}
 
 	setMethods = map[string]*Builtin{
-		"union": NewBuiltinComplies("union", set_union, ComplyMemSafe|ComplyCPUSafe|ComplyTimeSafe|ComplyIOSafe),
+		"union": NewBuiltinComplies("union", set_union, stdlibComplianceDefault),
 	}
 )
 
