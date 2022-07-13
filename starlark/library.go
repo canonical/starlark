@@ -33,7 +33,7 @@ import (
 // Starlark programs cannot modify the dictionary.
 var Universe StringDict
 
-const _STDLIB_COMPLIANCE_DEFAULT = ComplyMemSafe | ComplyCPUSafe | ComplyTimeSafe | ComplyIOSafe
+const stdlibComplianceDefault = ComplyMemSafe | ComplyCPUSafe | ComplyTimeSafe | ComplyIOSafe
 
 func init() {
 	// https://github.com/google/starlark-go/blob/master/doc/spec.md#built-in-constants-and-functions
@@ -41,36 +41,36 @@ func init() {
 		"None":      None,
 		"True":      True,
 		"False":     False,
-		"abs":       NewBuiltinComplies("abs", abs, _STDLIB_COMPLIANCE_DEFAULT),
-		"any":       NewBuiltinComplies("any", any, _STDLIB_COMPLIANCE_DEFAULT),
-		"all":       NewBuiltinComplies("all", all, _STDLIB_COMPLIANCE_DEFAULT),
-		"bool":      NewBuiltinComplies("bool", bool_, _STDLIB_COMPLIANCE_DEFAULT),
-		"bytes":     NewBuiltinComplies("bytes", bytes_, _STDLIB_COMPLIANCE_DEFAULT),
-		"chr":       NewBuiltinComplies("chr", chr, _STDLIB_COMPLIANCE_DEFAULT),
-		"dict":      NewBuiltinComplies("dict", dict, _STDLIB_COMPLIANCE_DEFAULT),
-		"dir":       NewBuiltinComplies("dir", dir, _STDLIB_COMPLIANCE_DEFAULT),
-		"enumerate": NewBuiltinComplies("enumerate", enumerate, _STDLIB_COMPLIANCE_DEFAULT),
-		"fail":      NewBuiltinComplies("fail", fail, _STDLIB_COMPLIANCE_DEFAULT),
-		"float":     NewBuiltinComplies("float", float, _STDLIB_COMPLIANCE_DEFAULT),
-		"getattr":   NewBuiltinComplies("getattr", getattr, _STDLIB_COMPLIANCE_DEFAULT),
-		"hasattr":   NewBuiltinComplies("hasattr", hasattr, _STDLIB_COMPLIANCE_DEFAULT),
-		"hash":      NewBuiltinComplies("hash", hash, _STDLIB_COMPLIANCE_DEFAULT),
-		"int":       NewBuiltinComplies("int", int_, _STDLIB_COMPLIANCE_DEFAULT),
-		"len":       NewBuiltinComplies("len", len_, _STDLIB_COMPLIANCE_DEFAULT),
-		"list":      NewBuiltinComplies("list", list, _STDLIB_COMPLIANCE_DEFAULT),
-		"max":       NewBuiltinComplies("max", minmax, _STDLIB_COMPLIANCE_DEFAULT),
-		"min":       NewBuiltinComplies("min", minmax, _STDLIB_COMPLIANCE_DEFAULT),
-		"ord":       NewBuiltinComplies("ord", ord, _STDLIB_COMPLIANCE_DEFAULT),
-		"print":     NewBuiltinComplies("print", print, _STDLIB_COMPLIANCE_DEFAULT),
-		"range":     NewBuiltinComplies("range", range_, _STDLIB_COMPLIANCE_DEFAULT),
-		"repr":      NewBuiltinComplies("repr", repr, _STDLIB_COMPLIANCE_DEFAULT),
-		"reversed":  NewBuiltinComplies("reversed", reversed, _STDLIB_COMPLIANCE_DEFAULT),
-		"set":       NewBuiltinComplies("set", set, _STDLIB_COMPLIANCE_DEFAULT), // requires resolve.AllowSet
-		"sorted":    NewBuiltinComplies("sorted", sorted, _STDLIB_COMPLIANCE_DEFAULT),
-		"str":       NewBuiltinComplies("str", str, _STDLIB_COMPLIANCE_DEFAULT),
-		"tuple":     NewBuiltinComplies("tuple", tuple, _STDLIB_COMPLIANCE_DEFAULT),
-		"type":      NewBuiltinComplies("type", type_, _STDLIB_COMPLIANCE_DEFAULT),
-		"zip":       NewBuiltinComplies("zip", zip, _STDLIB_COMPLIANCE_DEFAULT),
+		"abs":       NewBuiltinComplies("abs", abs, stdlibComplianceDefault),
+		"any":       NewBuiltinComplies("any", any, stdlibComplianceDefault),
+		"all":       NewBuiltinComplies("all", all, stdlibComplianceDefault),
+		"bool":      NewBuiltinComplies("bool", bool_, stdlibComplianceDefault),
+		"bytes":     NewBuiltinComplies("bytes", bytes_, stdlibComplianceDefault),
+		"chr":       NewBuiltinComplies("chr", chr, stdlibComplianceDefault),
+		"dict":      NewBuiltinComplies("dict", dict, stdlibComplianceDefault),
+		"dir":       NewBuiltinComplies("dir", dir, stdlibComplianceDefault),
+		"enumerate": NewBuiltinComplies("enumerate", enumerate, stdlibComplianceDefault),
+		"fail":      NewBuiltinComplies("fail", fail, stdlibComplianceDefault),
+		"float":     NewBuiltinComplies("float", float, stdlibComplianceDefault),
+		"getattr":   NewBuiltinComplies("getattr", getattr, stdlibComplianceDefault),
+		"hasattr":   NewBuiltinComplies("hasattr", hasattr, stdlibComplianceDefault),
+		"hash":      NewBuiltinComplies("hash", hash, stdlibComplianceDefault),
+		"int":       NewBuiltinComplies("int", int_, stdlibComplianceDefault),
+		"len":       NewBuiltinComplies("len", len_, stdlibComplianceDefault),
+		"list":      NewBuiltinComplies("list", list, stdlibComplianceDefault),
+		"max":       NewBuiltinComplies("max", minmax, stdlibComplianceDefault),
+		"min":       NewBuiltinComplies("min", minmax, stdlibComplianceDefault),
+		"ord":       NewBuiltinComplies("ord", ord, stdlibComplianceDefault),
+		"print":     NewBuiltinComplies("print", print, stdlibComplianceDefault),
+		"range":     NewBuiltinComplies("range", range_, stdlibComplianceDefault),
+		"repr":      NewBuiltinComplies("repr", repr, stdlibComplianceDefault),
+		"reversed":  NewBuiltinComplies("reversed", reversed, stdlibComplianceDefault),
+		"set":       NewBuiltinComplies("set", set, stdlibComplianceDefault), // requires resolve.AllowSet
+		"sorted":    NewBuiltinComplies("sorted", sorted, stdlibComplianceDefault),
+		"str":       NewBuiltinComplies("str", str, stdlibComplianceDefault),
+		"tuple":     NewBuiltinComplies("tuple", tuple, stdlibComplianceDefault),
+		"type":      NewBuiltinComplies("type", type_, stdlibComplianceDefault),
+		"zip":       NewBuiltinComplies("zip", zip, stdlibComplianceDefault),
 	}
 }
 

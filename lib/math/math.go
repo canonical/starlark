@@ -14,7 +14,7 @@ import (
 	"go.starlark.net/starlarkstruct"
 )
 
-const _MATH_COMPLIANCE_DEFAULT = starlark.ComplyMemSafe | starlark.ComplyCPUSafe | starlark.ComplyTimeSafe | starlark.ComplyIOSafe
+const mathComplianceDefault = starlark.ComplyMemSafe | starlark.ComplyCPUSafe | starlark.ComplyTimeSafe | starlark.ComplyIOSafe
 
 // Module math is a Starlark module of math-related functions and constants.
 // The module defines the following functions:
@@ -69,40 +69,40 @@ const _MATH_COMPLIANCE_DEFAULT = starlark.ComplyMemSafe | starlark.ComplyCPUSafe
 var Module = &starlarkstruct.Module{
 	Name: "math",
 	Members: starlark.StringDict{
-		"ceil":      starlark.NewBuiltinComplies("ceil", ceil, _MATH_COMPLIANCE_DEFAULT),
-		"copysign":  newBinaryBuiltin("copysign", math.Copysign, _MATH_COMPLIANCE_DEFAULT),
-		"fabs":      newUnaryBuiltin("fabs", math.Abs, _MATH_COMPLIANCE_DEFAULT),
-		"floor":     starlark.NewBuiltinComplies("floor", floor, _MATH_COMPLIANCE_DEFAULT),
-		"mod":       newBinaryBuiltin("round", math.Mod, _MATH_COMPLIANCE_DEFAULT),
-		"pow":       newBinaryBuiltin("pow", math.Pow, _MATH_COMPLIANCE_DEFAULT),
-		"remainder": newBinaryBuiltin("remainder", math.Remainder, _MATH_COMPLIANCE_DEFAULT),
-		"round":     newUnaryBuiltin("round", math.Round, _MATH_COMPLIANCE_DEFAULT),
+		"ceil":      starlark.NewBuiltinComplies("ceil", ceil, mathComplianceDefault),
+		"copysign":  newBinaryBuiltin("copysign", math.Copysign, mathComplianceDefault),
+		"fabs":      newUnaryBuiltin("fabs", math.Abs, mathComplianceDefault),
+		"floor":     starlark.NewBuiltinComplies("floor", floor, mathComplianceDefault),
+		"mod":       newBinaryBuiltin("round", math.Mod, mathComplianceDefault),
+		"pow":       newBinaryBuiltin("pow", math.Pow, mathComplianceDefault),
+		"remainder": newBinaryBuiltin("remainder", math.Remainder, mathComplianceDefault),
+		"round":     newUnaryBuiltin("round", math.Round, mathComplianceDefault),
 
-		"exp":  newUnaryBuiltin("exp", math.Exp, _MATH_COMPLIANCE_DEFAULT),
-		"sqrt": newUnaryBuiltin("sqrt", math.Sqrt, _MATH_COMPLIANCE_DEFAULT),
+		"exp":  newUnaryBuiltin("exp", math.Exp, mathComplianceDefault),
+		"sqrt": newUnaryBuiltin("sqrt", math.Sqrt, mathComplianceDefault),
 
-		"acos":  newUnaryBuiltin("acos", math.Acos, _MATH_COMPLIANCE_DEFAULT),
-		"asin":  newUnaryBuiltin("asin", math.Asin, _MATH_COMPLIANCE_DEFAULT),
-		"atan":  newUnaryBuiltin("atan", math.Atan, _MATH_COMPLIANCE_DEFAULT),
-		"atan2": newBinaryBuiltin("atan2", math.Atan2, _MATH_COMPLIANCE_DEFAULT),
-		"cos":   newUnaryBuiltin("cos", math.Cos, _MATH_COMPLIANCE_DEFAULT),
-		"hypot": newBinaryBuiltin("hypot", math.Hypot, _MATH_COMPLIANCE_DEFAULT),
-		"sin":   newUnaryBuiltin("sin", math.Sin, _MATH_COMPLIANCE_DEFAULT),
-		"tan":   newUnaryBuiltin("tan", math.Tan, _MATH_COMPLIANCE_DEFAULT),
+		"acos":  newUnaryBuiltin("acos", math.Acos, mathComplianceDefault),
+		"asin":  newUnaryBuiltin("asin", math.Asin, mathComplianceDefault),
+		"atan":  newUnaryBuiltin("atan", math.Atan, mathComplianceDefault),
+		"atan2": newBinaryBuiltin("atan2", math.Atan2, mathComplianceDefault),
+		"cos":   newUnaryBuiltin("cos", math.Cos, mathComplianceDefault),
+		"hypot": newBinaryBuiltin("hypot", math.Hypot, mathComplianceDefault),
+		"sin":   newUnaryBuiltin("sin", math.Sin, mathComplianceDefault),
+		"tan":   newUnaryBuiltin("tan", math.Tan, mathComplianceDefault),
 
-		"degrees": newUnaryBuiltin("degrees", degrees, _MATH_COMPLIANCE_DEFAULT),
-		"radians": newUnaryBuiltin("radians", radians, _MATH_COMPLIANCE_DEFAULT),
+		"degrees": newUnaryBuiltin("degrees", degrees, mathComplianceDefault),
+		"radians": newUnaryBuiltin("radians", radians, mathComplianceDefault),
 
-		"acosh": newUnaryBuiltin("acosh", math.Acosh, _MATH_COMPLIANCE_DEFAULT),
-		"asinh": newUnaryBuiltin("asinh", math.Asinh, _MATH_COMPLIANCE_DEFAULT),
-		"atanh": newUnaryBuiltin("atanh", math.Atanh, _MATH_COMPLIANCE_DEFAULT),
-		"cosh":  newUnaryBuiltin("cosh", math.Cosh, _MATH_COMPLIANCE_DEFAULT),
-		"sinh":  newUnaryBuiltin("sinh", math.Sinh, _MATH_COMPLIANCE_DEFAULT),
-		"tanh":  newUnaryBuiltin("tanh", math.Tanh, _MATH_COMPLIANCE_DEFAULT),
+		"acosh": newUnaryBuiltin("acosh", math.Acosh, mathComplianceDefault),
+		"asinh": newUnaryBuiltin("asinh", math.Asinh, mathComplianceDefault),
+		"atanh": newUnaryBuiltin("atanh", math.Atanh, mathComplianceDefault),
+		"cosh":  newUnaryBuiltin("cosh", math.Cosh, mathComplianceDefault),
+		"sinh":  newUnaryBuiltin("sinh", math.Sinh, mathComplianceDefault),
+		"tanh":  newUnaryBuiltin("tanh", math.Tanh, mathComplianceDefault),
 
-		"log": starlark.NewBuiltinComplies("log", log, _MATH_COMPLIANCE_DEFAULT),
+		"log": starlark.NewBuiltinComplies("log", log, mathComplianceDefault),
 
-		"gamma": newUnaryBuiltin("gamma", math.Gamma, _MATH_COMPLIANCE_DEFAULT),
+		"gamma": newUnaryBuiltin("gamma", math.Gamma, mathComplianceDefault),
 
 		"e":  starlark.Float(math.E),
 		"pi": starlark.Float(math.Pi),
