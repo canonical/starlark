@@ -15,8 +15,6 @@ import (
 	"go.starlark.net/syntax"
 )
 
-const timeComplianceDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
-
 // Module time is a Starlark module of time-related functions and constants.
 // The module defines the following functions:
 //
@@ -54,12 +52,12 @@ const timeComplianceDefault = starlark.MemSafe | starlark.CPUSafe | starlark.Tim
 var Module = &starlarkstruct.Module{
 	Name: "time",
 	Members: starlark.StringDict{
-		"from_timestamp":    starlark.NewBuiltinComplies("from_timestamp", fromTimestamp, timeComplianceDefault),
-		"is_valid_timezone": starlark.NewBuiltinComplies("is_valid_timezone", isValidTimezone, timeComplianceDefault),
-		"now":               starlark.NewBuiltinComplies("now", now, timeComplianceDefault),
-		"parse_duration":    starlark.NewBuiltinComplies("parse_duration", parseDuration, timeComplianceDefault),
-		"parse_time":        starlark.NewBuiltinComplies("parse_time", parseTime, timeComplianceDefault),
-		"time":              starlark.NewBuiltinComplies("time", newTime, timeComplianceDefault),
+		"from_timestamp":    starlark.NewBuiltin("from_timestamp", fromTimestamp),
+		"is_valid_timezone": starlark.NewBuiltin("is_valid_timezone", isValidTimezone),
+		"now":               starlark.NewBuiltin("now", now),
+		"parse_duration":    starlark.NewBuiltin("parse_duration", parseDuration),
+		"parse_time":        starlark.NewBuiltin("parse_time", parseTime),
+		"time":              starlark.NewBuiltin("time", newTime),
 
 		"nanosecond":  Duration(time.Nanosecond),
 		"microsecond": Duration(time.Microsecond),
@@ -68,6 +66,15 @@ var Module = &starlarkstruct.Module{
 		"minute":      Duration(time.Minute),
 		"hour":        Duration(time.Hour),
 	},
+}
+
+func init() {
+	const timeComplianceDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+	for _, b := range Module.Members {
+		if b, ok := b.(*starlark.Builtin); ok {
+			b.SolemnlyDeclareCompliance(timeComplianceDefault)
+		}
+	}
 }
 
 // NowFunc is a function that generates the current time. Intentionally exported

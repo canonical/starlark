@@ -5,7 +5,12 @@ import (
 	"sort"
 	"testing"
 
+	"go.starlark.net/lib/json"
+	starlarkmath "go.starlark.net/lib/math"
+	"go.starlark.net/lib/proto"
+	"go.starlark.net/lib/time"
 	"go.starlark.net/starlark"
+	"go.starlark.net/starlarkstruct"
 )
 
 func TestCompliance(t *testing.T) {
@@ -55,9 +60,10 @@ func testComplianceEnforcement(t *testing.T, require, probe starlark.ComplianceF
 	thread.RequireCompliance(require)
 
 	const prog = `func()`
-	b := starlark.NewBuiltinComplies("func", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+	b := starlark.NewBuiltin("func", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 		return starlark.String("Hello, world!"), nil
-	}, probe)
+	})
+	b.SolemnlyDeclareCompliance(probe)
 	predecls := starlark.StringDict{
 		"func": b,
 	}
@@ -129,5 +135,20 @@ func TestThreadComplianceSetOnlyGrows(t *testing.T) {
 	if thread.Compliance() != expectedFlags {
 		missing := thread.Compliance() &^ expectedFlags
 		t.Errorf("Missing compliance flags %v, expected %v", missing.Names(), expectedFlags.Names())
+	}
+}
+
+func TestLibraryCompliance(t *testing.T) {
+	const complianceAll = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+	universeDummyModule := &starlarkstruct.Module{Name: "universe", Members: starlark.Universe}
+	mods := []*starlarkstruct.Module{universeDummyModule, json.Module, time.Module, proto.Module, starlarkmath.Module}
+	for _, mod := range mods {
+		for _, v := range mod.Members {
+			if b, ok := v.(*starlark.Builtin); ok {
+				if compliance := b.Compliance(); compliance != complianceAll {
+					t.Errorf("Incorrect compliance for %s.%s: expected %s but got %s", mod.Name, b.Name(), complianceAll.Names(), compliance.Names())
+				}
+			}
+		}
 	}
 }

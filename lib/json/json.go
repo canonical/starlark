@@ -23,8 +23,6 @@ import (
 	"go.starlark.net/starlarkstruct"
 )
 
-const jsonComplianceDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
-
 // Module json is a Starlark module of JSON-related functions.
 //
 //   json = module(
@@ -75,10 +73,19 @@ const jsonComplianceDefault = starlark.MemSafe | starlark.CPUSafe | starlark.Tim
 var Module = &starlarkstruct.Module{
 	Name: "json",
 	Members: starlark.StringDict{
-		"encode": starlark.NewBuiltinComplies("json.encode", encode, jsonComplianceDefault),
-		"decode": starlark.NewBuiltinComplies("json.decode", decode, jsonComplianceDefault),
-		"indent": starlark.NewBuiltinComplies("json.indent", indent, jsonComplianceDefault),
+		"encode": starlark.NewBuiltin("json.encode", encode),
+		"decode": starlark.NewBuiltin("json.decode", decode),
+		"indent": starlark.NewBuiltin("json.indent", indent),
 	},
+}
+
+func init() {
+	const jsonComplianceDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+	for _, b := range Module.Members {
+		if b, ok := b.(*starlark.Builtin); ok {
+			b.SolemnlyDeclareCompliance(jsonComplianceDefault)
+		}
+	}
 }
 
 func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {

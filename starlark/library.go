@@ -33,44 +33,49 @@ import (
 // Starlark programs cannot modify the dictionary.
 var Universe StringDict
 
-const stdlibComplianceDefault = MemSafe | CPUSafe | TimeSafe | IOSafe
-
 func init() {
 	// https://github.com/google/starlark-go/blob/master/doc/spec.md#built-in-constants-and-functions
 	Universe = StringDict{
 		"None":      None,
 		"True":      True,
 		"False":     False,
-		"abs":       NewBuiltinComplies("abs", abs, stdlibComplianceDefault),
-		"any":       NewBuiltinComplies("any", any, stdlibComplianceDefault),
-		"all":       NewBuiltinComplies("all", all, stdlibComplianceDefault),
-		"bool":      NewBuiltinComplies("bool", bool_, stdlibComplianceDefault),
-		"bytes":     NewBuiltinComplies("bytes", bytes_, stdlibComplianceDefault),
-		"chr":       NewBuiltinComplies("chr", chr, stdlibComplianceDefault),
-		"dict":      NewBuiltinComplies("dict", dict, stdlibComplianceDefault),
-		"dir":       NewBuiltinComplies("dir", dir, stdlibComplianceDefault),
-		"enumerate": NewBuiltinComplies("enumerate", enumerate, stdlibComplianceDefault),
-		"fail":      NewBuiltinComplies("fail", fail, stdlibComplianceDefault),
-		"float":     NewBuiltinComplies("float", float, stdlibComplianceDefault),
-		"getattr":   NewBuiltinComplies("getattr", getattr, stdlibComplianceDefault),
-		"hasattr":   NewBuiltinComplies("hasattr", hasattr, stdlibComplianceDefault),
-		"hash":      NewBuiltinComplies("hash", hash, stdlibComplianceDefault),
-		"int":       NewBuiltinComplies("int", int_, stdlibComplianceDefault),
-		"len":       NewBuiltinComplies("len", len_, stdlibComplianceDefault),
-		"list":      NewBuiltinComplies("list", list, stdlibComplianceDefault),
-		"max":       NewBuiltinComplies("max", minmax, stdlibComplianceDefault),
-		"min":       NewBuiltinComplies("min", minmax, stdlibComplianceDefault),
-		"ord":       NewBuiltinComplies("ord", ord, stdlibComplianceDefault),
-		"print":     NewBuiltinComplies("print", print, stdlibComplianceDefault),
-		"range":     NewBuiltinComplies("range", range_, stdlibComplianceDefault),
-		"repr":      NewBuiltinComplies("repr", repr, stdlibComplianceDefault),
-		"reversed":  NewBuiltinComplies("reversed", reversed, stdlibComplianceDefault),
-		"set":       NewBuiltinComplies("set", set, stdlibComplianceDefault), // requires resolve.AllowSet
-		"sorted":    NewBuiltinComplies("sorted", sorted, stdlibComplianceDefault),
-		"str":       NewBuiltinComplies("str", str, stdlibComplianceDefault),
-		"tuple":     NewBuiltinComplies("tuple", tuple, stdlibComplianceDefault),
-		"type":      NewBuiltinComplies("type", type_, stdlibComplianceDefault),
-		"zip":       NewBuiltinComplies("zip", zip, stdlibComplianceDefault),
+		"abs":       NewBuiltin("abs", abs),
+		"any":       NewBuiltin("any", any),
+		"all":       NewBuiltin("all", all),
+		"bool":      NewBuiltin("bool", bool_),
+		"bytes":     NewBuiltin("bytes", bytes_),
+		"chr":       NewBuiltin("chr", chr),
+		"dict":      NewBuiltin("dict", dict),
+		"dir":       NewBuiltin("dir", dir),
+		"enumerate": NewBuiltin("enumerate", enumerate),
+		"fail":      NewBuiltin("fail", fail),
+		"float":     NewBuiltin("float", float),
+		"getattr":   NewBuiltin("getattr", getattr),
+		"hasattr":   NewBuiltin("hasattr", hasattr),
+		"hash":      NewBuiltin("hash", hash),
+		"int":       NewBuiltin("int", int_),
+		"len":       NewBuiltin("len", len_),
+		"list":      NewBuiltin("list", list),
+		"max":       NewBuiltin("max", minmax),
+		"min":       NewBuiltin("min", minmax),
+		"ord":       NewBuiltin("ord", ord),
+		"print":     NewBuiltin("print", print),
+		"range":     NewBuiltin("range", range_),
+		"repr":      NewBuiltin("repr", repr),
+		"reversed":  NewBuiltin("reversed", reversed),
+		"set":       NewBuiltin("set", set), // requires resolve.AllowSet
+		"sorted":    NewBuiltin("sorted", sorted),
+		"str":       NewBuiltin("str", str),
+		"tuple":     NewBuiltin("tuple", tuple),
+		"type":      NewBuiltin("type", type_),
+		"zip":       NewBuiltin("zip", zip),
+	}
+
+	const stdlibComplianceDefault = MemSafe | CPUSafe | TimeSafe | IOSafe
+	for _, b := range Universe {
+		if b, ok := b.(*Builtin); ok {
+			b.SolemnlyDeclareCompliance(stdlibComplianceDefault)
+		}
 	}
 }
 
@@ -78,71 +83,71 @@ func init() {
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#built-in-methods
 var (
 	bytesMethods = map[string]*Builtin{
-		"elems": NewBuiltinComplies("elems", bytes_elems, stdlibComplianceDefault),
+		"elems": NewBuiltin("elems", bytes_elems),
 	}
 
 	dictMethods = map[string]*Builtin{
-		"clear":      NewBuiltinComplies("clear", dict_clear, stdlibComplianceDefault),
-		"get":        NewBuiltinComplies("get", dict_get, stdlibComplianceDefault),
-		"items":      NewBuiltinComplies("items", dict_items, stdlibComplianceDefault),
-		"keys":       NewBuiltinComplies("keys", dict_keys, stdlibComplianceDefault),
-		"pop":        NewBuiltinComplies("pop", dict_pop, stdlibComplianceDefault),
-		"popitem":    NewBuiltinComplies("popitem", dict_popitem, stdlibComplianceDefault),
-		"setdefault": NewBuiltinComplies("setdefault", dict_setdefault, stdlibComplianceDefault),
-		"update":     NewBuiltinComplies("update", dict_update, stdlibComplianceDefault),
-		"values":     NewBuiltinComplies("values", dict_values, stdlibComplianceDefault),
+		"clear":      NewBuiltin("clear", dict_clear),
+		"get":        NewBuiltin("get", dict_get),
+		"items":      NewBuiltin("items", dict_items),
+		"keys":       NewBuiltin("keys", dict_keys),
+		"pop":        NewBuiltin("pop", dict_pop),
+		"popitem":    NewBuiltin("popitem", dict_popitem),
+		"setdefault": NewBuiltin("setdefault", dict_setdefault),
+		"update":     NewBuiltin("update", dict_update),
+		"values":     NewBuiltin("values", dict_values),
 	}
 
 	listMethods = map[string]*Builtin{
-		"append": NewBuiltinComplies("append", list_append, stdlibComplianceDefault),
-		"clear":  NewBuiltinComplies("clear", list_clear, stdlibComplianceDefault),
-		"extend": NewBuiltinComplies("extend", list_extend, stdlibComplianceDefault),
-		"index":  NewBuiltinComplies("index", list_index, stdlibComplianceDefault),
-		"insert": NewBuiltinComplies("insert", list_insert, stdlibComplianceDefault),
-		"pop":    NewBuiltinComplies("pop", list_pop, stdlibComplianceDefault),
-		"remove": NewBuiltinComplies("remove", list_remove, stdlibComplianceDefault),
+		"append": NewBuiltin("append", list_append),
+		"clear":  NewBuiltin("clear", list_clear),
+		"extend": NewBuiltin("extend", list_extend),
+		"index":  NewBuiltin("index", list_index),
+		"insert": NewBuiltin("insert", list_insert),
+		"pop":    NewBuiltin("pop", list_pop),
+		"remove": NewBuiltin("remove", list_remove),
 	}
 
 	stringMethods = map[string]*Builtin{
-		"capitalize":     NewBuiltinComplies("capitalize", string_capitalize, stdlibComplianceDefault),
-		"codepoint_ords": NewBuiltinComplies("codepoint_ords", string_iterable, stdlibComplianceDefault),
-		"codepoints":     NewBuiltinComplies("codepoints", string_iterable, stdlibComplianceDefault), // sic
-		"count":          NewBuiltinComplies("count", string_count, stdlibComplianceDefault),
-		"elem_ords":      NewBuiltinComplies("elem_ords", string_iterable, stdlibComplianceDefault),
-		"elems":          NewBuiltinComplies("elems", string_iterable, stdlibComplianceDefault),      // sic
-		"endswith":       NewBuiltinComplies("endswith", string_startswith, stdlibComplianceDefault), // sic
-		"find":           NewBuiltinComplies("find", string_find, stdlibComplianceDefault),
-		"format":         NewBuiltinComplies("format", string_format, stdlibComplianceDefault),
-		"index":          NewBuiltinComplies("index", string_index, stdlibComplianceDefault),
-		"isalnum":        NewBuiltinComplies("isalnum", string_isalnum, stdlibComplianceDefault),
-		"isalpha":        NewBuiltinComplies("isalpha", string_isalpha, stdlibComplianceDefault),
-		"isdigit":        NewBuiltinComplies("isdigit", string_isdigit, stdlibComplianceDefault),
-		"islower":        NewBuiltinComplies("islower", string_islower, stdlibComplianceDefault),
-		"isspace":        NewBuiltinComplies("isspace", string_isspace, stdlibComplianceDefault),
-		"istitle":        NewBuiltinComplies("istitle", string_istitle, stdlibComplianceDefault),
-		"isupper":        NewBuiltinComplies("isupper", string_isupper, stdlibComplianceDefault),
-		"join":           NewBuiltinComplies("join", string_join, stdlibComplianceDefault),
-		"lower":          NewBuiltinComplies("lower", string_lower, stdlibComplianceDefault),
-		"lstrip":         NewBuiltinComplies("lstrip", string_strip, stdlibComplianceDefault), // sic
-		"partition":      NewBuiltinComplies("partition", string_partition, stdlibComplianceDefault),
-		"removeprefix":   NewBuiltinComplies("removeprefix", string_removefix, stdlibComplianceDefault),
-		"removesuffix":   NewBuiltinComplies("removesuffix", string_removefix, stdlibComplianceDefault),
-		"replace":        NewBuiltinComplies("replace", string_replace, stdlibComplianceDefault),
-		"rfind":          NewBuiltinComplies("rfind", string_rfind, stdlibComplianceDefault),
-		"rindex":         NewBuiltinComplies("rindex", string_rindex, stdlibComplianceDefault),
-		"rpartition":     NewBuiltinComplies("rpartition", string_partition, stdlibComplianceDefault), // sic
-		"rsplit":         NewBuiltinComplies("rsplit", string_split, stdlibComplianceDefault),         // sic
-		"rstrip":         NewBuiltinComplies("rstrip", string_strip, stdlibComplianceDefault),         // sic
-		"split":          NewBuiltinComplies("split", string_split, stdlibComplianceDefault),
-		"splitlines":     NewBuiltinComplies("splitlines", string_splitlines, stdlibComplianceDefault),
-		"startswith":     NewBuiltinComplies("startswith", string_startswith, stdlibComplianceDefault),
-		"strip":          NewBuiltinComplies("strip", string_strip, stdlibComplianceDefault),
-		"title":          NewBuiltinComplies("title", string_title, stdlibComplianceDefault),
-		"upper":          NewBuiltinComplies("upper", string_upper, stdlibComplianceDefault),
+		"capitalize":     NewBuiltin("capitalize", string_capitalize),
+		"codepoint_ords": NewBuiltin("codepoint_ords", string_iterable),
+		"codepoints":     NewBuiltin("codepoints", string_iterable), // sic
+		"count":          NewBuiltin("count", string_count),
+		"elem_ords":      NewBuiltin("elem_ords", string_iterable),
+		"elems":          NewBuiltin("elems", string_iterable),      // sic
+		"endswith":       NewBuiltin("endswith", string_startswith), // sic
+		"find":           NewBuiltin("find", string_find),
+		"format":         NewBuiltin("format", string_format),
+		"index":          NewBuiltin("index", string_index),
+		"isalnum":        NewBuiltin("isalnum", string_isalnum),
+		"isalpha":        NewBuiltin("isalpha", string_isalpha),
+		"isdigit":        NewBuiltin("isdigit", string_isdigit),
+		"islower":        NewBuiltin("islower", string_islower),
+		"isspace":        NewBuiltin("isspace", string_isspace),
+		"istitle":        NewBuiltin("istitle", string_istitle),
+		"isupper":        NewBuiltin("isupper", string_isupper),
+		"join":           NewBuiltin("join", string_join),
+		"lower":          NewBuiltin("lower", string_lower),
+		"lstrip":         NewBuiltin("lstrip", string_strip), // sic
+		"partition":      NewBuiltin("partition", string_partition),
+		"removeprefix":   NewBuiltin("removeprefix", string_removefix),
+		"removesuffix":   NewBuiltin("removesuffix", string_removefix),
+		"replace":        NewBuiltin("replace", string_replace),
+		"rfind":          NewBuiltin("rfind", string_rfind),
+		"rindex":         NewBuiltin("rindex", string_rindex),
+		"rpartition":     NewBuiltin("rpartition", string_partition), // sic
+		"rsplit":         NewBuiltin("rsplit", string_split),         // sic
+		"rstrip":         NewBuiltin("rstrip", string_strip),         // sic
+		"split":          NewBuiltin("split", string_split),
+		"splitlines":     NewBuiltin("splitlines", string_splitlines),
+		"startswith":     NewBuiltin("startswith", string_startswith),
+		"strip":          NewBuiltin("strip", string_strip),
+		"title":          NewBuiltin("title", string_title),
+		"upper":          NewBuiltin("upper", string_upper),
 	}
 
 	setMethods = map[string]*Builtin{
-		"union": NewBuiltinComplies("union", set_union, stdlibComplianceDefault),
+		"union": NewBuiltin("union", set_union),
 	}
 )
 

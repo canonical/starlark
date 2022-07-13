@@ -14,8 +14,6 @@ import (
 	"go.starlark.net/starlarkstruct"
 )
 
-const mathComplianceDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
-
 // Module math is a Starlark module of math-related functions and constants.
 // The module defines the following functions:
 //
@@ -69,44 +67,53 @@ const mathComplianceDefault = starlark.MemSafe | starlark.CPUSafe | starlark.Tim
 var Module = &starlarkstruct.Module{
 	Name: "math",
 	Members: starlark.StringDict{
-		"ceil":      starlark.NewBuiltinComplies("ceil", ceil, mathComplianceDefault),
-		"copysign":  newBinaryBuiltin("copysign", math.Copysign, mathComplianceDefault),
-		"fabs":      newUnaryBuiltin("fabs", math.Abs, mathComplianceDefault),
-		"floor":     starlark.NewBuiltinComplies("floor", floor, mathComplianceDefault),
-		"mod":       newBinaryBuiltin("round", math.Mod, mathComplianceDefault),
-		"pow":       newBinaryBuiltin("pow", math.Pow, mathComplianceDefault),
-		"remainder": newBinaryBuiltin("remainder", math.Remainder, mathComplianceDefault),
-		"round":     newUnaryBuiltin("round", math.Round, mathComplianceDefault),
+		"ceil":      starlark.NewBuiltin("ceil", ceil),
+		"copysign":  newBinaryBuiltin("copysign", math.Copysign),
+		"fabs":      newUnaryBuiltin("fabs", math.Abs),
+		"floor":     starlark.NewBuiltin("floor", floor),
+		"mod":       newBinaryBuiltin("round", math.Mod),
+		"pow":       newBinaryBuiltin("pow", math.Pow),
+		"remainder": newBinaryBuiltin("remainder", math.Remainder),
+		"round":     newUnaryBuiltin("round", math.Round),
 
-		"exp":  newUnaryBuiltin("exp", math.Exp, mathComplianceDefault),
-		"sqrt": newUnaryBuiltin("sqrt", math.Sqrt, mathComplianceDefault),
+		"exp":  newUnaryBuiltin("exp", math.Exp),
+		"sqrt": newUnaryBuiltin("sqrt", math.Sqrt),
 
-		"acos":  newUnaryBuiltin("acos", math.Acos, mathComplianceDefault),
-		"asin":  newUnaryBuiltin("asin", math.Asin, mathComplianceDefault),
-		"atan":  newUnaryBuiltin("atan", math.Atan, mathComplianceDefault),
-		"atan2": newBinaryBuiltin("atan2", math.Atan2, mathComplianceDefault),
-		"cos":   newUnaryBuiltin("cos", math.Cos, mathComplianceDefault),
-		"hypot": newBinaryBuiltin("hypot", math.Hypot, mathComplianceDefault),
-		"sin":   newUnaryBuiltin("sin", math.Sin, mathComplianceDefault),
-		"tan":   newUnaryBuiltin("tan", math.Tan, mathComplianceDefault),
+		"acos":  newUnaryBuiltin("acos", math.Acos),
+		"asin":  newUnaryBuiltin("asin", math.Asin),
+		"atan":  newUnaryBuiltin("atan", math.Atan),
+		"atan2": newBinaryBuiltin("atan2", math.Atan2),
+		"cos":   newUnaryBuiltin("cos", math.Cos),
+		"hypot": newBinaryBuiltin("hypot", math.Hypot),
+		"sin":   newUnaryBuiltin("sin", math.Sin),
+		"tan":   newUnaryBuiltin("tan", math.Tan),
 
-		"degrees": newUnaryBuiltin("degrees", degrees, mathComplianceDefault),
-		"radians": newUnaryBuiltin("radians", radians, mathComplianceDefault),
+		"degrees": newUnaryBuiltin("degrees", degrees),
+		"radians": newUnaryBuiltin("radians", radians),
 
-		"acosh": newUnaryBuiltin("acosh", math.Acosh, mathComplianceDefault),
-		"asinh": newUnaryBuiltin("asinh", math.Asinh, mathComplianceDefault),
-		"atanh": newUnaryBuiltin("atanh", math.Atanh, mathComplianceDefault),
-		"cosh":  newUnaryBuiltin("cosh", math.Cosh, mathComplianceDefault),
-		"sinh":  newUnaryBuiltin("sinh", math.Sinh, mathComplianceDefault),
-		"tanh":  newUnaryBuiltin("tanh", math.Tanh, mathComplianceDefault),
+		"acosh": newUnaryBuiltin("acosh", math.Acosh),
+		"asinh": newUnaryBuiltin("asinh", math.Asinh),
+		"atanh": newUnaryBuiltin("atanh", math.Atanh),
+		"cosh":  newUnaryBuiltin("cosh", math.Cosh),
+		"sinh":  newUnaryBuiltin("sinh", math.Sinh),
+		"tanh":  newUnaryBuiltin("tanh", math.Tanh),
 
-		"log": starlark.NewBuiltinComplies("log", log, mathComplianceDefault),
+		"log": starlark.NewBuiltin("log", log),
 
-		"gamma": newUnaryBuiltin("gamma", math.Gamma, mathComplianceDefault),
+		"gamma": newUnaryBuiltin("gamma", math.Gamma),
 
 		"e":  starlark.Float(math.E),
 		"pi": starlark.Float(math.Pi),
 	},
+}
+
+func init() {
+	const mathComplianceDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+	for _, b := range Module.Members {
+		if b, ok := b.(*starlark.Builtin); ok {
+			b.SolemnlyDeclareCompliance(mathComplianceDefault)
+		}
+	}
 }
 
 // floatOrInt is an Unpacker that converts a Starlark int or float to Go's float64.
@@ -126,26 +133,26 @@ func (p *floatOrInt) Unpack(v starlark.Value) error {
 
 // newUnaryBuiltin wraps a unary floating-point Go function
 // as a Starlark built-in that accepts int or float arguments.
-func newUnaryBuiltin(name string, fn func(float64) float64, compliance starlark.ComplianceFlags) *starlark.Builtin {
-	return starlark.NewBuiltinComplies(name, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func newUnaryBuiltin(name string, fn func(float64) float64) *starlark.Builtin {
+	return starlark.NewBuiltin(name, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		var x floatOrInt
 		if err := starlark.UnpackPositionalArgs(name, args, kwargs, 1, &x); err != nil {
 			return nil, err
 		}
 		return starlark.Float(fn(float64(x))), nil
-	}, compliance)
+	})
 }
 
 // newBinaryBuiltin wraps a binary floating-point Go function
 // as a Starlark built-in that accepts int or float arguments.
-func newBinaryBuiltin(name string, fn func(float64, float64) float64, compliance starlark.ComplianceFlags) *starlark.Builtin {
-	return starlark.NewBuiltinComplies(name, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func newBinaryBuiltin(name string, fn func(float64, float64) float64) *starlark.Builtin {
+	return starlark.NewBuiltin(name, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		var x, y floatOrInt
 		if err := starlark.UnpackPositionalArgs(name, args, kwargs, 2, &x, &y); err != nil {
 			return nil, err
 		}
 		return starlark.Float(fn(float64(x), float64(y))), nil
-	}, compliance)
+	})
 }
 
 //  log wraps the Log function
