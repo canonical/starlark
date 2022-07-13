@@ -33,7 +33,7 @@ import (
 // Starlark programs cannot modify the dictionary.
 var Universe StringDict
 
-const stdlibComplianceDefault = ComplyMemSafe | ComplyCPUSafe | ComplyTimeSafe | ComplyIOSafe
+const stdlibComplianceDefault = MemSafe | CPUSafe | TimeSafe | IOSafe
 
 func init() {
 	// https://github.com/google/starlark-go/blob/master/doc/spec.md#built-in-constants-and-functions

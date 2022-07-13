@@ -8,18 +8,18 @@ import (
 type ComplianceFlags uint8
 
 const (
-	ComplyMemSafe ComplianceFlags = 1 << iota
-	ComplyCPUSafe
-	ComplyTimeSafe
-	ComplyIOSafe
+	MemSafe ComplianceFlags = 1 << iota
+	CPUSafe
+	TimeSafe
+	IOSafe
 	complianceFlagsLimit
 )
 
 var complianceFlagNames = map[ComplianceFlags]string{
-	ComplyMemSafe:  "memsafe",
-	ComplyCPUSafe:  "cpusafe",
-	ComplyTimeSafe: "timesafe",
-	ComplyIOSafe:   "iosafe",
+	MemSafe:  "memsafe",
+	CPUSafe:  "cpusafe",
+	TimeSafe: "timesafe",
+	IOSafe:   "iosafe",
 }
 
 var complianceFlagsFromNames = map[string]ComplianceFlags{}

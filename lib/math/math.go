@@ -14,7 +14,7 @@ import (
 	"go.starlark.net/starlarkstruct"
 )
 
-const mathComplianceDefault = starlark.ComplyMemSafe | starlark.ComplyCPUSafe | starlark.ComplyTimeSafe | starlark.ComplyIOSafe
+const mathComplianceDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
 // Module math is a Starlark module of math-related functions and constants.
 // The module defines the following functions:

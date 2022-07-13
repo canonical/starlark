@@ -15,7 +15,7 @@ import (
 	"go.starlark.net/syntax"
 )
 
-const timeComplianceDefault = starlark.ComplyMemSafe | starlark.ComplyCPUSafe | starlark.ComplyTimeSafe | starlark.ComplyIOSafe
+const timeComplianceDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
 // Module time is a Starlark module of time-related functions and constants.
 // The module defines the following functions:

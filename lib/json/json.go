@@ -23,7 +23,7 @@ import (
 	"go.starlark.net/starlarkstruct"
 )
 
-const jsonComplianceDefault = starlark.ComplyMemSafe | starlark.ComplyCPUSafe | starlark.ComplyTimeSafe | starlark.ComplyIOSafe
+const jsonComplianceDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
 // Module json is a Starlark module of JSON-related functions.
 //

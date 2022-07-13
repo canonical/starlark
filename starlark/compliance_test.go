@@ -9,8 +9,8 @@ import (
 )
 
 func TestCompliance(t *testing.T) {
-	justCpu := starlark.ComplyCPUSafe
-	justMem := starlark.ComplyMemSafe
+	justCpu := starlark.CPUSafe
+	justMem := starlark.MemSafe
 	memAndCpu := justCpu | justMem
 	unrestricted := starlark.ComplianceFlags(0)
 
@@ -33,19 +33,19 @@ func TestCompliance(t *testing.T) {
 
 func TestComplianceEnforcement(t *testing.T) {
 	anarchy := starlark.ComplianceFlags(0)
-	fullCompliance := starlark.ComplyMemSafe | starlark.ComplyCPUSafe | starlark.ComplyTimeSafe | starlark.ComplyIOSafe
+	fullCompliance := starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
 	testComplianceEnforcement(t, anarchy, fullCompliance, true)
 	testComplianceEnforcement(t, fullCompliance, anarchy, false)
 
-	disjointA := starlark.ComplyTimeSafe | starlark.ComplyIOSafe
-	disjointB := starlark.ComplyMemSafe | starlark.ComplyCPUSafe
+	disjointA := starlark.TimeSafe | starlark.IOSafe
+	disjointB := starlark.MemSafe | starlark.CPUSafe
 	testComplianceEnforcement(t, disjointA, disjointB, false)
 	testComplianceEnforcement(t, disjointB, disjointA, false)
 
-	common := starlark.ComplyTimeSafe | starlark.ComplyIOSafe
-	symmetricallyDifferentA := starlark.ComplyMemSafe | common
-	symmetricallyDifferentB := starlark.ComplyCPUSafe | common
+	common := starlark.TimeSafe | starlark.IOSafe
+	symmetricallyDifferentA := starlark.MemSafe | common
+	symmetricallyDifferentB := starlark.CPUSafe | common
 	testComplianceEnforcement(t, symmetricallyDifferentA, symmetricallyDifferentB, false)
 	testComplianceEnforcement(t, symmetricallyDifferentB, symmetricallyDifferentA, false)
 }
@@ -78,7 +78,7 @@ func TestComplianceFromNames(t *testing.T) {
 		t.Errorf("Empty compliance set did not yield zero compliance flags: got %v", flags)
 	}
 	flags, err = starlark.ComplianceFromNames([]string{"memsafe", "cpusafe", "timesafe", "iosafe"})
-	expectedFullFlags := starlark.ComplyMemSafe | starlark.ComplyCPUSafe | starlark.ComplyTimeSafe | starlark.ComplyIOSafe
+	expectedFullFlags := starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 	if err != nil {
 		t.Errorf("Failed to get compliance flags from list")
 	}
@@ -114,8 +114,8 @@ func testComplianceRoundTrip(t *testing.T, flagNames []string) {
 }
 
 func TestThreadComplianceSetOnlyGrows(t *testing.T) {
-	initialFlags := starlark.ComplyCPUSafe | starlark.ComplyMemSafe
-	newFlags := starlark.ComplyIOSafe | starlark.ComplyTimeSafe
+	initialFlags := starlark.CPUSafe | starlark.MemSafe
+	newFlags := starlark.IOSafe | starlark.TimeSafe
 	expectedFlags := initialFlags | newFlags
 
 	thread := new(starlark.Thread)
