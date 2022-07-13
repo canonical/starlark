@@ -1,6 +1,7 @@
 package starlark_test
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"testing"
@@ -72,6 +73,25 @@ func testComplianceEnforcement(t *testing.T, require, probe starlark.ComplianceF
 		t.Errorf("Unexpected cancellation when testing compliance: %v", err)
 	} else if !expectPass && err == nil {
 		t.Errorf("Compliance enforcement did not error when expected")
+	}
+}
+
+func TestMultiFunctionComplianceDeclaration(t *testing.T) {
+	const n = 100
+	const flags = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+	fns := make([]*starlark.Builtin, 0, n)
+	for i := 0; i < n; i++ {
+		name := fmt.Sprintf("func_%d", i)
+		fns = append(fns, starlark.NewBuiltin(name,
+			func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+				return starlark.String(name), nil
+			}))
+	}
+	starlark.SolemnlyDeclareCompliance(flags, fns...)
+	for _, fn := range fns {
+		if fn.Compliance() != flags {
+			t.Errorf("Failed to set compliance flags: expected %d but got %d", flags, fn.Compliance())
+		}
 	}
 }
 

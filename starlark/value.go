@@ -754,6 +754,12 @@ func NewBuiltin(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kw
 	return &Builtin{name: name, fn: fn}
 }
 
+func SolemnlyDeclareCompliance(flags ComplianceFlags, fns ...*Builtin) {
+	for _, fn := range fns {
+		fn.SolemnlyDeclareCompliance(flags)
+	}
+}
+
 func NewBuiltinComplies(name string, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), compliance ComplianceFlags) *Builtin {
 	compliance.AssertValid()
 	return &Builtin{name: name, fn: fn, compliance: compliance}
