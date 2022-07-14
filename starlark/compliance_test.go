@@ -6,12 +6,12 @@ import (
 	"sort"
 	"testing"
 
-	"go.starlark.net/lib/json"
-	starlarkmath "go.starlark.net/lib/math"
-	"go.starlark.net/lib/proto"
-	"go.starlark.net/lib/time"
-	"go.starlark.net/starlark"
-	"go.starlark.net/starlarkstruct"
+	"github.com/canonical/starlark/lib/json"
+	starlarkmath "github.com/canonical/starlark/lib/math"
+	"github.com/canonical/starlark/lib/proto"
+	"github.com/canonical/starlark/lib/time"
+	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/starlarkstruct"
 )
 
 func TestCompliance(t *testing.T) {
