@@ -38,22 +38,31 @@ func TestCompliance(t *testing.T) {
 }
 
 func TestComplianceEnforcement(t *testing.T) {
-	anarchy := starlark.ComplianceFlags(0)
+	noCompliance := starlark.ComplianceFlags(0)
 	fullCompliance := starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
-	testComplianceEnforcement(t, anarchy, fullCompliance, true)
-	testComplianceEnforcement(t, fullCompliance, anarchy, false)
+	// Equal compliance-sets are accepted
+	testComplianceEnforcement(t, fullCompliance, fullCompliance, true)
+	testComplianceEnforcement(t, fullCompliance, fullCompliance, true)
 
+	testComplianceEnforcement(t, noCompliance, fullCompliance, true)  // Where no compliance is expected, compliance can run
+	testComplianceEnforcement(t, fullCompliance, noCompliance, false) // Where full compliance is expected, no-compliance is rejected
+
+	// Disjoint non-empty compliance sets are rejected
 	disjointA := starlark.TimeSafe | starlark.IOSafe
 	disjointB := starlark.MemSafe | starlark.CPUSafe
 	testComplianceEnforcement(t, disjointA, disjointB, false)
 	testComplianceEnforcement(t, disjointB, disjointA, false)
 
+	// Symmetrically-different compliance sets are rejected
 	common := starlark.TimeSafe | starlark.IOSafe
 	symmetricallyDifferentA := starlark.MemSafe | common
 	symmetricallyDifferentB := starlark.CPUSafe | common
 	testComplianceEnforcement(t, symmetricallyDifferentA, symmetricallyDifferentB, false)
 	testComplianceEnforcement(t, symmetricallyDifferentB, symmetricallyDifferentA, false)
+
+	// A superset of required compliance is accepted
+	testComplianceEnforcement(t, common, symmetricallyDifferentA, true)
 }
 
 func testComplianceEnforcement(t *testing.T, require, probe starlark.ComplianceFlags, expectPass bool) {
@@ -159,6 +168,7 @@ func TestThreadComplianceSetOnlyGrows(t *testing.T) {
 }
 
 func TestLibraryCompliance(t *testing.T) {
+	// Ensure that all standard functions defined by starlark are declared as fully-compliant
 	const complianceAll = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 	universeDummyModule := &starlarkstruct.Module{Name: "universe", Members: starlark.Universe}
 	mods := []*starlarkstruct.Module{universeDummyModule, json.Module, time.Module, proto.Module, starlarkmath.Module}
@@ -174,6 +184,7 @@ func TestLibraryCompliance(t *testing.T) {
 }
 
 func TestStarlarkDefinedFunctionIsCompliancePermissive(t *testing.T) {
+	// Ensure that starlark-defined functions can always be run
 	prog := `
 def func():
 	pass
@@ -189,6 +200,7 @@ func()
 }
 
 func TestLambdaComplianceIsPermissive(t *testing.T) {
+	// Ensure that lambdas can always be run
 	prog := `(lambda x: x)(1)`
 	thread := new(starlark.Thread)
 	thread.RequireCompliance(starlark.CPUSafe | starlark.MemSafe)
