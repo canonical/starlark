@@ -172,3 +172,28 @@ func TestLibraryCompliance(t *testing.T) {
 		}
 	}
 }
+
+func TestStarlarkDefinedFunctionIsCompliancePermissive(t *testing.T) {
+	prog := `
+def func():
+	pass
+func()
+`
+	thread := new(starlark.Thread)
+	thread.RequireCompliance(starlark.CPUSafe | starlark.MemSafe)
+
+	_, err := starlark.ExecFile(thread, "func_compliance_test.go", prog, nil)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestLambdaComplianceIsPermissive(t *testing.T) {
+	prog := `(lambda x: x)(1)`
+	thread := new(starlark.Thread)
+	thread.RequireCompliance(starlark.CPUSafe | starlark.MemSafe)
+	_, err := starlark.ExecFile(thread, "lambda_compliance_test.go", prog, nil)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}

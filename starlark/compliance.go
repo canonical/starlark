@@ -19,6 +19,8 @@ const (
 	complianceFlagsLimit
 )
 
+var complianceAll ComplianceFlags
+
 var complianceFlagNames = map[ComplianceFlags]string{
 	MemSafe:  "memsafe",
 	CPUSafe:  "cpusafe",
@@ -32,16 +34,21 @@ func init() {
 	for flag, name := range complianceFlagNames {
 		complianceFlagsFromNames[name] = flag
 	}
+	var flag ComplianceFlags
+	for flag = 1; flag < complianceFlagsLimit; flag <<= 1 {
+		complianceAll |= flag
+	}
+}
+
+type HasCompliance interface {
+	Compliance() ComplianceFlags
 }
 
 var (
 	_ HasCompliance = (*Thread)(nil)
 	_ HasCompliance = (*Builtin)(nil)
+	_ HasCompliance = (*Function)(nil)
 )
-
-type HasCompliance interface {
-	Compliance() ComplianceFlags
-}
 
 func (f ComplianceFlags) Names() (names []string) {
 	names = make([]string, 0, len(complianceFlagNames))

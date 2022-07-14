@@ -692,6 +692,8 @@ func (fn *Function) String() string        { return toString(fn) }
 func (fn *Function) Type() string          { return "function" }
 func (fn *Function) Truth() Bool           { return true }
 
+func (_ *Function) Compliance() ComplianceFlags { return complianceAll } // A starlark-defined function can always be run
+
 // Globals returns a new, unfrozen StringDict containing all global
 // variables so far defined in the function's module.
 func (fn *Function) Globals() StringDict { return fn.module.makeGlobalDict() }
