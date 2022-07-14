@@ -22,7 +22,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"go.starlark.net/syntax"
+	"github.com/canonical/starlark/syntax"
 )
 
 // Universe defines the set of universal built-ins, such as None, True, and len.
