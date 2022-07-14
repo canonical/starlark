@@ -5,9 +5,13 @@ import (
 	"strings"
 )
 
+// ComplianceFlags represents a set of constraints on executed code
 type ComplianceFlags uint8
 
 const (
+	// TODO(kcza): discuss how these items should be documented, given that they are not yet implemented!
+
+	// Execute only code which requests memory before making allocations
 	MemSafe ComplianceFlags = 1 << iota
 	CPUSafe
 	TimeSafe
@@ -70,8 +74,8 @@ func (f ComplianceFlags) AssertValid() {
 	}
 }
 
+// Tests that compliance required ⊆ compliance toCheck
 func (required ComplianceFlags) Permits(toCheck ComplianceFlags) error {
-	// Test that required ⊆ toCheck
 	missingFlags := required &^ toCheck
 	if missingFlags != 0 {
 		return fmt.Errorf("Missing compliance flags: %s", strings.Join(missingFlags.Names(), ", "))

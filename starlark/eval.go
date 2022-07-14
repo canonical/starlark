@@ -60,6 +60,8 @@ type Thread struct {
 	// proftime holds the accumulated execution time since the last profile event.
 	proftime time.Duration
 
+	// requiredCompliance holds the set of compliance conditions which must be
+	// satisfied by any builtin which is called when running this thread.
 	requiredCompliance ComplianceFlags
 }
 
@@ -81,10 +83,17 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
 }
 
+// Compliance returns the set of compliance flags which must be satisfied by
+// any builtin which is called from this thread.
 func (thread *Thread) Compliance() ComplianceFlags {
 	return thread.requiredCompliance
 }
 
+// RequireCompliance inserts all flags from a given set into the thread's
+// required set. If the compliance flags passed are not valid, a panic occurs.
+//
+// Once a flag is inserted into the thread's required compliance set, it cannot
+// be removed.
 func (thread *Thread) RequireCompliance(flags ComplianceFlags) {
 	flags.AssertValid()
 	thread.requiredCompliance |= flags
@@ -1203,11 +1212,11 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	}
 
 	// Check what is being called has declared appropriate compliance
-	var newScopeCompliance ComplianceFlags
+	var newCompliance ComplianceFlags
 	if c, ok := c.(HasCompliance); ok {
-		newScopeCompliance = c.Compliance()
+		newCompliance = c.Compliance()
 	}
-	if err := thread.requiredCompliance.Permits(newScopeCompliance); err != nil {
+	if err := thread.requiredCompliance.Permits(newCompliance); err != nil {
 		return nil, err
 	}
 
