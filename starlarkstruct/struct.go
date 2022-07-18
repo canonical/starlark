@@ -40,11 +40,21 @@ import (
 // 		"struct":  starlark.NewBuiltin("struct", starlarkstruct.Make),
 // 	}
 //
-func Make(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func Make(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(args) > 0 {
 		return nil, fmt.Errorf("struct: unexpected positional arguments")
 	}
-	return FromKeywords(Default, kwargs), nil
+	maxSize := 1 + len(kwargs)*2
+	if err := thread.DeclareSizeIncrease(uintptr(maxSize), b.Name()); err != nil {
+		return nil, err
+	}
+
+	s := FromKeywords(Default, kwargs)
+	actualSize := 1 + len(s.entries)*2
+	if actualSize < maxSize {
+		thread.DeclareSizeDecrease(uintptr(maxSize - actualSize))
+	}
+	return s, nil
 }
 
 // FromKeywords returns a new struct instance whose fields are specified by the

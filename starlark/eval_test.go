@@ -112,6 +112,7 @@ func TestExecFile(t *testing.T) {
 	defer setOptions("")
 	testdata := starlarktest.DataFile("starlark", ".")
 	thread := &starlark.Thread{Load: load}
+	thread.SetMaxAllocations(0)
 	starlarktest.SetReporter(thread, t)
 	for _, file := range []string{
 		"testdata/assign.star",
@@ -948,6 +949,7 @@ func TestCancel(t *testing.T) {
 func TestExecutionSteps(t *testing.T) {
 	// A Thread records the number of computation steps.
 	thread := new(starlark.Thread)
+	thread.SetMaxAllocations(0)
 	countSteps := func(n int) (uint64, error) {
 		predeclared := starlark.StringDict{"n": starlark.MakeInt(n)}
 		steps0 := thread.ExecutionSteps()

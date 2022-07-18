@@ -5,11 +5,15 @@
 package starlark
 
 import (
+	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"math/big"
+	"os"
+	"reflect"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -23,6 +27,16 @@ import (
 	"github.com/canonical/starlark/resolve"
 	"github.com/canonical/starlark/syntax"
 )
+
+const (
+	UINTPTRS_PER_UNIT = 4
+)
+
+var (
+	UNIT_SIZE = reflect.TypeOf(uintptr(0)).Size() * UINTPTRS_PER_UNIT
+)
+
+var DefaultAllocationCap = flag.Uint64("memcap", 1<<15-1, "set max usable `locations`")
 
 // A Thread contains the state of a Starlark thread,
 // such as its call stack and thread-local storage.
@@ -49,6 +63,9 @@ type Thread struct {
 
 	// steps counts abstract computation steps executed by this thread.
 	steps, maxSteps uint64
+
+	// allocations counts the abstract memory units claimed by this resource pool
+	allocations, maxAllocations uintptr
 
 	// cancelReason records the reason from the first call to Cancel.
 	cancelReason *string
@@ -77,6 +94,18 @@ func (thread *Thread) ExecutionSteps() uint64 {
 // thread.Cancel("too many steps").
 func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
+}
+
+func (thread *Thread) Allocations() uintptr {
+	return thread.allocations
+}
+
+func (thread *Thread) SetMaxAllocations(max uintptr) error {
+	if max == 0 {
+		max--
+	}
+	thread.maxAllocations = max
+	return nil
 }
 
 // Cancel causes execution of Starlark code in the specified thread to
@@ -1204,6 +1233,11 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 
 	if thread.stack == nil {
 		// one-time initialization of thread
+
+		if thread.maxAllocations == 0 {
+			thread.SetMaxAllocations(uintptr(*DefaultAllocationCap))
+		}
+
 		if thread.maxSteps == 0 {
 			thread.maxSteps-- // (MaxUint64)
 		}
@@ -1615,4 +1649,152 @@ func interpolate(format string, x Value) (Value, error) {
 	}
 
 	return String(buf.String()), nil
+}
+
+func (thread *Thread) CheckUsage() error {
+	if thread.steps >= thread.maxSteps {
+		return errors.New("too many steps")
+	}
+	if thread.allocations >= thread.maxAllocations {
+		return errors.New("too many allocations")
+	}
+	return nil
+}
+
+func (thread *Thread) DeclareSizeIncrease(delta uintptr, whence string) error {
+	if thread.cancelReason == nil {
+		atomic.AddUintptr(&thread.allocations, delta)
+		if thread.allocations >= thread.maxAllocations {
+			if vmdebug {
+				fmt.Fprintf(os.Stderr, "too much memory used: %s failed to allocate another %d locations (quota: %d/%d) after %d steps", whence, delta, thread.allocations-delta, thread.maxAllocations, thread.steps)
+			}
+			thread.Cancel("too many allocations")
+		}
+	}
+
+	if thread.cancelReason != nil {
+		reason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason)))
+		return fmt.Errorf("Starlark computation cancelled: %s", *(*string)(reason))
+	}
+	return nil
+}
+
+func (thread *Thread) DeclareSizeDecrease(delta uintptr) {
+	if thread.cancelReason != nil {
+		return
+	}
+	atomic.AddUintptr(&thread.allocations, -delta)
+}
+
+func BytesToSizeUnits(bytes uintptr) (size uintptr) {
+	size = bytes / UNIT_SIZE
+	if bytes%UNIT_SIZE != 0 {
+		size++
+	}
+	return
+}
+
+func SizeUnitsToBytes(units uintptr) uintptr {
+	return units * UNIT_SIZE
+}
+
+type Sizer func(v interface{}) uintptr
+
+func setJoinBound(x, y *Set, conjunction bool) uintptr {
+	xs := uintptr(x.Len())
+	ys := uintptr(y.Len())
+	if xs > ys {
+		xs, ys = ys, xs
+	}
+	if conjunction {
+		return 1 + xs
+	}
+	// Disjunction
+	return 1 + ys
+}
+
+// Estimate the size of calling writeValue.
+func writeValueSizeBound(v Value, path []Value) (size uintptr, ok bool) {
+	if v == nil {
+		return uintptr(len("<nil>")), true
+	}
+	switch v := v.(type) {
+	case NoneType:
+		return uintptr(len("None")), true
+	case Int:
+		return v.Size(), true
+	case Bool:
+		if v {
+			return uintptr(len("true")), true
+		} else {
+			return uintptr(len("false")), true
+		}
+	case String:
+		return 2 + 2*uintptr(len(v)), true
+	case *Function:
+		return uintptr(len("<function >") + len(v.Name())), true
+	case *Builtin:
+		if v.recv != nil {
+			return uintptr(len("<built-in method  of  value>") + len(v.Name()) + len(v.recv.Type())), true
+		}
+		return uintptr(len("<built-in function >") + len(v.Name())), true
+	case *List:
+		size += uintptr(len("[]"))
+		if pathContains(path, v) {
+			return size + uintptr(len("[...]")), true
+		}
+		size += uintptr(len(", ") * (v.Len() - 1))
+		for _, e := range v.elems {
+			delta, ok := writeValueSizeBound(e, append(path, v))
+			if !ok {
+				return 0, false
+			}
+			size += delta
+		}
+		return size, true
+	case Tuple:
+		for _, e := range v {
+			delta, ok := writeValueSizeBound(e, append(path, v))
+			if !ok {
+				return 0, false
+			}
+			size += delta
+		}
+		size += uintptr(len("()"))
+		size += uintptr(len(", ") * (v.Len() - 1))
+		return size, true
+	case *Dict:
+		if pathContains(path, v) {
+			return size + uintptr(len("{...}")), true
+		}
+		for e := v.ht.head; e != nil; e = e.next {
+			key, val := e.key, e.value
+			delta, ok := writeValueSizeBound(key, append(path, v))
+			if !ok {
+				return 0, false
+			}
+			size += delta
+			delta, ok = writeValueSizeBound(val, append(path, v))
+			if !ok {
+				return 0, false
+			}
+			size += delta
+		}
+		size += uintptr(len("{}"))
+		size += uintptr(len(", ") * (v.Len() - 1))
+		size += uintptr(len(":") * v.Len())
+		return size, true
+	case *Set:
+		for _, e := range v.elems() {
+			delta, ok := writeValueSizeBound(e, append(path, v))
+			if !ok {
+				return 0, false
+			}
+			size += delta
+		}
+		size += uintptr(len("set([])") + len(", ")*(v.Len()-1))
+		return size, true
+	default:
+		return 0, true
+	}
 }
