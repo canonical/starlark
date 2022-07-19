@@ -364,7 +364,6 @@ func testAllocationsIncreaseAffinely(t *testing.T, name string, codeGen codeGene
 
 func testAllocations(t *testing.T, name string, codeGen codeGenerator, nSmall, nLarge uint, expectedAllocsFunc func(float64) float64, trendName string) {
 	thread := new(starlark.Thread)
-	thread.SetMaxAllocations(0)
 	file := name + ".star"
 
 	// Test allocation increase order

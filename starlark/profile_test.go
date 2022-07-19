@@ -40,7 +40,6 @@ fibonacci(100000)
 `
 
 	thread := new(starlark.Thread)
-	thread.SetMaxAllocations(0)
 	if _, err := starlark.ExecFile(thread, "foo.star", src, nil); err != nil {
 		_ = starlark.StopProfile()
 		t.Fatal(err)

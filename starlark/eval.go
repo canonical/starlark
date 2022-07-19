@@ -36,7 +36,7 @@ var (
 	UNIT_SIZE = reflect.TypeOf(uintptr(0)).Size() * UINTPTRS_PER_UNIT
 )
 
-var DefaultAllocationCap = flag.Uint64("memcap", 1<<15-1, "set max usable `locations`")
+var DefaultAllocationCap = flag.Uint64("memcap", 0, "set max usable `locations`")
 
 // A Thread contains the state of a Starlark thread,
 // such as its call stack and thread-local storage.
