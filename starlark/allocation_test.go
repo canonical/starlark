@@ -389,8 +389,8 @@ func testAllocations(t *testing.T, name string, codeGen codeGenerator, nSmall, n
 
 	// Test allocations are roughly correct
 	expectedAllocs := expectedAllocsFunc(float64(nLarge))
-	expectedMinAllocs := uintptr(0.9 * expectedAllocs)
-	expectedMaxAllocs := uintptr(1.1 * expectedAllocs)
+	expectedMinAllocs := uintptr(math.Round(0.9 * expectedAllocs))
+	expectedMaxAllocs := uintptr(math.Round(1.1 * expectedAllocs))
 	if deltaLarge < expectedMinAllocs {
 		t.Errorf("Too few allocations, expected ~%.0f but used only %d", expectedAllocs, deltaLarge)
 	}
