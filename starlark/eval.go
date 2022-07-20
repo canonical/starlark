@@ -5,7 +5,6 @@
 package starlark
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -1659,19 +1658,6 @@ func interpolate(format string, x Value) (Value, error) {
 	}
 
 	return String(buf.String()), nil
-}
-
-// CheckUsage checks that a thread's has not exceeded its step or allocation
-// upper limits and returns an error: "too many steps" or "too many
-// allocations" if necessary.
-func (thread *Thread) CheckUsage() error {
-	if thread.steps >= thread.maxSteps {
-		return errors.New("too many steps")
-	}
-	if thread.allocations >= thread.maxAllocations {
-		return errors.New("too many allocations")
-	}
-	return nil
 }
 
 // Declares an increase of delta in the number of allocations associated with

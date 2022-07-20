@@ -88,8 +88,10 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 loop:
 	for {
 		thread.steps++
-		if err := thread.CheckUsage(); err != nil {
-			thread.Cancel(err.Error())
+		if thread.steps >= thread.maxSteps {
+			thread.Cancel("too many steps")
+		} else if thread.allocations >= thread.maxAllocations {
+			thread.Cancel("too many allocations")
 		}
 		if reason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); reason != nil {
 			err = fmt.Errorf("Starlark computation cancelled: %s", *(*string)(reason))
