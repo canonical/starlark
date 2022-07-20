@@ -28,15 +28,13 @@ import (
 	"github.com/canonical/starlark/syntax"
 )
 
-const (
-	UINTPTRS_PER_UNIT = 4
-)
+const uintptsPerSizeUnit = 4
 
-var (
-	UNIT_SIZE = reflect.TypeOf(uintptr(0)).Size() * UINTPTRS_PER_UNIT
-)
+// Maximum size represented by a single allocation. Precise meaning may change
+// in future.
+var UnitSize = reflect.TypeOf(uintptr(0)).Size() * uintptsPerSizeUnit
 
-var DefaultAllocationCap = flag.Uint64("memcap", 0, "set max usable `locations`")
+var DefaultAllocationCap = flag.Uint64("memcap", 0, "set max usable `allocations`")
 
 // A Thread contains the state of a Starlark thread,
 // such as its call stack and thread-local storage.
@@ -96,10 +94,22 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
 }
 
+// Allocations returns a count of abstract allocations made by this thread. It
+// is increased and decreased by calls to DeclareSizeIncrease and
+// DeclareSizeDecrease respectively. It can be used as an approximate measure
+// the space required by a starlark execution by measuring the increase in
+// allocations from before and after a computation.
+//
+// The precise meaning of an "allocation" is not specified and may change.
 func (thread *Thread) Allocations() uintptr {
 	return thread.allocations
 }
 
+// SetMaxAllocation sets a limit on the number of allocations which may be made
+// by this thread. If the thread's allocation tally exceeds this limit, the
+// interpreter calls thread.Cancel("too many allocations").
+//
+// If zero is passed to this function, the restriction is lifted.
 func (thread *Thread) SetMaxAllocations(max uintptr) error {
 	if max == 0 {
 		max--
@@ -1651,6 +1661,9 @@ func interpolate(format string, x Value) (Value, error) {
 	return String(buf.String()), nil
 }
 
+// CheckUsage checks that a thread's has not exceeded its step or allocation
+// upper limits and returns an error: "too many steps" or "too many
+// allocations" if necessary.
 func (thread *Thread) CheckUsage() error {
 	if thread.steps >= thread.maxSteps {
 		return errors.New("too many steps")
@@ -1661,6 +1674,13 @@ func (thread *Thread) CheckUsage() error {
 	return nil
 }
 
+// Declares an increase of delta in the number of allocations associated with
+// this thread. The string whence may be used in debugging messages to indicate
+// where the allocations were made.
+//
+// If the declared delta causes the thread's tally to exceed its maxiumum
+// limit, the thread is cancelled and this function returns a corresponding
+// error.
 func (thread *Thread) DeclareSizeIncrease(delta uintptr, whence string) error {
 	if thread.cancelReason == nil {
 		atomic.AddUintptr(&thread.allocations, delta)
@@ -1679,6 +1699,8 @@ func (thread *Thread) DeclareSizeIncrease(delta uintptr, whence string) error {
 	return nil
 }
 
+// Declares a decrease of delta in the number of allocations associated with
+// this thread.
 func (thread *Thread) DeclareSizeDecrease(delta uintptr) {
 	if thread.cancelReason != nil {
 		return
@@ -1686,20 +1708,28 @@ func (thread *Thread) DeclareSizeDecrease(delta uintptr) {
 	atomic.AddUintptr(&thread.allocations, -delta)
 }
 
+// Utility function to convert a number of bytes into a number of abstract
+// allocations. The precise meaning of an "allocation" is not specified and may
+// change.
 func BytesToSizeUnits(bytes uintptr) (size uintptr) {
-	size = bytes / UNIT_SIZE
-	if bytes%UNIT_SIZE != 0 {
+	size = bytes / UnitSize
+	if bytes%UnitSize != 0 {
 		size++
 	}
 	return
 }
 
+// Utility function to allocations to a maximum number of bytes. The precise
+// meaning of an "allocation" is not specified and may change
 func SizeUnitsToBytes(units uintptr) uintptr {
-	return units * UNIT_SIZE
+	return units * UnitSize
 }
 
+// A function which returns the size of some value in allocations.
 type Sizer func(v interface{}) uintptr
 
+// Upper bound on the allocations required by a set- union, intersection or
+// symmetric difference.
 func setJoinBound(x, y *Set, conjunction bool) uintptr {
 	xs := uintptr(x.Len())
 	ys := uintptr(y.Len())

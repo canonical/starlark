@@ -347,21 +347,25 @@ func TestStructAllocations(t *testing.T) {
 	testAllocationsIncreaseLinearly(t, "struct", gen, 1000, 100000, 2)
 }
 
+// Test allocations follow f(x) = c for natural c
 func testAllocationsAreConstant(t *testing.T, name string, codeGen codeGenerator, nSmall, nLarge uint, allocs float64) {
 	expectedAllocs := func(_ float64) float64 { return allocs }
 	testAllocations(t, name, codeGen, nSmall, nLarge, expectedAllocs, "remain constant")
 }
 
+// Test allocations follow f(x) = ax for natural a
 func testAllocationsIncreaseLinearly(t *testing.T, name string, codeGen codeGenerator, nSmall, nLarge uint, allocsPerN float64) {
 	testAllocationsIncreaseAffinely(t, name, codeGen, nSmall, nLarge, allocsPerN, 0)
 }
 
+// Test allocations follow f(x) = ax + b for natural a, b
 func testAllocationsIncreaseAffinely(t *testing.T, name string, codeGen codeGenerator, nSmall, nLarge uint, allocsPerN float64, constMinAllocs uint) {
 	c := float64(constMinAllocs)
 	expectedAllocs := func(n float64) float64 { return n*allocsPerN + c }
 	testAllocations(t, name, codeGen, nSmall, nLarge, expectedAllocs, "increase linearly")
 }
 
+// Tests allocations follow the speficied trend, within a margin of error
 func testAllocations(t *testing.T, name string, codeGen codeGenerator, nSmall, nLarge uint, expectedAllocsFunc func(float64) float64, trendName string) {
 	thread := new(starlark.Thread)
 	file := name + ".star"
@@ -395,6 +399,7 @@ func testAllocations(t *testing.T, name string, codeGen codeGenerator, nSmall, n
 	}
 }
 
+// Compute allocation delta declared when executing given code
 func memoryIncrease(thread *starlark.Thread, name, code string, predeclared starlark.StringDict) (uintptr, error) {
 	allocs0 := thread.Allocations()
 	_, err := starlark.ExecFile(thread, name, code, predeclared)
@@ -447,6 +452,7 @@ func dummyDict(len uint) *starlark.Dict {
 	return dict
 }
 
+// Convenience function to map common values to starlark values
 func globals(gs ...interface{}) starlark.StringDict {
 	if len(gs)%2 != 0 {
 		panic("globals requires an even number of arguments")

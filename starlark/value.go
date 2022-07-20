@@ -1211,6 +1211,8 @@ func writeValue(out *strings.Builder, x Value, path []Value) {
 	}
 }
 
+// Write the string representation of a given value to a buffer, tracking
+// allocations, failing early if insufficient space is available.
 func writeBufferValue(buf *strings.Builder, thread *Thread, b *Builtin, x Value, path []Value) error {
 	delta, canEstimate := writeValueSizeBound(x, path)
 	var initialLen int
@@ -1387,6 +1389,8 @@ func Len(x Value) int {
 	return -1
 }
 
+// Compute the length of a given iterable value. If the value is a non-Sequence
+// Iterable, this function will loop through the iterable to count its length.
 func IterableLen(v Value) int {
 	if len := Len(v); 0 <= len {
 		return len
