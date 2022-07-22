@@ -142,6 +142,36 @@ func TestNegativeDeltaAllocation(t *testing.T) {
 	}
 }
 
+func TestAllAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "all",
+		gen: func(n uint) (string, env) {
+			return `all(l)`, env{"l": dummyList(n)}
+		},
+		trend: constant(0),
+	})
+}
+
+func TestAnyAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "any",
+		gen: func(n uint) (string, env) {
+			return `any(l)`, env{"l": dummyList(n)}
+		},
+		trend: constant(1),
+	})
+}
+
+func TestBoolAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "bool",
+		gen: func(n uint) (string, env) {
+			return `bool(v)`, env{"v": dummyString(n, 'a')}
+		},
+		trend: constant(1),
+	})
+}
+
 func TestBytesAllocations(t *testing.T) {
 	testAllocations(t, allocationTest{
 		name: "bytes",
@@ -149,6 +179,16 @@ func TestBytesAllocations(t *testing.T) {
 			return `bytes(b)`, env{"b": dummyString(n, 'b')}
 		},
 		trend: linear(1),
+	})
+}
+
+func TestChrAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "chr",
+		gen: func(_ uint) (string, env) {
+			return `chr(i)`, env{"i": 65}
+		},
+		trend: constant(2),
 	})
 }
 
@@ -162,6 +202,10 @@ func TestDictAllocations(t *testing.T) {
 	})
 }
 
+// TODO(kcza): test dir allocations. Some implementations of HasAttrs may
+// return the same []string with each invocation, others may generate it. The
+// number of allocations must be specified by the implementor.
+
 func TestEnumerateAllocations(t *testing.T) {
 	testAllocations(t, allocationTest{
 		name: "enumerate",
@@ -172,13 +216,134 @@ func TestEnumerateAllocations(t *testing.T) {
 	})
 }
 
+func TestFailAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "fail",
+		gen: func(n uint) (string, env) {
+			return "fail(s)", env{"s": dummyString(n, 'a')}
+		},
+		trend:                     linear(1),
+		falsePositiveCancellation: regexp.MustCompile("^fail: a+$"),
+	})
+	testAllocations(t, allocationTest{
+		name: "fail_with_sep",
+		gen: func(n uint) (string, env) {
+			return "fail(sep=sep, *l)", env{
+				"l":   dummyList(n),
+				"sep": 'b',
+			}
+		},
+		trend:                     linear(2),
+		falsePositiveCancellation: regexp.MustCompile("^fail: (ab)*a$"),
+	})
+}
+
+func TestFloatAllocations(t *testing.T) {
+	vals := []interface{}{
+		1000,
+		1000.0,
+		"100000",
+		"infinity",
+		"-infinity",
+		"inf",
+		"-inf",
+		"1.748302748932047839274389274374892730478234",
+	}
+	for _, v := range vals {
+		testAllocations(t, allocationTest{
+			name: "float",
+			gen: func(n uint) (string, env) {
+				return `float(v)`, env{"v": v}
+			},
+			trend: constant(1),
+		})
+	}
+}
+
+// TODO(kcza): test getattr allocations. Some implementations of
+// starlark.HasAttrs may return the same []string with each invocation, others
+// may generate it. The number of allocations must be specified by the
+// implementor.
+
+// TODO(kcza): test setattr allocations. Some implementations of
+// starlark.HasSetField may return the same []string with each invocation,
+// others may generate it. The number of allocations must be specified by the
+// implementor.
+
+func TestHashAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "hash (string)",
+		gen: func(n uint) (string, env) {
+			return `hash(val)`, env{"val": dummyString(n, 'a')}
+		},
+		trend: constant(1),
+	})
+	testAllocations(t, allocationTest{
+		name: "hash (bytes)",
+		gen: func(n uint) (string, env) {
+			return `hash(val)`, env{"val": dummyBytes(n, 'a')}
+		},
+		trend: constant(1),
+	})
+}
+
+func TestLenAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "len",
+		gen: func(n uint) (string, env) {
+			return `len(l)`, env{"l": dummyList(n)}
+		},
+		trend: constant(1),
+	})
+}
+
 func TestListAllocations(t *testing.T) {
 	testAllocations(t, allocationTest{
 		name: "list",
 		gen: func(n uint) (string, env) {
-			return "list(l)", env{"l": dummyList(n)}
+			return `list(l)`, env{"l": dummyList(n)}
 		},
 		trend: linear(1),
+	})
+}
+
+func TestMaxAllocations(t *testing.T) {
+	testMinMaxAllocations(t, "max")
+}
+
+func TestMinAllocations(t *testing.T) {
+	testMinMaxAllocations(t, "min")
+}
+
+func testMinMaxAllocations(t *testing.T, funcName string) {
+	testAllocations(t, allocationTest{
+		name: funcName,
+		gen: func(n uint) (string, env) {
+			return fmt.Sprintf(`%s(l)`, funcName), env{"l": dummyList(n)}
+		},
+		trend: constant(0),
+	})
+}
+
+func TestOrdAllocations(t *testing.T) {
+	for _, v := range []interface{}{"q", starlark.Bytes(string("v"))} {
+		testAllocations(t, allocationTest{
+			name: "ord",
+			gen: func(n uint) (string, env) {
+				return `ord(v)`, env{"v": v}
+			},
+			trend: constant(1),
+		})
+	}
+}
+
+func TestRangeAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "range",
+		gen: func(n uint) (string, env) {
+			return `range(n)`, env{"n": n}
+		},
+		trend: constant(1),
 	})
 }
 
@@ -192,12 +357,34 @@ func TestReprAllocations(t *testing.T) {
 	})
 }
 
+func TestReversedAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "reversed",
+		gen: func(n uint) (string, env) {
+			return `reversed(l)`, env{"l": dummyList(n)}
+		},
+		trend: linear(1),
+	})
+}
+
 func TestSetAllocations(t *testing.T) {
 	resolve.AllowSet = true
 	testAllocations(t, allocationTest{
 		name: "set",
 		gen: func(n uint) (string, env) {
 			return "set(l)", env{"l": dummyList(n)}
+		},
+		trend: linear(1),
+	})
+}
+
+func TestSortedAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "sorted",
+		gen: func(n uint) (string, env) {
+			return `sorted(l)`, env{
+				"l": dummyList(n),
+			}
 		},
 		trend: linear(1),
 	})
@@ -244,6 +431,11 @@ func TestTupleAllocations(t *testing.T) {
 	})
 }
 
+// TODO(kcza): test type allocations. Some implementations of starlark.Value
+// may retur n a different string depending on the data it represents. For
+// example, a matrix type may wish to declare its type as `Matrix[n,m]`, for
+// example.
+
 func TestZipAllocations(t *testing.T) {
 	genZipCall := func(m uint) string {
 		entries := make([]string, 0, m)
@@ -285,6 +477,35 @@ func TestZipAllocations(t *testing.T) {
 	})
 }
 
+func TestBytesElemsAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "bytes.elems",
+		gen: func(n uint) (string, env) {
+			return `b.elems()`, env{"b": dummyBytes(n, 'a')}
+		},
+		trend: constant(1),
+	})
+}
+
+func TestDictGetAllocations(t *testing.T) {
+	for _, testKeyPresent := range []bool{false, true} {
+		testAllocations(t, allocationTest{
+			name: "dict.get",
+			gen: func(n uint) (string, env) {
+				d := starlark.NewDict(1)
+				if testKeyPresent {
+					d.SetKey(starlark.String("k"), starlark.String(dummyString(n, 'v')))
+				}
+				return `d.get(k)`, env{
+					"d": d,
+					"k": "k",
+				}
+			},
+			trend: constant(0),
+		})
+	}
+}
+
 func TestDictItemsAllocations(t *testing.T) {
 	testAllocations(t, allocationTest{
 		name: "dict.items",
@@ -303,6 +524,63 @@ func TestDictKeysAllocations(t *testing.T) {
 		},
 		trend: linear(1),
 	})
+}
+
+func TestDictSetDefaultAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "dict.setdefault (default absent, value absent)",
+		gen: func(n uint) (string, env) {
+			return `d.setdefault(k)`, env{
+				"d": starlark.NewDict(0),
+				"k": dummyInt(n),
+			}
+		},
+		trend: constant(1),
+	})
+
+	testAllocations(t, allocationTest{
+		name: "dict.setdefault (default absent, value present)",
+		gen: func(n uint) (string, env) {
+			d := starlark.NewDict(1)
+			k := starlark.String("k")
+			v := dummyInt(n)
+			d.SetKey(k, v)
+			return `d.setdefault(k)`, env{
+				"d": d,
+				"k": k,
+			}
+		},
+		trend: constant(0),
+	})
+
+	testAllocations(t, allocationTest{
+		name: "dict.setdefault (default present, value absent)",
+		gen: func(n uint) (string, env) {
+			return `d.setdefault(k, v)`, env{
+				"d": starlark.NewDict(0),
+				"k": "k",
+				"v": dummyInt(n),
+			}
+		},
+		trend: constant(1),
+	})
+
+	testAllocations(t, allocationTest{
+		name: "dict.setdefault (default present, value present)",
+		gen: func(n uint) (string, env) {
+			d := starlark.NewDict(1)
+			k := starlark.String("k")
+			v := dummyInt(n)
+			d.SetKey(k, v)
+			return `d.setdefault(k, v)`, env{
+				"d": d,
+				"k": k,
+				"v": v,
+			}
+		},
+		trend: constant(0),
+	})
+
 }
 
 func TestDictValuesAllocations(t *testing.T) {
@@ -338,6 +616,34 @@ func TestListExtendAllocations(t *testing.T) {
 	})
 }
 
+func TestListIndexAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "list.index (value absent)",
+		gen: func(n uint) (string, env) {
+			return `l.index(s)`, env{
+				"l": make([]starlark.Value, 0),
+				"s": dummyString(n, 'a'),
+			}
+		},
+		trend:                     constant(0),
+		falsePositiveCancellation: regexp.MustCompile("value not in list"),
+	})
+
+	testAllocations(t, allocationTest{
+		name: "list.index (value present)",
+		gen: func(n uint) (string, env) {
+			s := starlark.String(dummyString(n, 'a'))
+			l := make([]starlark.Value, 0, 1)
+			l = append(l, s)
+			return `l.index(s)`, env{
+				"l": l,
+				"s": s,
+			}
+		},
+		trend: constant(1),
+	})
+}
+
 func TestListInsertAllocations(t *testing.T) {
 	testAllocations(t, allocationTest{
 		name: "list.insert",
@@ -360,6 +666,56 @@ func TestStringCapitalizeAllocations(t *testing.T) {
 		},
 		trend: linear(1),
 	})
+}
+
+func TestStringCodepointordsAllocations(t *testing.T) {
+	testStringIterableMethod(t, "codepoint_ords")
+}
+
+func TestStringCodepointsAllocations(t *testing.T) {
+	testStringIterableMethod(t, "codepoints")
+}
+
+func TestStringCountAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "string.count",
+		gen: func(n uint) (string, env) {
+			return `s.count(t)`, env{
+				"s": dummyString(n, 'a'),
+				"t": 'a',
+			}
+		},
+		// Technically this trend is logarithmic, but it will only surpass 1
+		// for strings with more characters than there are atoms in the
+		// universe. For our mortal purposes, it is a constant 1.
+		trend: constant(1),
+	})
+}
+
+func TestStringElemordsAllocations(t *testing.T) {
+	testStringIterableMethod(t, "elem_ords")
+}
+
+func TestStringElemsAllocations(t *testing.T) {
+	testStringIterableMethod(t, "elems")
+}
+
+func testStringIterableMethod(t *testing.T, name string) {
+	testAllocations(t, allocationTest{
+		name: fmt.Sprintf("string.%s", name),
+		gen: func(n uint) (string, env) {
+			return fmt.Sprintf(`s.%s()`, name), env{"s": dummyString(n, 'a')}
+		},
+		trend: constant(1),
+	})
+}
+
+func TestStringEndswithAllocations(t *testing.T) {
+	testStringStartsEndsWithAllocations(t, "endswith")
+}
+
+func TestStringFindAllocations(t *testing.T) {
+	testStringFindMethod(t, "find", true)
 }
 
 func TestStringFormatAllocations(t *testing.T) {
@@ -398,6 +754,85 @@ func TestStringFormatAllocations(t *testing.T) {
 	})
 }
 
+func TestStringIndexAllocations(t *testing.T) {
+	testStringFindMethod(t, "index", false)
+}
+
+func TestStringIsalnumAllocations(t *testing.T) {
+	testStringIsPatternAllocations(t, "isalnum", 'a', '.')
+}
+
+func TestStringIsalphaAllocations(t *testing.T) {
+	testStringIsPatternAllocations(t, "isalpha", 'a', '1')
+}
+
+func TestStringIsdigitAllocations(t *testing.T) {
+	testStringIsPatternAllocations(t, "isdigit", '1', 'a')
+}
+
+func TestStringIslowerAllocations(t *testing.T) {
+	testStringIsPatternAllocations(t, "islower", 'a', 'A')
+}
+
+func TestStringIsspaceAllocations(t *testing.T) {
+	testStringIsPatternAllocations(t, "isspace", ' ', '.')
+}
+
+func TestStringIstitleAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "string.istitle (false)",
+		gen: func(n uint) (string, env) {
+			return `s.istitle()`, env{
+				"s": dummyString(n, 'a'),
+			}
+		},
+		trend: constant(1),
+	})
+	testAllocations(t, allocationTest{
+		name: "string.istitle (true)",
+		gen: func(n uint) (string, env) {
+			return `s.istitle()`, env{"s": strings.Repeat("Aa", int(n))}
+		},
+		trend: constant(1),
+	})
+}
+
+func TestStringIsupperAllocations(t *testing.T) {
+	testStringIsPatternAllocations(t, "isupper", 'A', 'a')
+}
+
+func testStringIsPatternAllocations(t *testing.T, name string, trueRune, falseRune rune) {
+	testAllocations(t, allocationTest{
+		name: fmt.Sprintf("string.%s (false)", name),
+		gen: func(n uint) (string, env) {
+			return fmt.Sprintf(`s.%s()`, name), env{"s": dummyString(n, falseRune)}
+		},
+		trend: constant(1),
+	})
+
+	testAllocations(t, allocationTest{
+		name: fmt.Sprintf("string.%s (true)", name),
+		gen: func(n uint) (string, env) {
+			return fmt.Sprintf(`s.%s()`, name), env{"s": dummyString(n, trueRune)}
+		},
+		trend: constant(1),
+	})
+}
+
+func TestStringLstripAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "string.lstrip",
+		gen: func(n uint) (string, env) {
+			s := new(strings.Builder)
+			s.Grow(int(n))
+			s.WriteString(strings.Repeat(" ", int(n/2)))
+			s.WriteString(strings.Repeat("a", int(n/2)))
+			return `s.lstrip()`, env{"s": s.String()}
+		},
+		trend: linear(0.5),
+	})
+}
+
 func TestStringJoinAllocations(t *testing.T) {
 	testAllocations(t, allocationTest{
 		name: "string.join",
@@ -422,15 +857,7 @@ func TestStringLowerAllocations(t *testing.T) {
 }
 
 func TestStringPartitionAllocations(t *testing.T) {
-	testAllocations(t, allocationTest{
-		name: "string.partition",
-		gen: func(n uint) (string, env) {
-			return "s.partition('|')", env{
-				"s": dummyString(n/2, 's') + "|" + dummyString(n/2-1, 's'),
-			}
-		},
-		trend: linear(1),
-	})
+	testStringPartitionMethodAllocations(t, "partition")
 }
 
 func TestStringRemoveprefixAllocations(t *testing.T) {
@@ -456,6 +883,77 @@ func TestStringRemovesuffixAllocations(t *testing.T) {
 			}
 		},
 		trend: linear(1),
+	})
+}
+
+func TestStringRfindAllocations(t *testing.T) {
+	testStringFindMethod(t, "rfind", true)
+}
+
+func TestStringRindexAllocations(t *testing.T) {
+	testStringFindMethod(t, "rindex", false)
+}
+
+func testStringFindMethod(t *testing.T, name string, allocOnAbsent bool) {
+	testAllocations(t, allocationTest{
+		name: fmt.Sprintf("string.%s (present)", name),
+		gen: func(n uint) (string, env) {
+			return fmt.Sprintf(`s.%s(t)`, name), env{
+				"s": dummyString(n, 'a'),
+				"t": dummyString(n/2, 'a'),
+			}
+		},
+		trend: constant(1),
+	})
+
+	absentAllocs := 0.0
+	if allocOnAbsent {
+		absentAllocs = 1
+	}
+	testAllocations(t, allocationTest{
+		name: fmt.Sprintf("string.%s (absent)", name),
+		gen: func(n uint) (string, env) {
+			return fmt.Sprintf(`s.%s(t)`, name), env{
+				"s": dummyString(n, 'a'),
+				"t": dummyString(n/2, 'b'),
+			}
+		},
+		trend:                     constant(absentAllocs),
+		falsePositiveCancellation: regexp.MustCompile("index: substring not found"),
+	})
+}
+
+func TestStringRpartitionAllocations(t *testing.T) {
+	testStringPartitionMethodAllocations(t, "rpartition")
+}
+
+func testStringPartitionMethodAllocations(t *testing.T, name string) {
+	testAllocations(t, allocationTest{
+		name: fmt.Sprintf("string.%s", name),
+		gen: func(n uint) (string, env) {
+			return fmt.Sprintf("s.%s('|')", name), env{
+				"s": dummyString(n/2, 's') + "|" + dummyString(n/2-1, 's'),
+			}
+		},
+		trend: linear(1),
+	})
+}
+
+func TestStringRsplitAllocations(t *testing.T) {
+	testStringSplitAllocations(t, "rsplit")
+}
+
+func TestStringRstripAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "string.rstrip",
+		gen: func(n uint) (string, env) {
+			s := new(strings.Builder)
+			s.Grow(int(n))
+			s.WriteString(strings.Repeat("a", int(n/2)))
+			s.WriteString(strings.Repeat(" ", int(n/2)))
+			return `s.rstrip()`, env{"s": s.String()}
+		},
+		trend: linear(0.5),
 	})
 }
 
@@ -487,15 +985,19 @@ func TestStringStripAllocations(t *testing.T) {
 }
 
 func TestStringSplitAllocations(t *testing.T) {
+	testStringSplitAllocations(t, "split")
+}
+
+func testStringSplitAllocations(t *testing.T, name string) {
 	for _, sep := range []string{"", " ", "|"} {
 		testAllocations(t, allocationTest{
-			name: fmt.Sprintf("string.split (with separator='%s')", sep),
+			name: fmt.Sprintf("string.%s (with separator='%s')", name, sep),
 			gen: func(n uint) (string, env) {
 				passSep := &sep
 				if sep == "" {
 					passSep = nil
 				}
-				return "s.split(sep)", env{
+				return fmt.Sprintf(`s.%s(sep)`, name), env{
 					"s":   generateSepString(n, sep),
 					"sep": passSep,
 				}
@@ -530,6 +1032,34 @@ func TestStringSplitlinesAllocations(t *testing.T) {
 			trend: linear(1),
 		})
 	}
+}
+
+func TestStringStartswithAllocations(t *testing.T) {
+	testStringStartsEndsWithAllocations(t, "startswith")
+}
+
+func testStringStartsEndsWithAllocations(t *testing.T, name string) {
+	testAllocations(t, allocationTest{
+		name: fmt.Sprintf("string.%s (false)", name),
+		gen: func(n uint) (string, env) {
+			return fmt.Sprintf(`s.%s(t)`, name), env{
+				"s": dummyString(n, 'a'),
+				"t": dummyString(n/2, 'b'),
+			}
+		},
+		trend: constant(1),
+	})
+
+	testAllocations(t, allocationTest{
+		name: fmt.Sprintf("string.%s (true)", name),
+		gen: func(n uint) (string, env) {
+			return fmt.Sprintf(`s.%s(t)`, name), env{
+				"s": dummyString(n, 'a'),
+				"t": dummyString(n/2, 'a'),
+			}
+		},
+		trend: constant(1),
+	})
 }
 
 func TestStringTitleAllocations(t *testing.T) {
@@ -590,18 +1120,18 @@ func testAllocations(t *testing.T, test allocationTest) {
 	predeclsSmall := envSmall.ToStarlarkPredecls()
 	deltaSmall, err := memoryIncrease(thread, test.name, codeSmall, predeclsSmall)
 	if err != nil && !test.IsFalsePositive(err.Error()) {
-		t.Errorf("Unexpected error %v", err)
+		t.Errorf("%s: unexpected error %v", test.name, err)
 	}
 	codeLarge, envLarge := test.gen(test.nLarge)
 	predeclsLarge := envLarge.ToStarlarkPredecls()
 	deltaLarge, err := memoryIncrease(thread, test.name, codeLarge, predeclsLarge)
 	if err != nil && !test.IsFalsePositive(err.Error()) {
-		t.Errorf("Unexpected error %v", err)
+		t.Errorf("%s: unexpected error %v", test.name, err)
 	}
 	ratio := float64(deltaLarge) / float64(deltaSmall)
 	expectedRatio := test.trend.allocations(float64(test.nLarge)) / test.trend.allocations(float64(test.nSmall))
 	if ratio <= 0.9*expectedRatio || 1.1*expectedRatio <= ratio {
-		t.Errorf("memory allocations did not %s: f(%d)=%d, f(%d)=%d, ratio=%.3f, want ~%.0f", test.trend.label, test.nSmall, deltaSmall, test.nLarge, deltaLarge, ratio, expectedRatio)
+		t.Errorf("%s: memory allocations did not %s: f(%d)=%d, f(%d)=%d, ratio=%.3f, want ~%.0f", test.name, test.trend.label, test.nSmall, deltaSmall, test.nLarge, deltaLarge, ratio, expectedRatio)
 	}
 
 	// Test allocations are roughly correct
@@ -609,10 +1139,10 @@ func testAllocations(t *testing.T, test allocationTest) {
 	expectedMinAllocs := uintptr(math.Round(0.9 * expectedAllocs))
 	expectedMaxAllocs := uintptr(math.Round(1.1 * expectedAllocs))
 	if deltaLarge < expectedMinAllocs {
-		t.Errorf("Too few allocations, expected ~%.0f but used only %d", expectedAllocs, deltaLarge)
+		t.Errorf("%s: too few allocations, expected ~%.0f but used only %d", test.name, expectedAllocs, deltaLarge)
 	}
 	if expectedMaxAllocs < deltaLarge {
-		t.Errorf("Too many allocations, expected ~%.0f but used %d", expectedAllocs, deltaLarge)
+		t.Errorf("%s: too many allocations, expected ~%.0f but used %d", test.name, expectedAllocs, deltaLarge)
 	}
 }
 

@@ -206,9 +206,12 @@ func all(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#any
-func any(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func any(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var iterable Iterable
 	if err := UnpackPositionalArgs("any", args, kwargs, 1, &iterable); err != nil {
+		return nil, err
+	}
+	if err := thread.DeclareSizeIncrease(1, b.Name()); err != nil {
 		return nil, err
 	}
 	iter := iterable.Iterate()
@@ -297,7 +300,7 @@ func chr(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if i > unicode.MaxRune {
 		return nil, fmt.Errorf("chr: Unicode code point U+%X out of range (>0x10FFFF)", i)
 	}
-	if err := thread.DeclareSizeIncrease(1, b.Name()); err != nil {
+	if err := thread.DeclareSizeIncrease(2, b.Name()); err != nil {
 		return nil, err
 	}
 	return String(string(rune(i))), nil
@@ -390,14 +393,11 @@ func fail(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	}
 	buf := new(strings.Builder)
 	buf.WriteString("fail: ")
-	if err := thread.DeclareSizeIncrease(uintptr(len(" ")*(len(args)-1)), b.Name()); err != nil {
+	if err := thread.DeclareSizeIncrease(uintptr(len(sep)*(len(args)-1)), b.Name()); err != nil {
 		return nil, err
 	}
 	for i, v := range args {
 		if i > 0 {
-			if err := thread.DeclareSizeIncrease(uintptr(len(sep)), b.Name()); err != nil {
-				return nil, err
-			}
 			buf.WriteString(sep)
 		}
 		if s, ok := AsString(v); ok {
@@ -1732,19 +1732,23 @@ func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		return nil, nameErr(b, err)
 	}
 
+	if err := thread.DeclareSizeIncrease(1, b.Name()); err != nil {
+		return nil, err
+	}
+
 	var slice string
 	if start < end {
 		slice = recv[start:end]
-	}
-	if err := thread.DeclareSizeIncrease(1, b.Name()); err != nil {
-		return nil, err
 	}
 	return MakeInt(strings.Count(slice, sub)), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·isalnum
-func string_isalnum(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_isalnum(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
+		return nil, err
+	}
+	if err := thread.DeclareSizeIncrease(1, b.Name()); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
@@ -1757,8 +1761,11 @@ func string_isalnum(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·isalpha
-func string_isalpha(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_isalpha(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
+		return nil, err
+	}
+	if err := thread.DeclareSizeIncrease(1, b.Name()); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
@@ -1771,8 +1778,11 @@ func string_isalpha(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·isdigit
-func string_isdigit(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_isdigit(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
+		return nil, err
+	}
+	if err := thread.DeclareSizeIncrease(1, b.Name()); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
@@ -1785,8 +1795,11 @@ func string_isdigit(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·islower
-func string_islower(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_islower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
+		return nil, err
+	}
+	if err := thread.DeclareSizeIncrease(1, b.Name()); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
@@ -1810,8 +1823,11 @@ func isCasedRune(r rune) bool {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·isspace
-func string_isspace(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_isspace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
+		return nil, err
+	}
+	if err := thread.DeclareSizeIncrease(1, b.Name()); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
@@ -1824,11 +1840,14 @@ func string_isspace(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·istitle
-func string_istitle(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_istitle(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
+	if err := thread.DeclareSizeIncrease(1, b.Name()); err != nil {
+		return nil, err
+	}
 
 	// Python semantics differ from x==strings.{To,}Title(x) in Go:
 	// "uppercase characters may only follow uncased characters and
@@ -1857,8 +1876,11 @@ func string_istitle(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·isupper
-func string_isupper(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_isupper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
+		return nil, err
+	}
+	if err := thread.DeclareSizeIncrease(1, b.Name()); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
@@ -2179,7 +2201,7 @@ func string_rindex(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Valu
 
 // https://github.com/google/starlark-go/starlark/blob/master/doc/spec.md#string·startswith
 // https://github.com/google/starlark-go/starlark/blob/master/doc/spec.md#string·endswith
-func string_startswith(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_startswith(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var x Value
 	var start, end Value = None, None
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &x, &start, &end); err != nil {
@@ -2204,6 +2226,9 @@ func string_startswith(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 
 	switch x := x.(type) {
 	case Tuple:
+		if err := thread.DeclareSizeIncrease(1, b.Name()); err != nil {
+			return nil, err
+		}
 		for i, x := range x {
 			prefix, ok := AsString(x)
 			if !ok {
@@ -2216,6 +2241,9 @@ func string_startswith(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		}
 		return False, nil
 	case String:
+		if err := thread.DeclareSizeIncrease(1, b.Name()); err != nil {
+			return nil, err
+		}
 		return Bool(f(s, string(x))), nil
 	}
 	return nil, fmt.Errorf("%s: got %s, want string or tuple of string", b.Name(), x.Type())
