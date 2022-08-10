@@ -494,21 +494,21 @@ func TestZipAllocations(t *testing.T) {
 	}
 
 	testAllocations(t, allocationTest{
-		name: "zip_pair",
+		name: "zip into pairs",
 		gen: func(n uint) (string, env) {
 			return genZipCall(2), genZipEnv(n, 2)
 		},
 		trend: linear(1.5), // Allocates backing array
 	})
 	testAllocations(t, allocationTest{
-		name: "zip_quint",
+		name: "zip into quituplets",
 		gen: func(n uint) (string, env) {
 			return genZipCall(5), genZipEnv(n, 5)
 		},
 		trend: linear(1.2), // Allocates backing array
 	})
 	testAllocations(t, allocationTest{
-		name: "zip_collating",
+		name: "zip into a single n-tuple",
 		gen: func(n uint) (string, env) {
 			return genZipCall(n), genZipEnv(n, n)
 		},
@@ -1005,20 +1005,6 @@ func testStringIsPatternAllocations(t *testing.T, name string, trueRune, falseRu
 	})
 }
 
-func TestStringLstripAllocations(t *testing.T) {
-	testAllocations(t, allocationTest{
-		name: "string.lstrip",
-		gen: func(n uint) (string, env) {
-			s := new(strings.Builder)
-			s.Grow(int(n))
-			s.WriteString(strings.Repeat(" ", int(n/2)))
-			s.WriteString(strings.Repeat("a", int(n/2)))
-			return `s.lstrip()`, env{"s": s.String()}
-		},
-		trend: linear(0.5),
-	})
-}
-
 func TestStringJoinAllocations(t *testing.T) {
 	testAllocations(t, allocationTest{
 		name: "string.join",
@@ -1039,6 +1025,20 @@ func TestStringLowerAllocations(t *testing.T) {
 			return "s.lower()", env{"s": dummyString(n, 's')}
 		},
 		trend: linear(1),
+	})
+}
+
+func TestStringLstripAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "string.lstrip",
+		gen: func(n uint) (string, env) {
+			s := new(strings.Builder)
+			s.Grow(int(n))
+			s.WriteString(strings.Repeat(" ", int(n/2)))
+			s.WriteString(strings.Repeat("a", int(n/2)))
+			return `s.lstrip()`, env{"s": s.String()}
+		},
+		trend: linear(0.5),
 	})
 }
 
@@ -1070,6 +1070,18 @@ func TestStringRemovesuffixAllocations(t *testing.T) {
 		},
 		trend: linear(1),
 	})
+}
+
+func TestStringReplaceAllocations(t *testing.T) {
+	for _, expansionFac := range []float64{0.5, 1, 2} {
+		testAllocations(t, allocationTest{
+			name: fmt.Sprintf("string.replace (with expansion factor %.1f)", expansionFac),
+			gen: func(n uint) (string, env) {
+				return fmt.Sprintf("s.replace('aa', '%s')", strings.Repeat("b", int(expansionFac*2))), env{"s": dummyString(n, 'a')}
+			},
+			trend: linear(expansionFac),
+		})
+	}
 }
 
 func TestStringRfindAllocations(t *testing.T) {
@@ -1141,18 +1153,6 @@ func TestStringRstripAllocations(t *testing.T) {
 		},
 		trend: linear(0.5),
 	})
-}
-
-func TestStringReplaceAllocations(t *testing.T) {
-	for _, expansionFac := range []float64{0.5, 1, 2} {
-		testAllocations(t, allocationTest{
-			name: fmt.Sprintf("string.replace (with expansion factor %.1f)", expansionFac),
-			gen: func(n uint) (string, env) {
-				return fmt.Sprintf("s.replace('aa', '%s')", strings.Repeat("b", int(expansionFac*2))), env{"s": dummyString(n, 'a')}
-			},
-			trend: linear(expansionFac),
-		})
-	}
 }
 
 func TestStringStripAllocations(t *testing.T) {
