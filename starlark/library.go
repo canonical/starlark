@@ -892,10 +892,6 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if err := UnpackArgs("print", nil, kwargs, "sep?", &sep); err != nil {
 		return nil, err
 	}
-	size := uintptr(len(args) - 1)
-	if err := thread.DeclareSizeIncrease(1+size, b.Name()); err != nil {
-		return nil, err
-	}
 
 	buf := new(strings.Builder)
 	for i, v := range args {

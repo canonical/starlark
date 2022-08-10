@@ -378,6 +378,26 @@ func TestOrdAllocations(t *testing.T) {
 	}
 }
 
+func TestPrintAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "print",
+		gen: func(n uint) (string, env) {
+			return `print(s)`, env{"s": dummyString(n, 'a')}
+		},
+		trend: linear(1),
+	})
+	testAllocations(t, allocationTest{
+		name: "print",
+		gen: func(n uint) (string, env) {
+			return `print(sep=sep, *l)`, env{
+				"l":   dummyList(n / 3),
+				"sep": "||",
+			}
+		},
+		trend: linear(1),
+	})
+}
+
 func TestRangeAllocations(t *testing.T) {
 	testAllocations(t, allocationTest{
 		name: "range",
