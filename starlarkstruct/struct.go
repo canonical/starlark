@@ -39,7 +39,7 @@ const MakeCompliance = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe |
 // An application can add 'struct' to the Starlark environment like so:
 //
 // 	globals := starlark.StringDict{
-// 		"struct":  starlark.NewBuiltin("struct", starlarkstruct.Make, starlarkstruct.MakeCompliance),
+// 		"struct":  starlark.NewBuiltinComplies("struct", starlarkstruct.Make, starlarkstruct.MakeCompliance),
 // 	}
 //
 func Make(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
