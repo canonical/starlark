@@ -583,6 +583,151 @@ func TestDictSetDefaultAllocations(t *testing.T) {
 
 }
 
+func TestDictUpdateAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "dict.update (from list, no overlap)",
+		gen: func(n uint) (string, env) {
+			l := make([]starlark.Value, 0, n)
+			for i := 0; i < int(n); i++ {
+				t := make(starlark.Tuple, 0, 2)
+				t = append(t, starlark.MakeInt(i), starlark.String("a"))
+				l = append(l, t)
+			}
+			return `d.update(l)`, env{
+				"d": starlark.NewDict(int(n)),
+				"l": l,
+			}
+		},
+		trend: linear(1),
+	})
+
+	testAllocations(t, allocationTest{
+		name: "dict.update (kwargs, no overlap)",
+		gen: func(n uint) (string, env) {
+			kvPairs := make([]string, 0, n)
+			for i := uint(0); i < n; i++ {
+				kvPairs = append(kvPairs, fmt.Sprintf("_%d='%s'", i, "a"))
+			}
+			return fmt.Sprintf(`d.update(%s)`, strings.Join(kvPairs, ",")), env{
+				"d": starlark.NewDict(int(n)),
+			}
+		},
+		trend:  linear(1),
+		nSmall: 25,
+		nLarge: 255,
+	})
+
+	testAllocations(t, allocationTest{
+		name: "dict.update (from dict, no overlap)",
+		gen: func(n uint) (string, env) {
+			d2 := starlark.NewDict(int(n))
+			for i := 0; i < int(n); i++ {
+				k := starlark.String(strconv.Itoa(i))
+				v := starlark.String(strconv.Itoa(i))
+				d2.SetKey(k, v)
+			}
+			return `d.update(d2)`, env{
+				"d":  starlark.NewDict(int(n)),
+				"d2": d2,
+			}
+		},
+		trend: linear(1),
+	})
+
+	testAllocations(t, allocationTest{
+		name: "dict.update (from list, with overlap)",
+		gen: func(n uint) (string, env) {
+			d := starlark.NewDict(int(n))
+			l := make([]starlark.Value, 0, n)
+			for i := 0; i < int(n); i++ {
+				k := starlark.String(fmt.Sprintf("_%d", i))
+				v := starlark.MakeInt(i)
+				// Create overlap of 50%
+				if i < int(n)/2 {
+					d.SetKey(k, v)
+				}
+				t := append(make(starlark.Tuple, 0, 2), k, v)
+				l = append(l, t)
+			}
+			return `d.update(l)`, env{
+				"d": d,
+				"l": l,
+			}
+		},
+		trend: linear(0.5),
+	})
+
+	testAllocations(t, allocationTest{
+		name: "dict.update (from kwargs, with overlap)",
+		gen: func(n uint) (string, env) {
+			d := starlark.NewDict(int(1.5 * float64(n)))
+			d2 := starlark.NewDict(int(n))
+			for i := 0; i < int(n); i++ {
+				s := starlark.String(strconv.Itoa(i))
+				d.SetKey(s, s)
+				s2 := starlark.String(strconv.Itoa(int(float64(i) * 2)))
+				d2.SetKey(s2, s2)
+			}
+			return `d.update(**d2)`, env{
+				"d":  d,
+				"d2": d2,
+			}
+		},
+		trend: linear(0.5),
+	})
+
+	testAllocations(t, allocationTest{
+		name: "dict.update (from dict, with overlap)",
+		gen: func(n uint) (string, env) {
+			d := starlark.NewDict(int(n))
+			d2 := starlark.NewDict(int(n))
+			for i := 0; i < int(n); i++ {
+				k := starlark.String(strconv.Itoa(i))
+				v := starlark.MakeInt(i)
+				// Create overlap of 50%
+				if i < int(n)/2 {
+					d.SetKey(k, v)
+				}
+				d2.SetKey(k, v)
+			}
+			return `d.update(d2)`, env{
+				"d":  d,
+				"d2": d2,
+			}
+		},
+		trend: linear(0.5),
+	})
+
+	testAllocations(t, allocationTest{
+		name: "dict.update (from list and dict, with overlap)",
+		gen: func(n uint) (string, env) {
+			// Generate a dictionary d, which overlaps 50% with a dictionary d2
+			// and dict(l), where d2 and dict(l) are disjoint, update d with l
+			// and d2, causing d to double in size.
+
+			d := starlark.NewDict(int(1.75 * float64(n)))
+			d2 := starlark.NewDict(int(n))
+			l := make([]starlark.Value, 0, n)
+			for i := 0; i < int(n); i++ {
+				s := starlark.String(strconv.Itoa(i))
+				d.SetKey(s, s)
+
+				s2 := starlark.String(strconv.Itoa(i * 2))
+				d2.SetKey(s2, s2)
+
+				s3 := starlark.String(strconv.Itoa(i*2 + 1))
+				l = append(l, starlark.Tuple([]starlark.Value{s3, s3}))
+			}
+			return `d.update(l, **d2)`, env{
+				"d":  d,
+				"l":  l,
+				"d2": d2,
+			}
+		},
+		trend: linear(1),
+	})
+}
+
 func TestDictValuesAllocations(t *testing.T) {
 	testAllocations(t, allocationTest{
 		name: "dict.values",

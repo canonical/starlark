@@ -2549,14 +2549,18 @@ func string_find_impl(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple, al
 // Common implementation of builtin dict function and dict.update method.
 // Precondition: len(updates) == 0 or 1.
 func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error {
+	initialSize := uintptr(dict.Len())
+	var maxAddedSize uintptr
 	if len(updates) == 1 {
+		nUpdates := uintptr(IterableLen(updates[0]))
+		maxAddedSize += nUpdates
+		if err := thread.DeclareSizeIncrease(nUpdates, "updateDict"); err != nil {
+			return err
+		}
 		switch updates := updates[0].(type) {
 		case IterableMapping:
 			// Iterate over dict's key/value pairs, not just keys.
 			for _, item := range updates.Items() {
-				if err := thread.DeclareSizeIncrease(1, "updateDict"); err != nil {
-					return err
-				}
 				if err := dict.SetKey(item[0], item[1]); err != nil {
 					return err // dict is frozen
 				}
@@ -2573,7 +2577,6 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 				iter2 := Iterate(pair)
 				if iter2 == nil {
 					return fmt.Errorf("dictionary update sequence element #%d is not iterable (%s)", i, pair.Type())
-
 				}
 				defer iter2.Done()
 				len := Len(pair)
@@ -2585,9 +2588,6 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 				var k, v Value
 				iter2.Next(&k)
 				iter2.Next(&v)
-				if err := thread.DeclareSizeIncrease(1, "updateDict"); err != nil {
-					return err
-				}
 				if err := dict.SetKey(k, v); err != nil {
 					return err
 				}
@@ -2597,15 +2597,12 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 
 	// Then add the kwargs.
 	before := dict.Len()
-	if err := thread.DeclareSizeIncrease(uintptr(len(kwargs)), "updateDict"); err != nil {
+	nkwargs := uintptr(len(kwargs))
+	maxAddedSize += nkwargs
+	if err := thread.DeclareSizeIncrease(nkwargs, "updateDict"); err != nil {
 		return err
 	}
 	for _, pair := range kwargs {
-		if _, found, err := dict.Get(pair[0]); err != nil {
-			return err
-		} else if found {
-			thread.DeclareSizeDecrease(1)
-		}
 		if err := dict.SetKey(pair[0], pair[1]); err != nil {
 			return err // dict is frozen
 		}
@@ -2613,9 +2610,6 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 	// In the common case, each kwarg will add another dict entry.
 	// If that's not so, check whether it is because there was a duplicate kwarg.
 	if dict.Len() < before+len(kwargs) {
-		if err := thread.DeclareSizeIncrease(uintptr(len(kwargs)), "updateDict"); err != nil {
-			return err
-		}
 		keys := make(map[String]bool, len(kwargs))
 		for _, kv := range kwargs {
 			k := kv[0].(String)
@@ -2624,6 +2618,10 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 			}
 			keys[k] = true
 		}
+	}
+
+	if deltaOverestimate := initialSize + maxAddedSize - uintptr(dict.Len()); deltaOverestimate > 0 {
+		thread.DeclareSizeDecrease(deltaOverestimate)
 	}
 
 	return nil
