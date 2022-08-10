@@ -638,13 +638,17 @@ func int_(thread *Thread, b_ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 				bitConversionRatio++
 			}
 		}
-		if err := thread.DeclareSizeIncrease(1+uintptr(len(s))*bitConversionRatio, b_.Name()); err != nil {
+		maxSize := 1 + uintptr(len(s))*bitConversionRatio
+		if err := thread.DeclareSizeIncrease(maxSize, b_.Name()); err != nil {
 			return nil, err
 		}
 
 		res := parseInt(s, b)
 		if res == nil {
 			return nil, fmt.Errorf("int: invalid literal with base %d: %s", b, s)
+		}
+		if excess := maxSize - res.(Int).Size(); excess > 0 {
+			thread.DeclareSizeDecrease(excess)
 		}
 		return res, nil
 	}
@@ -664,9 +668,6 @@ func int_(thread *Thread, b_ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	i, err := NumberToInt(x)
 	if err != nil {
 		return nil, fmt.Errorf("int: %s", err)
-	}
-	if err := thread.DeclareSizeIncrease(1, b_.Name()); err != nil {
-		return nil, err
 	}
 	return i, nil
 }

@@ -311,6 +311,23 @@ func TestHashAllocations(t *testing.T) {
 	})
 }
 
+func TestIntAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "int from int",
+		gen: func(n uint) (string, env) {
+			return `int(i)`, env{"i": dummyInt(n)}
+		},
+		trend: constant(0),
+	})
+	testAllocations(t, allocationTest{
+		name: "int from string",
+		gen: func(n uint) (string, env) {
+			return `int(s)`, env{"s": dummyString(n, '1')}
+		},
+		trend: linear(math.Log2(10) * float64(dummyInt(100000).Size()) / 100000),
+	})
+}
+
 func TestLenAllocations(t *testing.T) {
 	testAllocations(t, allocationTest{
 		name: "len",
