@@ -142,6 +142,30 @@ func TestNegativeDeltaAllocation(t *testing.T) {
 	}
 }
 
+func TestAbsAllocations(t *testing.T) {
+	testAllocations(t, allocationTest{
+		name: "abs (positive)",
+		gen: func(n uint) (string, env) {
+			return `abs(n)`, env{"n": dummyInt(n)}
+		},
+		trend: constant(0),
+	})
+	testAllocations(t, allocationTest{
+		name: "abs (negative float)",
+		gen: func(n uint) (string, env) {
+			return `abs(f)`, env{"f": -float64(n)}
+		},
+		trend: constant(1),
+	})
+	testAllocations(t, allocationTest{
+		name: "abs (negative int)",
+		gen: func(n uint) (string, env) {
+			return `abs(n)`, env{"n": starlark.MakeInt(0).Sub(dummyInt(n))}
+		},
+		trend: linear(float64(dummyInt(100000).Size()) / 100000),
+	})
+}
+
 func TestAllAllocations(t *testing.T) {
 	testAllocations(t, allocationTest{
 		name: "all",
