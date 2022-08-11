@@ -7,32 +7,32 @@ import (
 )
 
 func TestPositiveDeltaDeclaration(t *testing.T) {
-	const sizeIncrease = 1000
+	const intendedAllocationIncrease = 1000
 
 	thread := new(starlark.Thread)
 	thread.SetMaxAllocations(0)
 
 	// Accept and correctly store reasonable size increase
 	allocs0 := thread.Allocations()
-	err := thread.DeclareSizeIncrease(sizeIncrease)
+	err := thread.DeclareSizeIncrease(intendedAllocationIncrease)
 	if err != nil {
 		t.Errorf("Unexpected cancellation: %v", err)
 	}
 	delta := thread.Allocations() - allocs0
-	if delta != sizeIncrease {
-		t.Errorf("Incorrect size increase: expected %d but got %d", sizeIncrease, delta)
+	if delta != intendedAllocationIncrease {
+		t.Errorf("Incorrect size increase: expected %d but got %d", intendedAllocationIncrease, delta)
 	}
 }
 
-func TestPositiveDeltaDeclarationExceedingQuota(t *testing.T) {
-	const sizeIncrease = 1000
-	const quota = sizeIncrease / 2
+func TestPositiveDeltaDeclarationExceedingMax(t *testing.T) {
+	const allocationIncrease = 1000
+	const maxAllocations = allocationIncrease / 2
 
 	thread := new(starlark.Thread)
-	thread.SetMaxAllocations(quota)
+	thread.SetMaxAllocations(maxAllocations)
 
 	// Error when too much memory is required
-	err := thread.DeclareSizeIncrease(sizeIncrease)
+	err := thread.DeclareSizeIncrease(allocationIncrease)
 	if err == nil {
 		t.Errorf("Expected allocation failure!")
 	}
