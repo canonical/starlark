@@ -87,14 +87,14 @@ func constant(c float64) allocationTrend {
 
 func linear(a float64) allocationTrend {
 	return allocationTrend{
-		label:       "increase linearly where f(0) =~ 0",
+		label:       "increase linearly",
 		allocations: func(n float64) float64 { return a * n },
 	}
 }
 
 func affine(a, b float64) allocationTrend {
 	return allocationTrend{
-		label:       "increase linearly",
+		label:       "increase affinely",
 		allocations: func(n float64) float64 { return a*n + b },
 	}
 }
