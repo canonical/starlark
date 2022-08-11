@@ -1213,21 +1213,25 @@ func writeValue(out *strings.Builder, x Value, path []Value) {
 
 // Write the string representation of a given value to a buffer, tracking
 // allocations, failing early if insufficient space is available.
-func writeBufferValue(buf *strings.Builder, thread *Thread, b *Builtin, x Value, path []Value) error {
+func writeBufferValue(buf *strings.Builder, thread *Thread, b *Builtin, x Value, path []Value) (appliedDelta uintptr, err error) {
 	delta, canEstimate := writeValueSizeBound(x, path)
 	var initialLen int
 	if !canEstimate {
 		initialLen = buf.Len()
-	} else if err := thread.DeclareSizeIncrease(delta, b.Name()); err != nil {
-		return err
+	} else {
+		if err = thread.DeclareSizeIncrease(delta, b.Name()); err != nil {
+			return
+		}
+		appliedDelta = delta
 	}
 	writeValue(buf, x, path)
 	if !canEstimate {
-		if err := thread.DeclareSizeIncrease(uintptr(buf.Len()-initialLen), b.Name()); err != nil {
-			return err
+		appliedDelta = uintptr(buf.Len() - initialLen)
+		if err = thread.DeclareSizeIncrease(appliedDelta, b.Name()); err != nil {
+			return 0, err
 		}
 	}
-	return nil
+	return
 }
 
 func pathContains(path []Value, x Value) bool {

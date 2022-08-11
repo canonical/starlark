@@ -406,7 +406,7 @@ func fail(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 			}
 			buf.WriteString(s)
 		} else {
-			if err := writeBufferValue(buf, thread, b, v, nil); err != nil {
+			if _, err := writeBufferValue(buf, thread, b, v, nil); err != nil {
 				return nil, err
 			}
 		}
@@ -893,28 +893,43 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		return nil, err
 	}
 
+	var tempAllocs uintptr
+	defer func() {
+		thread.DeclareSizeDecrease(tempAllocs)
+	}()
+
+	sepAllocs := uintptr((len(args) - 1) * len(sep))
+	if err := thread.DeclareSizeIncrease(sepAllocs, b.Name()); err != nil {
+		return nil, err
+	}
+	tempAllocs += sepAllocs
+
 	buf := new(strings.Builder)
 	for i, v := range args {
 		if i > 0 {
-			if err := thread.DeclareSizeIncrease(uintptr(len(sep)), b.Name()); err != nil {
-				return nil, err
-			}
 			buf.WriteString(sep)
 		}
 		if s, ok := AsString(v); ok {
-			if err := thread.DeclareSizeIncrease(uintptr(len(s)), b.Name()); err != nil {
+			stringAllocs := uintptr(len(s))
+			if err := thread.DeclareSizeIncrease(stringAllocs, b.Name()); err != nil {
 				return nil, err
 			}
+			tempAllocs += stringAllocs
 			buf.WriteString(s)
 		} else if b_, ok := v.(Bytes); ok {
-			if err := thread.DeclareSizeIncrease(uintptr(len(b_)), b.Name()); err != nil {
+			bytesAllocs := uintptr(len(b_))
+			if err := thread.DeclareSizeIncrease(bytesAllocs, b.Name()); err != nil {
 				return nil, err
 			}
+			tempAllocs += bytesAllocs
 			buf.WriteString(string(b_))
 		} else {
-			if err := writeBufferValue(buf, thread, b, v, nil); err != nil {
+			var delta uintptr
+			var err error
+			if delta, err = writeBufferValue(buf, thread, b, v, nil); err != nil {
 				return nil, err
 			}
+			tempAllocs += delta
 		}
 	}
 
@@ -2027,12 +2042,12 @@ func string_format(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Valu
 				}
 				buf.WriteString(str)
 			} else {
-				if err := writeBufferValue(buf, thread, b, arg, nil); err != nil {
+				if _, err := writeBufferValue(buf, thread, b, arg, nil); err != nil {
 					return nil, err
 				}
 			}
 		case "r":
-			if err := writeBufferValue(buf, thread, b, arg, nil); err != nil {
+			if _, err := writeBufferValue(buf, thread, b, arg, nil); err != nil {
 				return nil, err
 			}
 		default:

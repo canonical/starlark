@@ -384,7 +384,7 @@ func TestPrintAllocations(t *testing.T) {
 		gen: func(n uint) (string, env) {
 			return `print(s)`, env{"s": dummyString(n, 'a')}
 		},
-		trend: linear(1),
+		trend: constant(0),
 	})
 	testAllocations(t, allocationTest{
 		name: "print",
@@ -394,7 +394,7 @@ func TestPrintAllocations(t *testing.T) {
 				"sep": "||",
 			}
 		},
-		trend: linear(1),
+		trend: constant(0),
 	})
 }
 
