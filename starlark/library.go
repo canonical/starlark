@@ -392,10 +392,10 @@ func fail(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		return nil, err
 	}
 	buf := new(strings.Builder)
-	buf.WriteString("fail: ")
-	if err := thread.DeclareSizeIncrease(uintptr(len(sep)*(len(args)-1)), b.Name()); err != nil {
+	if err := thread.DeclareSizeIncrease(uintptr(len("fail: ")+len(sep)*(len(args)-1)), b.Name()); err != nil {
 		return nil, err
 	}
+	buf.WriteString("fail: ")
 	for i, v := range args {
 		if i > 0 {
 			buf.WriteString(sep)
