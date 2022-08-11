@@ -5,6 +5,7 @@
 package starlark
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1650,20 +1651,19 @@ func interpolate(format string, x Value) (Value, error) {
 // If the declared delta causes the thread's tally to exceed its maxiumum
 // limit, the thread is cancelled and this function returns a corresponding
 // error.
-func (thread *Thread) DeclareSizeIncrease(delta uintptr) error {
+func (thread *Thread) DeclareSizeIncrease(delta uintptr) (err error) {
 	if thread.cancelReason == nil {
 		atomic.AddUintptr(&thread.allocations, delta)
 		if thread.allocations >= thread.maxAllocations {
 			if vmdebug {
 				fmt.Fprintf(os.Stderr, "too much memory used: failed to allocate another %d locations (quota: %d/%d) after %d steps", delta, thread.allocations-delta, thread.maxAllocations, thread.steps)
 			}
-			thread.Cancel("too many allocations")
+
+			problem := "too many allocations"
+			thread.Cancel(problem)
+			err = errors.New(problem)
 		}
 	}
 
-	if thread.cancelReason != nil {
-		reason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason)))
-		return fmt.Errorf("Starlark computation cancelled: %s", *(*string)(reason))
-	}
-	return nil
+	return
 }
