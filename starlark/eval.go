@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
+	"os"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -50,6 +51,9 @@ type Thread struct {
 	// steps counts abstract computation steps executed by this thread.
 	steps, maxSteps uint64
 
+	// allocations counts the abstract memory units claimed by this resource pool
+	allocations, maxAllocations uintptr
+
 	// cancelReason records the reason from the first call to Cancel.
 	cancelReason *string
 
@@ -77,6 +81,28 @@ func (thread *Thread) ExecutionSteps() uint64 {
 // thread.Cancel("too many steps").
 func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
+}
+
+// Allocations returns a count of abstract allocations made by this thread,
+// counted from calls to DeclareSizeIncrease. It can be used as an approximate
+// measure the space required by the result of a starlark execution by
+// measuring the increase in allocations from before and after a computation.
+//
+// The precise meaning of an "allocation" is not specified and may change.
+func (thread *Thread) Allocations() uintptr {
+	return thread.allocations
+}
+
+// SetMaxAllocation sets a limit on the number of allocations which may be made
+// by this thread. If the thread's allocation tally exceeds this limit, the
+// interpreter calls thread.Cancel("too many allocations").
+//
+// If zero is passed to this function, the restriction is lifted.
+func (thread *Thread) SetMaxAllocations(max uintptr) {
+	if max == 0 {
+		max--
+	}
+	thread.maxAllocations = max
 }
 
 // Cancel causes execution of Starlark code in the specified thread to
@@ -1615,4 +1641,29 @@ func interpolate(format string, x Value) (Value, error) {
 	}
 
 	return String(buf.String()), nil
+}
+
+// Declares an increase of delta in the number of allocations associated with
+// this thread. The string whence may be used in debugging messages to indicate
+// where the allocations were made.
+//
+// If the declared delta causes the thread's tally to exceed its maxiumum
+// limit, the thread is cancelled and this function returns a corresponding
+// error.
+func (thread *Thread) DeclareSizeIncrease(delta uintptr) error {
+	if thread.cancelReason == nil {
+		atomic.AddUintptr(&thread.allocations, delta)
+		if thread.allocations >= thread.maxAllocations {
+			if vmdebug {
+				fmt.Fprintf(os.Stderr, "too much memory used: failed to allocate another %d locations (quota: %d/%d) after %d steps", delta, thread.allocations-delta, thread.maxAllocations, thread.steps)
+			}
+			thread.Cancel("too many allocations")
+		}
+	}
+
+	if thread.cancelReason != nil {
+		reason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason)))
+		return fmt.Errorf("Starlark computation cancelled: %s", *(*string)(reason))
+	}
+	return nil
 }
