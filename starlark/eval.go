@@ -1651,7 +1651,7 @@ func interpolate(format string, x Value) (Value, error) {
 // If the declared delta causes the thread's tally to exceed its maxiumum
 // limit, the thread is cancelled and this function returns a corresponding
 // error.
-func (thread *Thread) DeclareSizeIncrease(delta uintptr) (err error) {
+func (thread *Thread) DeclareAllocationsIncrease(delta uintptr) (err error) {
 	if thread.cancelReason == nil {
 		atomic.AddUintptr(&thread.allocations, delta)
 		if thread.allocations >= thread.maxAllocations {
