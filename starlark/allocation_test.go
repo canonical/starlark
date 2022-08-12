@@ -164,6 +164,15 @@ func toStarlarkValue(in interface{}) (out starlark.Value, err error) {
 		out = starlark.MakeInt(int(inVal.Uint()))
 	case reflect.Float32, reflect.Float64:
 		out = starlark.Float(inVal.Float())
+	case reflect.Array, reflect.Slice:
+		len := inVal.Len()
+		elems := make([]starlark.Value, len)
+		for i := 0; i < len; i++ {
+			if elems[i], err = toStarlarkValue(inVal.Index(i)); err != nil {
+				return
+			}
+		}
+		out = starlark.NewList(elems)
 	case reflect.Map:
 		d := starlark.NewDict(inVal.Len())
 		iter := inVal.MapRange()
@@ -182,8 +191,6 @@ func toStarlarkValue(in interface{}) (out starlark.Value, err error) {
 		out, err = toStarlarkValue(inVal.Elem())
 	case reflect.String:
 		out = starlark.String(inVal.String())
-	case reflect.Interface:
-		out, err = toStarlarkValue(inVal.Elem())
 	default:
 		err = fmt.Errorf("Cannot automatically convert a value of kind %v to a starlark.Value: encountered %v", kind, in)
 	}
@@ -197,13 +204,17 @@ func TestToStarlarkValue(t *testing.T) {
 	}
 
 	fooBarStringRaw := "foobar"
+	fooBarList := starlark.NewList(append(make([]starlark.Value, 0), starlark.String("foo"), starlark.String("bar")))
 	fooBarDict := starlark.NewDict(1)
 	fooBarDict.SetKey(starlark.String("foo"), starlark.String("bar"))
+	nestedFooBarDict := starlark.NewDict(1)
+	nestedFooBarDict.SetKey(starlark.String("foo"), starlark.NewList(append(make([]starlark.Value, 0, 2), starlark.String("bar"), starlark.String("baz"))))
 
 	tests := []valueConversionTest{
 		{
-			from: starlark.String("foo"),
-			to:   starlark.String("foo"),
+			// starlark.Int implements starlark.Value so conversion is an identity operation
+			from: starlark.MakeInt(1234),
+			to:   starlark.MakeInt(1234),
 		},
 		{
 			from: nil,
@@ -238,12 +249,24 @@ func TestToStarlarkValue(t *testing.T) {
 			to:   starlark.Float(2.5),
 		},
 		{
+			from: []string{"foo", "bar"},
+			to:   fooBarList,
+		},
+		{
+			from: [2]string{"foo", "bar"},
+			to:   fooBarList,
+		},
+		{
 			from: map[string]string{"foo": "bar"},
 			to:   fooBarDict,
 		},
 		{
 			from: &fooBarStringRaw,
 			to:   starlark.String(fooBarStringRaw),
+		},
+		{
+			from: map[string][]string{"foo": {"bar", "baz"}},
+			to:   nestedFooBarDict,
 		},
 	}
 
