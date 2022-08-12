@@ -9,8 +9,6 @@ import (
 type ComplianceFlags uint8
 
 const (
-	// TODO(kcza): discuss how these items should be documented, given that they are not yet implemented!
-
 	// Execute only code which requests memory before making allocations
 	MemSafe ComplianceFlags = 1 << iota
 	CPUSafe
