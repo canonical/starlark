@@ -51,7 +51,7 @@ func (flags ComplianceFlags) Names() (names []string) {
 
 func (f ComplianceFlags) AssertValid() {
 	if f >= complianceFlagsLimit {
-		panic(fmt.Sprintf("Invalid compliance flags, %d is not less than %d", f, complianceFlagsLimit))
+		panic(fmt.Sprintf("Invalid compliance flags: got %d", f))
 	}
 }
 
