@@ -10,11 +10,10 @@ type ComplianceFlags uint8
 
 //go:generate stringer -type=ComplianceFlags
 const (
-	// Execute only code which requests memory before making allocations
-	MemSafe ComplianceFlags = 1 << iota
-	CPUSafe
-	TimeSafe
+	CPUSafe ComplianceFlags = 1 << iota
 	IOSafe
+	MemSafe
+	TimeSafe
 	complianceFlagsLimit
 )
 
