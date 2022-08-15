@@ -1,9 +1,6 @@
 package starlark_test
 
 import (
-	"fmt"
-	"reflect"
-	"sort"
 	"testing"
 
 	"github.com/canonical/starlark/lib/json"
@@ -82,69 +79,6 @@ func testComplianceEnforcement(t *testing.T, require, probe starlark.ComplianceF
 		t.Errorf("Unexpected cancellation when testing compliance: %v", err)
 	} else if !expectPass && err == nil {
 		t.Errorf("Compliance enforcement did not error when expected")
-	}
-}
-
-func TestMultiFunctionComplianceDeclaration(t *testing.T) {
-	const n = 100
-	const flags = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
-	fns := make([]*starlark.Builtin, 0, n)
-	for i := 0; i < n; i++ {
-		name := fmt.Sprintf("func_%d", i)
-		fns = append(fns, starlark.NewBuiltin(name,
-			func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-				return starlark.String(name), nil
-			}))
-	}
-	starlark.SolemnlyDeclareCompliance(flags, fns...)
-	for _, fn := range fns {
-		if fn.Compliance() != flags {
-			t.Errorf("Failed to set compliance flags: expected %d but got %d", flags, fn.Compliance())
-		}
-	}
-}
-
-func TestComplianceFromNames(t *testing.T) {
-	flags, err := starlark.ComplianceFromNames([]string{})
-	if err != nil {
-		t.Errorf("Failed to get compliance flags from list")
-	}
-	if flags != 0 {
-		t.Errorf("Empty compliance set did not yield zero compliance flags: got %v", flags)
-	}
-	flags, err = starlark.ComplianceFromNames([]string{"memsafe", "cpusafe", "timesafe", "iosafe"})
-	expectedFullFlags := starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
-	if err != nil {
-		t.Errorf("Failed to get compliance flags from list")
-	}
-	if flags != expectedFullFlags {
-		t.Errorf("Empty compliance set did not yield full compliance flags: got %v, expected %d", flags, expectedFullFlags)
-	}
-	_, err = starlark.ComplianceFromNames([]string{"memsafe", "HFJDKSLFHDJSKLFHDS"})
-	if err == nil {
-		t.Errorf("Invalid compliance-flag names did not yield error")
-	}
-}
-
-func TestComplianceRoundTrip(t *testing.T) {
-	testComplianceRoundTrip(t, []string{})
-	testComplianceRoundTrip(t, []string{"memsafe"})
-	testComplianceRoundTrip(t, []string{"memsafe", "iosafe"})
-	testComplianceRoundTrip(t, []string{"memsafe", "cpusafe", "timesafe", "iosafe"})
-}
-
-func testComplianceRoundTrip(t *testing.T, flagNames []string) {
-	flags, err := starlark.ComplianceFromNames(flagNames)
-	if err != nil {
-		t.Errorf("Unexpected failure computing compliance flags: %v", err)
-		return
-	}
-
-	returnedNames := flags.Names()
-	sort.Strings(flagNames)
-	sort.Strings(returnedNames)
-	if len(flagNames)|len(returnedNames) != 0 && !reflect.DeepEqual(flagNames, returnedNames) {
-		t.Errorf("Round-trip flag sets are different: expected %v but got %v", flagNames, returnedNames)
 	}
 }
 
