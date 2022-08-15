@@ -31,7 +31,7 @@ import (
 	"github.com/canonical/starlark/syntax"
 )
 
-const MakeCompliance = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+const MakeSafety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
 // Make is the implementation of a built-in function that instantiates
 // an immutable struct from the specified keyword arguments.
@@ -39,7 +39,7 @@ const MakeCompliance = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe |
 // An application can add 'struct' to the Starlark environment like so:
 //
 // 	globals := starlark.StringDict{
-// 		"struct":  starlark.NewBuiltinComplies("struct", starlarkstruct.Make, starlarkstruct.MakeCompliance),
+// 		"struct":  starlark.NewBuiltinWithSafety("struct", starlarkstruct.Make, starlarkstruct.MakeSafety),
 // 	}
 //
 func Make(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {

@@ -71,10 +71,10 @@ func init() {
 		"zip":       NewBuiltin("zip", zip),
 	}
 
-	const stdlibComplianceDefault = MemSafe | CPUSafe | TimeSafe | IOSafe
+	const stdlibSafetyDefault = MemSafe | CPUSafe | TimeSafe | IOSafe
 	for _, b := range Universe {
 		if b, ok := b.(*Builtin); ok {
-			b.SolemnlyDeclareCompliance(stdlibComplianceDefault)
+			b.DeclareSafety(stdlibSafetyDefault)
 		}
 	}
 }

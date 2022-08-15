@@ -159,11 +159,11 @@ var Module = &starlarkstruct.Module{
 }
 
 func init() {
-	const protoComplianceDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+	const protoSafetyDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
 	for _, b := range Module.Members {
 		if b, ok := b.(*starlark.Builtin); ok {
-			b.SolemnlyDeclareCompliance(protoComplianceDefault)
+			b.DeclareSafety(protoSafetyDefault)
 		}
 	}
 }

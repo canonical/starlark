@@ -60,9 +60,9 @@ type Thread struct {
 	// proftime holds the accumulated execution time since the last profile event.
 	proftime time.Duration
 
-	// requiredCompliance holds the set of compliance conditions which must be
+	// requiredSafety holds the set of safety conditions which must be
 	// satisfied by any builtin which is called when running this thread.
-	requiredCompliance ComplianceFlags
+	requiredSafety SafetyFlags
 }
 
 // ExecutionSteps returns a count of abstract computation steps executed
@@ -83,20 +83,20 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
 }
 
-// Compliance returns the set of compliance flags which must be satisfied by
-// any builtin which is called from this thread.
-func (thread *Thread) Compliance() ComplianceFlags {
-	return thread.requiredCompliance
+// Safety returns the set of safety flags which must be satisfied by any
+// builtin which is called from this thread.
+func (thread *Thread) Safety() SafetyFlags {
+	return thread.requiredSafety
 }
 
-// RequireCompliance inserts all flags from a given set into the thread's
-// required set. If the compliance flags passed are not valid, a panic occurs.
+// RequireSafety inserts all flags from a given set into the thread's required
+// set. If the safety flags passed are not valid, a panic occurs.
 //
-// Once a flag is inserted into the thread's required compliance set, it cannot
-// be removed.
-func (thread *Thread) RequireCompliance(flags ComplianceFlags) {
+// Once a flag is inserted into the thread's required safety set, it cannot be
+// removed.
+func (thread *Thread) RequireSafety(flags SafetyFlags) {
 	flags.AssertValid()
-	thread.requiredCompliance |= flags
+	thread.requiredSafety |= flags
 }
 
 // Cancel causes execution of Starlark code in the specified thread to
@@ -1211,12 +1211,12 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		return nil, fmt.Errorf("invalid call of non-function (%s)", fn.Type())
 	}
 
-	// Check what is being called has declared appropriate compliance
-	var newCompliance ComplianceFlags
-	if c, ok := c.(HasCompliance); ok {
-		newCompliance = c.Compliance()
+	// Check what is being called has declared appropriate safety
+	var newSafety SafetyFlags
+	if c, ok := c.(HasSafety); ok {
+		newSafety = c.Safety()
 	}
-	if err := thread.requiredCompliance.Permits(newCompliance); err != nil {
+	if err := thread.requiredSafety.Permits(newSafety); err != nil {
 		return nil, err
 	}
 

@@ -5,43 +5,42 @@ import (
 	"strings"
 )
 
-// ComplianceFlags represents a set of constraints on executed code
-type ComplianceFlags uint8
+// SafetyFlags represents a set of constraints on executed code
+type SafetyFlags uint8
 
-//go:generate stringer -type=ComplianceFlags
+//go:generate stringer -type=SafetyFlags
 const (
-	CPUSafe ComplianceFlags = 1 << iota
+	CPUSafe SafetyFlags = 1 << iota
 	IOSafe
 	MemSafe
 	TimeSafe
-	complianceFlagsLimit
+	safetyFlagsLimit
 )
 
-var complianceAll ComplianceFlags
+var safetyAll SafetyFlags
 
 func init() {
-	var flag ComplianceFlags
-	for flag = 1; flag < complianceFlagsLimit; flag <<= 1 {
-		complianceAll |= flag
+	var flag SafetyFlags
+	for flag = 1; flag < safetyFlagsLimit; flag <<= 1 {
+		safetyAll |= flag
 	}
 }
 
 var numFlagsDefined uintptr
 
-type HasCompliance interface {
-	Compliance() ComplianceFlags
+type HasSafety interface {
+	Safety() SafetyFlags
 }
 
 var (
-	_ HasCompliance = (*Thread)(nil)
-	_ HasCompliance = (*Builtin)(nil)
-	_ HasCompliance = (*Function)(nil)
+	_ HasSafety = (*Thread)(nil)
+	_ HasSafety = (*Builtin)(nil)
+	_ HasSafety = (*Function)(nil)
 )
 
-
-func (flags ComplianceFlags) Names() (names []string) {
+func (flags SafetyFlags) Names() (names []string) {
 	names = make([]string, 0, numFlagsDefined)
-	for f := ComplianceFlags(1); f < complianceFlagsLimit; f <<= 1 {
+	for f := SafetyFlags(1); f < safetyFlagsLimit; f <<= 1 {
 		if f&flags != 0 {
 			names = append(names, f.String())
 		}
@@ -49,17 +48,17 @@ func (flags ComplianceFlags) Names() (names []string) {
 	return
 }
 
-func (f ComplianceFlags) AssertValid() {
-	if f >= complianceFlagsLimit {
-		panic(fmt.Sprintf("Invalid compliance flags: got %d", f))
+func (f SafetyFlags) AssertValid() {
+	if f >= safetyFlagsLimit {
+		panic(fmt.Sprintf("Invalid safety flags: got %d", f))
 	}
 }
 
-// Tests that compliance required ⊆ compliance toCheck
-func (required ComplianceFlags) Permits(toCheck ComplianceFlags) error {
+// Tests that safety required ⊆ safety toCheck
+func (required SafetyFlags) Permits(toCheck SafetyFlags) error {
 	missingFlags := required &^ toCheck
 	if missingFlags != 0 {
-		return fmt.Errorf("Missing compliance flags: %s", strings.Join(missingFlags.Names(), ", "))
+		return fmt.Errorf("Missing safety flags: %s", strings.Join(missingFlags.Names(), ", "))
 	}
 	return nil
 }

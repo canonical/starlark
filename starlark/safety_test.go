@@ -11,113 +11,113 @@ import (
 	"github.com/canonical/starlark/starlarkstruct"
 )
 
-func TestCompliance(t *testing.T) {
+func TestSafety(t *testing.T) {
 	justCpu := starlark.CPUSafe
 	justMem := starlark.MemSafe
 	memAndCpu := justCpu | justMem
-	unrestricted := starlark.ComplianceFlags(0)
+	unrestricted := starlark.SafetyFlags(0)
 
 	if err := unrestricted.Permits(memAndCpu); err != nil {
-		t.Errorf("Incorrect compliance failure %v", err)
+		t.Errorf("Incorrect safety failure %v", err)
 	}
 
 	if err := justCpu.Permits(memAndCpu); err != nil {
-		t.Errorf("Incorrect compliance failure: %v", err)
+		t.Errorf("Incorrect safety failure: %v", err)
 	}
 
 	if memAndCpu.Permits(justCpu) == nil {
-		t.Errorf("Compliance flags did not apply: missing flag not rejected")
+		t.Errorf("Safety flags did not apply: missing flag not rejected")
 	}
 
 	if memAndCpu.Permits(unrestricted) == nil {
-		t.Errorf("Failed to enforce compliance: restricted env allows unrestricted")
+		t.Errorf("Failed to enforce safety: restricted env allows unrestricted")
 	}
 }
 
-func TestComplianceEnforcement(t *testing.T) {
-	noCompliance := starlark.ComplianceFlags(0)
-	fullCompliance := starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+func TestSafetyEnforcement(t *testing.T) {
+	noSafety := starlark.SafetyFlags(0)
+	fullSafety := starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
-	// Equal compliance-sets are accepted
-	testComplianceEnforcement(t, fullCompliance, fullCompliance, true)
-	testComplianceEnforcement(t, fullCompliance, fullCompliance, true)
+	// Equal safety-sets are accepted
+	testSafetyEnforcement(t, fullSafety, fullSafety, true)
+	testSafetyEnforcement(t, fullSafety, fullSafety, true)
 
-	testComplianceEnforcement(t, noCompliance, fullCompliance, true)  // Where no compliance is expected, compliance can run
-	testComplianceEnforcement(t, fullCompliance, noCompliance, false) // Where full compliance is expected, no-compliance is rejected
+	testSafetyEnforcement(t, noSafety, fullSafety, true)  // Where no safety is expected, safety can run
+	testSafetyEnforcement(t, fullSafety, noSafety, false) // Where full safety is expected, no-safety is rejected
 
-	// Disjoint non-empty compliance sets are rejected
+	// Disjoint non-empty safety sets are rejected
 	disjointA := starlark.TimeSafe | starlark.IOSafe
 	disjointB := starlark.MemSafe | starlark.CPUSafe
-	testComplianceEnforcement(t, disjointA, disjointB, false)
-	testComplianceEnforcement(t, disjointB, disjointA, false)
+	testSafetyEnforcement(t, disjointA, disjointB, false)
+	testSafetyEnforcement(t, disjointB, disjointA, false)
 
-	// Symmetrically-different compliance sets are rejected
+	// Symmetrically-different safety sets are rejected
 	common := starlark.TimeSafe | starlark.IOSafe
 	symmetricallyDifferentA := starlark.MemSafe | common
 	symmetricallyDifferentB := starlark.CPUSafe | common
-	testComplianceEnforcement(t, symmetricallyDifferentA, symmetricallyDifferentB, false)
-	testComplianceEnforcement(t, symmetricallyDifferentB, symmetricallyDifferentA, false)
+	testSafetyEnforcement(t, symmetricallyDifferentA, symmetricallyDifferentB, false)
+	testSafetyEnforcement(t, symmetricallyDifferentB, symmetricallyDifferentA, false)
 
-	// A superset of required compliance is accepted
-	testComplianceEnforcement(t, common, symmetricallyDifferentA, true)
+	// A superset of required safety is accepted
+	testSafetyEnforcement(t, common, symmetricallyDifferentA, true)
 }
 
-func testComplianceEnforcement(t *testing.T, require, probe starlark.ComplianceFlags, expectPass bool) {
+func testSafetyEnforcement(t *testing.T, require, probe starlark.SafetyFlags, expectPass bool) {
 	thread := new(starlark.Thread)
-	thread.RequireCompliance(require)
+	thread.RequireSafety(require)
 
 	const prog = `func()`
 	b := starlark.NewBuiltin("func", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 		return starlark.String("Hello, world!"), nil
 	})
-	b.SolemnlyDeclareCompliance(probe)
+	b.DeclareSafety(probe)
 	predecls := starlark.StringDict{
 		"func": b,
 	}
-	_, err := starlark.ExecFile(thread, "compliance_test.star", prog, predecls)
+	_, err := starlark.ExecFile(thread, "safety_test.star", prog, predecls)
 	if expectPass && err != nil {
-		t.Errorf("Unexpected cancellation when testing compliance: %v", err)
+		t.Errorf("Unexpected cancellation when testing safety: %v", err)
 	} else if !expectPass && err == nil {
-		t.Errorf("Compliance enforcement did not error when expected")
+		t.Errorf("Safety enforcement did not error when expected")
 	}
 }
 
-func TestThreadComplianceSetOnlyGrows(t *testing.T) {
+func TestThreadSafetySetOnlyGrows(t *testing.T) {
 	initialFlags := starlark.CPUSafe | starlark.MemSafe
 	newFlags := starlark.IOSafe | starlark.TimeSafe
 	expectedFlags := initialFlags | newFlags
 
 	thread := new(starlark.Thread)
-	thread.RequireCompliance(initialFlags)
-	if thread.Compliance() != initialFlags {
-		t.Errorf("Compliance flags differ from declaration: expected %v but got %v", initialFlags.Names(), thread.Compliance().Names())
+	thread.RequireSafety(initialFlags)
+	if thread.Safety() != initialFlags {
+		t.Errorf("Safety flags differ from declaration: expected %v but got %v", initialFlags.Names(), thread.Safety().Names())
 	}
 
-	thread.RequireCompliance(newFlags)
+	thread.RequireSafety(newFlags)
 
-	if thread.Compliance() != expectedFlags {
-		missing := thread.Compliance() &^ expectedFlags
-		t.Errorf("Missing compliance flags %v, expected %v", missing.Names(), expectedFlags.Names())
+	if thread.Safety() != expectedFlags {
+		missing := thread.Safety() &^ expectedFlags
+		t.Errorf("Missing safety flags %v, expected %v", missing.Names(), expectedFlags.Names())
 	}
 }
 
-func TestLibraryCompliance(t *testing.T) {
-	// Ensure that all standard functions defined by starlark are declared as fully-compliant
-	const complianceAll = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+func TestLibrarySafety(t *testing.T) {
+	// Ensure that all standard functions defined by starlark are declared as fully-safe
+	const safetyAll = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 	universeDummyModule := &starlarkstruct.Module{Name: "universe", Members: starlark.Universe}
 	mods := []*starlarkstruct.Module{universeDummyModule, json.Module, time.Module, proto.Module, starlarkmath.Module}
 	for _, mod := range mods {
 		for _, v := range mod.Members {
 			if b, ok := v.(*starlark.Builtin); ok {
-				if compliance := b.Compliance(); compliance != complianceAll {
-					t.Errorf("Incorrect compliance for %s.%s: expected %s but got %s", mod.Name, b.Name(), complianceAll.Names(), compliance.Names())
+				if safety := b.Safety(); safety != safetyAll {
+					t.Errorf("Incorrect safety for %s.%s: expected %s but got %s", mod.Name, b.Name(), safetyAll.Names(), safety.Names())
 				}
 			}
 		}
 	}
 }
 
-func TestStarlarkDefinedFunctionIsCompliancePermissive(t *testing.T) {
+func TestStarlarkDefinedFunctionSafetyIsPermissive(t *testing.T) {
 	// Ensure that starlark-defined functions can always be run
 	prog := `
 def func():
@@ -125,20 +125,20 @@ def func():
 func()
 `
 	thread := new(starlark.Thread)
-	thread.RequireCompliance(starlark.CPUSafe | starlark.MemSafe)
+	thread.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 
-	_, err := starlark.ExecFile(thread, "func_compliance_test.go", prog, nil)
+	_, err := starlark.ExecFile(thread, "func_safety_test.go", prog, nil)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 }
 
-func TestLambdaComplianceIsPermissive(t *testing.T) {
+func TestLambdaSafetyIsPermissive(t *testing.T) {
 	// Ensure that lambdas can always be run
 	prog := `(lambda x: x)(1)`
 	thread := new(starlark.Thread)
-	thread.RequireCompliance(starlark.CPUSafe | starlark.MemSafe)
-	_, err := starlark.ExecFile(thread, "lambda_compliance_test.go", prog, nil)
+	thread.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
+	_, err := starlark.ExecFile(thread, "lambda_safety_test.go", prog, nil)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

@@ -80,10 +80,10 @@ var Module = &starlarkstruct.Module{
 }
 
 func init() {
-	const jsonComplianceDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+	const jsonSafetyDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 	for _, b := range Module.Members {
 		if b, ok := b.(*starlark.Builtin); ok {
-			b.SolemnlyDeclareCompliance(jsonComplianceDefault)
+			b.DeclareSafety(jsonSafetyDefault)
 		}
 	}
 }
