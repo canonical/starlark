@@ -68,15 +68,6 @@ var Module = &starlarkstruct.Module{
 	},
 }
 
-func init() {
-	const timeSafetyDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
-	for _, b := range Module.Members {
-		if b, ok := b.(*starlark.Builtin); ok {
-			b.DeclareSafety(timeSafetyDefault)
-		}
-	}
-}
-
 // NowFunc is a function that generates the current time. Intentionally exported
 // so that it can be overridden, for example by applications that require their
 // Starlark scripts to be fully deterministic.

@@ -158,16 +158,6 @@ var Module = &starlarkstruct.Module{
 	},
 }
 
-func init() {
-	const protoSafetyDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
-
-	for _, b := range Module.Members {
-		if b, ok := b.(*starlark.Builtin); ok {
-			b.DeclareSafety(protoSafetyDefault)
-		}
-	}
-}
-
 // file(filename) loads the FileDescriptor of the given name, or the
 // first if the pool contains more than one.
 //

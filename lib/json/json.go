@@ -79,15 +79,6 @@ var Module = &starlarkstruct.Module{
 	},
 }
 
-func init() {
-	const jsonSafetyDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
-	for _, b := range Module.Members {
-		if b, ok := b.(*starlark.Builtin); ok {
-			b.DeclareSafety(jsonSafetyDefault)
-		}
-	}
-}
-
 func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var x starlark.Value
 	if err := starlark.UnpackPositionalArgs(b.Name(), args, kwargs, 1, &x); err != nil {

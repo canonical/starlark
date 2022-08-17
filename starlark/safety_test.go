@@ -4,12 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/canonical/starlark/lib/json"
-	starlarkmath "github.com/canonical/starlark/lib/math"
-	"github.com/canonical/starlark/lib/proto"
-	"github.com/canonical/starlark/lib/time"
 	"github.com/canonical/starlark/starlark"
-	"github.com/canonical/starlark/starlarkstruct"
 )
 
 func TestSafety(t *testing.T) {
@@ -193,22 +188,6 @@ func TestThreadSafetySetOnlyGrows(t *testing.T) {
 	if thread.Safety() != expectedFlags {
 		missing := thread.Safety() &^ expectedFlags
 		t.Errorf("Missing safety flags %v, expected %v", missing.Names(), expectedFlags.Names())
-	}
-}
-
-func TestLibrarySafety(t *testing.T) {
-	// Ensure that all standard functions defined by starlark are declared as fully-safe
-	const safetyAll = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
-	universeDummyModule := &starlarkstruct.Module{Name: "universe", Members: starlark.Universe}
-	mods := []*starlarkstruct.Module{universeDummyModule, json.Module, time.Module, proto.Module, starlarkmath.Module}
-	for _, mod := range mods {
-		for _, v := range mod.Members {
-			if b, ok := v.(*starlark.Builtin); ok {
-				if safety := b.Safety(); safety != safetyAll {
-					t.Errorf("Incorrect safety for %s.%s: expected %s but got %s", mod.Name, b.Name(), safetyAll.Names(), safety.Names())
-				}
-			}
-		}
 	}
 }
 

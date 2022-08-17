@@ -107,15 +107,6 @@ var Module = &starlarkstruct.Module{
 	},
 }
 
-func init() {
-	const mathSafetyDefault = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
-	for _, b := range Module.Members {
-		if b, ok := b.(*starlark.Builtin); ok {
-			b.DeclareSafety(mathSafetyDefault)
-		}
-	}
-}
-
 // floatOrInt is an Unpacker that converts a Starlark int or float to Go's float64.
 type floatOrInt float64
 

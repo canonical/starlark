@@ -70,13 +70,6 @@ func init() {
 		"type":      NewBuiltin("type", type_),
 		"zip":       NewBuiltin("zip", zip),
 	}
-
-	const stdlibSafetyDefault = MemSafe | CPUSafe | TimeSafe | IOSafe
-	for _, b := range Universe {
-		if b, ok := b.(*Builtin); ok {
-			b.DeclareSafety(stdlibSafetyDefault)
-		}
-	}
 }
 
 // methods of built-in types
