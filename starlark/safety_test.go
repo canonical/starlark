@@ -80,6 +80,35 @@ func TestSafetyFlagsAreStoredAgainstFunctions(t *testing.T) {
 	}
 }
 
+type dummyCallable struct{ string }
+
+var _ starlark.Callable = &dummyCallable{}
+
+func (dummyCallable) String() string        { return "" }
+func (dummyCallable) Type() string          { return "dummyCallable" }
+func (dummyCallable) Freeze()               {}
+func (dummyCallable) Truth() starlark.Bool  { return false }
+func (dummyCallable) Hash() (uint32, error) { return 0, nil }
+func (dc dummyCallable) Name() string       { return "dummyCallable" }
+func (dc dummyCallable) CallInternal(*starlark.Thread, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+	return starlark.None, nil
+}
+
+func TestCallableSafety(t *testing.T) {
+	const safety = starlark.MemSafe | starlark.TimeSafe
+
+	instance1 := dummyCallable{"foo"}
+	starlark.DeclareCallableFuncSafety(instance1.CallInternal, safety)
+	instance2 := dummyCallable{"bar"}
+
+	if instance1Safety := starlark.SafetyOfCallableFunc(instance1.CallInternal); instance1Safety != safety {
+		t.Errorf("Failed to declare safety on callable: expected flags %v but got %v", safety, instance1Safety)
+	}
+	if instance2Safety := starlark.SafetyOfCallableFunc(instance2.CallInternal); instance2Safety != safety {
+		t.Errorf("Safety was not shared between instances of callable: expected flags %v but got %v", safety, instance2Safety)
+	}
+}
+
 type uniqueBuiltinFunctions []func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error)
 
 func (s uniqueBuiltinFunctions) Iter() func() func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
