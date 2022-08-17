@@ -99,6 +99,20 @@ func (thread *Thread) RequireSafety(flags SafetyFlags) {
 	thread.requiredSafety |= flags
 }
 
+func (thread *Thread) CanSafelyCall(c Callable) error {
+	if knownSafety == nil {
+		return nil
+	}
+	switch c := c.(type) {
+	case *Function:
+		return nil
+	case *Builtin:
+		return thread.requiredSafety.Permits(c.Safety())
+	default:
+		return thread.requiredSafety.Permits(SafetyOfCallableFunc(c.CallInternal))
+	}
+}
+
 // Cancel causes execution of Starlark code in the specified thread to
 // promptly fail with an EvalError that includes the specified reason.
 // There may be a delay before the interpreter observes the cancellation
@@ -1212,11 +1226,7 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	}
 
 	// Check what is being called has declared appropriate safety
-	var newSafety SafetyFlags
-	if c, ok := c.(HasSafety); ok {
-		newSafety = c.Safety()
-	}
-	if err := thread.requiredSafety.Permits(newSafety); err != nil {
+	if err := thread.CanSafelyCall(c); err != nil {
 		return nil, err
 	}
 

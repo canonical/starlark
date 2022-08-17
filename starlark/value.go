@@ -692,8 +692,6 @@ func (fn *Function) String() string        { return toString(fn) }
 func (fn *Function) Type() string          { return "function" }
 func (fn *Function) Truth() Bool           { return true }
 
-func (_ *Function) Safety() SafetyFlags { return safetyAll } // A starlark-defined function can always be run
-
 // Globals returns a new, unfrozen StringDict containing all global
 // variables so far defined in the function's module.
 func (fn *Function) Globals() StringDict { return fn.module.makeGlobalDict() }
@@ -718,10 +716,9 @@ func (fn *Function) HasKwargs() bool  { return fn.funcode.HasKwargs }
 
 // A Builtin is a function implemented in Go.
 type Builtin struct {
-	name   string
-	fn     func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)
-	recv   Value // for bound methods (e.g. "".startswith)
-	safety SafetyFlags
+	name string
+	fn   func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)
+	recv Value // for bound methods (e.g. "".startswith)
 }
 
 func (b *Builtin) Name() string { return b.name }
@@ -744,11 +741,6 @@ func (b *Builtin) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Valu
 	return b.fn(thread, b, args, kwargs)
 }
 func (b *Builtin) Truth() Bool { return true }
-func (b *Builtin) DeclareSafety(flags SafetyFlags) {
-	flags.AssertValid()
-	b.safety |= flags
-}
-func (b *Builtin) Safety() SafetyFlags { return b.safety }
 
 // NewBuiltin returns a new 'builtin_function_or_method' value with the specified name
 // and implementation.  It compares unequal with all other values.
@@ -765,7 +757,9 @@ func NewBuiltin(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kw
 // DeclareSafety on its result.
 func NewBuiltinWithSafety(name string, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), safety SafetyFlags) *Builtin {
 	safety.AssertValid()
-	return &Builtin{name: name, fn: fn, safety: safety}
+	DeclareBuiltinFuncSafety(fn, safety)
+
+	return NewBuiltin(name, fn)
 }
 
 // BindReceiver returns a new Builtin value representing a method
