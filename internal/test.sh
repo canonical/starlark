@@ -15,8 +15,5 @@ diff -w  go.mod.orig go.mod
 diff -w go.sum.orig go.sum
 rm go.mod.orig go.sum.orig
 
-# Generate sources
-go generate ./**
-
 # Run tests
 go test ./...
