@@ -1227,7 +1227,7 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		return nil, fmt.Errorf("invalid call of non-function (%s)", fn.Type())
 	}
 
-	// Check what is being called has declared appropriate safety
+	// Check that what is being called has declared appropriate safety
 	if err := thread.CanSafelyCall(c); err != nil {
 		return nil, err
 	}

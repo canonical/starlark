@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// SafetyFlags represents a set of constraints on executed code
+// SafetyFlags represents a set of constraints on executed code.
 type SafetyFlags uint
 
 var _ fmt.Formatter = SafetyFlags(0)
@@ -42,7 +42,7 @@ func (f SafetyFlags) Format(state fmt.State, verb rune) {
 	}
 }
 
-// Pointer to a function of any type
+// A pointer to a function of any type.
 type function uintptr
 
 // Central map of functions to their safeties.
@@ -79,18 +79,18 @@ func (f SafetyFlags) AssertValid() {
 }
 
 // Convenience function to get the safety of the function which underlies a
-// builtin
+// builtin.
 func (b *Builtin) Safety() SafetyFlags {
 	return SafetyOfBuiltinFunc(b.fn)
 }
 
 // Get the safety of a function which may be used as the CallInternal method in
-// a Callable
+// a Callable.
 func SafetyOfCallableFunc(fn func(*Thread, Tuple, []Tuple) (Value, error)) SafetyFlags {
 	return function(reflect.ValueOf(fn).Pointer()).safety()
 }
 
-// Get the safety of a function which may be wrapped into a Builtin
+// Get the safety of a function which may be wrapped into a Builtin.
 func SafetyOfBuiltinFunc(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error)) SafetyFlags {
 	return function(reflect.ValueOf(fn).Pointer()).safety()
 }
@@ -104,7 +104,7 @@ func (fn function) safety() (flags SafetyFlags) {
 }
 
 // Convenience function to declare the safety of the function which underlies a
-// builtin
+// builtin.
 func (b *Builtin) DeclareSafety(flags SafetyFlags) {
 	DeclareBuiltinFuncSafety(b.fn, flags)
 }
@@ -146,7 +146,7 @@ func (fn function) declareSafety(flags SafetyFlags) {
 	}
 
 	if _, ok := knownSafety[fn]; ok {
-		// Only reduce compliance if attempting to de-declare
+		// Weaken safety guarantee at redeclaration
 		knownSafety[fn] &= flags
 	} else {
 		knownSafety[fn] = flags
@@ -154,7 +154,7 @@ func (fn function) declareSafety(flags SafetyFlags) {
 }
 
 // Permits tests that safety required ⊆ safety toCheck, and details any missing
-// flags missing in an error
+// flags missing in an error.
 func (required SafetyFlags) Permits(toCheck SafetyFlags) error {
 	missingFlags := required &^ toCheck
 	if missingFlags != 0 {

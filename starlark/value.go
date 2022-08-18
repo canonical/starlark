@@ -753,8 +753,8 @@ func NewBuiltin(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kw
 // implementations, which compares unequal with all other values. The builtin
 // returned also has the specified set of safety flags.
 //
-// This function is equivalent to calling NewBuiltin and
-// DeclareSafety on its result.
+// This function is equivalent to calling NewBuiltin and DeclareSafety on its
+// result.
 func NewBuiltinWithSafety(name string, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), safety SafetyFlags) *Builtin {
 	safety.AssertValid()
 	DeclareBuiltinFuncSafety(fn, safety)
