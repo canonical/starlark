@@ -43,10 +43,16 @@ func (f SafetyFlags) Format(state fmt.State, verb rune) {
 var knownSafety map[uintptr]SafetyFlags
 
 
-var numFlagsDefined uintptr
+var numFlagBitsDefined uintptr
+
+func init() {
+	for f := safetyFlagsLimit; f >= 1; f >>= 1 {
+		numFlagBitsDefined++
+	}
+}
 
 func (flags SafetyFlags) Names() (names []string) {
-	names = make([]string, 0, numFlagsDefined)
+	names = make([]string, 0, numFlagBitsDefined)
 	for f := SafetyFlags(1); f < safetyFlagsLimit; f <<= 1 {
 		if f&flags != 0 {
 			names = append(names, f.String())
