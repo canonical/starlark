@@ -20,8 +20,6 @@ const (
 	safetyFlagsLimit
 )
 
-var safetyAll SafetyFlags
-
 func (f SafetyFlags) Format(state fmt.State, verb rune) {
 	switch verb {
 	case 'd':
@@ -44,12 +42,6 @@ func (f SafetyFlags) Format(state fmt.State, verb rune) {
 
 var knownSafety map[uintptr]SafetyFlags
 
-func init() {
-	var flag SafetyFlags
-	for flag = 1; flag < safetyFlagsLimit; flag <<= 1 {
-		safetyAll |= flag
-	}
-}
 
 var numFlagsDefined uintptr
 
