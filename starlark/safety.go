@@ -40,8 +40,9 @@ func (f SafetyFlags) Format(state fmt.State, verb rune) {
 	}
 }
 
-var knownSafety map[uintptr]SafetyFlags
+type function uintptr
 
+var knownSafety map[function]SafetyFlags
 
 var numFlagBitsDefined uintptr
 
@@ -72,16 +73,17 @@ func (b *Builtin) Safety() SafetyFlags {
 }
 
 func SafetyOfCallableFunc(fn func(*Thread, Tuple, []Tuple) (Value, error)) SafetyFlags {
-	return safetyOf(reflect.ValueOf(fn).Pointer())
+	return function(reflect.ValueOf(fn).Pointer()).safety()
 }
 
 func SafetyOfBuiltinFunc(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error)) SafetyFlags {
-	return safetyOf(reflect.ValueOf(fn).Pointer())
+	return function(reflect.ValueOf(fn).Pointer()).safety()
 }
 
-func safetyOf(fnPtr uintptr) (flags SafetyFlags) {
+// Get the safety of an arbitrarily-type function at a given location
+func (fn function) safety() (flags SafetyFlags) {
 	if knownSafety != nil {
-		flags = knownSafety[fnPtr]
+		flags = knownSafety[fn]
 	}
 	return
 }
@@ -91,24 +93,24 @@ func (b *Builtin) DeclareSafety(flags SafetyFlags) {
 }
 
 func DeclareCallableFuncSafety(fn func(*Thread, Tuple, []Tuple) (Value, error), flags SafetyFlags) {
-	setSafety(reflect.ValueOf(fn).Pointer(), flags)
+	function(reflect.ValueOf(fn).Pointer()).declareSafety(flags)
 }
 
 func DeclareBuiltinFuncSafety(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), flags SafetyFlags) {
-	setSafety(reflect.ValueOf(fn).Pointer(), flags)
+	function(reflect.ValueOf(fn).Pointer()).declareSafety(flags)
 }
 
-func setSafety(fnPtr uintptr, flags SafetyFlags) {
+func (fn function) declareSafety(flags SafetyFlags) {
 	flags.AssertValid()
 	if knownSafety == nil {
-		knownSafety = make(map[uintptr]SafetyFlags)
+		knownSafety = make(map[function]SafetyFlags)
 	}
 
-	if previousSafety, ok := knownSafety[fnPtr]; ok {
+	if _, ok := knownSafety[fn]; ok {
 		// Only reduce compliance if attempting to de-declare
-		knownSafety[fnPtr] = previousSafety & flags
+		knownSafety[fn] &= flags
 	} else {
-		knownSafety[fnPtr] = flags
+		knownSafety[fn] = flags
 	}
 }
 
