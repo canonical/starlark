@@ -99,6 +99,8 @@ func (thread *Thread) RequireSafety(flags SafetyFlags) {
 	thread.requiredSafety |= flags
 }
 
+// CanSafelyCall checks whether a given callable promises to uphold a thread's
+// safety assertions.
 func (thread *Thread) CanSafelyCall(c Callable) error {
 	if knownSafety == nil {
 		return nil
