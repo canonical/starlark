@@ -60,8 +60,8 @@ func TestSafetyFlagsAreStoredAgainstFunctions(t *testing.T) {
 		t.Errorf("Incorrect safety flags, expected %v but got %v", safety, actualSafety)
 	}
 
-	bf1 := starlark.NewBuiltin("b1", f)
-	bf2 := starlark.NewBuiltin("b2", f)
+	bf1 := starlark.NewBuiltin("bf1", f)
+	bf2 := starlark.NewBuiltin("bf2", f)
 
 	if b1Safety := bf1.Safety(); b1Safety != safety {
 		t.Errorf("Incorrect safety for builtin: expected %v but got %v", safety, b1Safety)
