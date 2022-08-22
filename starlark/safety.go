@@ -78,7 +78,7 @@ func (f SafetyFlags) AssertValid() {
 	}
 }
 
-// Safety is a convenience function to get the safety of the function which underlies a
+// Safety is a convenience method to get the safety of the function which underlies a
 // builtin.
 func (b *Builtin) Safety() SafetyFlags {
 	return SafetyOf(b)
@@ -173,8 +173,8 @@ func (fn function) DeclareSafety(flags SafetyFlags) {
 	}
 }
 
-// Permits tests that safety required ⊆ safety toCheck, and details any missing
-// flags missing in an error.
+// Permits checks that safety required ⊆ safety toCheck, and details any
+// missing flags missing in an error.
 func (required SafetyFlags) Permits(toCheck SafetyFlags) error {
 	missingFlags := required &^ toCheck
 	if missingFlags != 0 {
