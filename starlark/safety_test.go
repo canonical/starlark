@@ -1,6 +1,7 @@
 package starlark_test
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -116,20 +117,26 @@ func TestClosuresInteractSafely(t *testing.T) {
 		}
 	}
 
-	const expectedClosure1Safety = starlark.MemSafe | starlark.CPUSafe
-	const expectedClosure2Safety = starlark.MemSafe | starlark.IOSafe
+	const commonSafety = starlark.MemSafe
+	const closure1DefinedSafety = commonSafety | starlark.CPUSafe
+	const closure2DefinedSafety = commonSafety | starlark.IOSafe
 
 	closure1 := base("foo")
 	closure2 := base("bar")
-	starlark.DeclareBuiltinFuncSafety(closure1, expectedClosure1Safety)
-	starlark.DeclareBuiltinFuncSafety(closure2, expectedClosure2Safety)
+	starlark.DeclareBuiltinFuncSafety(closure1, closure1DefinedSafety)
+	starlark.DeclareBuiltinFuncSafety(closure2, closure2DefinedSafety)
 
-	if closure1Safety := starlark.SafetyOfBuiltinFunc(closure1); closure1Safety != expectedClosure1Safety {
-		t.Errorf("Closure had incorrect safety, expected %v but got %v", expectedClosure1Safety, closure1Safety)
+	testSafetyBounded := func(least, most starlark.SafetyFlags, closure func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error)) {
+		closureSafety := starlark.SafetyOfBuiltinFunc(closure)
+		if closureSafety != least && closureSafety != most {
+			fnPtr := reflect.ValueOf(closure).Pointer()
+			t.Errorf("Closure @ %#x had incorrect safety flags: expected either %v or %v but got %v", fnPtr, least, most, closureSafety)
+		}
 	}
-	if closure2Safety := starlark.SafetyOfBuiltinFunc(closure2); closure2Safety != expectedClosure2Safety {
-		t.Errorf("Closure had incorrect safety, expected %v but got %v", expectedClosure2Safety, closure2Safety)
-	}
+
+	// Ensure that the closures have at least a set of safety flags, with no extras defined
+	testSafetyBounded(commonSafety, closure1DefinedSafety, closure1)
+	testSafetyBounded(commonSafety, closure2DefinedSafety, closure2)
 }
 
 func TestFunctionSafety(t *testing.T) {
