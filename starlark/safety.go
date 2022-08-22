@@ -95,7 +95,7 @@ func SafetyOf(c Callable) SafetyFlags {
 	if ci, ok := reflect.TypeOf(c).MethodByName(callInternalMethodName); ok {
 		return function(ci.Func.Pointer()).Safety()
 	}
-	panic(fmt.Sprintf("No such method '%s' for callable %v", callInternalMethodName, c))
+	panic(fmt.Sprintf("No such method '%s' for starlark.Callable %v. This is a bug, please report it at https://github.com/canonical/starlark/issues", callInternalMethodName, c))
 }
 
 // SafetyOfBuiltinFunc gets the safety of fn, a function which may be wrapped
@@ -131,7 +131,7 @@ func DeclareSafety(c Callable, flags SafetyFlags) {
 	if ci, ok := reflect.TypeOf(c).MethodByName(callInternalMethodName); ok {
 		function(ci.Func.Pointer()).DeclareSafety(flags)
 	} else {
-		panic(fmt.Sprintf("No such method '%s' for callable %v", callInternalMethodName, c))
+		panic(fmt.Sprintf("No such method '%s' for starlark.Callable %v. This is a bug, please report it at https://github.com/canonical/starlark/issues", callInternalMethodName, c))
 	}
 }
 
