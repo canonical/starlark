@@ -81,24 +81,32 @@ func (f SafetyFlags) AssertValid() {
 // Safety is a convenience function to get the safety of the function which underlies a
 // builtin.
 func (b *Builtin) Safety() SafetyFlags {
-	return SafetyOfBuiltinFunc(b.fn)
+	return SafetyOf(b)
 }
 
-// SafetyOfCallableFunc gets the safety of fn, a function which may be used as
+// SafetyOf gets the safety of fn, a function which may be used as
 // the CallInternal method in a Callable.
-func SafetyOfCallableFunc(fn func(*Thread, Tuple, []Tuple) (Value, error)) SafetyFlags {
-	return function(reflect.ValueOf(fn).Pointer()).safety()
+func SafetyOf(c Callable) SafetyFlags {
+	if b, ok := c.(*Builtin); ok {
+		return SafetyOfBuiltinFunc(b.fn)
+	}
+
+	const callInternalMethodName = "CallInternal"
+	if ci, ok := reflect.TypeOf(c).MethodByName(callInternalMethodName); ok {
+		return function(ci.Func.Pointer()).Safety()
+	}
+	panic(fmt.Sprintf("No such method '%s' for callable %v", callInternalMethodName, c))
 }
 
 // SafetyOfBuiltinFunc gets the safety of fn, a function which may be wrapped
 // into a Builtin.
 func SafetyOfBuiltinFunc(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error)) SafetyFlags {
-	return function(reflect.ValueOf(fn).Pointer()).safety()
+	return function(reflect.ValueOf(fn).Pointer()).Safety()
 }
 
 // Safety gets the safety flags of an arbitrarily-typed function at a given
 // location.
-func (fn function) safety() (flags SafetyFlags) {
+func (fn function) Safety() (flags SafetyFlags) {
 	if knownSafety != nil {
 		flags = knownSafety[fn]
 	}
@@ -108,19 +116,29 @@ func (fn function) safety() (flags SafetyFlags) {
 // Convenience function to declare the safety of the function which underlies a
 // builtin. Panics if passed flags are not valid.
 func (b *Builtin) DeclareSafety(flags SafetyFlags) {
-	DeclareBuiltinFuncSafety(b.fn, flags)
+	DeclareSafety(b, flags)
 }
 
 // Declare the safety of fn, a function which may be used as the CallInternal
 // method in a Callable, as flags. Panics if passed flags are not valid.
-func DeclareCallableFuncSafety(fn func(*Thread, Tuple, []Tuple) (Value, error), flags SafetyFlags) {
-	function(reflect.ValueOf(fn).Pointer()).declareSafety(flags)
+func DeclareSafety(c Callable, flags SafetyFlags) {
+	if b, ok := c.(*Builtin); ok {
+		DeclareBuiltinFuncSafety(b.fn, flags)
+		return
+	}
+
+	const callInternalMethodName = "CallInternal"
+	if ci, ok := reflect.TypeOf(c).MethodByName(callInternalMethodName); ok {
+		function(ci.Func.Pointer()).DeclareSafety(flags)
+	} else {
+		panic(fmt.Sprintf("No such method '%s' for callable %v", callInternalMethodName, c))
+	}
 }
 
 // Declare the safety of fn, a function which may be wrapped into a Builtin, as
 // flags. Panics if passed flags are not valid.
 func DeclareBuiltinFuncSafety(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), flags SafetyFlags) {
-	function(reflect.ValueOf(fn).Pointer()).declareSafety(flags)
+	function(reflect.ValueOf(fn).Pointer()).DeclareSafety(flags)
 }
 
 // Declare that the safety of an arbitrarily typed function at a given location
@@ -141,7 +159,7 @@ func DeclareBuiltinFuncSafety(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value,
 // being rejected at runtime. If problematic, this can sometimes be remedied by
 // creating a function _f_ which wraps the closure, declaring safety on _f_ and
 // exposing _f_ to Starlark.
-func (fn function) declareSafety(flags SafetyFlags) {
+func (fn function) DeclareSafety(flags SafetyFlags) {
 	flags.AssertValid()
 	if knownSafety == nil {
 		knownSafety = make(map[function]SafetyFlags)
