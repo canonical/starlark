@@ -135,8 +135,27 @@ func DeclareSafety(c Callable, flags SafetyFlags) {
 	}
 }
 
-// Declare the safety of fn, a function which may be wrapped into a Builtin, as
-// flags. Panics if passed flags are not valid.
+// DeclareBuiltinFuncSafety declares the safety of fn, a function which may be
+// wrapped into a Builtin, as flags. Panics if passed flags are not valid.
+//
+// The first time this function is called for a given fn, the value flags is
+// recorded against it exactly. However, subsequent invocations on the same fn
+// will record the intersection of the respective flags argument and those
+// already stored.
+//
+// This redeclaration behaviour is significant on some platforms when several
+// callables use the same base closure but with different upvalues to represent
+// their underlying go function. In this case, as we store the safety flags
+// against the function (and not the function-upvalue pair which forms the
+// closure), the the safety declarations may interact. When this occurs, the
+// strongest assertion which can be made for a set of closures is the largest
+// common subset of their safety flags---their intersection. Hence safety
+// assertions around closures may sometimes be weakened, which may lead to
+// rejection when the Callable is later called.
+//
+// If this behaviour proves problematic, it may be circumvented by creating a
+// separate function to wrap each instance of the closure and passing these to
+// starlark, thereby obscuring the common implementation.
 func DeclareBuiltinFuncSafety(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), flags SafetyFlags) {
 	function(reflect.ValueOf(fn).Pointer()).DeclareSafety(flags)
 }
@@ -144,21 +163,9 @@ func DeclareBuiltinFuncSafety(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value,
 // Declare that the safety of an arbitrarily typed function at a given location
 // is flags. Panics of passed flags are not valid.
 //
-// The first time this function is called for a given function, the value flags
-// is recorded against it exactly. Otherwise, on the second and later calls for
-// the same function, the intersection of the then-stored safety flags and
-// flags is stored.
-//
-// This is significant in the case where multiple closures with the same base
-// are defined. As these are represented by a set of upvalues and a pointer to
-// the base function, and as safety is defined against these base functions
-// only, safety declarations on different closures may intereact. The strongest
-// guarantee available for a set of same-base closures, _C,_ is the
-// intersection of all safety flags of the closures in _C,_ which can cause the
-// safety guarantees of closures in _C_ to be weakened, which may lead to their
-// being rejected at runtime. If problematic, this can sometimes be remedied by
-// creating a function _f_ which wraps the closure, declaring safety on _f_ and
-// exposing _f_ to Starlark.
+// The first invocation on each fn will store flags as passed. Subsequent
+// invocations will intersect flags with the value already stored before
+// storing this.
 func (fn function) DeclareSafety(flags SafetyFlags) {
 	flags.AssertValid()
 	if knownSafety == nil {
