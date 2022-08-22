@@ -995,3 +995,34 @@ func TestDeps(t *testing.T) {
 		}
 	}
 }
+
+func TestThreadSafetyStorage(t *testing.T) {
+	const expectedSafety = starlark.CPUSafe | starlark.MemSafe
+
+	thread := new(starlark.Thread)
+	thread.RequireSafety(expectedSafety)
+
+	if actualSafety := thread.Safety(); actualSafety != expectedSafety {
+		t.Errorf("Thread did not store its safely correctly: expected %d but got %d", expectedSafety, actualSafety)
+	}
+}
+
+func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
+	const initialFlags = starlark.CPUSafe | starlark.MemSafe
+	const newFlags = starlark.IOSafe | starlark.TimeSafe
+	const expectedFlags = initialFlags | newFlags
+
+	thread := new(starlark.Thread)
+	thread.RequireSafety(initialFlags)
+
+	if thread.Safety() != initialFlags {
+		t.Errorf("Safety flags differ from declaration: expected %v but got %v", initialFlags.Names(), thread.Safety().Names())
+	}
+
+	thread.RequireSafety(newFlags)
+
+	if thread.Safety() != expectedFlags {
+		missing := thread.Safety() &^ expectedFlags
+		t.Errorf("Missing safety flags %v, expected %v", missing.Names(), expectedFlags.Names())
+	}
+}
