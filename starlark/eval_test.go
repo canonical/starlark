@@ -996,13 +996,25 @@ func TestDeps(t *testing.T) {
 	}
 }
 
+func threadSafety(thread *starlark.Thread) starlark.SafetyFlags {
+	const requiredSafetyFieldName = "requiredSafety"
+	safetyField := reflect.ValueOf(*thread).FieldByName(requiredSafetyFieldName)
+	if safetyField.Kind() == reflect.Invalid {
+		panic(fmt.Sprintf("Reflection could not find field %s, fix tests", requiredSafetyFieldName))
+	} else if !safetyField.CanUint() {
+		panic(fmt.Sprintf("Field %s cannot be converted into a uint", requiredSafetyFieldName))
+	}
+
+	return starlark.SafetyFlags(safetyField.Uint())
+}
+
 func TestThreadSafetyStorage(t *testing.T) {
 	const expectedSafety = starlark.CPUSafe | starlark.MemSafe
 
 	thread := new(starlark.Thread)
 	thread.RequireSafety(expectedSafety)
 
-	if actualSafety := thread.Safety(); actualSafety != expectedSafety {
+	if actualSafety := threadSafety(thread); actualSafety != expectedSafety {
 		t.Errorf("Thread did not store its safely correctly: expected %d but got %d", expectedSafety, actualSafety)
 	}
 }
@@ -1016,8 +1028,8 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 	thread.RequireSafety(initialFlags)
 	thread.RequireSafety(newFlags)
 
-	if thread.Safety() != expectedFlags {
-		missing := thread.Safety() &^ expectedFlags
+	if safety := threadSafety(thread); safety != expectedFlags {
+		missing := safety &^ expectedFlags
 		t.Errorf("Missing safety flags %v, expected %v", missing.Names(), expectedFlags.Names())
 	}
 }
