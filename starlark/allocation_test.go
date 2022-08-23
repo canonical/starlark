@@ -14,7 +14,7 @@ func TestPositiveDeltaDeclaration(t *testing.T) {
 
 	// Accept and correctly store reasonable size increase
 	allocs0 := thread.Allocs()
-	if err := thread.DeclareAllocsIncrease(intendedAllocIncrease); err != nil {
+	if err := thread.AddAllocs(intendedAllocIncrease); err != nil {
 		t.Errorf("Unexpected cancellation: %v", err)
 	}
 	delta := thread.Allocs() - allocs0
@@ -31,7 +31,7 @@ func TestPositiveDeltaDeclarationExceedingMax(t *testing.T) {
 	thread.SetMaxAllocs(maxAllocs)
 
 	// Error when too much memory is required
-	if err := thread.DeclareAllocsIncrease(allocationIncrease); err == nil {
+	if err := thread.AddAllocs(allocationIncrease); err == nil {
 		t.Errorf("Expected allocation failure!")
 	}
 }
