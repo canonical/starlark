@@ -1001,8 +1001,6 @@ func threadSafety(thread *starlark.Thread) starlark.SafetyFlags {
 	safetyField := reflect.ValueOf(*thread).FieldByName(requiredSafetyFieldName)
 	if safetyField.Kind() == reflect.Invalid {
 		panic(fmt.Sprintf("Reflection could not find field %s, fix tests", requiredSafetyFieldName))
-	} else if !safetyField.CanUint() {
-		panic(fmt.Sprintf("Field %s cannot be converted into a uint", requiredSafetyFieldName))
 	}
 
 	return starlark.SafetyFlags(safetyField.Uint())
