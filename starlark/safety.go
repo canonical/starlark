@@ -114,14 +114,17 @@ func (fn function) Safety() (flags SafetyFlags) {
 	return
 }
 
-// Convenience function to declare the safety of the function which underlies a
-// builtin. Panics if passed flags are not valid.
+// DeclareSafety is a convenience function to declare the safety of the
+// function which underlies a builtin. Panics if passed flags are not valid.
 func (b *Builtin) DeclareSafety(flags SafetyFlags) {
 	DeclareSafety(b, flags)
 }
 
-// Declare the safety of fn, a function which may be used as the CallInternal
-// method in a Callable, as flags. Panics if passed flags are not valid.
+// DeclareSafety declares the safety of a callable c. Panics if passed flags
+// are not valid.
+//
+// See DeclareBuiltinFuncSafety for pitfalls of using closures as the function
+// which underlies callables
 func DeclareSafety(c Callable, flags SafetyFlags) {
 	if b, ok := c.(*Builtin); ok {
 		DeclareBuiltinFuncSafety(b.fn, flags)
@@ -162,8 +165,8 @@ func DeclareBuiltinFuncSafety(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value,
 	function(reflect.ValueOf(fn).Pointer()).DeclareSafety(flags)
 }
 
-// Declare that the safety of an arbitrarily typed function at a given location
-// is flags. Panics of passed flags are not valid.
+// DeclareSafety declares that the safety of an arbitrarily typed function at a
+// given location is flags. Panics of passed flags are not valid.
 //
 // The first invocation on each fn will store flags as passed. Subsequent
 // invocations will intersect flags with the value already stored before
