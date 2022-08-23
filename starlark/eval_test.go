@@ -1017,6 +1017,55 @@ func TestThreadSafetyStorage(t *testing.T) {
 	}
 }
 
+func TestThreadPermitsMatchesAllowedCall(t *testing.T) {
+	const threadSafety = starlark.CPUSafe
+	const builtinSafety = starlark.CPUSafe | starlark.MemSafe
+	const prog = "func()"
+
+	thread := new(starlark.Thread)
+	thread.RequireSafety(threadSafety)
+
+	env := starlark.StringDict{
+		"func": starlark.NewBuiltinWithSafety("func", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+			return starlark.None, nil
+		}, builtinSafety),
+	}
+
+	if err := thread.Permits(builtinSafety); err != nil {
+		t.Errorf("Thread reported it did not permit flags which are safe by its own definition: got unexpected error %v", err)
+	}
+	if _, err := starlark.ExecFile(thread, "test_permitted_call", prog, env); err != nil {
+		t.Errorf("Unexpected error running safe function: %v", err)
+	}
+}
+
+func TestThreadPermitsMatchesForbiddenCall(t *testing.T) {
+	const threadSafety = starlark.CPUSafe | starlark.MemSafe
+	const builtinSafety = starlark.CPUSafe
+	const prog = "func()"
+
+	thread := new(starlark.Thread)
+	thread.RequireSafety(threadSafety)
+
+	env := starlark.StringDict{
+		"func": starlark.NewBuiltinWithSafety("func", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+			return starlark.None, nil
+		}, builtinSafety),
+	}
+
+	if err := thread.Permits(builtinSafety); err == nil {
+		t.Errorf("Thread failed to report that unsafe flags are unsafe")
+	} else if !strings.HasPrefix(err.Error(), "Missing safety flags: ") {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if _, err := starlark.ExecFile(thread, "test_forbidden_call", prog, env); err == nil {
+		t.Errorf("No error when attempting to call builtin with inadequate safety flags")
+	} else if !strings.HasPrefix(err.Error(), "Missing safety flags: ") {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
 func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 	const initialFlags = starlark.CPUSafe | starlark.MemSafe
 	const newFlags = starlark.IOSafe | starlark.TimeSafe
