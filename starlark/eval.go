@@ -1647,13 +1647,17 @@ func interpolate(format string, x Value) (Value, error) {
 	return String(buf.String()), nil
 }
 
-// AddAllocs declares an increase of delta in the number of allocations
-// associated with this thread. The string whence may be used in debugging
-// messages to indicate where the allocations were made.
+// AddAllocs declares a change of delta in the number of allocations associated
+// with this thread.
 //
-// If the declared delta causes the thread's tally to exceed its maxiumum
-// limit, the thread is cancelled and this function returns a corresponding
-// error.
+// If delta causes the thread's allocation tally to either exceed its maxiumum
+// limit or overflow, the thread is cancelled and this function returns a
+// corresponding error.
+//
+// If delta would cause the thread's allocation tally to decrease below zero,
+// the tally is capped at zero. No error is returned.
+//
+// This function may be used concurrently.
 func (thread *Thread) AddAllocs(delta int64) error {
 	if thread.cancelReason == nil {
 		thread.allocLock.Lock()
