@@ -10,10 +10,12 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"math/big"
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unicode"
@@ -53,7 +55,8 @@ type Thread struct {
 	steps, maxSteps uint64
 
 	// allocs counts the abstract memory units claimed by this resource pool
-	allocs, maxAllocs uintptr
+	allocs, maxAllocs uint64
+	allocLock         sync.Mutex
 
 	// cancelReason records the reason from the first call to Cancel.
 	cancelReason *string
@@ -90,7 +93,7 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 // measuring the increase in allocations from before and after a computation.
 //
 // The precise meaning of an "allocation" is not specified and may change.
-func (thread *Thread) Allocs() uintptr {
+func (thread *Thread) Allocs() uint64 {
 	return thread.allocs
 }
 
@@ -99,9 +102,9 @@ func (thread *Thread) Allocs() uintptr {
 // interpreter calls thread.Cancel("too many allocations").
 //
 // If zero is passed to this function, the restriction is lifted.
-func (thread *Thread) SetMaxAllocs(max uintptr) {
+func (thread *Thread) SetMaxAllocs(max uint64) {
 	if max == 0 {
-		max--
+		max = math.MaxUint64
 	}
 	thread.maxAllocs = max
 }
@@ -1651,19 +1654,34 @@ func interpolate(format string, x Value) (Value, error) {
 // If the declared delta causes the thread's tally to exceed its maxiumum
 // limit, the thread is cancelled and this function returns a corresponding
 // error.
-func (thread *Thread) AddAllocs(delta uintptr) (err error) {
+func (thread *Thread) AddAllocs(delta int64) error {
 	if thread.cancelReason == nil {
-		atomic.AddUintptr(&thread.allocs, delta)
-		if thread.allocs >= thread.maxAllocs {
+		thread.allocLock.Lock()
+
+		nextAllocs := thread.allocs + uint64(delta)
+		if delta < 0 {
+			// cap thread.allocs at zero
+			if thread.allocs < nextAllocs {
+				nextAllocs = 0
+			}
+		} else if thread.maxAllocs <= nextAllocs || nextAllocs < thread.allocs {
+			// Check if maxAllocs would be exceeded by the increase of delta.
+			// If maxAllocs is at least ⌈half of math.MaxUint64⌉ an undesirable
+			// overflow may occur.
+
 			if vmdebug {
-				fmt.Fprintf(os.Stderr, "too much memory used: failed to allocate another %d locations (quota: %d/%d) after %d steps", delta, thread.allocs-delta, thread.maxAllocs, thread.steps)
+				fmt.Fprintf(os.Stderr, "too much memory used: failed to allocate another %d locations (quota: %d/%d) after %d steps", delta, thread.allocs+uint64(delta), thread.maxAllocs, thread.steps)
 			}
 
 			problem := "too many allocs"
 			thread.Cancel(problem)
-			err = errors.New(problem)
+			return errors.New(problem)
 		}
+
+		thread.allocs = nextAllocs
+
+		thread.allocLock.Unlock()
 	}
 
-	return
+	return nil
 }
