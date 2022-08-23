@@ -1014,11 +1014,6 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 
 	thread := new(starlark.Thread)
 	thread.RequireSafety(initialFlags)
-
-	if thread.Safety() != initialFlags {
-		t.Errorf("Safety flags differ from declaration: expected %v but got %v", initialFlags.Names(), thread.Safety().Names())
-	}
-
 	thread.RequireSafety(newFlags)
 
 	if thread.Safety() != expectedFlags {
