@@ -97,3 +97,35 @@ func TestOverzealousNegativeDeltaDeclaration(t *testing.T) {
 		t.Errorf("Expected overzealous alloc reduction to cap allocations at zero: recorded %d allocs instead", allocs)
 	}
 }
+
+func TestConcurrentAddAllocUsage(t *testing.T) {
+	const expectedAllocs = 1_000_000
+
+	thread := new(starlark.Thread)
+	thread.SetMaxAllocs(0)
+
+	done := make(chan struct{}, 2)
+
+	callAddAlloc := func(n uint) {
+		for i := uint(0); i < n; i++ {
+			thread.AddAllocs(1)
+		}
+		done <- struct{}{}
+	}
+
+	go callAddAlloc(expectedAllocs / 2)
+	go callAddAlloc(expectedAllocs / 2)
+
+	// Await completion
+	totDone := 0
+	for totDone != 2 {
+		select {
+		case <-done:
+			totDone++
+		}
+	}
+
+	if allocs := thread.Allocs(); allocs != expectedAllocs {
+		t.Errorf("Concurrent thread.AddAlloc contains a race, expected %d allocs recorded but got %d", expectedAllocs, allocs)
+	}
+}
