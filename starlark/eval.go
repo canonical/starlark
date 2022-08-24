@@ -1652,17 +1652,12 @@ func (e *MaxAllocsError) Error() string {
 	return "exceeded memory allocation limits"
 }
 
-// AddAllocs declares a change of delta in the number of allocations associated
-// with this thread.
+// AddAllocs reports a change in allocations associated with this thread. If
+// the total allocations exceed the limit defined via SetMaxAllocs, the thread
+// is cancelled and an error is returned.
 //
-// If delta causes the thread's allocation tally to either exceed its maxiumum
-// limit or overflow, the thread is cancelled and this function returns a
-// corresponding error.
-//
-// If delta would cause the thread's allocation tally to decrease below zero,
-// the tally is capped at zero. No error is returned.
-//
-// This function may be used concurrently.
+// Unlike most methods of Thread, it is safe to call AddAllocs from any
+// goroutine, even if the thread is actively executing.
 func (thread *Thread) AddAllocs(delta int64) (err error) {
 	if thread.cancelReason == nil {
 		thread.allocLock.Lock()
