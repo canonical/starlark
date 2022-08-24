@@ -12,8 +12,6 @@ type SafetyFlags uint
 var _ fmt.Formatter = SafetyFlags(0)
 
 // A valid set of safety flags is any subset of the following defined flags.
-//
-//go:generate stringer -type=SafetyFlags
 const (
 	CPUSafe SafetyFlags = 1 << iota
 	IOSafe
@@ -59,12 +57,27 @@ func init() {
 	}
 }
 
+// flagName takes a safety flag with a single set bit and returns the name of that flag, otherwise the empty string
+func (f SafetyFlags) flagName() (name string) {
+	switch f {
+	case CPUSafe:
+		name = "CPUSafe"
+	case IOSafe:
+		name = "IOSafe"
+	case MemSafe:
+		name = "MemSafe"
+	case TimeSafe:
+		name = "TimeSafe"
+	}
+	return
+}
+
 // Names returns a list of human-readable names of set flags
 func (flags SafetyFlags) Names() (names []string) {
 	names = make([]string, 0, numFlagBitsDefined)
 	for f := SafetyFlags(1); f < safetyFlagsLimit; f <<= 1 {
 		if f&flags != 0 {
-			names = append(names, f.String())
+			names = append(names, f.flagName())
 		}
 	}
 	return

@@ -96,6 +96,20 @@ func TestDefaultStoredSafetyIsZero(t *testing.T) {
 	}
 }
 
+func TestSafetyFlagNamesAreUnique(t *testing.T) {
+	const allFlagsSet = starlark.CPUSafe | starlark.IOSafe | starlark.MemSafe | starlark.TimeSafe
+	const nonIdentSep = "@"
+
+	knownFlags := make(map[string]struct{}, 1+allFlagsSet)
+	for f := starlark.SafetyFlags(0); f <= allFlagsSet; f++ {
+		key := strings.Join(f.Names(), nonIdentSep)
+		if _, ok := knownFlags[key]; ok {
+			t.Errorf("Duplicate names set for flags %v", f)
+		}
+		knownFlags[key] = struct{}{}
+	}
+}
+
 func TestSafetyFlagsAreStoredAgainstFunctions(t *testing.T) {
 	const expectedSafety = starlark.MemSafe | starlark.IOSafe
 

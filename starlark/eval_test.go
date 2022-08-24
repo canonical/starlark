@@ -1080,3 +1080,17 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 		t.Errorf("Missing safety flags %v, expected %v", missing.Names(), expectedFlags.Names())
 	}
 }
+
+func TestThreadSafetyFlags(t *testing.T) {
+	const allFlagsSet = starlark.CPUSafe | starlark.IOSafe | starlark.MemSafe | starlark.TimeSafe
+
+	// Test safety flag names returned as expected
+	for f := starlark.SafetyFlags(0); f <= allFlagsSet; f++ {
+		thread := new(starlark.Thread)
+		thread.RequireSafety(f)
+		fNames := f.Names()
+		if reqdNames := thread.RequiredSafetyNames(); !reflect.DeepEqual(reqdNames, fNames) {
+			t.Errorf("Unequal flag name sets: %v != %v", reqdNames, fNames)
+		}
+	}
+}
