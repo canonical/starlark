@@ -96,11 +96,9 @@ func (thread *Thread) Allocs() uint64 {
 	return thread.allocs
 }
 
-// SetMaxAlloc sets a limit on the number of allocations which may be made
-// by this thread. If the thread's allocation tally exceeds this limit, the
-// interpreter calls thread.Cancel("too many allocations").
-//
-// If zero is passed to this function, the restriction is lifted.
+// SetMaxAllocs sets the maximum allocations that may be reported to this thread
+// via AddAllocs before Cancel is internally called. If max is zero or MaxUint64,
+// the thread will not be cancelled.
 func (thread *Thread) SetMaxAllocs(max uint64) {
 	if max == 0 {
 		max = math.MaxUint64
