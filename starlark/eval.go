@@ -1646,11 +1646,11 @@ func interpolate(format string, x Value) (Value, error) {
 	return String(buf.String()), nil
 }
 
-type AllocsError struct {
+type MaxAllocsError struct {
 	Current, Max uint64
 }
 
-func (e *AllocsError) Error() string {
+func (e *MaxAllocsError) Error() string {
 	return "exceeded memory allocation limits"
 }
 
@@ -1684,7 +1684,7 @@ func (thread *Thread) AddAllocs(delta int64) (err error) {
 				fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs+uint64(delta), thread.maxAllocs)
 			}
 
-			err = &AllocsError{
+			err = &MaxAllocsError{
 				Current: thread.allocs,
 				Max:     thread.maxAllocs,
 			}
