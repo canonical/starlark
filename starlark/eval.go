@@ -99,6 +99,8 @@ func (thread *Thread) RequireSafety(flags SafetyFlags) {
 	thread.requiredSafety |= flags
 }
 
+// Permits checks whether this thread would allow execution of a
+// *starlark.Builtin or a starlark.Callable with a given set of safety flags.
 func (thread *Thread) Permits(toCheck SafetyFlags) error {
 	return thread.requiredSafety.Permits(toCheck)
 }
