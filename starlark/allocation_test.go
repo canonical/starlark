@@ -39,7 +39,7 @@ func TestPositiveDeltaDeclarationExceedingMax(t *testing.T) {
 
 func TestOverflowingPositiveDeltaDeclaration(t *testing.T) {
 	const allocationIncrease = math.MaxInt64
-	const expectedErrMsg = "too many allocs"
+	const expectedErrMsg = "exceeded memory allocation limits"
 
 	thread := new(starlark.Thread)
 	thread.SetMaxAllocs(0)

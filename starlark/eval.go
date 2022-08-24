@@ -5,7 +5,6 @@
 package starlark
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1647,6 +1646,14 @@ func interpolate(format string, x Value) (Value, error) {
 	return String(buf.String()), nil
 }
 
+type AllocsError struct {
+	Current, Max uint64
+}
+
+func (e *AllocsError) Error() string {
+	return "exceeded memory allocation limits"
+}
+
 // AddAllocs declares a change of delta in the number of allocations associated
 // with this thread.
 //
@@ -1658,7 +1665,7 @@ func interpolate(format string, x Value) (Value, error) {
 // the tally is capped at zero. No error is returned.
 //
 // This function may be used concurrently.
-func (thread *Thread) AddAllocs(delta int64) error {
+func (thread *Thread) AddAllocs(delta int64) (err error) {
 	if thread.cancelReason == nil {
 		thread.allocLock.Lock()
 
@@ -1677,9 +1684,12 @@ func (thread *Thread) AddAllocs(delta int64) error {
 				fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs+uint64(delta), thread.maxAllocs)
 			}
 
-			problem := "too many allocs"
-			thread.Cancel(problem)
-			return errors.New(problem)
+			err = &AllocsError{
+				Current: thread.allocs,
+				Max:     thread.maxAllocs,
+			}
+			thread.Cancel(err.Error())
+			return
 		}
 
 		thread.allocs = nextAllocs
@@ -1687,5 +1697,5 @@ func (thread *Thread) AddAllocs(delta int64) error {
 		thread.allocLock.Unlock()
 	}
 
-	return nil
+	return
 }
