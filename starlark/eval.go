@@ -1662,30 +1662,35 @@ func (thread *Thread) AddAllocs(delta int64) (err error) {
 	if thread.cancelReason == nil {
 		thread.allocLock.Lock()
 
-		nextAllocs := thread.allocs + uint64(delta)
+		// nextAllocs := thread.allocs + uint64(delta)
 		if delta < 0 {
-			// cap thread.allocs at zero
-			if thread.allocs < nextAllocs {
-				nextAllocs = 0
+			udelta := uint64(-delta)
+			if udelta < thread.allocs {
+				thread.allocs -= udelta
+			} else {
+				thread.allocs = 0
 			}
-		} else if thread.maxAllocs <= nextAllocs || nextAllocs < thread.allocs {
-			// Check if maxAllocs would be exceeded by the increase of delta.
-			// If maxAllocs is at least ⌈half of math.MaxUint64⌉ an undesirable
-			// overflow may occur.
+		} else {
+			udelta := uint64(delta)
+			if udelta <= math.MaxUint64-thread.allocs {
+				thread.allocs += udelta
+			} else {
+				thread.allocs = math.MaxUint64
+			}
 
-			if vmdebug {
-				fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs+uint64(delta), thread.maxAllocs)
-			}
+			if thread.allocs > thread.maxAllocs {
+				if vmdebug {
+					fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs, thread.maxAllocs)
+				}
 
-			err = &MaxAllocsError{
-				Current: thread.allocs,
-				Max:     thread.maxAllocs,
+				err = &MaxAllocsError{
+					Current: thread.allocs,
+					Max:     thread.maxAllocs,
+				}
+				thread.Cancel(err.Error())
+				return
 			}
-			thread.Cancel(err.Error())
-			return
 		}
-
-		thread.allocs = nextAllocs
 
 		thread.allocLock.Unlock()
 	}

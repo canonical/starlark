@@ -53,10 +53,17 @@ func TestOverflowingPositiveDeltaDeclaration(t *testing.T) {
 	}
 
 	// Check overflow detected
-	if err := thread.AddAllocs(allocationIncrease); err == nil {
-		t.Errorf("Expected allocation increase which would cause an overflow to error")
-	} else if errMsg := err.Error(); errMsg != expectedErrMsg {
-		t.Errorf("Unexpected error when declaring large allocation increase: expected '%s' but got '%v'", expectedErrMsg, errMsg)
+	if err := thread.AddAllocs(allocationIncrease); err != nil {
+		t.Errorf("Unexpected error when overflowing allocations: %v", err)
+	} else if allocs := thread.Allocs(); allocs != math.MaxUint64 {
+		t.Errorf("Incorrect allocations stored: expected %d but got %d", uint64(math.MaxUint64), allocs)
+	}
+
+	// Check repeated overflow
+	if err := thread.AddAllocs(allocationIncrease); err != nil {
+		t.Errorf("Unexpected error when repeatedly overflowing allocations: %v", err)
+	} else if allocs := thread.Allocs(); allocs != math.MaxUint64 {
+		t.Errorf("Incorrect allocations stored: expected %d but got %d", uint64(math.MaxUint64), allocs)
 	}
 }
 
