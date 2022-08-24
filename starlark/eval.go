@@ -1674,7 +1674,7 @@ func (thread *Thread) AddAllocs(delta int64) error {
 			// overflow may occur.
 
 			if vmdebug {
-				fmt.Fprintf(os.Stderr, "too much memory used: failed to allocate another %d locations (quota: %d/%d) after %d steps", delta, thread.allocs+uint64(delta), thread.maxAllocs, thread.steps)
+				fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs+uint64(delta), thread.maxAllocs)
 			}
 
 			problem := "too many allocs"
