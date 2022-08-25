@@ -208,11 +208,15 @@ func (fn function) DeclareSafety(flags SafetyFlags) error {
 	return nil
 }
 
-// Permits checks that safety required ⊆ safety toCheck, and details any
+// Permits checks that safety required ⊆ safety toCheck
+func (required SafetyFlags) Permits(toCheck SafetyFlags) bool {
+	return required&^toCheck == 0
+}
+
+// MustPermit checks that safety required ⊆ safety toCheck, and details any
 // missing flags missing in an error.
-func (required SafetyFlags) Permits(toCheck SafetyFlags) error {
-	missingFlags := required &^ toCheck
-	if missingFlags != 0 {
+func (required SafetyFlags) MustPermit(toCheck SafetyFlags) error {
+	if missingFlags := required &^ toCheck; missingFlags != 0 {
 		return fmt.Errorf("missing safety flags: %s", strings.Join(missingFlags.Names(), ", "))
 	}
 	return nil

@@ -101,10 +101,14 @@ func (thread *Thread) RequireSafety(flags SafetyFlags) (err error) {
 	return
 }
 
-// Permits checks whether this thread would allow execution of a
-// *starlark.Builtin or a starlark.Callable with a given set of safety flags.
-func (thread *Thread) Permits(toCheck SafetyFlags) error {
+func (thread *Thread) Permits(toCheck SafetyFlags) bool {
 	return thread.requiredSafety.Permits(toCheck)
+}
+
+// MustPermit checks whether this thread would allow execution of a
+// *starlark.Builtin or a starlark.Callable with a given set of safety flags.
+func (thread *Thread) MustPermit(toCheck SafetyFlags) error {
+	return thread.requiredSafety.MustPermit(toCheck)
 }
 
 // Cancel causes execution of Starlark code in the specified thread to
@@ -1222,7 +1226,7 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	// If non calling a starlark function, check that what is being called has
 	// declared appropriate safety
 	if _, ok := c.(*Function); !ok {
-		if err := thread.Permits(SafetyOf(c)); err != nil {
+		if err := thread.MustPermit(SafetyOf(c)); err != nil {
 			return nil, err
 		}
 	}
