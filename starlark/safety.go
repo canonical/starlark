@@ -83,12 +83,13 @@ func (flags SafetyFlags) Names() (names []string) {
 	return
 }
 
-// AssertValid checks that a given set of safety flags contains only defined
+// CheckValid checks that a given set of safety flags contains only defined
 // flags. If this is not the case, it panics.
-func (f SafetyFlags) AssertValid() {
+func (f SafetyFlags) CheckValid() (err error) {
 	if f >= safetyFlagsLimit {
-		panic(fmt.Sprintf("Invalid safety flags: got %x", f))
+		err = fmt.Errorf("Invalid safety flags: got %x", f)
 	}
+	return
 }
 
 // Safety is a convenience method to get the safety of the function which underlies a
@@ -129,8 +130,8 @@ func (fn function) Safety() (flags SafetyFlags) {
 
 // DeclareSafety is a convenience function to declare the safety of the
 // function which underlies a builtin. Panics if passed flags are not valid.
-func (b *Builtin) DeclareSafety(flags SafetyFlags) {
-	DeclareSafety(b, flags)
+func (b *Builtin) DeclareSafety(flags SafetyFlags) error {
+	return DeclareSafety(b, flags)
 }
 
 // DeclareSafety declares the safety of a callable c. Panics if passed flags
@@ -138,19 +139,19 @@ func (b *Builtin) DeclareSafety(flags SafetyFlags) {
 //
 // See DeclareBuiltinFuncSafety for pitfalls of using closures as the function
 // which underlies callables
-func DeclareSafety(c Callable, flags SafetyFlags) {
+func DeclareSafety(c Callable, flags SafetyFlags) (err error) {
 	if b, ok := c.(*Builtin); ok {
-		DeclareBuiltinFuncSafety(b.fn, flags)
-		return
+		return DeclareBuiltinFuncSafety(b.fn, flags)
 	}
 
 	var _ = c.CallInternal
 	const callInternalMethodName = "CallInternal"
 	if ci, ok := reflect.TypeOf(c).MethodByName(callInternalMethodName); ok {
-		function(ci.Func.Pointer()).DeclareSafety(flags)
+		err = function(ci.Func.Pointer()).DeclareSafety(flags)
 	} else {
-		panic(fmt.Sprintf("No such method '%s' for starlark.Callable %T. This is a bug, please report it at https://github.com/canonical/starlark/issues", callInternalMethodName, c))
+		err = fmt.Errorf("No such method '%s' for starlark.Callable %T. This is a bug, please report it at https://github.com/canonical/starlark/issues", callInternalMethodName, c)
 	}
+	return
 }
 
 // DeclareBuiltinFuncSafety declares the safety of fn, a function which may be
@@ -174,8 +175,8 @@ func DeclareSafety(c Callable, flags SafetyFlags) {
 // If this behaviour proves problematic, it may be circumvented by creating a
 // separate function to wrap each instance of the closure and passing these to
 // starlark, thereby obscuring the common implementation.
-func DeclareBuiltinFuncSafety(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), flags SafetyFlags) {
-	function(reflect.ValueOf(fn).Pointer()).DeclareSafety(flags)
+func DeclareBuiltinFuncSafety(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), flags SafetyFlags) error {
+	return function(reflect.ValueOf(fn).Pointer()).DeclareSafety(flags)
 }
 
 // DeclareSafety declares that the safety of an arbitrarily typed function at a
@@ -184,8 +185,11 @@ func DeclareBuiltinFuncSafety(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value,
 // The first invocation on each fn will store flags as passed. Subsequent
 // invocations will intersect flags with the value already stored before
 // storing this.
-func (fn function) DeclareSafety(flags SafetyFlags) {
-	flags.AssertValid()
+func (fn function) DeclareSafety(flags SafetyFlags) error {
+	if err := flags.CheckValid(); err != nil {
+		return err
+	}
+
 	if knownSafety == nil {
 		knownSafety = make(map[function]SafetyFlags)
 	}
@@ -196,6 +200,7 @@ func (fn function) DeclareSafety(flags SafetyFlags) {
 	} else {
 		knownSafety[fn] = flags
 	}
+	return nil
 }
 
 // Permits checks that safety required ⊆ safety toCheck, and details any

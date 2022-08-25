@@ -755,9 +755,11 @@ func NewBuiltin(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kw
 //
 // This function is equivalent to calling NewBuiltin and DeclareSafety on its
 // result.
-func NewBuiltinWithSafety(name string, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), safety SafetyFlags) *Builtin {
-	DeclareBuiltinFuncSafety(fn, safety)
-	return NewBuiltin(name, fn)
+func NewBuiltinWithSafety(name string, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), safety SafetyFlags) (b *Builtin, err error) {
+	if err = DeclareBuiltinFuncSafety(fn, safety); err == nil {
+		b = NewBuiltin(name, fn)
+	}
+	return
 }
 
 // BindReceiver returns a new Builtin value representing a method

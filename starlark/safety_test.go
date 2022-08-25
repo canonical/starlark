@@ -1,6 +1,7 @@
 package starlark_test
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -68,23 +69,19 @@ func testSafetyFlags(t *testing.T, require, probe starlark.SafetyFlags, expectPa
 	}
 }
 
-func TestInvalidSafetyFlagsRejected(t *testing.T) {
-	const invalidFlags = starlark.SafetyFlags(0xdebac1e)
+func TestSafetyFlagChecking(t *testing.T) {
 	const validFlags = starlark.MemSafe
-	expected := "Invalid safety flags: got 0xdebac1e"
+	const invalidFlags = starlark.SafetyFlags(0xdebac1e)
 
-	defer func() {
-		if r := recover(); r != nil {
-			if r != expected {
-				t.Errorf("Expected invalid safety flags to be reported: expected message '%s' but got different panic '%s'", expected, r)
-			}
-		} else {
-			t.Error("AssertValid did not panic on invalid flags")
-		}
-	}()
+	if err := validFlags.CheckValid(); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 
-	validFlags.AssertValid()   // Should not panic
-	invalidFlags.AssertValid() // Should panic
+	if err := invalidFlags.CheckValid(); err == nil {
+		t.Errorf("No error when checking invalid flags")
+	} else if !strings.HasPrefix(err.Error(), "Invalid safety flags: ") {
+		t.Errorf("Unexpected error when checking invalid flags: %v", err)
+	}
 }
 
 func TestDefaultStoredSafetyIsZero(t *testing.T) {
@@ -117,7 +114,9 @@ func TestSafetyFlagsAreStoredAgainstFunctions(t *testing.T) {
 		return starlark.String("f"), nil
 	}
 
-	starlark.DeclareBuiltinFuncSafety(f, expectedSafety)
+	if err := starlark.DeclareBuiltinFuncSafety(f, expectedSafety); err != nil {
+		t.Errorf("Failed to declare valid safety: %v", err)
+	}
 	if actualSafety := starlark.SafetyOfBuiltinFunc(f); actualSafety != expectedSafety {
 		t.Errorf("Incorrect safety flags, expected %v but got %v", expectedSafety, actualSafety)
 	}
@@ -137,8 +136,12 @@ func TestClosuresInteractSafely(t *testing.T) {
 
 	closure1 := base("foo")
 	closure2 := base("bar")
-	starlark.DeclareBuiltinFuncSafety(closure1, closure1DefinedSafety)
-	starlark.DeclareBuiltinFuncSafety(closure2, closure2DefinedSafety)
+	if err := starlark.DeclareBuiltinFuncSafety(closure1, closure1DefinedSafety); err != nil {
+		t.Errorf("Failed to declare valid safety: %v", err)
+	}
+	if err := starlark.DeclareBuiltinFuncSafety(closure2, closure2DefinedSafety); err != nil {
+		t.Errorf("Failed to declare valid safety: %v", err)
+	}
 
 	testSafetyBounded := func(least, most starlark.SafetyFlags, closure func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error)) {
 		closureSafety := starlark.SafetyOfBuiltinFunc(closure)
@@ -187,7 +190,9 @@ func TestBuiltinSafety(t *testing.T) {
 	fn := func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 		return starlark.None, nil
 	}
-	starlark.DeclareBuiltinFuncSafety(fn, expectedSafety)
+	if err := starlark.DeclareBuiltinFuncSafety(fn, expectedSafety); err != nil {
+		t.Errorf("Failed to declare valid safety: %v", err)
+	}
 
 	instance1 := starlark.NewBuiltin("b1", fn)
 	instance2 := starlark.NewBuiltin("b2", fn)
@@ -208,8 +213,9 @@ func TestNewBuiltinWithSafety(t *testing.T) {
 	fn := func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 		return starlark.None, nil
 	}
-	b := starlark.NewBuiltinWithSafety("fn", fn, expectedSafety)
-	if safety := b.Safety(); safety != expectedSafety {
+	if b, err := starlark.NewBuiltinWithSafety("fn", fn, expectedSafety); err != nil {
+		t.Errorf("Unexpected error declaring new safe builtin: %v", err)
+	} else if safety := b.Safety(); safety != expectedSafety {
 		t.Errorf("Incorrect stored safety flags: expected %v but got %v", expectedSafety, safety)
 	}
 }
@@ -232,7 +238,9 @@ func TestCallableSafety(t *testing.T) {
 	const expectedSafety = starlark.MemSafe | starlark.TimeSafe
 
 	instance1 := dummyCallable{}
-	starlark.DeclareSafety(instance1, expectedSafety)
+	if err := starlark.DeclareSafety(instance1, expectedSafety); err != nil {
+		t.Errorf("Failed to declare safety: %v", err)
+	}
 	instance2 := dummyCallable{}
 
 	if instance1Safety := starlark.SafetyOf(instance1); instance1Safety != expectedSafety {
@@ -254,7 +262,9 @@ func TestSafeBuiltinCanExecuteSafety(t *testing.T) {
 	fn := func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 		return starlark.None, nil
 	}
-	starlark.DeclareBuiltinFuncSafety(fn, fnSafety)
+	if err := starlark.DeclareBuiltinFuncSafety(fn, fnSafety); err != nil {
+		t.Errorf("Failed to declare valid safety: %v", err)
+	}
 
 	env := starlark.StringDict{
 		"fn": starlark.NewBuiltin("fn", fn),
@@ -276,7 +286,9 @@ func TestUnsafeBuiltinCannotExecuteSafety(t *testing.T) {
 	fn := func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 		return starlark.None, nil
 	}
-	starlark.DeclareBuiltinFuncSafety(fn, fnSafety)
+	if err := starlark.DeclareBuiltinFuncSafety(fn, fnSafety); err != nil {
+		t.Errorf("Failed to declare valid safety: %v", err)
+	}
 
 	env := starlark.StringDict{
 		"fn": starlark.NewBuiltin("fn", fn),
@@ -302,7 +314,9 @@ func (SafeCallable) CallInternal(*starlark.Thread, starlark.Tuple, []starlark.Tu
 }
 func init() {
 	const strongSafety = starlark.CPUSafe | starlark.IOSafe | starlark.MemSafe | starlark.TimeSafe
-	starlark.DeclareSafety(new(SafeCallable), strongSafety)
+	if err := starlark.DeclareSafety(new(SafeCallable), strongSafety); err != nil {
+		panic(fmt.Sprintf("Failed to declare safety: %v", err))
+	}
 }
 
 func TestSafeCallableCanExecute(t *testing.T) {
