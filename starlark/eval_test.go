@@ -1010,7 +1010,7 @@ func TestThreadSafetyStorage(t *testing.T) {
 }
 
 func TestThreadRejectsInvalidFlags(t *testing.T) {
-	const invalidFlags = starlark.SafetyFlags(0xdebac1e)
+	const invalidFlags = starlark.SafetyFlags(0xdabbad00)
 
 	thread := new(starlark.Thread)
 	if err := thread.RequireSafety(invalidFlags); err == nil {
@@ -1102,10 +1102,8 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 }
 
 func TestThreadSafetyFlags(t *testing.T) {
-	const allFlagsSet = starlark.CPUSafe | starlark.IOSafe | starlark.MemSafe | starlark.TimeSafe
-
 	// Test safety flag names returned as expected
-	for f := starlark.SafetyFlags(0); f <= allFlagsSet; f++ {
+	for f := starlark.NonSafe; f <= starlark.Safe; f++ {
 		thread := new(starlark.Thread)
 		if err := thread.RequireSafety(f); err != nil {
 			t.Errorf("Unexpected error when requiring valid valid flags %v: %v", f, err)

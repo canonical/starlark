@@ -13,7 +13,7 @@ func TestSafety(t *testing.T) {
 	justCpu := starlark.CPUSafe
 	justMem := starlark.MemSafe
 	memAndCpu := justCpu | justMem
-	unrestricted := starlark.SafetyFlags(0)
+	unrestricted := starlark.NonSafe
 
 	if err := unrestricted.Permits(memAndCpu); err != nil {
 		t.Errorf("Incorrect safety failure %v", err)
@@ -33,15 +33,12 @@ func TestSafety(t *testing.T) {
 }
 
 func TestSafetyFlags(t *testing.T) {
-	const noSafety = starlark.SafetyFlags(0)
-	const fullSafety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
-
 	// Equal safety-sets are accepted
-	testSafetyFlags(t, noSafety, noSafety, true)
-	testSafetyFlags(t, fullSafety, fullSafety, true)
+	testSafetyFlags(t, starlark.NonSafe, starlark.NonSafe, true)
+	testSafetyFlags(t, starlark.Safe, starlark.Safe, true)
 
-	testSafetyFlags(t, noSafety, fullSafety, true)  // Where no safety is expected, something with stronger safety is permitted
-	testSafetyFlags(t, fullSafety, noSafety, false) // Where full safety is expected, no-safety is rejected
+	testSafetyFlags(t, starlark.NonSafe, starlark.Safe, true)  // Where no safety is expected, something with stronger safety is permitted
+	testSafetyFlags(t, starlark.Safe, starlark.NonSafe, false) // Where full safety is expected, no-safety is rejected
 
 	// Disjoint non-empty safety sets are rejected
 	const disjointA = starlark.TimeSafe | starlark.IOSafe
@@ -94,11 +91,10 @@ func TestDefaultStoredSafetyIsZero(t *testing.T) {
 }
 
 func TestSafetyFlagNamesAreUnique(t *testing.T) {
-	const allFlagsSet = starlark.CPUSafe | starlark.IOSafe | starlark.MemSafe | starlark.TimeSafe
 	const nonIdentSep = "@"
 
-	knownFlags := make(map[string]struct{}, 1+allFlagsSet)
-	for f := starlark.SafetyFlags(0); f <= allFlagsSet; f++ {
+	knownFlags := make(map[string]struct{}, 1+starlark.Safe)
+	for f := starlark.NonSafe; f <= starlark.Safe; f++ {
 		key := strings.Join(f.Names(), nonIdentSep)
 		if _, ok := knownFlags[key]; ok {
 			t.Errorf("Duplicate names set for flags %v", f)
@@ -326,8 +322,7 @@ func (SafeCallable) CallInternal(*starlark.Thread, starlark.Tuple, []starlark.Tu
 	return starlark.None, nil
 }
 func init() {
-	const strongSafety = starlark.CPUSafe | starlark.IOSafe | starlark.MemSafe | starlark.TimeSafe
-	if err := starlark.DeclareSafety(new(SafeCallable), strongSafety); err != nil {
+	if err := starlark.DeclareSafety(new(SafeCallable), starlark.Safe); err != nil {
 		panic(fmt.Sprintf("Failed to declare safety: %v", err))
 	}
 }
