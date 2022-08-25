@@ -208,7 +208,7 @@ func (fn function) DeclareSafety(flags SafetyFlags) error {
 func (required SafetyFlags) Permits(toCheck SafetyFlags) error {
 	missingFlags := required &^ toCheck
 	if missingFlags != 0 {
-		return fmt.Errorf("Missing safety flags: %s", strings.Join(missingFlags.Names(), ", "))
+		return fmt.Errorf("missing safety flags: %s", strings.Join(missingFlags.Names(), ", "))
 	}
 	return nil
 }

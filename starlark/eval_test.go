@@ -1080,13 +1080,13 @@ func TestThreadPermitsMatchesForbiddenCall(t *testing.T) {
 
 	if err := thread.Permits(builtinSafety); err == nil {
 		t.Errorf("Thread failed to report that unsafe flags are unsafe")
-	} else if !strings.HasPrefix(err.Error(), "Missing safety flags: ") {
+	} else if !strings.HasPrefix(err.Error(), "missing safety flags: ") {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	if _, err := starlark.ExecFile(thread, "test_forbidden_call", prog, env); err == nil {
 		t.Errorf("No error when attempting to call builtin with inadequate safety flags")
-	} else if !strings.HasPrefix(err.Error(), "Missing safety flags: ") {
+	} else if !strings.HasPrefix(err.Error(), "missing safety flags: ") {
 		t.Errorf("Unexpected error: %v", err)
 	}
 }

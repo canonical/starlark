@@ -361,7 +361,7 @@ func TestUnsafeCallableCannotExecute(t *testing.T) {
 	}
 
 	if _, err := starlark.ExecFile(thread, "test_unsafe_callable_rejected", prog, env); err != nil {
-		if e := err.Error(); !strings.HasPrefix(e, "Missing safety flags: ") {
+		if e := err.Error(); !strings.HasPrefix(e, "missing safety flags: ") {
 			t.Errorf("Unexpected error when calling unsafe callable: %v", e)
 		}
 	} else {
