@@ -95,7 +95,7 @@ func (thread *Thread) RequiredSafetyNames() []string {
 // Once a flag is inserted into the thread's required safety set, it cannot be
 // removed.
 func (thread *Thread) RequireSafety(flags SafetyFlags) (err error) {
-	if err = flags.CheckValid(); err == nil {
+	if err = flags.MustBeValid(); err == nil {
 		thread.requiredSafety |= flags
 	}
 	return

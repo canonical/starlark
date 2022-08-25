@@ -83,10 +83,14 @@ func (flags SafetyFlags) Names() (names []string) {
 	return
 }
 
-// CheckValid checks that a given set of safety flags contains only defined
+func (f SafetyFlags) Valid() bool {
+	return f < safetyFlagsLimit
+}
+
+// MustBeValid checks that a given set of safety flags contains only defined
 // flags. If this is not the case, it panics.
-func (f SafetyFlags) CheckValid() (err error) {
-	if f >= safetyFlagsLimit {
+func (f SafetyFlags) MustBeValid() (err error) {
+	if !f.Valid() {
 		err = fmt.Errorf("Invalid safety flags: got %x", f)
 	}
 	return
@@ -186,7 +190,7 @@ func DeclareBuiltinFuncSafety(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value,
 // invocations will intersect flags with the value already stored before
 // storing this.
 func (fn function) DeclareSafety(flags SafetyFlags) error {
-	if err := flags.CheckValid(); err != nil {
+	if err := flags.MustBeValid(); err != nil {
 		return err
 	}
 
