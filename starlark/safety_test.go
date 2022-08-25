@@ -185,6 +185,19 @@ func TestLambdaSafety(t *testing.T) {
 }
 
 func TestBuiltinSafety(t *testing.T) {
+	const expectedSafety = starlark.CPUSafe | starlark.TimeSafe
+	b := starlark.NewBuiltin("func", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+		return starlark.None, nil
+	})
+	if err := b.DeclareSafety(expectedSafety); err != nil {
+		t.Errorf("Unexpected error declaring safety: %v", err)
+	}
+	if safety := b.Safety(); safety != expectedSafety {
+		t.Errorf("Incorrect safety reported, expected %v but got %v", expectedSafety, safety)
+	}
+}
+
+func TestBuiltinFuncSafety(t *testing.T) {
 	const expectedSafety = starlark.IOSafe | starlark.MemSafe
 
 	fn := func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
