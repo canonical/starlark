@@ -13,7 +13,7 @@ func TestSafety(t *testing.T) {
 	justCpu := starlark.CPUSafe
 	justMem := starlark.MemSafe
 	memAndCpu := justCpu | justMem
-	unrestricted := starlark.NonSafe
+	unrestricted := starlark.NotSafe
 
 	if err := unrestricted.MustPermit(memAndCpu); err != nil {
 		t.Errorf("Incorrect safety failure %v", err)
@@ -34,11 +34,11 @@ func TestSafety(t *testing.T) {
 
 func TestSafetyFlags(t *testing.T) {
 	// Equal safety-sets are accepted
-	testSafetyFlags(t, starlark.NonSafe, starlark.NonSafe, true)
+	testSafetyFlags(t, starlark.NotSafe, starlark.NotSafe, true)
 	testSafetyFlags(t, starlark.Safe, starlark.Safe, true)
 
-	testSafetyFlags(t, starlark.NonSafe, starlark.Safe, true)  // Where no safety is expected, something with stronger safety is permitted
-	testSafetyFlags(t, starlark.Safe, starlark.NonSafe, false) // Where full safety is expected, no-safety is rejected
+	testSafetyFlags(t, starlark.NotSafe, starlark.Safe, true)  // Where no safety is expected, something with stronger safety is permitted
+	testSafetyFlags(t, starlark.Safe, starlark.NotSafe, false) // Where full safety is expected, no-safety is rejected
 
 	// Disjoint non-empty safety sets are rejected
 	const disjointA = starlark.TimeSafe | starlark.IOSafe
@@ -97,7 +97,7 @@ func TestSafetyFlagNamesAreUnique(t *testing.T) {
 	const nonIdentSep = "@"
 
 	knownFlags := make(map[string]struct{}, 1+starlark.Safe)
-	for f := starlark.NonSafe; f <= starlark.Safe; f++ {
+	for f := starlark.NotSafe; f <= starlark.Safe; f++ {
 		key := strings.Join(f.Names(), nonIdentSep)
 		if _, ok := knownFlags[key]; ok {
 			t.Errorf("Duplicate names set for flags %v", f)

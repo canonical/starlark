@@ -13,7 +13,7 @@ var _ fmt.Formatter = SafetyFlags(0)
 
 // A valid set of safety flags is any subset of the following defined flags.
 const (
-	NonSafe SafetyFlags = 0
+	NotSafe SafetyFlags = 0
 	CPUSafe SafetyFlags = 1 << (iota - 1)
 	IOSafe
 	MemSafe

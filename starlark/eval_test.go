@@ -1103,7 +1103,7 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 
 func TestThreadSafetyFlags(t *testing.T) {
 	// Test safety flag names returned as expected
-	for f := starlark.NonSafe; f <= starlark.Safe; f++ {
+	for f := starlark.NotSafe; f <= starlark.Safe; f++ {
 		thread := new(starlark.Thread)
 		if err := thread.RequireSafety(f); err != nil {
 			t.Errorf("Unexpected error when requiring valid valid flags %v: %v", f, err)
@@ -1132,7 +1132,7 @@ func TestThreadPermitsMatchesMustPermitFlags(t *testing.T) {
 	t.Run("Flags=NonSafe", func(t *testing.T) {
 		thread := new(starlark.Thread)
 		thread.RequireSafety(starlark.CPUSafe)
-		const toCheck = starlark.NonSafe
+		const toCheck = starlark.NotSafe
 
 		if err := thread.MustPermit(toCheck); err == nil {
 			t.Errorf("Expected error checking non-permissible flags with thread.MustPermit")
