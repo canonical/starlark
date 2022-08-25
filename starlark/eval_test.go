@@ -996,16 +996,6 @@ func TestDeps(t *testing.T) {
 	}
 }
 
-func threadSafety(thread *starlark.Thread) starlark.SafetyFlags {
-	const requiredSafetyFieldName = "requiredSafety"
-	safetyField := reflect.ValueOf(*thread).FieldByName(requiredSafetyFieldName)
-	if safetyField.Kind() == reflect.Invalid {
-		panic(fmt.Sprintf("Reflection could not find field %s, fix tests", requiredSafetyFieldName))
-	}
-
-	return starlark.SafetyFlags(safetyField.Uint())
-}
-
 func TestThreadSafetyStorage(t *testing.T) {
 	const expectedSafety = starlark.CPUSafe | starlark.MemSafe
 
@@ -1014,7 +1004,7 @@ func TestThreadSafetyStorage(t *testing.T) {
 		t.Errorf("Unexpected error when requiring safety: %v", err)
 	}
 
-	if actualSafety := threadSafety(thread); actualSafety != expectedSafety {
+	if actualSafety := starlark.ThreadSafety(thread); actualSafety != expectedSafety {
 		t.Errorf("Thread did not store its safely correctly: expected %d but got %d", expectedSafety, actualSafety)
 	}
 }
@@ -1105,7 +1095,7 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 		t.Errorf("Unexpected error when requireing valid safety flags %v: %v", newFlags, err)
 	}
 
-	if safety := threadSafety(thread); safety != expectedFlags {
+	if safety := starlark.ThreadSafety(thread); safety != expectedFlags {
 		missing := safety &^ expectedFlags
 		t.Errorf("Missing safety flags %v, expected %v", missing.Names(), expectedFlags.Names())
 	}
