@@ -9,8 +9,6 @@ import (
 // SafetyFlags represents a set of constraints on executed code.
 type SafetyFlags uint
 
-var _ fmt.Formatter = SafetyFlags(0)
-
 // A valid set of safety flags is any subset of the following defined flags.
 const (
 	NotSafe SafetyFlags = 0
@@ -21,24 +19,37 @@ const (
 	safetyFlagsLimit
 )
 
-func (f SafetyFlags) Format(state fmt.State, verb rune) {
-	switch verb {
-	case 'd':
-		state.Write([]byte(fmt.Sprintf("%d", uint(f))))
-	case 'x':
-		state.Write([]byte(fmt.Sprintf("%#x", uint(f))))
-	case 'X':
-		state.Write([]byte(fmt.Sprintf("%#X", uint(f))))
-	default:
-		state.Write([]byte("{"))
-		for i, name := range f.Names() {
-			if i > 0 {
-				state.Write([]byte(", "))
-			}
-			state.Write([]byte(name))
-		}
-		state.Write([]byte("}"))
+var numFlagBitsDefined uint
+
+func init() {
+	for f := safetyFlagsLimit; f >= 1; f >>= 1 {
+		numFlagBitsDefined++
 	}
+}
+
+func (f SafetyFlags) String() string {
+	if f == NotSafe {
+		return "NotSafe"
+	}
+
+	flagNames := make([]string, 0, numFlagBitsDefined)
+
+	tryAppendFlag := func(flag SafetyFlags, name string) {
+		if f&flag != 0 {
+			flagNames = append(flagNames, name)
+		}
+	}
+
+	tryAppendFlag(CPUSafe, "CPUSafe")
+	tryAppendFlag(IOSafe, "IOSafe")
+	tryAppendFlag(MemSafe, "MemSafe")
+	tryAppendFlag(TimeSafe, "TimeSafe")
+
+	if len(flagNames) == 1 {
+		return flagNames[0]
+	}
+
+	return fmt.Sprintf("(%s)", strings.Join(flagNames, "|"))
 }
 
 // A pointer to a function of any type.
@@ -49,40 +60,6 @@ type function uintptr
 // Note that as closures share the same underlying function, all instances of a
 // given closure will implicitly share the same safety flags
 var knownSafety map[function]SafetyFlags
-
-var numFlagBitsDefined uintptr
-
-func init() {
-	for f := safetyFlagsLimit; f >= 1; f >>= 1 {
-		numFlagBitsDefined++
-	}
-}
-
-// flagName takes a safety flag with a single set bit and returns the name of that flag, otherwise the empty string
-func (f SafetyFlags) flagName() (name string) {
-	switch f {
-	case CPUSafe:
-		name = "CPUSafe"
-	case IOSafe:
-		name = "IOSafe"
-	case MemSafe:
-		name = "MemSafe"
-	case TimeSafe:
-		name = "TimeSafe"
-	}
-	return
-}
-
-// Names returns a list of human-readable names of set flags
-func (flags SafetyFlags) Names() (names []string) {
-	names = make([]string, 0, numFlagBitsDefined)
-	for f := SafetyFlags(1); f < safetyFlagsLimit; f <<= 1 {
-		if f&flags != 0 {
-			names = append(names, f.flagName())
-		}
-	}
-	return
-}
 
 func (f SafetyFlags) Valid() bool {
 	return f < safetyFlagsLimit
@@ -217,7 +194,7 @@ func (required SafetyFlags) Permits(toCheck SafetyFlags) bool {
 // missing flags missing in an error.
 func (required SafetyFlags) MustPermit(toCheck SafetyFlags) error {
 	if missingFlags := required &^ toCheck; missingFlags != 0 {
-		return fmt.Errorf("missing safety flags: %s", strings.Join(missingFlags.Names(), ", "))
+		return fmt.Errorf("missing safety flags: %s", missingFlags.String())
 	}
 	return nil
 }

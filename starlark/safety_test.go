@@ -94,11 +94,9 @@ func TestDefaultStoredSafetyIsZero(t *testing.T) {
 }
 
 func TestSafetyFlagNamesAreUnique(t *testing.T) {
-	const nonIdentSep = "@"
-
 	knownFlags := make(map[string]struct{}, 1+starlark.Safe)
 	for f := starlark.NotSafe; f <= starlark.Safe; f++ {
-		key := strings.Join(f.Names(), nonIdentSep)
+		key := f.String()
 		if _, ok := knownFlags[key]; ok {
 			t.Errorf("Duplicate names set for flags %v", f)
 		}

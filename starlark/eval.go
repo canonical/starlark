@@ -83,12 +83,6 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
 }
 
-// SafetyFlagNames returns the names of the set of safety flags which must be
-// satisfied by any builtin which is called from this thread.
-func (thread *Thread) RequiredSafetyNames() []string {
-	return thread.requiredSafety.Names()
-}
-
 // RequireSafety inserts all flags from a given set into the thread's required
 // set. If the safety flags passed are not valid, a panic occurs.
 //
