@@ -75,14 +75,16 @@ var _ Safety = new(Builtin)
 
 // Permits checks that safety required ⊆ safety toCheck
 func (required SafetyFlags) Permits(toCheck SafetyFlags) bool {
-	return required&^toCheck == 0
+	return toCheck.Valid() && required&^toCheck == 0
 }
 
 // MustPermit checks that safety required ⊆ safety toCheck, and details any
 // missing flags missing in an error.
-func (required SafetyFlags) MustPermit(toCheck SafetyFlags) error {
-	if missingFlags := required &^ toCheck; missingFlags != 0 {
-		return fmt.Errorf("missing safety flags: %s", missingFlags.String())
+func (required SafetyFlags) MustPermit(toCheck SafetyFlags) (err error) {
+	if err = toCheck.MustBeValid(); err == nil {
+		if missingFlags := required &^ toCheck; missingFlags != 0 {
+			err = fmt.Errorf("missing safety flags: %s", missingFlags.String())
+		}
 	}
-	return nil
+	return
 }

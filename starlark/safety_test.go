@@ -53,6 +53,11 @@ func TestSafetyFlags(t *testing.T) {
 
 	// A superset of required safety is accepted
 	testSafetyFlags(t, common, symmetricallyDifferentA, true)
+
+	// Invalid flags rejected
+	const valid = starlark.Safe
+	const invalid = starlark.SafetyFlags(0xbadc0de)
+	testSafetyFlags(t, valid, invalid, false)
 }
 
 func testSafetyFlags(t *testing.T, require, probe starlark.SafetyFlags, expectPass bool) {
@@ -167,7 +172,9 @@ func TestBuiltinSafeExecution(t *testing.T) {
 		fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 			return starlark.String("foo"), nil
 		})
-		fn.DeclareSafety(permittedSafety)
+		if err := fn.DeclareSafety(permittedSafety); err != nil {
+			t.Errorf("Unexpected error declaring valid safety: %v", err)
+		}
 		env := starlark.StringDict{"fn": fn}
 
 		if _, err := starlark.ExecFile(thread, "builtin_safety_restrictions", "fn()", env); err != nil {
@@ -181,7 +188,9 @@ func TestBuiltinSafeExecution(t *testing.T) {
 		fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 			return starlark.String("foo"), nil
 		})
-		fn.DeclareSafety(forbiddenSafety)
+		if err := fn.DeclareSafety(forbiddenSafety); err != nil {
+			t.Errorf("Unexpected error declaring valid safety", err)
+		}
 		env := starlark.StringDict{"fn": fn}
 
 		if _, err := starlark.ExecFile(thread, "builtin_safety_restrictions", "fn()", env); err == nil {
