@@ -189,7 +189,7 @@ func TestBuiltinSafeExecution(t *testing.T) {
 			return starlark.String("foo"), nil
 		})
 		if err := fn.DeclareSafety(forbiddenSafety); err != nil {
-			t.Errorf("Unexpected error declaring valid safety", err)
+			t.Errorf("Unexpected error declaring valid safety: %v", err)
 		}
 		env := starlark.StringDict{"fn": fn}
 
