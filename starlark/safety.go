@@ -89,12 +89,20 @@ func (required SafetyFlags) Permits(toCheck SafetyFlags) bool {
 	return toCheck.Valid() && required&^toCheck == 0
 }
 
+type SafetyError struct {
+	Missing SafetyFlags
+}
+
+func (SafetyError) Error() string {
+	return "missing safety flags"
+}
+
 // MustPermit checks that safety required ⊆ safety toCheck, and details any
 // missing flags missing in an error.
 func (required SafetyFlags) MustPermit(toCheck SafetyFlags) (err error) {
 	if err = toCheck.MustBeValid(); err == nil {
 		if missingFlags := required &^ toCheck; missingFlags != 0 {
-			err = fmt.Errorf("missing safety flags: %s", missingFlags.String())
+			err = &SafetyError{missingFlags}
 		}
 	}
 	return
