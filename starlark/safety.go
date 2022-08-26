@@ -32,6 +32,9 @@ func (f SafetyFlags) String() string {
 	if f == NotSafe {
 		return "NotSafe"
 	}
+	if f >= safetyFlagsLimit {
+		return "(invalid safety flags)"
+	}
 
 	flagNames := make([]string, 0, numFlagBitsDefined)
 
