@@ -50,7 +50,7 @@ func (f SafetyFlags) String() string {
 		return flagNames[0]
 	}
 
-	return fmt.Sprintf("(%s)", strings.Join(flagNames, "|"))
+	return fmt.Sprintf("(%s)", strings.Join(flagNames, " | "))
 }
 
 func (f SafetyFlags) Valid() bool {
