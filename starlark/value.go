@@ -711,14 +711,16 @@ func (fn *Function) Param(i int) (string, syntax.Position) {
 	id := fn.funcode.Locals[i]
 	return id.Name, id.Pos
 }
-func (fn *Function) HasVarargs() bool { return fn.funcode.HasVarargs }
-func (fn *Function) HasKwargs() bool  { return fn.funcode.HasKwargs }
+func (fn *Function) HasVarargs() bool    { return fn.funcode.HasVarargs }
+func (fn *Function) HasKwargs() bool     { return fn.funcode.HasKwargs }
+func (fn *Function) Safety() SafetyFlags { return safe }
 
 // A Builtin is a function implemented in Go.
 type Builtin struct {
-	name string
-	fn   func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)
-	recv Value // for bound methods (e.g. "".startswith)
+	name   string
+	fn     func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)
+	recv   Value // for bound methods (e.g. "".startswith)
+	safety SafetyFlags
 }
 
 func (b *Builtin) Name() string { return b.name }
@@ -740,7 +742,14 @@ func (b *Builtin) Type() string    { return "builtin_function_or_method" }
 func (b *Builtin) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Value, error) {
 	return b.fn(thread, b, args, kwargs)
 }
-func (b *Builtin) Truth() Bool { return true }
+func (b *Builtin) Truth() Bool         { return true }
+func (b *Builtin) Safety() SafetyFlags { return b.safety }
+func (b *Builtin) DeclareSafety(flags SafetyFlags) (err error) {
+	if err = flags.MustBeValid(); err == nil {
+		b.safety = flags
+	}
+	return
+}
 
 // NewBuiltin returns a new 'builtin_function_or_method' value with the specified name
 // and implementation.  It compares unequal with all other values.
@@ -755,11 +764,11 @@ func NewBuiltin(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kw
 //
 // This function is equivalent to calling NewBuiltin and DeclareSafety on its
 // result.
-func NewBuiltinWithSafety(name string, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), safety SafetyFlags) (b *Builtin, err error) {
-	if err = DeclareBuiltinFuncSafety(fn, safety); err == nil {
-		b = NewBuiltin(name, fn)
+func NewBuiltinWithSafety(name string, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), safety SafetyFlags) (*Builtin, error) {
+	if err := safety.MustBeValid(); err != nil {
+		return nil, err
 	}
-	return
+	return &Builtin{name: name, fn: fn, safety: safety}, nil
 }
 
 // BindReceiver returns a new Builtin value representing a method

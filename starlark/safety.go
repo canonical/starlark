@@ -2,7 +2,6 @@ package starlark
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 )
 
@@ -18,6 +17,8 @@ const (
 	TimeSafe
 	safetyFlagsLimit
 )
+
+const safe = safetyFlagsLimit - 1
 
 var numFlagBitsDefined uint
 
@@ -52,15 +53,6 @@ func (f SafetyFlags) String() string {
 	return fmt.Sprintf("(%s)", strings.Join(flagNames, "|"))
 }
 
-// A pointer to a function of any type.
-type function uintptr
-
-// Central map of functions to their declared safety flags.
-//
-// Note that as closures share the same underlying function, all instances of a
-// given closure will implicitly share the same safety flags
-var knownSafety map[function]SafetyFlags
-
 func (f SafetyFlags) Valid() bool {
 	return f < safetyFlagsLimit
 }
@@ -74,116 +66,12 @@ func (f SafetyFlags) MustBeValid() (err error) {
 	return
 }
 
-// Safety is a convenience method to get the safety of the function which underlies a
-// builtin.
-func (b *Builtin) Safety() SafetyFlags {
-	return SafetyOf(b)
+type Safety interface {
+	Safety() SafetyFlags
 }
 
-// SafetyOf gets the safety of fn, a function which may be used as
-// the CallInternal method in a Callable.
-func SafetyOf(c Callable) SafetyFlags {
-	if b, ok := c.(*Builtin); ok {
-		return SafetyOfBuiltinFunc(b.fn)
-	}
-
-	var _ = c.CallInternal
-	const callInternalMethodName = "CallInternal"
-	if ci, ok := reflect.TypeOf(c).MethodByName(callInternalMethodName); ok {
-		return function(ci.Func.Pointer()).Safety()
-	}
-	panic(fmt.Sprintf("No such method '%s' for starlark.Callable %T. This is a bug, please report it at https://github.com/canonical/starlark/issues", callInternalMethodName, c))
-}
-
-// SafetyOfBuiltinFunc gets the safety of fn, a function which may be wrapped
-// into a Builtin.
-func SafetyOfBuiltinFunc(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error)) SafetyFlags {
-	return function(reflect.ValueOf(fn).Pointer()).Safety()
-}
-
-// Safety gets the safety flags of an arbitrarily-typed function at a given
-// location.
-func (fn function) Safety() (flags SafetyFlags) {
-	if knownSafety != nil {
-		flags = knownSafety[fn]
-	}
-	return
-}
-
-// DeclareSafety is a convenience function to declare the safety of the
-// function which underlies a builtin. Panics if passed flags are not valid.
-func (b *Builtin) DeclareSafety(flags SafetyFlags) error {
-	return DeclareSafety(b, flags)
-}
-
-// DeclareSafety declares the safety of a callable c. Panics if passed flags
-// are not valid.
-//
-// See DeclareBuiltinFuncSafety for pitfalls of using closures as the function
-// which underlies callables
-func DeclareSafety(c Callable, flags SafetyFlags) (err error) {
-	if b, ok := c.(*Builtin); ok {
-		return DeclareBuiltinFuncSafety(b.fn, flags)
-	}
-
-	var _ = c.CallInternal
-	const callInternalMethodName = "CallInternal"
-	if ci, ok := reflect.TypeOf(c).MethodByName(callInternalMethodName); ok {
-		err = function(ci.Func.Pointer()).DeclareSafety(flags)
-	} else {
-		err = fmt.Errorf("No such method '%s' for starlark.Callable %T. This is a bug, please report it at https://github.com/canonical/starlark/issues", callInternalMethodName, c)
-	}
-	return
-}
-
-// DeclareBuiltinFuncSafety declares the safety of fn, a function which may be
-// wrapped into a Builtin, as flags. Panics if passed flags are not valid.
-//
-// The first time this function is called for a given fn, the value flags is
-// recorded against it exactly. However, subsequent invocations on the same fn
-// will record the intersection of the respective flags argument and those
-// already stored.
-//
-// This redeclaration behaviour is significant on some platforms when several
-// callables use the same base closure but with different upvalues to represent
-// their underlying go function. In this case, as we store the safety flags
-// against the function (and not the function-upvalue pair which forms the
-// closure), the the safety declarations may interact. When this occurs, the
-// strongest assertion which can be made for a set of closures is the largest
-// common subset of their safety flags---their intersection. Hence safety
-// assertions around closures may sometimes be weakened, which may lead to
-// rejection when the Callable is later called.
-//
-// If this behaviour proves problematic, it may be circumvented by creating a
-// separate function to wrap each instance of the closure and passing these to
-// starlark, thereby obscuring the common implementation.
-func DeclareBuiltinFuncSafety(fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), flags SafetyFlags) error {
-	return function(reflect.ValueOf(fn).Pointer()).DeclareSafety(flags)
-}
-
-// DeclareSafety declares that the safety of an arbitrarily typed function at a
-// given location is flags. Panics of passed flags are not valid.
-//
-// The first invocation on each fn will store flags as passed. Subsequent
-// invocations will intersect flags with the value already stored before
-// storing this.
-func (fn function) DeclareSafety(flags SafetyFlags) error {
-	if err := flags.MustBeValid(); err != nil {
-		return err
-	}
-
-	if knownSafety == nil {
-		knownSafety = make(map[function]SafetyFlags)
-	}
-
-	if _, ok := knownSafety[fn]; ok {
-		// Weaken safety guarantee at redeclaration
-		knownSafety[fn] &= flags
-	} else {
-		knownSafety[fn] = flags
-	}
-	return nil
-}
+var _ Safety = new(Function)
+var _ Safety = new(Builtin)
 
 // Permits checks that safety required ⊆ safety toCheck
 func (required SafetyFlags) Permits(toCheck SafetyFlags) bool {

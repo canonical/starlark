@@ -996,19 +996,6 @@ func TestDeps(t *testing.T) {
 	}
 }
 
-func TestThreadSafetyStorage(t *testing.T) {
-	const expectedSafety = starlark.CPUSafe | starlark.MemSafe
-
-	thread := new(starlark.Thread)
-	if err := thread.RequireSafety(expectedSafety); err != nil {
-		t.Errorf("Unexpected error when requiring safety: %v", err)
-	}
-
-	if actualSafety := starlark.ThreadSafety(thread); actualSafety != expectedSafety {
-		t.Errorf("Thread did not store its safely correctly: expected %d but got %d", expectedSafety, actualSafety)
-	}
-}
-
 func TestThreadRejectsInvalidFlags(t *testing.T) {
 	const invalidFlags = starlark.SafetyFlags(0xdabbad00)
 
