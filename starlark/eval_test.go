@@ -1002,7 +1002,7 @@ func TestThreadRejectsInvalidFlags(t *testing.T) {
 	thread := new(starlark.Thread)
 	if err := thread.RequireSafety(invalidFlags); err == nil {
 		t.Errorf("Expected error when requiring invalid safety flags")
-	} else if !strings.HasPrefix(err.Error(), "Invalid safety flags: ") {
+	} else if !strings.HasPrefix(err.Error(), "invalid safety flags") {
 		t.Errorf("Unexpected error: %v", err)
 	}
 }

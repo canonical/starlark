@@ -60,11 +60,19 @@ func (f SafetyFlags) Valid() bool {
 	return f < safetyFlagsLimit
 }
 
+type InvalidSafetyError struct {
+	InvalidFlags uint
+}
+
+func (InvalidSafetyError) Error() string {
+	return "invalid safety flags"
+}
+
 // MustBeValid checks that a given set of safety flags contains only defined
 // flags. If this is not the case, it panics.
 func (f SafetyFlags) MustBeValid() (err error) {
 	if !f.Valid() {
-		err = fmt.Errorf("Invalid safety flags: got %x", f)
+		err = &InvalidSafetyError{uint(f &^ safe)}
 	}
 	return
 }
