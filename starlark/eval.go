@@ -1221,7 +1221,7 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	// If non calling a starlark function, check that what is being called has
 	// declared appropriate safety
 	var callableSafety SafetyFlags
-	if c, ok := c.(Safety); ok {
+	if c, ok := c.(SafetyAware); ok {
 		callableSafety = c.Safety()
 	}
 	if err := thread.MustPermit(callableSafety); err != nil {

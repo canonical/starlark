@@ -73,12 +73,12 @@ func (f SafetyFlags) CheckValid() error {
 	return nil
 }
 
-type Safety interface {
+type SafetyAware interface {
 	Safety() SafetyFlags
 }
 
-var _ Safety = new(Function)
-var _ Safety = new(Builtin)
+var _ SafetyAware = new(Function)
+var _ SafetyAware = new(Builtin)
 
 // Permits checks that safety required ⊆ safety toCheck
 func (required SafetyFlags) Permits(toCheck SafetyFlags) bool {

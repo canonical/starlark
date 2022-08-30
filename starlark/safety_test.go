@@ -204,9 +204,9 @@ func TestBuiltinSafeExecution(t *testing.T) {
 type dummyCallable struct{ safety starlark.SafetyFlags }
 
 var (
-	_ starlark.Value    = &dummyCallable{}
-	_ starlark.Callable = &dummyCallable{}
-	_ starlark.Safety   = &dummyCallable{}
+	_ starlark.Value       = &dummyCallable{}
+	_ starlark.Callable    = &dummyCallable{}
+	_ starlark.SafetyAware = &dummyCallable{}
 )
 
 func (dummyCallable) String() string        { return "" }
