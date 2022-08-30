@@ -56,11 +56,11 @@ func TestSafetyFlags(t *testing.T) {
 
 	// Invalid flags rejected
 	const valid = starlark.Safe
-	const invalid = starlark.SafetyFlags(0xbadc0de)
+	const invalid = starlark.Safety(0xbadc0de)
 	testSafetyFlags(t, valid, invalid, false)
 }
 
-func testSafetyFlags(t *testing.T, require, probe starlark.SafetyFlags, expectPass bool) {
+func testSafetyFlags(t *testing.T, require, probe starlark.Safety, expectPass bool) {
 	if actual := require.Permits(probe); actual != expectPass {
 		t.Errorf("Safety flag checking did not return correct value: expected %v but got %v", expectPass, actual)
 	}
@@ -74,7 +74,7 @@ func testSafetyFlags(t *testing.T, require, probe starlark.SafetyFlags, expectPa
 
 func TestSafetyFlagChecking(t *testing.T) {
 	const validFlags = starlark.MemSafe
-	const invalidFlags = starlark.SafetyFlags(0xdebac1e)
+	const invalidFlags = starlark.Safety(0xdebac1e)
 
 	if err := validFlags.CheckValid(); err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -201,7 +201,7 @@ func TestBuiltinSafeExecution(t *testing.T) {
 	})
 }
 
-type dummyCallable struct{ safety starlark.SafetyFlags }
+type dummyCallable struct{ safety starlark.Safety }
 
 var (
 	_ starlark.Value       = &dummyCallable{}
@@ -218,8 +218,8 @@ func (dummyCallable) Name() string          { return "dummyCallable" }
 func (dummyCallable) CallInternal(*starlark.Thread, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 	return starlark.None, nil
 }
-func (d *dummyCallable) Safety() starlark.SafetyFlags             { return d.safety }
-func (d *dummyCallable) DeclareSafety(flags starlark.SafetyFlags) { d.safety = flags }
+func (d *dummyCallable) Safety() starlark.Safety             { return d.safety }
+func (d *dummyCallable) DeclareSafety(flags starlark.Safety) { d.safety = flags }
 
 func TestCallableSafeExecution(t *testing.T) {
 	thread := new(starlark.Thread)

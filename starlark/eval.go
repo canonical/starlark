@@ -62,7 +62,7 @@ type Thread struct {
 
 	// requiredSafety holds the set of safety conditions which must be
 	// satisfied by any builtin which is called when running this thread.
-	requiredSafety SafetyFlags
+	requiredSafety Safety
 }
 
 // ExecutionSteps returns a count of abstract computation steps executed
@@ -88,21 +88,22 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 //
 // Once a flag is inserted into the thread's required safety set, it cannot be
 // removed.
-func (thread *Thread) RequireSafety(flags SafetyFlags) error {
-	if err := flags.CheckValid(); err != nil {
+func (thread *Thread) RequireSafety(safety Safety) error {
+	if err := safety.CheckValid(); err != nil {
+		thread.requiredSafety = safe
 		return err
 	}
-	thread.requiredSafety |= flags
+	thread.requiredSafety |= safety
 	return nil
 }
 
-func (thread *Thread) Permits(toCheck SafetyFlags) bool {
+func (thread *Thread) Permits(toCheck Safety) bool {
 	return thread.requiredSafety.Permits(toCheck)
 }
 
 // MustPermit checks whether this thread would allow execution of a
 // *starlark.Builtin or a starlark.Callable with a given set of safety flags.
-func (thread *Thread) MustPermit(toCheck SafetyFlags) error {
+func (thread *Thread) MustPermit(toCheck Safety) error {
 	return thread.requiredSafety.MustPermit(toCheck)
 }
 
@@ -1220,7 +1221,7 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 
 	// If non calling a starlark function, check that what is being called has
 	// declared appropriate safety
-	var callableSafety SafetyFlags
+	var callableSafety Safety
 	if c, ok := c.(SafetyAware); ok {
 		callableSafety = c.Safety()
 	}

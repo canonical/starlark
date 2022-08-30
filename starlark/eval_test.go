@@ -997,7 +997,7 @@ func TestDeps(t *testing.T) {
 }
 
 func TestThreadRejectsInvalidFlags(t *testing.T) {
-	const invalidFlags = starlark.SafetyFlags(0xdabbad00)
+	const invalidFlags = starlark.Safety(0xdabbad00)
 
 	thread := new(starlark.Thread)
 	if err := thread.RequireSafety(invalidFlags); err == nil {

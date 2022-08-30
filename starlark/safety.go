@@ -5,13 +5,13 @@ import (
 	"strings"
 )
 
-// SafetyFlags represents a set of constraints on executed code.
-type SafetyFlags uint
+// Safety represents a set of constraints on executed code.
+type Safety uint
 
 // A valid set of safety flags is any subset of the following defined flags.
 const (
-	NotSafe SafetyFlags = 0
-	CPUSafe SafetyFlags = 1 << (iota - 1)
+	NotSafe Safety = 0
+	CPUSafe Safety = 1 << (iota - 1)
 	MemSafe
 	TimeSafe
 	IOSafe
@@ -28,7 +28,7 @@ func init() {
 	}
 }
 
-func (f SafetyFlags) String() string {
+func (f Safety) String() string {
 	if f == NotSafe {
 		return "NotSafe"
 	}
@@ -38,7 +38,7 @@ func (f SafetyFlags) String() string {
 
 	flagNames := make([]string, 0, numFlagBitsDefined)
 
-	tryAppendFlag := func(flag SafetyFlags, name string) {
+	tryAppendFlag := func(flag Safety, name string) {
 		if f&flag != 0 {
 			flagNames = append(flagNames, name)
 		}
@@ -66,7 +66,7 @@ func (InvalidSafetyError) Error() string {
 
 // CheckValid checks that a given set of safety flags contains only defined
 // flags.
-func (f SafetyFlags) CheckValid() error {
+func (f Safety) CheckValid() error {
 	if f >= safetyFlagsLimit {
 		return &InvalidSafetyError{uint(f &^ safe)}
 	}
@@ -74,19 +74,19 @@ func (f SafetyFlags) CheckValid() error {
 }
 
 type SafetyAware interface {
-	Safety() SafetyFlags
+	Safety() Safety
 }
 
 var _ SafetyAware = new(Function)
 var _ SafetyAware = new(Builtin)
 
 // Permits checks that safety required ⊆ safety toCheck
-func (required SafetyFlags) Permits(toCheck SafetyFlags) bool {
+func (required Safety) Permits(toCheck Safety) bool {
 	return toCheck.CheckValid() == nil && required&^toCheck == 0
 }
 
 type SafetyError struct {
-	Missing SafetyFlags
+	Missing Safety
 }
 
 func (SafetyError) Error() string {
@@ -95,7 +95,7 @@ func (SafetyError) Error() string {
 
 // MustPermit checks that safety required ⊆ safety toCheck, and details any
 // missing flags missing in an error.
-func (required SafetyFlags) MustPermit(toCheck SafetyFlags) error {
+func (required Safety) MustPermit(toCheck Safety) error {
 	if err := toCheck.CheckValid(); err != nil {
 		return err
 	}

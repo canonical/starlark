@@ -711,16 +711,16 @@ func (fn *Function) Param(i int) (string, syntax.Position) {
 	id := fn.funcode.Locals[i]
 	return id.Name, id.Pos
 }
-func (fn *Function) HasVarargs() bool    { return fn.funcode.HasVarargs }
-func (fn *Function) HasKwargs() bool     { return fn.funcode.HasKwargs }
-func (fn *Function) Safety() SafetyFlags { return safe }
+func (fn *Function) HasVarargs() bool { return fn.funcode.HasVarargs }
+func (fn *Function) HasKwargs() bool  { return fn.funcode.HasKwargs }
+func (fn *Function) Safety() Safety   { return safe }
 
 // A Builtin is a function implemented in Go.
 type Builtin struct {
 	name   string
 	fn     func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	recv   Value // for bound methods (e.g. "".startswith)
-	safety SafetyFlags
+	safety Safety
 }
 
 func (b *Builtin) Name() string { return b.name }
@@ -742,13 +742,13 @@ func (b *Builtin) Type() string    { return "builtin_function_or_method" }
 func (b *Builtin) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Value, error) {
 	return b.fn(thread, b, args, kwargs)
 }
-func (b *Builtin) Truth() Bool         { return true }
-func (b *Builtin) Safety() SafetyFlags { return b.safety }
-func (b *Builtin) DeclareSafety(flags SafetyFlags) error {
-	if err := flags.CheckValid(); err != nil {
+func (b *Builtin) Truth() Bool    { return true }
+func (b *Builtin) Safety() Safety { return b.safety }
+func (b *Builtin) DeclareSafety(safety Safety) error {
+	if err := safety.CheckValid(); err != nil {
 		return err
 	}
-	b.safety = flags
+	b.safety = safety
 	return nil
 }
 
@@ -765,7 +765,7 @@ func NewBuiltin(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kw
 //
 // This function is equivalent to calling NewBuiltin and DeclareSafety on its
 // result.
-func NewBuiltinWithSafety(name string, safety SafetyFlags, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error)) (*Builtin, error) {
+func NewBuiltinWithSafety(name string, safety Safety, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error)) (*Builtin, error) {
 	if err := safety.CheckValid(); err != nil {
 		return nil, err
 	}
