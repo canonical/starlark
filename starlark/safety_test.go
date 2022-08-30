@@ -76,11 +76,11 @@ func TestSafetyFlagChecking(t *testing.T) {
 	const validFlags = starlark.MemSafe
 	const invalidFlags = starlark.SafetyFlags(0xdebac1e)
 
-	if err := validFlags.MustBeValid(); err != nil {
+	if err := validFlags.CheckValid(); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	if err := invalidFlags.MustBeValid(); err == nil {
+	if err := invalidFlags.CheckValid(); err == nil {
 		t.Errorf("No error when checking invalid flags")
 	} else if !strings.HasPrefix(err.Error(), "invalid safety flags") {
 		t.Errorf("Unexpected error when checking invalid flags: %v", err)

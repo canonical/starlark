@@ -89,7 +89,7 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 // Once a flag is inserted into the thread's required safety set, it cannot be
 // removed.
 func (thread *Thread) RequireSafety(flags SafetyFlags) error {
-	if err := flags.MustBeValid(); err != nil {
+	if err := flags.CheckValid(); err != nil {
 		return err
 	}
 	thread.requiredSafety |= flags

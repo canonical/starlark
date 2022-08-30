@@ -68,9 +68,9 @@ func (InvalidSafetyError) Error() string {
 	return "invalid safety flags"
 }
 
-// MustBeValid checks that a given set of safety flags contains only defined
+// CheckValid checks that a given set of safety flags contains only defined
 // flags.
-func (f SafetyFlags) MustBeValid() error {
+func (f SafetyFlags) CheckValid() error {
 	if !f.Valid() {
 		return &InvalidSafetyError{uint(f &^ safe)}
 	}
@@ -100,7 +100,7 @@ func (SafetyError) Error() string {
 // MustPermit checks that safety required ⊆ safety toCheck, and details any
 // missing flags missing in an error.
 func (required SafetyFlags) MustPermit(toCheck SafetyFlags) error {
-	if err := toCheck.MustBeValid(); err != nil {
+	if err := toCheck.CheckValid(); err != nil {
 		return err
 	}
 	if missingFlags := required &^ toCheck; missingFlags != 0 {

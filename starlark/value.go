@@ -745,7 +745,7 @@ func (b *Builtin) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Valu
 func (b *Builtin) Truth() Bool         { return true }
 func (b *Builtin) Safety() SafetyFlags { return b.safety }
 func (b *Builtin) DeclareSafety(flags SafetyFlags) error {
-	if err := flags.MustBeValid(); err != nil {
+	if err := flags.CheckValid(); err != nil {
 		return err
 	}
 	b.safety = flags
@@ -766,7 +766,7 @@ func NewBuiltin(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kw
 // This function is equivalent to calling NewBuiltin and DeclareSafety on its
 // result.
 func NewBuiltinWithSafety(name string, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), safety SafetyFlags) (*Builtin, error) {
-	if err := safety.MustBeValid(); err != nil {
+	if err := safety.CheckValid(); err != nil {
 		return nil, err
 	}
 	return &Builtin{name: name, fn: fn, safety: safety}, nil
