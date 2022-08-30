@@ -99,11 +99,12 @@ func (SafetyError) Error() string {
 
 // MustPermit checks that safety required ⊆ safety toCheck, and details any
 // missing flags missing in an error.
-func (required SafetyFlags) MustPermit(toCheck SafetyFlags) (err error) {
-	if err = toCheck.MustBeValid(); err == nil {
-		if missingFlags := required &^ toCheck; missingFlags != 0 {
-			err = &SafetyError{missingFlags}
-		}
+func (required SafetyFlags) MustPermit(toCheck SafetyFlags) error {
+	if err := toCheck.MustBeValid(); err != nil {
+		return err
 	}
-	return
+	if missingFlags := required &^ toCheck; missingFlags != 0 {
+		return &SafetyError{missingFlags}
+	}
+	return nil
 }

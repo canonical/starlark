@@ -744,11 +744,12 @@ func (b *Builtin) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Valu
 }
 func (b *Builtin) Truth() Bool         { return true }
 func (b *Builtin) Safety() SafetyFlags { return b.safety }
-func (b *Builtin) DeclareSafety(flags SafetyFlags) (err error) {
-	if err = flags.MustBeValid(); err == nil {
-		b.safety = flags
+func (b *Builtin) DeclareSafety(flags SafetyFlags) error {
+	if err := flags.MustBeValid(); err != nil {
+		return err
 	}
-	return
+	b.safety = flags
+	return nil
 }
 
 // NewBuiltin returns a new 'builtin_function_or_method' value with the specified name
