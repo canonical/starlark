@@ -12,9 +12,9 @@ type SafetyFlags uint
 const (
 	NotSafe SafetyFlags = 0
 	CPUSafe SafetyFlags = 1 << (iota - 1)
-	IOSafe
 	MemSafe
 	TimeSafe
+	IOSafe
 	safetyFlagsLimit
 )
 
