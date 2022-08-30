@@ -765,7 +765,7 @@ func NewBuiltin(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kw
 //
 // This function is equivalent to calling NewBuiltin and DeclareSafety on its
 // result.
-func NewBuiltinWithSafety(name string, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error), safety SafetyFlags) (*Builtin, error) {
+func NewBuiltinWithSafety(name string, safety SafetyFlags, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error)) (*Builtin, error) {
 	if err := safety.CheckValid(); err != nil {
 		return nil, err
 	}

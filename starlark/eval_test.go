@@ -1017,9 +1017,9 @@ func TestThreadPermitsMatchesAllowedCall(t *testing.T) {
 		t.Errorf("Unexpected error when declaring requiring safety: %v", err)
 	}
 
-	fn, err := starlark.NewBuiltinWithSafety("func", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+	fn, err := starlark.NewBuiltinWithSafety("func", builtinSafety, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 		return starlark.None, nil
-	}, builtinSafety)
+	})
 	if err != nil {
 		t.Errorf("Unexpected error creating new builtin with safety: %v", err)
 	}
@@ -1045,9 +1045,9 @@ func TestThreadPermitsMatchesForbiddenCall(t *testing.T) {
 		t.Errorf("Unexpected error when requiring valid safety: %v", err)
 	}
 
-	fn, err := starlark.NewBuiltinWithSafety("func", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+	fn, err := starlark.NewBuiltinWithSafety("func", builtinSafety, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 		return starlark.None, nil
-	}, builtinSafety)
+	})
 	if err != nil {
 		t.Errorf("Unexpected error creating new builtin with safety: %v", err)
 	}
