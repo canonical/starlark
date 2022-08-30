@@ -56,10 +56,6 @@ func (f SafetyFlags) String() string {
 	return fmt.Sprintf("(%s)", strings.Join(flagNames, " | "))
 }
 
-func (f SafetyFlags) Valid() bool {
-	return f < safetyFlagsLimit
-}
-
 type InvalidSafetyError struct {
 	InvalidFlags uint
 }
@@ -71,7 +67,7 @@ func (InvalidSafetyError) Error() string {
 // CheckValid checks that a given set of safety flags contains only defined
 // flags.
 func (f SafetyFlags) CheckValid() error {
-	if !f.Valid() {
+	if f >= safetyFlagsLimit {
 		return &InvalidSafetyError{uint(f &^ safe)}
 	}
 	return nil
@@ -86,7 +82,7 @@ var _ Safety = new(Builtin)
 
 // Permits checks that safety required ⊆ safety toCheck
 func (required SafetyFlags) Permits(toCheck SafetyFlags) bool {
-	return toCheck.Valid() && required&^toCheck == 0
+	return toCheck.CheckValid() == nil && required&^toCheck == 0
 }
 
 type SafetyError struct {
