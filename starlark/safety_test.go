@@ -223,35 +223,6 @@ func (d *dummyCallable) DeclareSafety(flags starlark.SafetyFlags) { d.safety = f
 
 func TestCallableSafeExecution(t *testing.T) {
 	thread := new(starlark.Thread)
-	thread.RequireSafety(starlark.MemSafe | starlark.IOSafe)
-
-	t.Run("Callable=Permitted", func(t *testing.T) {
-		c := &dummyCallable{safety: starlark.Safe}
-		env := starlark.StringDict{
-			"c": c,
-		}
-
-		if _, err := starlark.ExecFile(thread, "callable_safety_restrictions", "c()", env); err != nil {
-			t.Errorf("Unexpected error trying to run permitted callable: %v", err)
-		}
-	})
-
-	t.Run("Callable=Forbidden", func(t *testing.T) {
-		c := &dummyCallable{safety: starlark.NotSafe}
-		env := starlark.StringDict{
-			"c": c,
-		}
-
-		if _, err := starlark.ExecFile(thread, "callable_safety_restrictions", "c()", env); err == nil {
-			t.Errorf("Expected error when trying to run forbidden callable")
-		} else if !strings.HasPrefix(err.Error(), "missing safety flags") {
-			t.Errorf("Unexpected error trying to run permitted callable: %v", err)
-		}
-	})
-}
-
-func TestCallableDynamicSafety(t *testing.T) {
-	thread := new(starlark.Thread)
 	thread.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 	c := &dummyCallable{}
 	c.DeclareSafety(starlark.MemSafe)
@@ -280,7 +251,6 @@ func TestCallableDynamicSafety(t *testing.T) {
 		t.Errorf("Unexpected error running dynamically re-permitted function %v", err)
 	}
 }
-
 
 func TestNewBuiltinWithSafety(t *testing.T) {
 	const expectedSafety = starlark.IOSafe | starlark.MemSafe
