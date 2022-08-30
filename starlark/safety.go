@@ -69,12 +69,12 @@ func (InvalidSafetyError) Error() string {
 }
 
 // MustBeValid checks that a given set of safety flags contains only defined
-// flags. If this is not the case, it panics.
-func (f SafetyFlags) MustBeValid() (err error) {
+// flags.
+func (f SafetyFlags) MustBeValid() error {
 	if !f.Valid() {
-		err = &InvalidSafetyError{uint(f &^ safe)}
+		return &InvalidSafetyError{uint(f &^ safe)}
 	}
-	return
+	return nil
 }
 
 type Safety interface {
