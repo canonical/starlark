@@ -2,6 +2,7 @@ package starlark
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/bits"
 )
@@ -69,19 +70,11 @@ func (flags Safety) String() string {
 	}
 }
 
-type InvalidSafetyError struct {
-	InvalidFlags uint
-}
-
-func (InvalidSafetyError) Error() string {
-	return "invalid safety flags"
-}
-
 // CheckValid checks that a given set of safety flags contains only defined
 // flags.
 func (f Safety) CheckValid() error {
 	if f >= safetyFlagsLimit {
-		return &InvalidSafetyError{uint(f &^ safe)}
+		return errors.New("internal error: invalid safety flags")
 	}
 	return nil
 }

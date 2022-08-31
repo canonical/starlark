@@ -85,7 +85,7 @@ func TestSafetyFlagChecking(t *testing.T) {
 
 	if err := invalidFlags.CheckValid(); err == nil {
 		t.Errorf("No error when checking invalid flags")
-	} else if !strings.HasPrefix(err.Error(), "invalid safety flags") {
+	} else if !strings.HasSuffix(err.Error(), "invalid safety flags") {
 		t.Errorf("Unexpected error when checking invalid flags: %v", err)
 	}
 }
