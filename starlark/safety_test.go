@@ -1,6 +1,9 @@
 package starlark_test
 
 import (
+	"fmt"
+	"math/bits"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -96,14 +99,26 @@ func TestDefaultStoredSafetyIsZero(t *testing.T) {
 	}
 }
 
-func TestSafetyFlagNamesAreUnique(t *testing.T) {
-	knownFlags := make(map[string]struct{}, 1+starlark.Safe)
-	for f := starlark.NotSafe; f <= starlark.Safe; f++ {
-		key := f.String()
-		if _, ok := knownFlags[key]; ok {
-			t.Errorf("Duplicate names set for flags %v", f)
+func TestSafetyFlagNameOrder(t *testing.T) {
+	tests := map[starlark.Safety]string{
+		starlark.NotSafe:  "NotSafe",
+		starlark.CPUSafe:  "CPUSafe",
+		starlark.MemSafe:  "MemSafe",
+		starlark.TimeSafe: "TimeSafe",
+		starlark.IOSafe:   "IOSafe",
+		starlark.Safe:     "(CPUSafe|MemSafe|TimeSafe|IOSafe)",
+	}
+
+	flagWidth := reflect.TypeOf(starlark.NotSafe).Size() * (bits.UintSize / reflect.TypeOf(uint(0)).Size())
+	for i := *starlark.NumSafetyFlagBitsDefined; i < uint(flagWidth); i++ {
+		flag := starlark.Safety(1 << i)
+		tests[flag] = fmt.Sprintf("InvalidSafe(%d)", flag)
+	}
+
+	for safety, expected := range tests {
+		if actual := safety.String(); actual != expected {
+			t.Errorf("Expected %s but got %s", expected, actual)
 		}
-		knownFlags[key] = struct{}{}
 	}
 }
 

@@ -5,3 +5,5 @@ func ThreadSafety(thread *Thread) Safety {
 }
 
 const Safe = safe
+
+var NumSafetyFlagBitsDefined = &numSafetyFlagBitsDefined

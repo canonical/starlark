@@ -1,8 +1,9 @@
 package starlark
 
 import (
+	"bytes"
 	"fmt"
-	"strings"
+	"math/bits"
 )
 
 // Safety represents a set of constraints on executed code.
@@ -18,42 +19,52 @@ const (
 	safetyFlagsLimit
 )
 
+var safetyNames = [...]string{"NotSafe", "CPUSafe", "MemSafe", "TimeSafe", "IOSafe"}
+
 const safe = safetyFlagsLimit - 1
 
-var numFlagBitsDefined uint
+var numSafetyFlagBitsDefined uint
 
 func init() {
 	for f := safetyFlagsLimit; f >= 1; f >>= 1 {
-		numFlagBitsDefined++
+		numSafetyFlagBitsDefined++
 	}
 }
 
-func (f Safety) String() string {
-	if f == NotSafe {
-		return "NotSafe"
-	}
-	if f >= safetyFlagsLimit {
-		return "(invalid safety flags)"
+func (flags Safety) String() string {
+	if flags == NotSafe {
+		return safetyNames[0]
 	}
 
-	flagNames := make([]string, 0, numFlagBitsDefined)
-
-	tryAppendFlag := func(flag Safety, name string) {
-		if f&flag != 0 {
-			flagNames = append(flagNames, name)
+	buf := bytes.Buffer{}
+	buf.WriteByte('(')
+	count := 0
+	for i := 0; i < bits.UintSize; i++ {
+		flag := Safety(1 << i)
+		if flag > flags {
+			break
 		}
+		if flag&flags == 0 {
+			continue
+		}
+		count++
+		if count > 1 {
+			buf.WriteByte('|')
+		}
+		var name string
+		if int(i+1) < len(safetyNames) {
+			name = safetyNames[i+1]
+		} else {
+			name = fmt.Sprintf("InvalidSafe(%d)", flag)
+		}
+		buf.WriteString(name)
 	}
-
-	tryAppendFlag(CPUSafe, "CPUSafe")
-	tryAppendFlag(IOSafe, "IOSafe")
-	tryAppendFlag(MemSafe, "MemSafe")
-	tryAppendFlag(TimeSafe, "TimeSafe")
-
-	if len(flagNames) == 1 {
-		return flagNames[0]
+	if count == 1 {
+		return buf.String()[1:]
+	} else {
+		buf.WriteByte(')')
+		return buf.String()
 	}
-
-	return fmt.Sprintf("(%s)", strings.Join(flagNames, " | "))
 }
 
 type InvalidSafetyError struct {
