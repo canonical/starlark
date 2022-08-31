@@ -101,8 +101,8 @@ func (thread *Thread) Permits(toCheck Safety) bool {
 	return thread.requiredSafety.Permits(toCheck)
 }
 
-// MustPermit checks whether this thread would allow execution of a
-// *starlark.Builtin or a starlark.Callable with a given set of safety flags.
+// CheckPermits checks whether this thread would allow execution of a value
+// whose Safety method returns the provided flags.
 func (thread *Thread) CheckPermits(toCheck Safety) error {
 	return thread.requiredSafety.MustPermit(toCheck)
 }
