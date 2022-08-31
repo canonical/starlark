@@ -83,8 +83,11 @@ type SafetyAware interface {
 	Safety() Safety
 }
 
+var _ SafetyAware = Safety(0)
 var _ SafetyAware = new(Function)
 var _ SafetyAware = new(Builtin)
+
+func (f Safety) Safety() Safety { return f }
 
 // Permits checks that safety required ⊆ safety toCheck
 func (required Safety) Permits(toCheck Safety) bool {
