@@ -59,7 +59,9 @@ func (flags Safety) String() string {
 		}
 		buf.WriteString(name)
 	}
-	if count == 1 {
+	if count == 0 {
+		panic("unreachable")
+	} else if count == 1 {
 		return buf.String()[1:]
 	} else {
 		buf.WriteByte(')')
