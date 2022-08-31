@@ -103,7 +103,7 @@ func (thread *Thread) Permits(toCheck Safety) bool {
 
 // MustPermit checks whether this thread would allow execution of a
 // *starlark.Builtin or a starlark.Callable with a given set of safety flags.
-func (thread *Thread) MustPermit(toCheck Safety) error {
+func (thread *Thread) CheckPermits(toCheck Safety) error {
 	return thread.requiredSafety.MustPermit(toCheck)
 }
 
@@ -1225,7 +1225,7 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	if c, ok := c.(SafetyAware); ok {
 		callableSafety = c.Safety()
 	}
-	if err := thread.MustPermit(callableSafety); err != nil {
+	if err := thread.CheckPermits(callableSafety); err != nil {
 		return nil, err
 	}
 

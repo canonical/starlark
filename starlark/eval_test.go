@@ -1027,7 +1027,7 @@ func TestThreadPermitsMatchesAllowedCall(t *testing.T) {
 		"func": fn,
 	}
 
-	if err := thread.MustPermit(builtinSafety); err != nil {
+	if err := thread.CheckPermits(builtinSafety); err != nil {
 		t.Errorf("Thread reported it did not permit flags which are safe by its own definition: got unexpected error %v", err)
 	}
 	if _, err := starlark.ExecFile(thread, "test_permitted_call", prog, env); err != nil {
@@ -1055,7 +1055,7 @@ func TestThreadPermitsMatchesForbiddenCall(t *testing.T) {
 		"func": fn,
 	}
 
-	if err := thread.MustPermit(builtinSafety); err == nil {
+	if err := thread.CheckPermits(builtinSafety); err == nil {
 		t.Errorf("Thread failed to report that unsafe flags are unsafe")
 	} else if err.Error() != "feature unavailable to the sandbox" {
 		t.Errorf("Unexpected error: %v", err)
@@ -1094,8 +1094,8 @@ func TestThreadPermitsMatchesMustPermitFlags(t *testing.T) {
 		thread.RequireSafety(starlark.CPUSafe)
 		const toCheck = starlark.Safe
 
-		if err := thread.MustPermit(toCheck); err != nil {
-			t.Errorf("Unexpected error checking permissible flags with thread.MustPermit: %v", err)
+		if err := thread.CheckPermits(toCheck); err != nil {
+			t.Errorf("Unexpected error checking permissible flags with thread.CheckPermits: %v", err)
 		} else if !thread.Permits(toCheck) {
 			t.Errorf("Permissible safety flags rejected by thread.Permits")
 		}
@@ -1106,8 +1106,8 @@ func TestThreadPermitsMatchesMustPermitFlags(t *testing.T) {
 		thread.RequireSafety(starlark.CPUSafe)
 		const toCheck = starlark.NotSafe
 
-		if err := thread.MustPermit(toCheck); err == nil {
-			t.Errorf("Expected error checking non-permissible flags with thread.MustPermit")
+		if err := thread.CheckPermits(toCheck); err == nil {
+			t.Errorf("Expected error checking non-permissible flags with thread.CheckPermits")
 		} else if err.Error() != "feature unavailable to the sandbox" {
 			t.Errorf("Unexpected error checking non-permissible flags: %v", err)
 		} else if thread.Permits(toCheck) {
