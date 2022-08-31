@@ -97,14 +97,21 @@ func (thread *Thread) RequireSafety(safety Safety) error {
 	return nil
 }
 
-func (thread *Thread) Permits(toCheck Safety) bool {
-	return thread.requiredSafety.Permits(toCheck)
+// Permits checks whether this thread would allow execution of the provided
+// safety-aware value.
+func (thread *Thread) Permits(value SafetyAware) bool {
+	safety := value.Safety()
+	return safety.CheckValid() == nil && safety.Contains(thread.requiredSafety)
 }
 
-// CheckPermits checks whether this thread would allow execution of a value
-// whose Safety method returns the provided flags.
-func (thread *Thread) CheckPermits(toCheck Safety) error {
-	return thread.requiredSafety.MustPermit(toCheck)
+// CheckPermits checks whether this thread would allow execution of the
+// provided safety-aware value.
+func (thread *Thread) CheckPermits(value SafetyAware) error {
+	safety := value.Safety()
+	if err := safety.CheckValid(); err != nil {
+		return err
+	}
+	return safety.CheckContains(thread.requiredSafety)
 }
 
 // Cancel causes execution of Starlark code in the specified thread to

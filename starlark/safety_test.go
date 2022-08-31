@@ -16,19 +16,19 @@ func TestSafety(t *testing.T) {
 	memAndCpu := justCpu | justMem
 	unrestricted := starlark.NotSafe
 
-	if err := unrestricted.MustPermit(memAndCpu); err != nil {
-		t.Errorf("Incorrect safety failure %v", err)
-	}
-
-	if err := justCpu.MustPermit(memAndCpu); err != nil {
+	if err := memAndCpu.CheckContains(unrestricted); err != nil {
 		t.Errorf("Incorrect safety failure: %v", err)
 	}
 
-	if memAndCpu.MustPermit(justCpu) == nil {
+	if err := memAndCpu.CheckContains(justCpu); err != nil {
+		t.Errorf("Incorrect safety failure: %v", err)
+	}
+
+	if justCpu.CheckContains(memAndCpu) == nil {
 		t.Errorf("Safety flags did not apply: missing flag not rejected")
 	}
 
-	if memAndCpu.MustPermit(unrestricted) == nil {
+	if unrestricted.CheckContains(memAndCpu) == nil {
 		t.Errorf("Failed to enforce safety: restricted env allows unrestricted")
 	}
 }
@@ -64,11 +64,11 @@ func TestSafetyFlags(t *testing.T) {
 }
 
 func testSafetyFlags(t *testing.T, require, probe starlark.Safety, expectPass bool) {
-	if actual := require.Permits(probe); actual != expectPass {
+	if actual := probe.Contains(require); actual != expectPass {
 		t.Errorf("Safety flag checking did not return correct value: expected %v but got %v", expectPass, actual)
 	}
 
-	if err := require.MustPermit(probe); expectPass && err != nil {
+	if err := probe.CheckContains(require); expectPass && err != nil {
 		t.Errorf("Safety flag checking returned unexpected error: checking that %v permits %v returned %v", require, probe, err)
 	} else if !expectPass && err == nil {
 		t.Errorf("Safety flag checking did not return an error when expected")

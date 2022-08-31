@@ -87,11 +87,11 @@ var _ SafetyAware = Safety(0)
 var _ SafetyAware = new(Function)
 var _ SafetyAware = new(Builtin)
 
-func (f Safety) Safety() Safety { return f }
+func (set Safety) Safety() Safety { return set }
 
-// Permits checks that safety required ⊆ safety toCheck
-func (required Safety) Permits(toCheck Safety) bool {
-	return toCheck.CheckValid() == nil && required&^toCheck == 0
+// Contains returns whether the provided flags are a subset of this set.
+func (set Safety) Contains(subset Safety) bool {
+	return subset&^set == 0
 }
 
 type SafetyError struct {
@@ -102,14 +102,10 @@ func (SafetyError) Error() string {
 	return "feature unavailable to the sandbox"
 }
 
-// MustPermit checks that safety required ⊆ safety toCheck, and details any
-// missing flags missing in an error.
-func (required Safety) MustPermit(toCheck Safety) error {
-	if err := toCheck.CheckValid(); err != nil {
-		return err
-	}
-	if missingFlags := required &^ toCheck; missingFlags != 0 {
-		return &SafetyError{missingFlags}
+// CheckContains returns an error if the provided flags are not a subset of this set.
+func (set Safety) CheckContains(subset Safety) error {
+	if difference := subset &^ set; difference != 0 {
+		return &SafetyError{difference}
 	}
 	return nil
 }
