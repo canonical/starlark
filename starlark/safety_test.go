@@ -210,7 +210,7 @@ func TestBuiltinSafeExecution(t *testing.T) {
 
 		if _, err := starlark.ExecFile(thread, "builtin_safety_restrictions", "fn()", env); err == nil {
 			t.Errorf("Expected error when trying to execute forbidden builtin")
-		} else if !strings.HasPrefix(err.Error(), "missing safety flags") {
+		} else if err.Error() != "feature unavailable to the sandbox" {
 			t.Errorf("Unexpected error executing safe builtin: %v", err)
 		}
 	})
@@ -256,7 +256,7 @@ func TestCallableSafeExecution(t *testing.T) {
 	c.DeclareSafety(starlark.NotSafe)
 	if _, err := starlark.ExecFile(thread, "dynamic_safety_checking", prog, env); err == nil {
 		t.Errorf("Expected error running dynamically-forbidden function")
-	} else if !strings.HasPrefix(err.Error(), "missing safety flags") {
+	} else if err.Error() != "feature unavailable to the sandbox" {
 		t.Errorf("Unexpected error running forbidden function %v", err)
 	}
 

@@ -1057,13 +1057,13 @@ func TestThreadPermitsMatchesForbiddenCall(t *testing.T) {
 
 	if err := thread.MustPermit(builtinSafety); err == nil {
 		t.Errorf("Thread failed to report that unsafe flags are unsafe")
-	} else if !strings.HasPrefix(err.Error(), "missing safety flags") {
+	} else if err.Error() != "feature unavailable to the sandbox" {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	if _, err := starlark.ExecFile(thread, "test_forbidden_call", prog, env); err == nil {
 		t.Errorf("No error when attempting to call builtin with inadequate safety flags")
-	} else if !strings.HasPrefix(err.Error(), "missing safety flags") {
+	} else if err.Error() != "feature unavailable to the sandbox" {
 		t.Errorf("Unexpected error: %v", err)
 	}
 }
@@ -1108,7 +1108,7 @@ func TestThreadPermitsMatchesMustPermitFlags(t *testing.T) {
 
 		if err := thread.MustPermit(toCheck); err == nil {
 			t.Errorf("Expected error checking non-permissible flags with thread.MustPermit")
-		} else if !strings.HasPrefix(err.Error(), "missing safety flags") {
+		} else if err.Error() != "feature unavailable to the sandbox" {
 			t.Errorf("Unexpected error checking non-permissible flags: %v", err)
 		} else if thread.Permits(toCheck) {
 			t.Errorf("Non-permissible safety flags accepted by thread.Permits")

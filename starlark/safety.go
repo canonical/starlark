@@ -96,7 +96,7 @@ type SafetyError struct {
 }
 
 func (SafetyError) Error() string {
-	return "missing safety flags"
+	return "feature unavailable to the sandbox"
 }
 
 // MustPermit checks that safety required ⊆ safety toCheck, and details any
