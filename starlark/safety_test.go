@@ -249,21 +249,21 @@ func TestCallableSafeExecution(t *testing.T) {
 	// Permit
 	c.DeclareSafety(starlark.Safe)
 	if _, err := starlark.ExecFile(thread, "dynamic_safety_checking", prog, env); err != nil {
-		t.Errorf("Unexpected error running permitted function %v", err)
+		t.Errorf("Unexpected error running permitted callable %v", err)
 	}
 
 	// Forbid
 	c.DeclareSafety(starlark.NotSafe)
 	if _, err := starlark.ExecFile(thread, "dynamic_safety_checking", prog, env); err == nil {
-		t.Errorf("Expected error running dynamically-forbidden function")
+		t.Errorf("Expected error running dynamically-forbidden callable")
 	} else if err.Error() != "could not call value of type 'dummyCallable': feature unavailable to the sandbox" {
-		t.Errorf("Unexpected error running forbidden function %v", err)
+		t.Errorf("Unexpected error running forbidden callable: %v", err)
 	}
 
 	// Repermit
 	c.DeclareSafety(starlark.Safe)
 	if _, err := starlark.ExecFile(thread, "dynamic_safety_checking", prog, env); err != nil {
-		t.Errorf("Unexpected error running dynamically re-permitted function %v", err)
+		t.Errorf("Unexpected error running dynamically re-permitted callable %v", err)
 	}
 }
 
