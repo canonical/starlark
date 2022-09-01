@@ -90,7 +90,7 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 // removed.
 func (thread *Thread) RequireSafety(safety Safety) error {
 	if err := safety.CheckValid(); err != nil {
-		thread.requiredSafety = safe
+		thread.Cancel(err.Error())
 		return err
 	}
 	thread.requiredSafety |= safety

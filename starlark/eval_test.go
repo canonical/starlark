@@ -1005,6 +1005,12 @@ func TestThreadRejectsInvalidFlags(t *testing.T) {
 	} else if !strings.HasSuffix(err.Error(), "invalid safety flags") {
 		t.Errorf("Unexpected error: %v", err)
 	}
+
+	if _, err := starlark.ExecFile(thread, "invalid_thread_flags", "x = 1//0", nil); err == nil {
+		t.Errorf("Execution was not cancelled at invalid thread-safety")
+	} else if !strings.HasSuffix(err.Error(), "internal error: invalid safety flags") && err.Error() != "floored division by zero" {
+		t.Errorf("Unexpected error: %v", err)
+	}
 }
 
 func TestThreadPermitsMatchesAllowedCall(t *testing.T) {
