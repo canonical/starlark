@@ -83,11 +83,8 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
 }
 
-// RequireSafety inserts all flags from a given set into the thread's required
-// set. If the safety flags passed are not valid, a panic occurs.
-//
-// Once a flag is inserted into the thread's required safety set, it cannot be
-// removed.
+// RequireSafety makes the thread only accept functions that declare at least
+// the provided safety.
 func (thread *Thread) RequireSafety(safety Safety) error {
 	if err := safety.CheckValid(); err != nil {
 		thread.Cancel(err.Error())
