@@ -11,82 +11,66 @@ import (
 )
 
 func TestSafety(t *testing.T) {
-	justCpu := starlark.CPUSafe
-	justMem := starlark.MemSafe
-	memAndCpu := justCpu | justMem
-	unrestricted := starlark.NotSafe
+	// Typical cases
+	const cpuAndMemSafe = starlark.CPUSafe | starlark.MemSafe
+	testSafety(t, cpuAndMemSafe, starlark.NotSafe, false)
+	testSafety(t, cpuAndMemSafe, starlark.CPUSafe, false)
+	testSafety(t, starlark.CPUSafe, cpuAndMemSafe, true)
+	testSafety(t, starlark.NotSafe, cpuAndMemSafe, true)
 
-	if err := memAndCpu.CheckContains(unrestricted); err != nil {
-		t.Errorf("Incorrect safety failure: %v", err)
-	}
-
-	if err := memAndCpu.CheckContains(justCpu); err != nil {
-		t.Errorf("Incorrect safety failure: %v", err)
-	}
-
-	if justCpu.CheckContains(memAndCpu) == nil {
-		t.Errorf("Safety flags did not apply: missing flag not rejected")
-	}
-
-	if unrestricted.CheckContains(memAndCpu) == nil {
-		t.Errorf("Failed to enforce safety: restricted env allows unrestricted")
-	}
-}
-
-func TestSafetyFlags(t *testing.T) {
 	// Equal safety-sets are accepted
-	testSafetyFlags(t, starlark.NotSafe, starlark.NotSafe, true)
-	testSafetyFlags(t, starlark.Safe, starlark.Safe, true)
+	testSafety(t, starlark.NotSafe, starlark.NotSafe, true)
+	testSafety(t, starlark.Safe, starlark.Safe, true)
 
-	testSafetyFlags(t, starlark.NotSafe, starlark.Safe, true)  // Where no safety is expected, something with stronger safety is permitted
-	testSafetyFlags(t, starlark.Safe, starlark.NotSafe, false) // Where full safety is expected, no-safety is rejected
+	testSafety(t, starlark.NotSafe, starlark.Safe, true)  // Where no safety is expected, something with stronger safety is permitted
+	testSafety(t, starlark.Safe, starlark.NotSafe, false) // Where full safety is expected, no-safety is rejected
 
 	// Disjoint non-empty safety sets are rejected
 	const disjointA = starlark.TimeSafe | starlark.IOSafe
 	const disjointB = starlark.MemSafe | starlark.CPUSafe
-	testSafetyFlags(t, disjointA, disjointB, false)
-	testSafetyFlags(t, disjointB, disjointA, false)
+	testSafety(t, disjointA, disjointB, false)
+	testSafety(t, disjointB, disjointA, false)
 
 	// Symmetrically-different safety sets are rejected
 	const common = starlark.TimeSafe | starlark.IOSafe
 	const symmetricallyDifferentA = starlark.MemSafe | common
 	const symmetricallyDifferentB = starlark.CPUSafe | common
-	testSafetyFlags(t, symmetricallyDifferentA, symmetricallyDifferentB, false)
-	testSafetyFlags(t, symmetricallyDifferentB, symmetricallyDifferentA, false)
+	testSafety(t, symmetricallyDifferentA, symmetricallyDifferentB, false)
+	testSafety(t, symmetricallyDifferentB, symmetricallyDifferentA, false)
 
 	// A superset of required safety is accepted
-	testSafetyFlags(t, common, symmetricallyDifferentA, true)
+	testSafety(t, common, symmetricallyDifferentA, true)
 
 	// Invalid flags rejected
 	const valid = starlark.Safe
 	const invalid = starlark.Safety(0xbadc0de)
-	testSafetyFlags(t, valid, invalid, false)
+	testSafety(t, valid, invalid, false)
 }
 
-func testSafetyFlags(t *testing.T, require, probe starlark.Safety, expectPass bool) {
+func testSafety(t *testing.T, require, probe starlark.Safety, expectPass bool) {
 	if actual := probe.Contains(require); actual != expectPass {
-		t.Errorf("Safety flag checking did not return correct value: expected %v but got %v", expectPass, actual)
+		t.Errorf("Safety checking did not return correct value: expected %v but got %v", expectPass, actual)
 	}
 
 	if err := probe.CheckContains(require); expectPass && err != nil {
-		t.Errorf("Safety flag checking returned unexpected error: checking that %v permits %v returned %v", require, probe, err)
+		t.Errorf("Safety checking returned unexpected error: checking that %v permits %v returned %v", require, probe, err)
 	} else if !expectPass && err == nil {
-		t.Errorf("Safety flag checking did not return an error when expected")
+		t.Errorf("Safety checking did not return an error when expected")
 	}
 }
 
-func TestSafetyFlagChecking(t *testing.T) {
-	const validFlags = starlark.MemSafe
-	const invalidFlags = starlark.Safety(0xdebac1e)
+func TestSafetyValidityChecking(t *testing.T) {
+	const validSafety = starlark.MemSafe
+	const invalidSafety = starlark.Safety(0xdebac1e)
 
-	if err := validFlags.CheckValid(); err != nil {
+	if err := validSafety.CheckValid(); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	if err := invalidFlags.CheckValid(); err == nil {
-		t.Errorf("No error when checking invalid flags")
+	if err := invalidSafety.CheckValid(); err == nil {
+		t.Errorf("No error when checking invalid safety")
 	} else if !strings.HasSuffix(err.Error(), "invalid safety flags") {
-		t.Errorf("Unexpected error when checking invalid flags: %v", err)
+		t.Errorf("Unexpected error when checking invalid safety: %v", err)
 	}
 }
 
@@ -134,11 +118,11 @@ func TestBuiltinClosuresInteractSafely(t *testing.T) {
 
 	builtinClosure1, err := starlark.NewBuiltinWithSafety("foo", expectedClosure1Safety, base("foo"))
 	if err != nil {
-		t.Errorf("Unexpected error defining closure with valid safety flags: %v", err)
+		t.Errorf("Unexpected error defining closure with valid safety: %v", err)
 	}
 	builtinClosure2, err := starlark.NewBuiltinWithSafety("bar", expectedClosure2Safety, base("bar"))
 	if err != nil {
-		t.Errorf("Unexpected error defining closure with valid safety flags: %v", err)
+		t.Errorf("Unexpected error defining closure with valid safety: %v", err)
 	}
 
 	if closure1Safety := builtinClosure1.Safety(); closure1Safety != expectedClosure1Safety {
@@ -233,8 +217,8 @@ func (dummyCallable) Name() string          { return "dummyCallable" }
 func (dummyCallable) CallInternal(*starlark.Thread, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 	return starlark.None, nil
 }
-func (d *dummyCallable) Safety() starlark.Safety             { return d.safety }
-func (d *dummyCallable) DeclareSafety(flags starlark.Safety) { d.safety = flags }
+func (d *dummyCallable) Safety() starlark.Safety              { return d.safety }
+func (d *dummyCallable) DeclareSafety(safety starlark.Safety) { d.safety = safety }
 
 func TestCallableSafeExecution(t *testing.T) {
 	thread := new(starlark.Thread)
@@ -275,6 +259,6 @@ func TestNewBuiltinWithSafety(t *testing.T) {
 	if b, err := starlark.NewBuiltinWithSafety("fn", expectedSafety, fn); err != nil {
 		t.Errorf("Unexpected error declaring new safe builtin: %v", err)
 	} else if safety := b.Safety(); safety != expectedSafety {
-		t.Errorf("Incorrect stored safety flags: expected %v but got %v", expectedSafety, safety)
+		t.Errorf("Incorrect stored safety: expected %v but got %v", expectedSafety, safety)
 	}
 }
