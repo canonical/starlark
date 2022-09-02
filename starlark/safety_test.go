@@ -2,8 +2,6 @@ package starlark_test
 
 import (
 	"fmt"
-	"math/bits"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -93,9 +91,10 @@ func TestSafetyFlagNameOrder(t *testing.T) {
 		starlark.Safe:     "(CPUSafe|MemSafe|TimeSafe|IOSafe)",
 	}
 
-	flagWidth := reflect.TypeOf(starlark.NotSafe).Size() * (bits.UintSize / reflect.TypeOf(uint(0)).Size())
-	for i := *starlark.NumSafetyFlagBitsDefined; i < uint(flagWidth); i++ {
-		flag := starlark.Safety(1 << i)
+	maxSafetyFlag := starlark.Safety(0)
+	maxSafetyFlag--
+	maxSafetyFlag &^= maxSafetyFlag >> 1
+	for flag := maxSafetyFlag; flag >= starlark.SafetyFlagsLimit; flag >>= 1 {
 		tests[flag] = fmt.Sprintf("InvalidSafe(%d)", flag)
 	}
 
