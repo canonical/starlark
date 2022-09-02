@@ -760,8 +760,8 @@ func NewBuiltin(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kw
 
 // NewBuiltinWithSafety is a convenience function which, like NewBuiltin,
 // returns a new `builtin_function_or_method` with the specified name and
-// implementation, which compares unequal with all other values.
-// NewBuiltinWithSafety also declares the safety of implementation function fn.
+// implementation, which compares unequal with all other values. The safety of
+// this new builtin is declared as the provided value.
 //
 // This function is equivalent to calling NewBuiltin and DeclareSafety on its
 // result.
