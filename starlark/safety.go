@@ -20,7 +20,13 @@ const (
 	safetyFlagsLimit
 )
 
-var safetyNames = [...]string{"NotSafe", "CPUSafe", "MemSafe", "TimeSafe", "IOSafe"}
+var safetyNames = [...]string{
+	"NotSafe",
+	"CPUSafe",
+	"MemSafe",
+	"TimeSafe",
+	"IOSafe",
+}
 
 const safe = safetyFlagsLimit - 1
 
