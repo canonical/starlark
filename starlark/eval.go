@@ -101,8 +101,8 @@ func (thread *Thread) Permits(value SafetyAware) bool {
 	return safety.CheckValid() == nil && safety.Contains(thread.requiredSafety)
 }
 
-// CheckPermits checks whether this thread would allow execution of the
-// provided safety-aware value.
+// CheckPermits returns an error if this thread would not allow execution of
+// the provided safety-aware value.
 func (thread *Thread) CheckPermits(value SafetyAware) error {
 	safety := value.Safety()
 	if err := safety.CheckValid(); err != nil {
