@@ -1085,7 +1085,7 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 		return
 	}
 	if err := thread.RequireSafety(newFlags); err != nil {
-		t.Errorf("Unexpected error when requireing valid safety flags %v: %v", newFlags, err)
+		t.Errorf("Unexpected error when requiring valid safety flags %v: %v", newFlags, err)
 	}
 
 	if safety := starlark.ThreadSafety(thread); safety != expectedFlags {
