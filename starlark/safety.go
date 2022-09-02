@@ -79,6 +79,8 @@ func (f Safety) CheckValid() error {
 	return nil
 }
 
+// A SafetyAware value can report its safety, which can be used by a thread to
+// prevent operations which cannot make sufficient safety guarantees.
 type SafetyAware interface {
 	Safety() Safety
 }
