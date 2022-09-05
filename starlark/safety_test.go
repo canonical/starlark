@@ -170,12 +170,13 @@ func TestBuiltinSafeExecution(t *testing.T) {
 	thread := new(starlark.Thread)
 	thread.RequireSafety(starlark.CPUSafe | starlark.TimeSafe)
 
-	t.Run("Builtin=Permitted", func(t *testing.T) {
+	fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+		return starlark.String("foo"), nil
+	})
+
+	t.Run("BuiltinSafety=Permitted", func(t *testing.T) {
 		const permittedSafety = starlark.Safe
 
-		fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
-			return starlark.String("foo"), nil
-		})
 		if err := fn.DeclareSafety(permittedSafety); err != nil {
 			t.Errorf("Unexpected error declaring valid safety: %v", err)
 		}
@@ -186,12 +187,9 @@ func TestBuiltinSafeExecution(t *testing.T) {
 		}
 	})
 
-	t.Run("Builtin=Forbidden", func(t *testing.T) {
+	t.Run("BuiltinSafety=Forbidden", func(t *testing.T) {
 		const forbiddenSafety = starlark.NotSafe
 
-		fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
-			return starlark.String("foo"), nil
-		})
 		if err := fn.DeclareSafety(forbiddenSafety); err != nil {
 			t.Errorf("Unexpected error declaring valid safety: %v", err)
 		}
@@ -201,6 +199,23 @@ func TestBuiltinSafeExecution(t *testing.T) {
 			t.Errorf("Expected error when trying to execute forbidden builtin")
 		} else if err.Error() != "could not call builtin 'fn': feature unavailable to the sandbox" {
 			t.Errorf("Unexpected error executing safe builtin: %v", err)
+		}
+	})
+
+	t.Run("BuiltinSafety=Invalid", func(t *testing.T) {
+		const invalidSafety = starlark.Safety(0xabcdef)
+
+		if err := fn.DeclareSafety(invalidSafety); err == nil {
+			t.Errorf("Expected error declaring invalid builtin safety")
+		} else if err.Error() != "internal error: invalid safety flags" {
+			t.Errorf("Unexpected error: %v", err)
+		}
+
+		env := starlark.StringDict{"fn": fn}
+		if _, err := starlark.ExecFile(thread, "builtin_safety_restrictions", "fn()", env); err == nil {
+			t.Errorf("Expected error trying to evaluate builtin with invalid safety")
+		} else if err.Error() != "could not call builtin 'fn': internal error: invalid safety flags" {
+			t.Errorf("Unexpected error: %v", err)
 		}
 	})
 }
@@ -254,16 +269,32 @@ func TestCallableSafeExecution(t *testing.T) {
 	if _, err := starlark.ExecFile(thread, "dynamic_safety_checking", prog, env); err != nil {
 		t.Errorf("Unexpected error running dynamically re-permitted callable %v", err)
 	}
+
+	const invalidSafety = starlark.Safety(0xfedcba)
+	c.DeclareSafety(invalidSafety)
+	if _, err := starlark.ExecFile(thread, "dynamic_safety_checking", prog, env); err == nil {
+		t.Errorf("Expected invalid callable-safety to result in error")
+	} else if err.Error() != "could not call value of type 'dummyCallable': internal error: invalid safety flags" {
+		t.Errorf("Unexpected error: %v", err)
+	}
 }
 
 func TestNewBuiltinWithSafety(t *testing.T) {
-	const expectedSafety = starlark.IOSafe | starlark.MemSafe
 	fn := func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 		return starlark.None, nil
 	}
-	if b, err := starlark.NewBuiltinWithSafety("fn", expectedSafety, fn); err != nil {
+
+	const validSafety = starlark.IOSafe | starlark.MemSafe
+	if b, err := starlark.NewBuiltinWithSafety("fn", validSafety, fn); err != nil {
 		t.Errorf("Unexpected error declaring new safe builtin: %v", err)
-	} else if safety := b.Safety(); safety != expectedSafety {
-		t.Errorf("Incorrect stored safety: expected %v but got %v", expectedSafety, safety)
+	} else if safety := b.Safety(); safety != validSafety {
+		t.Errorf("Incorrect stored safety: expected %v but got %v", validSafety, safety)
+	}
+
+	const invalidSafety = starlark.Safety(0x0ddba11)
+	if _, err := starlark.NewBuiltinWithSafety("fn", invalidSafety, fn); err == nil {
+		t.Errorf("Expected error declaring NewBuiltinWith-(invalid)-Safety")
+	} else if err.Error() != "internal error: invalid safety flags" {
+		t.Errorf("Unexpected error declaring NewBuiltinWith-(invalid)-Safety: %v", err)
 	}
 }
