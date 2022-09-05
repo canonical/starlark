@@ -1237,7 +1237,7 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 			name = c.Type()
 			desc = "value of type"
 		}
-		return nil, fmt.Errorf("could not call %s '%s': %v", desc, name, err)
+		return nil, fmt.Errorf("could not call %s '%s': %w", desc, name, err)
 	}
 
 	// Allocate and push a new frame.
