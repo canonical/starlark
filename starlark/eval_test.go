@@ -1095,7 +1095,7 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 	}
 }
 
-func TestThreadPermitsMatchesThreadMustPermit(t *testing.T) {
+func TestThreadPermitsMatchesThreadCheckPermit(t *testing.T) {
 	t.Run("Flags=Safe", func(t *testing.T) {
 		thread := new(starlark.Thread)
 		thread.RequireSafety(starlark.CPUSafe)
