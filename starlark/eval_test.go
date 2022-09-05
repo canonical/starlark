@@ -1065,6 +1065,10 @@ func TestThreadCheckPermits(t *testing.T) {
 			t.Errorf("Thread failed to report that insufficient safety is unsafe")
 		} else if err.Error() != "feature unavailable to the sandbox" {
 			t.Errorf("Unexpected error: %v", err)
+		} else if safetyErr, ok := err.(*starlark.SafetyError); !ok {
+			t.Errorf("Expected starlark.SafetyError, got a %T: %v", err, err)
+		} else if expectedMissing := threadSafety &^ forbiddenSafety; safetyErr.Missing != expectedMissing {
+			t.Errorf("Incorrect reported missing flags: expected %v but got %v", expectedMissing, safetyErr.Missing)
 		}
 
 		if _, err := starlark.ExecFile(thread, "test_forbidden_call", prog, env); err == nil {

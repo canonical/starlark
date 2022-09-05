@@ -52,8 +52,14 @@ func testSafety(t *testing.T, require, probe starlark.Safety, expectPass bool) {
 
 	if err := probe.CheckContains(require); expectPass && err != nil {
 		t.Errorf("Safety checking returned unexpected error: checking that %v permits %v returned %v", require, probe, err)
-	} else if !expectPass && err == nil {
-		t.Errorf("Safety checking did not return an error when expected")
+	} else if !expectPass {
+		if err == nil {
+			t.Errorf("Safety checking did not return an error when expected")
+		} else if safetyErr, ok := err.(*starlark.SafetyError); !ok {
+			t.Errorf("Expected a safety error: got a %T", err)
+		} else if expectedMissing := require &^ probe; safetyErr.Missing != expectedMissing {
+			t.Errorf("Incorrect missing flags reported: expected %v but got %v", expectedMissing, safetyErr.Missing)
+		}
 	}
 }
 
