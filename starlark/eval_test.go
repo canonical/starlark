@@ -1013,65 +1013,66 @@ func TestThreadRejectsInvalidFlags(t *testing.T) {
 	}
 }
 
-func TestThreadPermitsMatchesAllowedCall(t *testing.T) {
-	const threadSafety = starlark.CPUSafe
-	const builtinSafety = starlark.CPUSafe | starlark.MemSafe
-	const prog = "func()"
-
-	thread := new(starlark.Thread)
-	if err := thread.RequireSafety(threadSafety); err != nil {
-		t.Errorf("Unexpected error when declaring requiring safety: %v", err)
-	}
-
-	fn, err := starlark.NewBuiltinWithSafety("func", builtinSafety, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
-		return starlark.None, nil
-	})
-	if err != nil {
-		t.Errorf("Unexpected error creating new builtin with safety: %v", err)
-	}
-	env := starlark.StringDict{
-		"func": fn,
-	}
-
-	if err := thread.CheckPermits(builtinSafety); err != nil {
-		t.Errorf("Thread reported it did not permit acceptible safety: got unexpected error %v", err)
-	}
-	if _, err := starlark.ExecFile(thread, "test_permitted_call", prog, env); err != nil {
-		t.Errorf("Unexpected error running safe function: %v", err)
-	}
-}
-
-func TestThreadPermitsMatchesForbiddenCall(t *testing.T) {
+func TestThreadCheckPermits(t *testing.T) {
 	const threadSafety = starlark.CPUSafe | starlark.MemSafe
-	const builtinSafety = starlark.CPUSafe
 	const prog = "func()"
 
-	thread := new(starlark.Thread)
-	if err := thread.RequireSafety(threadSafety); err != nil {
-		t.Errorf("Unexpected error when requiring valid safety: %v", err)
-	}
-
-	fn, err := starlark.NewBuiltinWithSafety("func", builtinSafety, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+	fnInternal := func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 		return starlark.None, nil
+	}
+
+	t.Run("Safety=Allowed", func(t *testing.T) {
+		const allowedSafety = threadSafety | starlark.IOSafe
+
+		thread := new(starlark.Thread)
+		if err := thread.RequireSafety(threadSafety); err != nil {
+			t.Errorf("Unexpected error when declaring requiring safety: %v", err)
+		}
+
+		fn, err := starlark.NewBuiltinWithSafety("func", allowedSafety, fnInternal)
+		if err != nil {
+			t.Errorf("Unexpected error creating new builtin with safety: %v", err)
+		}
+		env := starlark.StringDict{
+			"func": fn,
+		}
+
+		if err := thread.CheckPermits(allowedSafety); err != nil {
+			t.Errorf("Thread reported it did not permit acceptible safety: got unexpected error %v", err)
+		}
+		if _, err := starlark.ExecFile(thread, "test_permitted_call", prog, env); err != nil {
+			t.Errorf("Unexpected error running safe function: %v", err)
+		}
 	})
-	if err != nil {
-		t.Errorf("Unexpected error creating new builtin with safety: %v", err)
-	}
-	env := starlark.StringDict{
-		"func": fn,
-	}
 
-	if err := thread.CheckPermits(builtinSafety); err == nil {
-		t.Errorf("Thread failed to report that insufficient safety is unsafe")
-	} else if err.Error() != "feature unavailable to the sandbox" {
-		t.Errorf("Unexpected error: %v", err)
-	}
+	t.Run("Safety=Forbidden", func(t *testing.T) {
+		const forbiddenSafety = starlark.CPUSafe
 
-	if _, err := starlark.ExecFile(thread, "test_forbidden_call", prog, env); err == nil {
-		t.Errorf("No error when attempting to call builtin with inadequate safety")
-	} else if err.Error() != "could not call builtin 'func': feature unavailable to the sandbox" {
-		t.Errorf("Unexpected error: %v", err)
-	}
+		thread := new(starlark.Thread)
+		if err := thread.RequireSafety(threadSafety); err != nil {
+			t.Errorf("Unexpected error when requiring valid safety: %v", err)
+		}
+
+		fn, err := starlark.NewBuiltinWithSafety("func", forbiddenSafety, fnInternal)
+		if err != nil {
+			t.Errorf("Unexpected error creating new builtin with safety: %v", err)
+		}
+		env := starlark.StringDict{
+			"func": fn,
+		}
+
+		if err := thread.CheckPermits(forbiddenSafety); err == nil {
+			t.Errorf("Thread failed to report that insufficient safety is unsafe")
+		} else if err.Error() != "feature unavailable to the sandbox" {
+			t.Errorf("Unexpected error: %v", err)
+		}
+
+		if _, err := starlark.ExecFile(thread, "test_forbidden_call", prog, env); err == nil {
+			t.Errorf("No error when attempting to call builtin with inadequate safety")
+		} else if err.Error() != "could not call builtin 'func': feature unavailable to the sandbox" {
+			t.Errorf("Unexpected error: %v", err)
+		}
+	})
 }
 
 func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
