@@ -87,11 +87,6 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 }
 
 // Allocs returns the total allocations reported to this thread via AddAllocs.
-// It can be used as an approximate measure of the space required by the result
-// of a starlark execution by measuring the increase in allocations from before
-// and after a computation.
-//
-// The precise meaning of an "allocation" is not specified and may change.
 func (thread *Thread) Allocs() uint64 {
 	return thread.allocs
 }
