@@ -35,8 +35,11 @@ func TestAllocDeclAndCheckBoundary(t *testing.T) {
 
 	if err := thread.AddAllocs(allocCap); err != nil {
 		t.Errorf("Could not allocate entire quota: %v", err)
-	} else if err := thread.AddAllocs(allocCap + 1); err == nil {
-		t.Errorf("Expected error when exceeding quota")
+	} else {
+		thread.AddAllocs(-allocCap)
+		if err := thread.AddAllocs(allocCap + 1); err == nil {
+			t.Errorf("Expected error when exceeding quota")
+		}
 	}
 }
 
