@@ -1685,6 +1685,7 @@ func (thread *Thread) CheckAllocs(delta int64) bool {
 func (thread *Thread) AddAllocs(delta int64) error {
 	if thread.cancelReason == nil {
 		thread.allocLock.Lock()
+		defer thread.allocLock.Unlock()
 
 		if delta < 0 {
 			udelta := uint64(-delta)
@@ -1714,8 +1715,6 @@ func (thread *Thread) AddAllocs(delta int64) error {
 				return err
 			}
 		}
-
-		thread.allocLock.Unlock()
 	}
 
 	return nil
