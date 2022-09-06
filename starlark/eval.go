@@ -1658,11 +1658,10 @@ func (e *MaxAllocsError) Error() string {
 //
 // Unlike most methods of Thread, it is safe to call AddAllocs from any
 // goroutine, even if the thread is actively executing.
-func (thread *Thread) AddAllocs(delta int64) (err error) {
+func (thread *Thread) AddAllocs(delta int64) error {
 	if thread.cancelReason == nil {
 		thread.allocLock.Lock()
 
-		// nextAllocs := thread.allocs + uint64(delta)
 		if delta < 0 {
 			udelta := uint64(-delta)
 			if udelta < thread.allocs {
@@ -1683,17 +1682,17 @@ func (thread *Thread) AddAllocs(delta int64) (err error) {
 					fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs, thread.maxAllocs)
 				}
 
-				err = &MaxAllocsError{
+				err := &MaxAllocsError{
 					Current: thread.allocs,
 					Max:     thread.maxAllocs,
 				}
 				thread.Cancel(err.Error())
-				return
+				return err
 			}
 		}
 
 		thread.allocLock.Unlock()
 	}
 
-	return
+	return nil
 }
