@@ -7,6 +7,47 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
+func TestCheckAllocs(t *testing.T) {
+	thread := new(starlark.Thread)
+	thread.SetMaxAllocs(1000)
+
+	if !thread.CheckAllocs(500) {
+		t.Errorf("Returned that a valid number of allocations was invalid")
+	}
+
+	if thread.CheckAllocs(2000) {
+		t.Errorf("Returned that an invalid number of allocations was valid")
+	}
+}
+
+func TestAllocDeclAndCheckBoundary(t *testing.T) {
+	const allocCap = 1000
+	thread := new(starlark.Thread)
+	thread.SetMaxAllocs(allocCap)
+
+	if !thread.CheckAllocs(allocCap) {
+		t.Errorf("Reported that it would not be possible to allocate entire quota")
+	} else if thread.CheckAllocs(allocCap + 1) {
+		t.Errorf("Reported that quota could be exceeded")
+	}
+
+	if err := thread.AddAllocs(allocCap); err != nil {
+		t.Errorf("Could not allocate entire quota: %v", err)
+	} else if err := thread.AddAllocs(allocCap + 1); err == nil {
+		t.Errorf("Expected error when exceeding quota")
+	}
+}
+
+func TestCheckAllocsAddsNoAllocs(t *testing.T) {
+	thread := new(starlark.Thread)
+	thread.SetMaxAllocs(0)
+
+	prevAllocs := thread.Allocs()
+	if allocs := thread.Allocs(); allocs != prevAllocs {
+		t.Errorf("thread.CheckAllocs made allocations")
+	}
+}
+
 func TestPositiveDeltaDeclaration(t *testing.T) {
 	const intendedAllocIncrease = 1000
 

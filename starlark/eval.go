@@ -1652,6 +1652,30 @@ func (e *MaxAllocsError) Error() string {
 	return "exceeded memory allocation limits"
 }
 
+// CheckAllocs checks whether a change in allocations associated with this
+// thread would be accepted by AddAllocs.
+//
+// It is safe to call CheckAllocs from any goroutine, even if the thread is
+// actively executing.
+func (thread *Thread) CheckAllocs(delta int64) bool {
+	if delta <= 0 {
+		return true
+	}
+
+	thread.allocLock.Lock()
+	defer thread.allocLock.Unlock()
+
+	udelta := uint64(delta)
+	var nextAllocs uint64
+	if udelta <= math.MaxUint64-thread.allocs {
+		nextAllocs = thread.allocs + udelta
+	} else {
+		nextAllocs = math.MaxUint64
+	}
+
+	return nextAllocs <= thread.maxAllocs
+}
+
 // AddAllocs reports a change in allocations associated with this thread. If
 // the total allocations exceed the limit defined via SetMaxAllocs, the thread
 // is cancelled and an error is returned.
