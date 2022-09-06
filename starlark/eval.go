@@ -1669,12 +1669,10 @@ func (thread *Thread) CheckAllocs(delta int64) error {
 	}
 
 	if nextAllocs > thread.maxAllocs {
-		err := &MaxAllocsError{
+		return &MaxAllocsError{
 			Current: currAllocs,
 			Max:     thread.maxAllocs,
 		}
-		thread.Cancel(err.Error())
-		return err
 	}
 	return nil
 }
@@ -1699,6 +1697,9 @@ func (thread *Thread) AddAllocs(delta int64) error {
 			}
 		} else {
 			err := thread.CheckAllocs(delta)
+			if err != nil {
+				thread.Cancel(err.Error())
+			}
 
 			udelta := uint64(delta)
 			if udelta <= math.MaxUint64-thread.allocs {
