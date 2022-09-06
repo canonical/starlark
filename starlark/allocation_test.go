@@ -76,6 +76,10 @@ func TestPositiveDeltaDeclarationExceedingMax(t *testing.T) {
 	if err := thread.AddAllocs(allocationIncrease); err == nil {
 		t.Errorf("Expected allocation failure!")
 	}
+
+	if allocs := thread.Allocs(); allocs != allocationIncrease {
+		t.Errorf("Extra allocations were not recorded on an allocation failure: expected %d but %d were recorded", allocationIncrease, allocs)
+	}
 }
 
 func TestOverflowingPositiveDeltaDeclaration(t *testing.T) {
