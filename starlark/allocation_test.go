@@ -11,12 +11,14 @@ func TestCheckAllocs(t *testing.T) {
 	thread := new(starlark.Thread)
 	thread.SetMaxAllocs(1000)
 
-	if !thread.CheckAllocs(500) {
-		t.Errorf("Returned that a valid number of allocations was invalid")
+	if err := thread.CheckAllocs(500); err != nil {
+		t.Errorf("Unexpected error: %v", err)
 	}
 
-	if thread.CheckAllocs(2000) {
-		t.Errorf("Returned that an invalid number of allocations was valid")
+	if err := thread.CheckAllocs(2000); err == nil {
+		t.Errorf("Expected error")
+	} else if err.Error() != "exceeded memory allocation limits" {
+		t.Errorf("Unexpected error: %v", err)
 	}
 }
 
@@ -25,10 +27,10 @@ func TestAllocDeclAndCheckBoundary(t *testing.T) {
 	thread := new(starlark.Thread)
 	thread.SetMaxAllocs(allocCap)
 
-	if !thread.CheckAllocs(allocCap) {
-		t.Errorf("Reported that it would not be possible to allocate entire quota")
-	} else if thread.CheckAllocs(allocCap + 1) {
-		t.Errorf("Reported that quota could be exceeded")
+	if err := thread.CheckAllocs(allocCap); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	} else if err := thread.CheckAllocs(allocCap + 1); err == nil {
+		t.Errorf("Expected error checking too-many allocations")
 	}
 
 	if err := thread.AddAllocs(allocCap); err != nil {

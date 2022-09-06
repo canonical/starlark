@@ -1647,28 +1647,36 @@ func (e *MaxAllocsError) Error() string {
 	return "exceeded memory allocation limits"
 }
 
-// CheckAllocs checks whether a change in allocations associated with this
-// thread would be accepted by AddAllocs.
-//
-// It is safe to call CheckAllocs from any goroutine, even if the thread is
-// actively executing.
-func (thread *Thread) CheckAllocs(delta int64) bool {
+// CheckAllocs returns an error if a change in allocations associated with this
+// thread would be rejected by AddAllocs.
+func (thread *Thread) CheckAllocs(delta int64) error {
 	if delta <= 0 {
-		return true
+		return nil
 	}
 
-	thread.allocLock.Lock()
-	defer thread.allocLock.Unlock()
+	currAllocs := thread.allocs
 
 	udelta := uint64(delta)
 	var nextAllocs uint64
-	if udelta <= math.MaxUint64-thread.allocs {
-		nextAllocs = thread.allocs + udelta
+	if udelta <= math.MaxUint64-currAllocs {
+		nextAllocs = currAllocs + udelta
 	} else {
 		nextAllocs = math.MaxUint64
 	}
 
-	return nextAllocs <= thread.maxAllocs
+	if vmdebug {
+		fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs, thread.maxAllocs)
+	}
+
+	if nextAllocs > thread.maxAllocs {
+		err := &MaxAllocsError{
+			Current: currAllocs,
+			Max:     thread.maxAllocs,
+		}
+		thread.Cancel(err.Error())
+		return err
+	}
+	return nil
 }
 
 // AddAllocs reports a change in allocations associated with this thread. If
@@ -1690,6 +1698,8 @@ func (thread *Thread) AddAllocs(delta int64) error {
 				thread.allocs = 0
 			}
 		} else {
+			err := thread.CheckAllocs(delta)
+
 			udelta := uint64(delta)
 			if udelta <= math.MaxUint64-thread.allocs {
 				thread.allocs += udelta
@@ -1697,18 +1707,7 @@ func (thread *Thread) AddAllocs(delta int64) error {
 				thread.allocs = math.MaxUint64
 			}
 
-			if thread.allocs > thread.maxAllocs {
-				if vmdebug {
-					fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs, thread.maxAllocs)
-				}
-
-				err := &MaxAllocsError{
-					Current: thread.allocs,
-					Max:     thread.maxAllocs,
-				}
-				thread.Cancel(err.Error())
-				return err
-			}
+			return err
 		}
 	}
 
