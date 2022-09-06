@@ -1680,8 +1680,8 @@ func (thread *Thread) CheckAllocs(delta int64) bool {
 // the total allocations exceed the limit defined via SetMaxAllocs, the thread
 // is cancelled and an error is returned.
 //
-// Unlike most methods of Thread, it is safe to call AddAllocs from any
-// goroutine, even if the thread is actively executing.
+// It is safe to call AddAllocs from any goroutine, even if the thread is
+// actively executing.
 func (thread *Thread) AddAllocs(delta int64) error {
 	if thread.cancelReason == nil {
 		thread.allocLock.Lock()
