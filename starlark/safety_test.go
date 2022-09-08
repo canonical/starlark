@@ -197,7 +197,7 @@ func TestBuiltinSafeExecution(t *testing.T) {
 
 		if _, err := starlark.ExecFile(thread, "builtin_safety_restrictions", "fn()", env); err == nil {
 			t.Errorf("Expected error when trying to execute forbidden builtin")
-		} else if err.Error() != "could not call builtin 'fn': feature unavailable to the sandbox" {
+		} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
 			t.Errorf("Unexpected error executing safe builtin: %v", err)
 		}
 	})
@@ -214,7 +214,7 @@ func TestBuiltinSafeExecution(t *testing.T) {
 		env := starlark.StringDict{"fn": fn}
 		if _, err := starlark.ExecFile(thread, "builtin_safety_restrictions", "fn()", env); err == nil {
 			t.Errorf("Expected error trying to evaluate builtin with invalid safety")
-		} else if err.Error() != "could not call builtin 'fn': internal error: invalid safety flags" {
+		} else if err.Error() != "cannot call builtin 'fn': internal error: invalid safety flags" {
 			t.Errorf("Unexpected error: %v", err)
 		}
 	})
@@ -260,7 +260,7 @@ func TestCallableSafeExecution(t *testing.T) {
 	c.DeclareSafety(starlark.NotSafe)
 	if _, err := starlark.ExecFile(thread, "dynamic_safety_checking", prog, env); err == nil {
 		t.Errorf("Expected error running dynamically-forbidden callable")
-	} else if err.Error() != "could not call value of type 'dummyCallable': feature unavailable to the sandbox" {
+	} else if err.Error() != "cannot call value of type 'dummyCallable': feature unavailable to the sandbox" {
 		t.Errorf("Unexpected error running forbidden callable: %v", err)
 	}
 
@@ -274,7 +274,7 @@ func TestCallableSafeExecution(t *testing.T) {
 	c.DeclareSafety(invalidSafety)
 	if _, err := starlark.ExecFile(thread, "dynamic_safety_checking", prog, env); err == nil {
 		t.Errorf("Expected invalid callable-safety to result in error")
-	} else if err.Error() != "could not call value of type 'dummyCallable': internal error: invalid safety flags" {
+	} else if err.Error() != "cannot call value of type 'dummyCallable': internal error: invalid safety flags" {
 		t.Errorf("Unexpected error: %v", err)
 	}
 }

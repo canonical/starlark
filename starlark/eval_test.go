@@ -1073,7 +1073,7 @@ func TestThreadCheckPermits(t *testing.T) {
 
 		if _, err := starlark.ExecFile(thread, "test_forbidden_call", prog, env); err == nil {
 			t.Errorf("No error when attempting to call builtin with inadequate safety")
-		} else if err.Error() != "could not call builtin 'func': feature unavailable to the sandbox" {
+		} else if err.Error() != "cannot call builtin 'func': feature unavailable to the sandbox" {
 			t.Errorf("Unexpected error: %v", err)
 		}
 	})
