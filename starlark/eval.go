@@ -85,13 +85,8 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 
 // RequireSafety makes the thread only accept functions that declare at least
 // the provided safety.
-func (thread *Thread) RequireSafety(safety Safety) error {
-	if err := safety.CheckValid(); err != nil {
-		thread.Cancel(err.Error())
-		return err
-	}
+func (thread *Thread) RequireSafety(safety Safety) {
 	thread.requiredSafety |= safety
-	return nil
 }
 
 // Permits checks whether this thread would allow execution of the provided
@@ -104,6 +99,9 @@ func (thread *Thread) Permits(value SafetyAware) bool {
 // CheckPermits returns an error if this thread would not allow execution of
 // the provided safety-aware value.
 func (thread *Thread) CheckPermits(value SafetyAware) error {
+	if err := thread.requiredSafety.CheckValid(); err != nil {
+		return err
+	}
 	safety := value.Safety()
 	if err := safety.CheckValid(); err != nil {
 		return err

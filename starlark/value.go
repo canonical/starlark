@@ -742,15 +742,9 @@ func (b *Builtin) Type() string    { return "builtin_function_or_method" }
 func (b *Builtin) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Value, error) {
 	return b.fn(thread, b, args, kwargs)
 }
-func (b *Builtin) Truth() Bool    { return true }
-func (b *Builtin) Safety() Safety { return b.safety }
-func (b *Builtin) DeclareSafety(safety Safety) error {
-	if err := safety.CheckValid(); err != nil {
-		return err
-	}
-	b.safety = safety
-	return nil
-}
+func (b *Builtin) Truth() Bool                 { return true }
+func (b *Builtin) Safety() Safety              { return b.safety }
+func (b *Builtin) DeclareSafety(safety Safety) { b.safety = safety }
 
 // NewBuiltin returns a new 'builtin_function_or_method' value with the specified name
 // and implementation.  It compares unequal with all other values.
@@ -765,11 +759,8 @@ func NewBuiltin(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kw
 //
 // This function is equivalent to calling NewBuiltin and DeclareSafety on its
 // result.
-func NewBuiltinWithSafety(name string, safety Safety, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error)) (*Builtin, error) {
-	if err := safety.CheckValid(); err != nil {
-		return nil, err
-	}
-	return &Builtin{name: name, fn: fn, safety: safety}, nil
+func NewBuiltinWithSafety(name string, safety Safety, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error)) *Builtin {
+	return &Builtin{name: name, fn: fn, safety: safety}
 }
 
 // BindReceiver returns a new Builtin value representing a method
