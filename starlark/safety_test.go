@@ -2,7 +2,6 @@ package starlark_test
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
@@ -73,7 +72,7 @@ func TestSafetyValidityChecking(t *testing.T) {
 
 	if err := invalidSafety.CheckValid(); err == nil {
 		t.Errorf("No error when checking invalid safety")
-	} else if !strings.HasSuffix(err.Error(), "invalid safety flags") {
+	} else if err.Error() != "internal error: invalid safety flags" {
 		t.Errorf("Unexpected error when checking invalid safety: %v", err)
 	}
 }
