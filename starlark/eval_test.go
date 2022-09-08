@@ -1020,15 +1020,17 @@ func TestThreadPermits(t *testing.T) {
 		thread := new(starlark.Thread)
 		thread.RequireSafety(threadSafety)
 
-		if thread.Permits(starlark.Safety(0xbad1091c)) {
+		if thread.Permits(starlark.Safety(0xbad1091c) | threadSafety) {
 			t.Errorf("Invalid safety permitted")
 		}
 	})
 
 	t.Run("ThreadSafety=Invalid", func(t *testing.T) {
 		thread := new(starlark.Thread)
-		thread.RequireSafety(starlark.Safety(0xa19ae))
+		const invalidSafety = starlark.Safety(0xa19ae)
+		thread.RequireSafety(invalidSafety)
 
+		t.Errorf("%v, %v", thread.CheckPermits(starlark.Safe), thread.Permits(starlark.Safe))
 		if thread.Permits(starlark.Safe) {
 			t.Errorf("Invalid thread safety was permitted")
 		}
@@ -1072,7 +1074,7 @@ func TestThreadCheckPermits(t *testing.T) {
 		thread.RequireSafety(threadSafety)
 		const invalidSafety = starlark.Safety(0xbad1091c)
 
-		if err := thread.CheckPermits(invalidSafety); err == nil {
+		if err := thread.CheckPermits(invalidSafety | threadSafety); err == nil {
 			t.Errorf("Expected error checking invalid flags")
 		} else if err.Error() != "internal error: invalid safety flags" {
 			t.Errorf("Unexpected error: %v", err)
