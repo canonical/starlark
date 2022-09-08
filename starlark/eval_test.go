@@ -1030,7 +1030,6 @@ func TestThreadPermits(t *testing.T) {
 		const invalidSafety = starlark.Safety(0xa19ae)
 		thread.RequireSafety(invalidSafety)
 
-		t.Errorf("%v, %v", thread.CheckPermits(starlark.Safe), thread.Permits(starlark.Safe))
 		if thread.Permits(starlark.Safe) {
 			t.Errorf("Invalid thread safety was permitted")
 		}
