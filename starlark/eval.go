@@ -1227,6 +1227,9 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		callableSafety = c.Safety()
 	}
 	if err := thread.CheckPermits(callableSafety); err != nil {
+		if _, ok := c.(*Function); ok {
+			return nil, err
+		}
 		if b, ok := c.(*Builtin); ok {
 			return nil, fmt.Errorf("cannot call builtin '%s': %v", b.Name(), err)
 		}
