@@ -1126,7 +1126,7 @@ func TestThreadPermitsMatchesThreadCheckPermit(t *testing.T) {
 		for _, toCheck := range []starlark.Safety{starlark.CPUSafe | starlark.TimeSafe, starlark.Safety(0xbadf1a95)} {
 			if err := thread.CheckPermits(toCheck); err == nil {
 				t.Errorf("Expected error checking %v against invalid thread-safety", toCheck)
-			} else if err.Error() != "internal error: invalid safety flags" {
+			} else if err.Error() != "thread safety: internal error: invalid safety flags" {
 				t.Errorf("Unexpected error when checking %v: %v", toCheck, err)
 			} else if thread.Permits(toCheck) {
 				t.Errorf("Invalid thread-safety permitted when checking against %v", toCheck)
