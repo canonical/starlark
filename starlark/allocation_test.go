@@ -36,8 +36,8 @@ func (test allocationTest) Run(t *testing.T) {
 		return
 	}
 
-	// Test allocation increase order
 	test.testAllocationAmount(t, test.nLarge, deltaLarge)
+
 	test.testAllocationTrend(t, deltaSmall, deltaLarge)
 }
 
