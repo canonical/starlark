@@ -203,70 +203,53 @@ func TestToStarlarkValue(t *testing.T) {
 		to   starlark.Value
 	}
 
-	fooBarStringRaw := "foobar"
-	fooBarList := starlark.NewList(append(make([]starlark.Value, 0), starlark.String("foo"), starlark.String("bar")))
-	fooBarDict := starlark.NewDict(1)
-	fooBarDict.SetKey(starlark.String("foo"), starlark.String("bar"))
-	nestedFooBarDict := starlark.NewDict(1)
-	nestedFooBarDict.SetKey(starlark.String("foo"), starlark.NewList(append(make([]starlark.Value, 0, 2), starlark.String("bar"), starlark.String("baz"))))
+	fooBarString := "foobar"
 
 	tests := []valueConversionTest{
-		{
-			// starlark.Int implements starlark.Value so conversion is an identity operation
-			from: starlark.MakeInt(1234),
-			to:   starlark.MakeInt(1234),
-		},
-		{
-			from: nil,
-			to:   starlark.None,
-		},
-		{
-			from: true,
-			to:   starlark.Bool(true),
-		},
-		{
-			from: -1,
-			to:   starlark.MakeInt(-1),
-		},
-		{
-			from: 'a',
-			to:   starlark.String(string("a")),
-		},
-		{
-			from: "bar",
-			to:   starlark.String("bar"),
-		},
-		{
-			from: uint(10),
-			to:   starlark.MakeInt(10),
-		},
-		{
-			from: float64(3.14),
-			to:   starlark.Float(3.14),
-		},
-		{
-			from: float32(2.5),
-			to:   starlark.Float(2.5),
-		},
+		{from: starlark.MakeInt(1234), to: starlark.MakeInt(1234)},
+		{from: nil, to: starlark.None},
+		{from: true, to: starlark.Bool(true)},
+		{from: -1, to: starlark.MakeInt(-1)},
+		{from: 'a', to: starlark.String("a")},
+		{from: "bar", to: starlark.String("bar")},
+		{from: byte(10), to: starlark.MakeInt(10)},
+		{from: int(10), to: starlark.MakeInt(10)},
+		{from: int8(10), to: starlark.MakeInt(10)},
+		{from: int16(10), to: starlark.MakeInt(10)},
+		{from: int32(10), to: starlark.MakeInt(10)},
+		{from: int64(10), to: starlark.MakeInt(10)},
+		{from: uint(10), to: starlark.MakeInt(10)},
+		{from: uint8(10), to: starlark.MakeInt(10)},
+		{from: uint16(10), to: starlark.MakeInt(10)},
+		{from: uint32(10), to: starlark.MakeInt(10)},
+		{from: uint64(10), to: starlark.MakeInt(10)},
+		{from: uintptr(10), to: starlark.MakeInt(10)},
+		{from: float32(2.5), to: starlark.Float(2.5)},
+		{from: float64(3.14), to: starlark.Float(3.14)},
+		{from: &fooBarString, to: starlark.String(fooBarString)},
 		{
 			from: []string{"foo", "bar"},
-			to:   fooBarList,
+			to:   starlark.NewList(append(make([]starlark.Value, 0), starlark.String("foo"), starlark.String("bar"))),
 		},
 		{
-			from: [2]string{"foo", "bar"},
-			to:   fooBarList,
+			from: [...]string{"foo", "bar"},
+			to:   starlark.NewList(append(make([]starlark.Value, 0), starlark.String("foo"), starlark.String("bar"))),
 		},
 		{
 			from: map[string]string{"foo": "bar"},
-			to:   fooBarDict,
-		},
-		{
-			from: &fooBarStringRaw,
-			to:   starlark.String(fooBarStringRaw),
+			to: func() starlark.Value {
+				dict := starlark.NewDict(1)
+				dict.SetKey(starlark.String("foo"), starlark.String("bar"))
+				return dict
+			}(),
 		},
 		{
 			from: map[string][]string{"foo": {"bar", "baz"}},
-			to:   nestedFooBarDict,
+			to: func() starlark.Value {
+				dict := starlark.NewDict(1)
+				dict.SetKey(starlark.String("foo"), starlark.NewList(append(make([]starlark.Value, 0, 2), starlark.String("bar"), starlark.String("baz"))))
+				return dict
+			}(),
 		},
 	}
 
