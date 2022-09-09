@@ -59,9 +59,8 @@ func (test *allocationTest) computeMemoryIncrease(instanceSize uint) (uintptr, e
 	}
 
 	thread := new(starlark.Thread)
-	allocs0 := thread.Allocations()
 	_, err = starlark.ExecFile(thread, test.name, code, predeclared)
-	return thread.Allocations() - allocs0, err
+	return thread.Allocs(), err
 }
 
 // Test that expected number of allocations have been made, within a margin of error
