@@ -119,6 +119,10 @@ func TestToStarlarkPredecls(t *testing.T) {
 			from: env{"foo": "bar"},
 			to:   starlark.StringDict{"foo": starlark.String("bar")},
 		},
+		{
+			from: env{"foo": []string{"bar", "baz"}},
+			to:   starlark.StringDict{"foo": starlark.NewList([]starlark.Value{starlark.String("bar"), starlark.String("baz")})},
+		},
 	}
 
 	for _, test := range tests {
