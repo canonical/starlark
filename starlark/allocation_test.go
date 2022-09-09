@@ -135,7 +135,7 @@ func TestToStarlarkPredecls(t *testing.T) {
 }
 
 // Convert some useful types to starlark values to make tests more readible
-func toStarlarkValue(in interface{}) (out starlark.Value, err error) {
+func toStarlarkValue(in interface{}) (starlark.Value, error) {
 	// Special behaviours
 	if in, ok := in.(starlark.Value); ok {
 		return in, nil
@@ -154,46 +154,47 @@ func toStarlarkValue(in interface{}) (out starlark.Value, err error) {
 	kind := inVal.Kind()
 	switch kind {
 	case reflect.Invalid:
-		out = starlark.None
+		return starlark.None, nil
 	case reflect.Bool:
-		out = starlark.Bool(inVal.Bool())
+		return starlark.Bool(inVal.Bool()), nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		out = starlark.MakeInt(int(inVal.Int()))
+		return starlark.MakeInt(int(inVal.Int())), nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		out = starlark.MakeInt(int(inVal.Uint()))
+		return starlark.MakeInt(int(inVal.Uint())), nil
 	case reflect.Float32, reflect.Float64:
-		out = starlark.Float(inVal.Float())
+		return starlark.Float(inVal.Float()), nil
 	case reflect.Array, reflect.Slice:
 		len := inVal.Len()
 		elems := make([]starlark.Value, len)
 		for i := 0; i < len; i++ {
+			var err error
 			if elems[i], err = toStarlarkValue(inVal.Index(i)); err != nil {
-				return
+				return nil, err
 			}
 		}
-		out = starlark.NewList(elems)
+		return starlark.NewList(elems), nil
 	case reflect.Map:
 		d := starlark.NewDict(inVal.Len())
 		iter := inVal.MapRange()
 		for iter.Next() {
 			var k, v starlark.Value
+			var err error
 			if k, err = toStarlarkValue(iter.Key()); err != nil {
-				return
+				return nil, err
 			}
 			if v, err = toStarlarkValue(iter.Value()); err != nil {
-				return
+				return nil, err
 			}
 			d.SetKey(k, v)
 		}
-		out = d
+		return d, nil
 	case reflect.Pointer:
-		out, err = toStarlarkValue(inVal.Elem())
+		return toStarlarkValue(inVal.Elem())
 	case reflect.String:
-		out = starlark.String(inVal.String())
+		return starlark.String(inVal.String()), nil
 	default:
-		err = fmt.Errorf("Cannot automatically convert a value of kind %v to a starlark.Value: encountered %v", kind, in)
+		return nil, fmt.Errorf("Cannot automatically convert a value of kind %v to a starlark.Value: encountered %v", kind, in)
 	}
-	return
 }
 
 func TestToStarlarkValue(t *testing.T) {
