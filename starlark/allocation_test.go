@@ -21,18 +21,14 @@ type env map[string]interface{}
 
 const allocationErrorMargin = 0.1
 
-func (at *allocationTest) InitDefaults() {
-	if at.nSmall == 0 {
-		at.nSmall = 1000
-	}
-	if at.nLarge == 0 {
-		at.nLarge = 100000
-	}
-}
-
 // Tests allocations follow the specified trend, within a margin of error
 func (test allocationTest) Run(t *testing.T) {
-	test.InitDefaults()
+	if test.nSmall == 0 {
+		test.nSmall = 1000
+	}
+	if test.nLarge == 0 {
+		test.nLarge = 100000
+	}
 
 	deltaSmall, deltaLarge, err := test.computeAllocationDeltas()
 	if err != nil {
