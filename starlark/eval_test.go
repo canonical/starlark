@@ -995,3 +995,15 @@ func TestDeps(t *testing.T) {
 		}
 	}
 }
+
+func TestAddSteps(t *testing.T) {
+	thread := new(starlark.Thread)
+	initialSteps := thread.ExecutionSteps()
+	const expectedDelta = 10000
+
+	thread.AddSteps(expectedDelta)
+
+	if actualDelta := thread.ExecutionSteps() - initialSteps; actualDelta != expectedDelta {
+		t.Errorf("Incorrect number of steps added: expected %d but got %d", expectedDelta, actualDelta)
+	}
+}

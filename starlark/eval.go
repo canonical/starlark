@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unicode"
@@ -49,6 +50,7 @@ type Thread struct {
 
 	// steps counts abstract computation steps executed by this thread.
 	steps, maxSteps uint64
+	stepsLock       sync.Mutex
 
 	// cancelReason records the reason from the first call to Cancel.
 	cancelReason *string
@@ -68,6 +70,9 @@ type Thread struct {
 //
 // The precise meaning of "step" is not specified and may change.
 func (thread *Thread) ExecutionSteps() uint64 {
+	thread.stepsLock.Lock()
+	defer thread.stepsLock.Unlock()
+
 	return thread.steps
 }
 
@@ -77,6 +82,15 @@ func (thread *Thread) ExecutionSteps() uint64 {
 // thread.Cancel("too many steps").
 func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
+}
+
+// AddSteps declares that a number of steps have been executed which would not
+// otherwise be counted.
+func (thread *Thread) AddSteps(delta uint32) {
+	thread.stepsLock.Lock()
+	defer thread.stepsLock.Unlock()
+
+	thread.steps += uint64(delta)
 }
 
 // Cancel causes execution of Starlark code in the specified thread to
