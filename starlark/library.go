@@ -21,6 +21,7 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
+	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -1848,10 +1849,10 @@ func string_find(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·format
-func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_format(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	format := string(b.Receiver().(String))
 	var auto, manual bool // kinds of positional indexing used
-	buf := new(strings.Builder)
+	buf := NewSafeStringBuilder(thread)
 	index := 0
 	for {
 		literal := format
@@ -1984,7 +1985,12 @@ func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 			return nil, fmt.Errorf("format: unknown conversion %q", conv)
 		}
 	}
-	return String(buf.String()), nil
+
+	if err := thread.AddAllocs(int64(unsafe.Sizeof("")) + int64(buf.Cap())); err != nil {
+		return nil, err
+	} else {
+		return String(buf.String()), nil
+	}
 }
 
 // decimal interprets s as a sequence of decimal digits.
