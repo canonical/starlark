@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"reflect"
 	"strconv"
+	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -323,6 +324,16 @@ func (x Int) Mod(y Int) Int {
 		rem += ySmall
 	}
 	return makeSmallInt(rem)
+}
+
+func (x Int) Allocs() int64 {
+	_, iBig := x.get()
+	if iBig != nil {
+		var w big.Word
+		return int64(unsafe.Sizeof(x)+unsafe.Sizeof(*iBig)) + int64(cap(iBig.Bits()))*int64(unsafe.Sizeof(w))
+	} else {
+		return int64(unsafe.Sizeof(x))
+	}
 }
 
 func (i Int) rational() *big.Rat {
