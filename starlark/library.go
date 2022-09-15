@@ -2087,14 +2087,25 @@ func string_removefix(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·replace
-func string_replace(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := string(b.Receiver().(String))
 	var old, new string
 	count := -1
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 2, &old, &new, &count); err != nil {
 		return nil, err
 	}
-	return String(strings.Replace(recv, old, new, count)), nil
+
+	if err := thread.CheckAllocs(int64(len(recv) * len(new) / len(old))); err != nil {
+		return nil, err
+	}
+
+	result := strings.Replace(recv, old, new, count)
+
+	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		return nil, err
+	}
+
+	return String(result), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·rfind
