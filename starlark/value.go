@@ -1173,7 +1173,7 @@ func toString(v Value) string {
 // (These are the only potentially cyclic structures.)
 // Callers should generally pass nil for path.
 // It is safe to re-use the same path slice for multiple calls.
-func writeValue(out *strings.Builder, x Value, path []Value) {
+func writeValue(out StringBuilder, x Value, path []Value) {
 	switch x := x.(type) {
 	case nil:
 		out.WriteString("<nil>") // indicates a bug

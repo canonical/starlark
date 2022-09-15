@@ -956,7 +956,8 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if err := UnpackArgs("print", nil, kwargs, "sep?", &sep); err != nil {
 		return nil, err
 	}
-	buf := new(strings.Builder)
+	buf := thread.CreateStringBuilder()
+
 	for i, v := range args {
 		if i > 0 {
 			buf.WriteString(sep)
