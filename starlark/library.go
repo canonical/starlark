@@ -1359,10 +1359,13 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		}
 	}()
 	for i, seq := range args {
-		// TODO: use SafeIterate
-		it := Iterate(seq)
-		if it == nil {
-			return nil, fmt.Errorf("zip: argument #%d is not iterable: %s", i+1, seq.Type())
+		it, err := SafeIterate(thread, seq)
+		if err != nil {
+			if err == ErrUnsupported {
+				return nil, fmt.Errorf("zip: argument #%d is not iterable: %s", i+1, seq.Type())
+			}
+
+			return nil, err
 		}
 		iters[i] = it
 		n := Len(seq)
@@ -1370,16 +1373,32 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			rows = n // possibly -1
 		}
 	}
+
 	var result []Value
 	if rows >= 0 {
 		// length known
+		if err := thread.CheckAllocs(int64(rows+cols*rows+3)*int64(unsafe.Sizeof(Value(nil))) + int64(rows)*int64(unsafe.Sizeof(result))); err != nil {
+			return nil, err
+		}
+
 		result = make([]Value, rows)
 		array := make(Tuple, cols*rows) // allocate a single backing array
+
+		if err := thread.AddAllocs(int64(cap(result)+cap(array)+3)*int64(unsafe.Sizeof(Value(nil))) + int64(len(result))*int64(unsafe.Sizeof(result))); err != nil {
+			return nil, err
+		}
+
 		for i := 0; i < rows; i++ {
 			tuple := array[:cols:cols]
 			array = array[cols:]
 			for j, iter := range iters {
-				iter.Next(&tuple[j])
+				// This logic assumes that since each iterator declared a
+				// length, the only reason for it to stop is an iteration
+				// error, otherwise the contract would be broken (e.g.
+				// an iterator would have declared a wrong length)
+				if !iter.Next(&tuple[j]) {
+					return nil, iter.Err()
+				}
 			}
 			result[i] = tuple
 		}
@@ -1390,10 +1409,25 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			tuple := make(Tuple, cols)
 			for i, iter := range iters {
 				if !iter.Next(&tuple[i]) {
+					// There are two reasons to stop:
+					//  - iteration exaustion;
+					//  - iteration error.
+					if err := iter.Err(); err != nil {
+						return nil, err
+					}
 					break outer
 				}
 			}
+
+			if err := thread.AddAllocs(int64(unsafe.Sizeof(tuple)) + int64(cols)*int64(unsafe.Sizeof(Value(nil)))); err != nil {
+				return nil, err
+			}
+
 			result = append(result, tuple)
+		}
+
+		if err := thread.AddAllocs(int64(unsafe.Sizeof(Value(nil))) * int64(cap(result))); err != nil {
+			return nil, err
 		}
 	}
 	return NewList(result), nil
