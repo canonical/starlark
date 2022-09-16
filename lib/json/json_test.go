@@ -30,6 +30,34 @@ func TestModuleSafeties(t *testing.T) {
 }
 
 func TestJsonEncodeAllocs(t *testing.T) {
+	json_encode, _ := json.Module.Attr("encode")
+	if json_encode == nil {
+		t.Fatal("no such method: json.endoce")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		json_object := &starlark.Dict{}
+		json_object.SetKey(starlark.String("Int"), starlark.MakeInt(0xbeef))
+		json_object.SetKey(starlark.String("BigInt"), starlark.MakeInt64(0xdeadbeef<<10))
+		json_object.SetKey(starlark.String("Float"), starlark.Float(1.4218e-1))
+		json_object.SetKey(starlark.String("Bool"), starlark.True)
+		json_object.SetKey(starlark.String("Null"), starlark.None)
+		json_object.SetKey(starlark.String("Empty list"), starlark.NewList([]starlark.Value{}))
+		json_object.SetKey(starlark.String("Tuple"), starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(2)})
+
+		array := make(starlark.Tuple, st.N)
+		for i := 0; i < st.N; i++ {
+			array[i] = json_object
+		}
+
+		result, err := starlark.Call(thread, json_encode, starlark.Tuple{array}, nil)
+		if err != nil {
+			st.Error(err)
+		}
+		st.KeepAlive(result)
+	})
 }
 
 func TestJsonDecodeAllocs(t *testing.T) {
