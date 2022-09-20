@@ -193,7 +193,7 @@ func TestConcurrentCheckAllocsUsage(t *testing.T) {
 		done <- struct{}{}
 	}()
 
-	// Await completion
+	// Await goroutine completion
 	totDone := 0
 	for totDone != 2 {
 		select {
@@ -221,7 +221,7 @@ func TestConcurrentAddAllocsUsage(t *testing.T) {
 	go callAddAlloc(expectedAllocs / 2)
 	go callAddAlloc(expectedAllocs / 2)
 
-	// Await completion
+	// Await goroutine completion
 	totDone := 0
 	for totDone != 2 {
 		select {
