@@ -717,9 +717,10 @@ func (fn *Function) Safety() Safety   { return safe }
 
 // A Builtin is a function implemented in Go.
 type Builtin struct {
-	name   string
-	fn     func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)
-	recv   Value // for bound methods (e.g. "".startswith)
+	name string
+	fn   func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)
+	recv Value // for bound methods (e.g. "".startswith)
+
 	safety Safety
 }
 
@@ -742,7 +743,8 @@ func (b *Builtin) Type() string    { return "builtin_function_or_method" }
 func (b *Builtin) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Value, error) {
 	return b.fn(thread, b, args, kwargs)
 }
-func (b *Builtin) Truth() Bool                 { return true }
+func (b *Builtin) Truth() Bool { return true }
+
 func (b *Builtin) Safety() Safety              { return b.safety }
 func (b *Builtin) DeclareSafety(safety Safety) { b.safety = safety }
 
