@@ -56,7 +56,7 @@ type Thread struct {
 
 	// allocs counts the abstract memory units claimed by this resource pool
 	allocs, maxAllocs uint64
-	allocLock         sync.Mutex
+	allocsLock        sync.Mutex
 
 	// cancelReason records the reason from the first call to Cancel.
 	cancelReason *string
@@ -1654,8 +1654,8 @@ func (e *MaxAllocsError) Error() string {
 // It is safe to call CheckAllocs from any goroutine, even if the thread is
 // actively executing.
 func (thread *Thread) CheckAllocs(delta int64) error {
-	thread.allocLock.Lock()
-	defer thread.allocLock.Unlock()
+	thread.allocsLock.Lock()
+	defer thread.allocsLock.Unlock()
 
 	_, err := thread.simulateAllocs(delta)
 	return err
@@ -1668,8 +1668,8 @@ func (thread *Thread) CheckAllocs(delta int64) error {
 // It is safe to call AddAllocs from any goroutine, even if the thread is
 // actively executing.
 func (thread *Thread) AddAllocs(delta int64) error {
-	thread.allocLock.Lock()
-	defer thread.allocLock.Unlock()
+	thread.allocsLock.Lock()
+	defer thread.allocsLock.Unlock()
 
 	next, err := thread.simulateAllocs(delta)
 	thread.allocs = next
