@@ -1649,32 +1649,15 @@ func (e *MaxAllocsError) Error() string {
 
 // CheckAllocs returns an error if a change in allocations associated with this
 // thread would be rejected by AddAllocs.
+//
+// It is safe to call CheckAllocs from any goroutine, even if the thread is
+// actively executing.
 func (thread *Thread) CheckAllocs(delta int64) error {
-	if delta <= 0 {
-		return nil
-	}
+	thread.allocLock.Lock()
+	defer thread.allocLock.Unlock()
 
-	currAllocs := thread.allocs
-
-	udelta := uint64(delta)
-	var nextAllocs uint64
-	if udelta <= math.MaxUint64-currAllocs {
-		nextAllocs = currAllocs + udelta
-	} else {
-		nextAllocs = math.MaxUint64
-	}
-
-	if vmdebug {
-		fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs, thread.maxAllocs)
-	}
-
-	if nextAllocs > thread.maxAllocs {
-		return &MaxAllocsError{
-			Current: currAllocs,
-			Max:     thread.maxAllocs,
-		}
-	}
-	return nil
+	_, err := thread.canAlloc(delta)
+	return err
 }
 
 // AddAllocs reports a change in allocations associated with this thread. If
@@ -1684,33 +1667,48 @@ func (thread *Thread) CheckAllocs(delta int64) error {
 // It is safe to call AddAllocs from any goroutine, even if the thread is
 // actively executing.
 func (thread *Thread) AddAllocs(delta int64) error {
-	if thread.cancelReason == nil {
-		thread.allocLock.Lock()
-		defer thread.allocLock.Unlock()
+	thread.allocLock.Lock()
+	defer thread.allocLock.Unlock()
 
-		if delta < 0 {
-			udelta := uint64(-delta)
-			if udelta < thread.allocs {
-				thread.allocs -= udelta
-			} else {
-				thread.allocs = 0
-			}
+	next, err := thread.canAlloc(delta)
+	thread.allocs = next
+	if err != nil {
+		thread.Cancel(err.Error())
+	}
+
+	return err
+}
+
+// canAlloc computes the next stored number of allocations and any error this
+// would entail.
+func (thread *Thread) canAlloc(delta int64) (nextAllocs uint64, _ error) {
+	if delta < 0 {
+		udelta := uint64(-delta)
+		if udelta < thread.allocs {
+			nextAllocs = thread.allocs - udelta
 		} else {
-			err := thread.CheckAllocs(delta)
-			if err != nil {
-				thread.Cancel(err.Error())
-			}
+			nextAllocs = 0
+		}
+		return nextAllocs, nil
+	}
 
-			udelta := uint64(delta)
-			if udelta <= math.MaxUint64-thread.allocs {
-				thread.allocs += udelta
-			} else {
-				thread.allocs = math.MaxUint64
-			}
+	udelta := uint64(delta)
+	if udelta <= math.MaxUint64-thread.allocs {
+		nextAllocs = thread.allocs + udelta
+	} else {
+		nextAllocs = math.MaxUint64
+	}
 
-			return err
+	if vmdebug {
+		fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs, thread.maxAllocs)
+	}
+
+	if nextAllocs > thread.maxAllocs {
+		return nextAllocs, &MaxAllocsError{
+			Current: thread.allocs,
+			Max:     thread.maxAllocs,
 		}
 	}
 
-	return nil
+	return nextAllocs, nil
 }
