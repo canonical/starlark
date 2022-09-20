@@ -13,12 +13,16 @@ func TestCheckAllocs(t *testing.T) {
 
 	if err := thread.CheckAllocs(500); err != nil {
 		t.Errorf("Unexpected error: %v", err)
+	} else if allocs := thread.Allocs(); allocs != 0 {
+		t.Errorf("CheckAllocs recorded allocations: expected 0 but got %v", allocs)
 	}
 
 	if err := thread.CheckAllocs(2000); err == nil {
 		t.Errorf("Expected error")
 	} else if err.Error() != "exceeded memory allocation limits" {
 		t.Errorf("Unexpected error: %v", err)
+	} else if allocs := thread.Allocs(); allocs != 0 {
+		t.Errorf("CheckAllocs recorded allocations: expected 0 but got %v", allocs)
 	}
 
 	if _, err := starlark.ExecFile(thread, "alloc_cancel_test", "", nil); err != nil {
@@ -44,16 +48,6 @@ func TestAllocDeclAndCheckBoundary(t *testing.T) {
 		if err := thread.AddAllocs(allocCap + 1); err == nil {
 			t.Errorf("Expected error when exceeding quota")
 		}
-	}
-}
-
-func TestCheckAllocsAddsNoAllocs(t *testing.T) {
-	thread := new(starlark.Thread)
-	thread.SetMaxAllocs(0)
-
-	prevAllocs := thread.Allocs()
-	if allocs := thread.Allocs(); allocs != prevAllocs {
-		t.Errorf("thread.CheckAllocs made allocations")
 	}
 }
 
