@@ -163,7 +163,47 @@ func TestOverzealousNegativeDeltaDeclaration(t *testing.T) {
 	}
 }
 
-func TestConcurrentAddAllocUsage(t *testing.T) {
+func TestConcurrentCheckAllocsUsage(t *testing.T) {
+	const allocPeak = math.MaxUint64 ^ (math.MaxUint64 >> 1)
+	const maxAllocs = allocPeak + 1
+	const repetitions = 1_000_000
+
+	thread := new(starlark.Thread)
+	thread.SetMaxAllocs(maxAllocs)
+	thread.AddAllocs(allocPeak - 1)
+
+	done := make(chan struct{}, 2)
+
+	go func() {
+		// Flip between 1000...00 and 0111...11 allocations
+		for i := 0; i < repetitions; i++ {
+			thread.AddAllocs(1)
+			thread.AddAllocs(-1)
+		}
+		done <- struct{}{}
+	}()
+	go func() {
+		for i := 0; i < repetitions; i++ {
+			// Check 1000...01 not exceeded
+			if err := thread.CheckAllocs(1); err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				break
+			}
+		}
+		done <- struct{}{}
+	}()
+
+	// Await completion
+	totDone := 0
+	for totDone != 2 {
+		select {
+		case <-done:
+			totDone++
+		}
+	}
+}
+
+func TestConcurrentAddAllocsUsage(t *testing.T) {
 	const expectedAllocs = 1_000_000
 
 	thread := new(starlark.Thread)
