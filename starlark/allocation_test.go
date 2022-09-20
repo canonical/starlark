@@ -201,8 +201,23 @@ func TestConcurrentAddAllocUsage(t *testing.T) {
 	}
 }
 
-func TestAddAllocsDoesNothingOnCancelledThread(t *testing.T) {
-	const cancellationReason = "arbitrary cancellation"
+func TestCheckAllocsCancelledRejection(t *testing.T) {
+	const cancellationReason = "arbitrary cancellation reason"
+	const maxAllocs = 1000
+
+	thread := new(starlark.Thread)
+	thread.Cancel(cancellationReason)
+	thread.SetMaxAllocs(maxAllocs)
+
+	if err := thread.CheckAllocs(2 * maxAllocs); err == nil {
+		t.Errorf("Expected cancellation")
+	} else if err.Error() != cancellationReason {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestAddAllocsCancelledRejection(t *testing.T) {
+	const cancellationReason = "arbitrary cancellation reason"
 	const maxAllocs = 1000
 
 	thread := new(starlark.Thread)
@@ -213,5 +228,7 @@ func TestAddAllocsDoesNothingOnCancelledThread(t *testing.T) {
 		t.Errorf("Expected cancellation")
 	} else if err.Error() != cancellationReason {
 		t.Errorf("Unexpected error: %v", err)
+	} else if allocs := thread.Allocs(); allocs != 0 {
+		t.Errorf("Changes were recorded against cancelled thread: expected 0 allocations, got %v", allocs)
 	}
 }

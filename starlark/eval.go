@@ -1668,10 +1668,6 @@ func (thread *Thread) CheckAllocs(delta int64) error {
 // It is safe to call AddAllocs from any goroutine, even if the thread is
 // actively executing.
 func (thread *Thread) AddAllocs(delta int64) error {
-	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
-		return errors.New(*(*string)(cancelReason))
-	}
-
 	thread.allocLock.Lock()
 	defer thread.allocLock.Unlock()
 
@@ -1688,6 +1684,10 @@ func (thread *Thread) AddAllocs(delta int64) error {
 // allocations associated with this thread and any error this would entail. No
 // change is recorded.
 func (thread *Thread) simulateAllocs(delta int64) (uint64, error) {
+	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
+		return thread.allocs, errors.New(*(*string)(cancelReason))
+	}
+
 	var nextAllocs uint64
 
 	if delta < 0 {
