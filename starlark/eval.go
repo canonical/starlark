@@ -1657,7 +1657,7 @@ func (thread *Thread) CheckAllocs(delta int64) error {
 	thread.allocLock.Lock()
 	defer thread.allocLock.Unlock()
 
-	_, err := thread.canAlloc(delta)
+	_, err := thread.simulateAllocs(delta)
 	return err
 }
 
@@ -1675,7 +1675,7 @@ func (thread *Thread) AddAllocs(delta int64) error {
 	thread.allocLock.Lock()
 	defer thread.allocLock.Unlock()
 
-	next, err := thread.canAlloc(delta)
+	next, err := thread.simulateAllocs(delta)
 	thread.allocs = next
 	if err != nil {
 		thread.Cancel(err.Error())
@@ -1684,9 +1684,12 @@ func (thread *Thread) AddAllocs(delta int64) error {
 	return err
 }
 
-// canAlloc computes the next stored number of allocations and any error this
-// would entail.
-func (thread *Thread) canAlloc(delta int64) (nextAllocs uint64, _ error) {
+// simulateAllocs simulates a call to AddAllocs returning the new total
+// allocations associated with this thread and any error this would entail. No
+// change is recorded.
+func (thread *Thread) simulateAllocs(delta int64) (uint64, error) {
+	var nextAllocs uint64
+
 	if delta < 0 {
 		udelta := uint64(-delta)
 		if udelta < thread.allocs {
