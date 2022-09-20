@@ -200,3 +200,18 @@ func TestConcurrentAddAllocUsage(t *testing.T) {
 		t.Errorf("Concurrent thread.AddAlloc contains a race, expected %d allocs recorded but got %d", expectedAllocs, allocs)
 	}
 }
+
+func TestAddAllocsDoesNothingOnCancelledThread(t *testing.T) {
+	const cancellationReason = "arbitrary cancellation"
+	const maxAllocs = 1000
+
+	thread := new(starlark.Thread)
+	thread.Cancel(cancellationReason)
+	thread.SetMaxAllocs(maxAllocs)
+
+	if err := thread.AddAllocs(2 * maxAllocs); err == nil {
+		t.Errorf("Expected cancellation")
+	} else if err.Error() != cancellationReason {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}

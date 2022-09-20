@@ -5,6 +5,7 @@
 package starlark
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1667,6 +1668,10 @@ func (thread *Thread) CheckAllocs(delta int64) error {
 // It is safe to call AddAllocs from any goroutine, even if the thread is
 // actively executing.
 func (thread *Thread) AddAllocs(delta int64) error {
+	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
+		return errors.New(*(*string)(cancelReason))
+	}
+
 	thread.allocLock.Lock()
 	defer thread.allocLock.Unlock()
 
