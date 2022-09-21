@@ -1002,7 +1002,7 @@ func TestAddExecutionStepsOk(t *testing.T) {
 	thread := new(starlark.Thread)
 	thread.SetMaxExecutionSteps(2 * expectedDelta)
 
-	if err := thread.AddSteps(expectedDelta); err != nil {
+	if err := thread.AddExecutionSteps(expectedDelta); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	} else if actualDelta := thread.ExecutionSteps(); actualDelta != expectedDelta {
 		t.Errorf("Incorrect number of steps added: expected %d but got %d", expectedDelta, actualDelta)
@@ -1020,7 +1020,7 @@ func TestAddExecutionStepsFail(t *testing.T) {
 	thread := new(starlark.Thread)
 	thread.SetMaxExecutionSteps(maxSteps)
 
-	if err := thread.AddSteps(stepsToAdd); err == nil {
+	if err := thread.AddExecutionSteps(stepsToAdd); err == nil {
 		t.Errorf("Expected error")
 	} else if err.Error() != "too many steps" {
 		t.Errorf("Unexpected error: %v", err)
@@ -1035,7 +1035,7 @@ func TestAddExecutionStepsFail(t *testing.T) {
 	}
 
 	const expectedStepsAfterExec = stepsToAdd + 1
-	if err := thread.AddSteps(maxSteps / 2); err == nil {
+	if err := thread.AddExecutionSteps(maxSteps / 2); err == nil {
 		t.Errorf("Expected error")
 	} else if err.Error() != "too many steps" {
 		t.Errorf("Unexpected error: %v", err)

@@ -86,9 +86,9 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
 }
 
-// AddSteps declares that a number of steps have been executed which would not
+// AddExecutionSteps declares that a number of steps have been executed which would not
 // otherwise be counted.
-func (thread *Thread) AddSteps(delta uint64) error {
+func (thread *Thread) AddExecutionSteps(delta uint64) error {
 	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
 		return errors.New(*(*string)(cancelReason))
 	}
