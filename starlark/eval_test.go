@@ -996,6 +996,23 @@ func TestDeps(t *testing.T) {
 	}
 }
 
+func TestCheckExecutionSteps(t *testing.T) {
+	const maxSteps = 10000
+
+	thread := new(starlark.Thread)
+	thread.SetMaxExecutionSteps(maxSteps)
+
+	if err := thread.CheckExecutionSteps(maxSteps / 2); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if err := thread.CheckExecutionSteps(2 * maxSteps); err == nil {
+		t.Errorf("Expected error")
+	} else if err.Error() != "too many steps" {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
 func TestAddExecutionStepsOk(t *testing.T) {
 	const expectedDelta = 10000
 

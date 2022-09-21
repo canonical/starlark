@@ -86,29 +86,46 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
 }
 
-// AddExecutionSteps declares that a number of steps have been executed which would not
-// otherwise be counted.
-func (thread *Thread) AddExecutionSteps(delta uint64) error {
-	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
-		return errors.New(*(*string)(cancelReason))
-	}
-
+func (thread *Thread) CheckExecutionSteps(delta uint64) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
+	_, err := thread.simulateExecutionSteps(delta)
+	return err
+}
+
+// AddExecutionSteps declares that a number of steps have been executed which would not
+// otherwise be counted.
+func (thread *Thread) AddExecutionSteps(delta uint64) error {
+	thread.stepsLock.Lock()
+	defer thread.stepsLock.Unlock()
+
+	nextSteps, err := thread.simulateExecutionSteps(delta)
+	thread.steps = nextSteps
+	if err != nil {
+		thread.Cancel(err.Error())
+	}
+
+	return err
+}
+
+func (thread *Thread) simulateExecutionSteps(delta uint64) (uint64, error) {
+	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
+		return thread.steps, errors.New(*(*string)(cancelReason))
+	}
+
+	var nextExecutionSteps uint64
 	if delta <= math.MaxUint64-thread.steps {
-		thread.steps += delta
+		nextExecutionSteps = thread.steps + delta
 	} else {
-		thread.steps = math.MaxUint64
+		nextExecutionSteps = math.MaxUint64
 	}
 
-	if thread.steps >= thread.maxSteps {
-		problem := "too many steps"
-		thread.Cancel(problem)
-		return errors.New(problem)
+	if nextExecutionSteps >= thread.maxSteps {
+		return nextExecutionSteps, errors.New("too many steps")
 	}
 
-	return nil
+	return nextExecutionSteps, nil
 }
 
 // Cancel causes execution of Starlark code in the specified thread to
