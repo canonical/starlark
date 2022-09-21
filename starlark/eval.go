@@ -5,10 +5,12 @@
 package starlark
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"math/big"
 	"sort"
 	"strings"
@@ -86,11 +88,27 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 
 // AddSteps declares that a number of steps have been executed which would not
 // otherwise be counted.
-func (thread *Thread) AddSteps(delta uint32) {
+func (thread *Thread) AddSteps(delta uint64) error {
+	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
+		return errors.New(*(*string)(cancelReason))
+	}
+
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
-	thread.steps += uint64(delta)
+	if delta <= math.MaxUint64-thread.steps {
+		thread.steps += delta
+	} else {
+		thread.steps = math.MaxUint64
+	}
+
+	if thread.steps >= thread.maxSteps {
+		problem := "too many steps"
+		thread.Cancel(problem)
+		return errors.New(problem)
+	}
+
+	return nil
 }
 
 // Cancel causes execution of Starlark code in the specified thread to

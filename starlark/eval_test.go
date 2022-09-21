@@ -996,14 +996,50 @@ func TestDeps(t *testing.T) {
 	}
 }
 
-func TestAddSteps(t *testing.T) {
-	thread := new(starlark.Thread)
-	initialSteps := thread.ExecutionSteps()
+func TestAddExecutionStepsOk(t *testing.T) {
 	const expectedDelta = 10000
 
-	thread.AddSteps(expectedDelta)
+	thread := new(starlark.Thread)
+	thread.SetMaxExecutionSteps(2 * expectedDelta)
 
-	if actualDelta := thread.ExecutionSteps() - initialSteps; actualDelta != expectedDelta {
+	if err := thread.AddSteps(expectedDelta); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	} else if actualDelta := thread.ExecutionSteps(); actualDelta != expectedDelta {
 		t.Errorf("Incorrect number of steps added: expected %d but got %d", expectedDelta, actualDelta)
+	}
+
+	if _, err := starlark.ExecFile(thread, "add_execution_steps", "", nil); err != nil {
+		t.Errorf("Unexpected cancellation: %v", err)
+	}
+}
+
+func TestAddExecutionStepsFail(t *testing.T) {
+	const maxSteps = 10000
+	const stepsToAdd = 2 * maxSteps
+
+	thread := new(starlark.Thread)
+	thread.SetMaxExecutionSteps(maxSteps)
+
+	if err := thread.AddSteps(stepsToAdd); err == nil {
+		t.Errorf("Expected error")
+	} else if err.Error() != "too many steps" {
+		t.Errorf("Unexpected error: %v", err)
+	} else if steps := thread.ExecutionSteps(); steps != stepsToAdd {
+		t.Errorf("Incorrect number of steps recorded: expected %v but got %v", stepsToAdd, steps)
+	}
+
+	if _, err := starlark.ExecFile(thread, "add_execution_steps", "", nil); err == nil {
+		t.Errorf("Expected cancellation")
+	} else if err.Error() != "Starlark computation cancelled: too many steps" {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	const expectedStepsAfterExec = stepsToAdd + 1
+	if err := thread.AddSteps(maxSteps / 2); err == nil {
+		t.Errorf("Expected error")
+	} else if err.Error() != "too many steps" {
+		t.Errorf("Unexpected error: %v", err)
+	} else if steps := thread.ExecutionSteps(); steps != expectedStepsAfterExec {
+		t.Errorf("Incorrect number of steps recorded: expected %v but got %v", expectedStepsAfterExec, steps)
 	}
 }
