@@ -86,6 +86,11 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
 }
 
+// CheckExecutionSteps returns an error if an increase in execution steps taken
+// by this thread would be rejected by AddExecutionSteps.
+//
+// It is safe to call CheckExecutionSteps from any goroutine, even if the thread
+// is actively executing.
 func (thread *Thread) CheckExecutionSteps(delta uint64) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
@@ -94,8 +99,12 @@ func (thread *Thread) CheckExecutionSteps(delta uint64) error {
 	return err
 }
 
-// AddExecutionSteps declares that a number of steps have been executed which would not
-// otherwise be counted.
+// AddExecutionSteps reports an increase in the number of execution steps taken
+// by this thread. If the new total steps exceeds the limit defined by
+// SetMaxExecutionSteps, the thread is cancelled and an error is returned.
+//
+// It is safe to call AddExecutionSteps from any goroutine, even if the thread
+// is actively executing.
 func (thread *Thread) AddExecutionSteps(delta uint64) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
@@ -109,6 +118,9 @@ func (thread *Thread) AddExecutionSteps(delta uint64) error {
 	return err
 }
 
+// simulateExecutionSteps simulates a call to AddExecutionSteps returning the
+// new total step-count and any error this would entail. No change is
+// recorded.
 func (thread *Thread) simulateExecutionSteps(delta uint64) (uint64, error) {
 	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
 		return thread.steps, errors.New(*(*string)(cancelReason))
