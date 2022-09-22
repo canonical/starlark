@@ -1230,6 +1230,10 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		if thread.maxSteps == 0 {
 			thread.maxSteps-- // (MaxUint64)
 		}
+
+		if thread.maxAllocs == 0 {
+			thread.maxAllocs-- // (MaxUint64)
+		}
 	}
 
 	thread.stack = append(thread.stack, fr) // push
