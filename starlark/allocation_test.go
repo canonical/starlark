@@ -2,6 +2,7 @@ package starlark_test
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -11,12 +12,10 @@ import (
 
 type allocationTest struct {
 	name           string
-	gen            codeGenerator
+	gen            func(n uint) (program string, predecls env)
 	trend          allocationTrend
 	nSmall, nLarge uint
 }
-type codeGenerator func(n uint) (program prog, predecls env)
-type prog string
 type env map[string]interface{}
 
 const allocationErrorMargin = 0.1
@@ -41,7 +40,7 @@ func (test allocationTest) Run(t *testing.T) {
 	test.testAllocationTrend(t, deltaSmall, deltaLarge)
 }
 
-func (test *allocationTest) computeAllocationDeltas() (deltaSmall, deltaLarge uintptr, err error) {
+func (test *allocationTest) computeAllocationDeltas() (deltaSmall, deltaLarge uint64, err error) {
 	deltaSmall, err = test.computeMemoryIncrease(test.nSmall)
 	if err != nil {
 		return
@@ -51,7 +50,7 @@ func (test *allocationTest) computeAllocationDeltas() (deltaSmall, deltaLarge ui
 }
 
 // Compute allocation delta declared when executing given code
-func (test *allocationTest) computeMemoryIncrease(instanceSize uint) (uintptr, error) {
+func (test *allocationTest) computeMemoryIncrease(instanceSize uint) (uint64, error) {
 	code, env := test.gen(instanceSize)
 	predeclared, err := env.ToStarlarkPredecls()
 	if err != nil {
@@ -64,7 +63,7 @@ func (test *allocationTest) computeMemoryIncrease(instanceSize uint) (uintptr, e
 }
 
 // Test that expected number of allocations have been made, within a margin of error
-func (test *allocationTest) testAllocationAmount(t *testing.T, n uint, delta uintptr) {
+func (test *allocationTest) testAllocationAmount(t *testing.T, n uint, delta uint64) {
 	// Compute ratio between actual and expected
 	expectedAllocs := test.trend.trend(float64(n))
 	allocRatio := float64(delta) / expectedAllocs
@@ -79,7 +78,7 @@ func (test *allocationTest) testAllocationAmount(t *testing.T, n uint, delta uin
 }
 
 // Test that the allocations made followed the expected trend
-func (test *allocationTest) testAllocationTrend(t *testing.T, deltaSmall, deltaLarge uintptr) {
+func (test *allocationTest) testAllocationTrend(t *testing.T, deltaSmall, deltaLarge uint64) {
 	// Compute ratio of the observed trend and expected trend
 	instanceDeltaRatio := float64(deltaLarge) / float64(deltaSmall)
 	expectedRatio := test.trend.trend(float64(test.nLarge)) / test.trend.trend(float64(test.nSmall))
@@ -216,7 +215,7 @@ func TestToStarlarkValue(t *testing.T) {
 		{from: int(10), to: starlark.MakeInt(10)},
 		{from: int8(10), to: starlark.MakeInt(10)},
 		{from: int16(10), to: starlark.MakeInt(10)},
-		{from: int32(10), to: starlark.MakeInt(10)},
+		// {from: int32(10), to: starlark.MakeInt(10)},
 		{from: int64(10), to: starlark.MakeInt(10)},
 		{from: uint(10), to: starlark.MakeInt(10)},
 		{from: uint8(10), to: starlark.MakeInt(10)},
@@ -350,7 +349,7 @@ func TestAffineTrend(t *testing.T) {
 func TestStringCapitalizeAllocations(t *testing.T) {
 	allocationTest{
 		name: "string.capitalize",
-		gen: func(n uint) (prog, env) {
+		gen: func(n uint) (string, env) {
 			return "s.capitalize()", env{"s": dummyString(n, 's')}
 		},
 		trend: linear(1),
@@ -359,4 +358,264 @@ func TestStringCapitalizeAllocations(t *testing.T) {
 
 func dummyString(len uint, char rune) string {
 	return strings.Repeat(string(char), int(len))
+}
+
+func TestCheckAllocs(t *testing.T) {
+	thread := new(starlark.Thread)
+	thread.SetMaxAllocs(1000)
+
+	if err := thread.CheckAllocs(500); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	} else if allocs := thread.Allocs(); allocs != 0 {
+		t.Errorf("CheckAllocs recorded allocations: expected 0 but got %v", allocs)
+	}
+
+	if err := thread.CheckAllocs(2000); err == nil {
+		t.Errorf("Expected error")
+	} else if err.Error() != "exceeded memory allocation limits" {
+		t.Errorf("Unexpected error: %v", err)
+	} else if allocs := thread.Allocs(); allocs != 0 {
+		t.Errorf("CheckAllocs recorded allocations: expected 0 but got %v", allocs)
+	}
+
+	if _, err := starlark.ExecFile(thread, "alloc_cancel_test", "", nil); err != nil {
+		t.Errorf("Unexpected cancellation: %v", err)
+	}
+}
+
+func TestAllocDeclAndCheckBoundary(t *testing.T) {
+	const allocCap = 1000
+	thread := new(starlark.Thread)
+	thread.SetMaxAllocs(allocCap)
+
+	if err := thread.CheckAllocs(allocCap); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	} else if err := thread.CheckAllocs(allocCap + 1); err == nil {
+		t.Errorf("Expected error checking too-many allocations")
+	}
+
+	if err := thread.AddAllocs(allocCap); err != nil {
+		t.Errorf("Could not allocate entire quota: %v", err)
+	} else {
+		thread.AddAllocs(-allocCap)
+		if err := thread.AddAllocs(allocCap + 1); err == nil {
+			t.Errorf("Expected error when exceeding quota")
+		}
+	}
+}
+
+func TestPositiveDeltaDeclaration(t *testing.T) {
+	const intendedAllocIncrease = 1000
+
+	thread := new(starlark.Thread)
+	thread.SetMaxAllocs(0)
+
+	// Accept and correctly store reasonable size increase
+	allocs0 := thread.Allocs()
+	if err := thread.AddAllocs(intendedAllocIncrease); err != nil {
+		t.Errorf("Unexpected cancellation: %v", err)
+	}
+	delta := thread.Allocs() - allocs0
+	if delta != intendedAllocIncrease {
+		t.Errorf("Incorrect size increase: expected %d but got %d", intendedAllocIncrease, delta)
+	}
+
+	if _, err := starlark.ExecFile(thread, "alloc_cancel_test", "", nil); err != nil {
+		t.Errorf("Unexpected cancellation: %v", err)
+	}
+}
+
+func TestPositiveDeltaDeclarationExceedingMax(t *testing.T) {
+	const allocationIncrease = 1000
+	const maxAllocs = allocationIncrease / 2
+
+	thread := new(starlark.Thread)
+	thread.SetMaxAllocs(maxAllocs)
+
+	// Error when too much memory is required
+	if err := thread.AddAllocs(allocationIncrease); err == nil {
+		t.Errorf("Expected allocation failure!")
+	}
+
+	if allocs := thread.Allocs(); allocs != allocationIncrease {
+		t.Errorf("Extra allocations were not recorded on an allocation failure: expected %d but %d were recorded", allocationIncrease, allocs)
+	}
+
+	if _, err := starlark.ExecFile(thread, "alloc_cancel_test", "", nil); err == nil {
+		t.Errorf("Expected cancellation")
+	} else if err.Error() != "Starlark computation cancelled: exceeded memory allocation limits" {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestOverflowingPositiveDeltaDeclaration(t *testing.T) {
+	const allocationIncrease = math.MaxInt64
+	const expectedErrMsg = "exceeded memory allocation limits"
+
+	thread := new(starlark.Thread)
+	thread.SetMaxAllocs(0)
+
+	// Increase so that the next allocation will cause an overflow
+	if err := thread.AddAllocs(allocationIncrease); err != nil {
+		t.Errorf("Unexpected error when declaring allocation increase: %v", err)
+	}
+	if err := thread.AddAllocs(allocationIncrease); err != nil {
+		t.Errorf("Unexpected error when declaring allocation increase: %v", err)
+	}
+
+	// Check overflow detected
+	if err := thread.AddAllocs(allocationIncrease); err != nil {
+		t.Errorf("Unexpected error when overflowing allocations: %v", err)
+	} else if allocs := thread.Allocs(); allocs != math.MaxUint64 {
+		t.Errorf("Incorrect allocations stored: expected %d but got %d", uint64(math.MaxUint64), allocs)
+	}
+
+	// Check repeated overflow
+	if err := thread.AddAllocs(allocationIncrease); err != nil {
+		t.Errorf("Unexpected error when repeatedly overflowing allocations: %v", err)
+	} else if allocs := thread.Allocs(); allocs != math.MaxUint64 {
+		t.Errorf("Incorrect allocations stored: expected %d but got %d", uint64(math.MaxUint64), allocs)
+	}
+}
+
+func TestNegativeDeltaDeclaration(t *testing.T) {
+	const allocGreatest = 1000
+	const allocReduction = 100
+	const expectedFinalAllocs = allocGreatest - allocReduction
+
+	thread := new(starlark.Thread)
+	thread.SetMaxAllocs(0)
+
+	if err := thread.AddAllocs(allocGreatest); err != nil {
+		t.Errorf("Unexpected error when declaring allocation increase: %v", err)
+	}
+	if err := thread.AddAllocs(-allocReduction); err != nil {
+		t.Errorf("Unexpected error when declaring allocation reduction: %v", err)
+	}
+	if allocs := thread.Allocs(); allocs != expectedFinalAllocs {
+		t.Errorf("Increase and reduction of allocations lead to incorrect value: expected %v but got %v", expectedFinalAllocs, allocs)
+	}
+}
+
+func TestOverzealousNegativeDeltaDeclaration(t *testing.T) {
+	const allocGreatest = 1000
+	const allocReduction = 2 * allocGreatest
+	const expectedFinalAllocs = 0
+
+	thread := new(starlark.Thread)
+	thread.SetMaxAllocs(0)
+
+	if err := thread.AddAllocs(allocGreatest); err != nil {
+		t.Errorf("Unexpected error when declaring allocation increase: %v", err)
+	}
+	if err := thread.AddAllocs(-allocReduction); err != nil {
+		t.Errorf("Unexpected error when declaring allocation reduction: %v", err)
+	}
+	if allocs := thread.Allocs(); allocs != 0 {
+		t.Errorf("Expected overzealous alloc reduction to cap allocations at zero: recorded %d allocs instead", allocs)
+	}
+}
+
+func TestConcurrentCheckAllocsUsage(t *testing.T) {
+	const allocPeak = math.MaxUint64 ^ (math.MaxUint64 >> 1)
+	const maxAllocs = allocPeak + 1
+	const repetitions = 1_000_000
+
+	thread := new(starlark.Thread)
+	thread.SetMaxAllocs(maxAllocs)
+	thread.AddAllocs(allocPeak - 1)
+
+	done := make(chan struct{}, 2)
+
+	go func() {
+		// Flip between 1000...00 and 0111...11 allocations
+		for i := 0; i < repetitions; i++ {
+			thread.AddAllocs(1)
+			thread.AddAllocs(-1)
+		}
+		done <- struct{}{}
+	}()
+	go func() {
+		for i := 0; i < repetitions; i++ {
+			// Check 1000...01 not exceeded
+			if err := thread.CheckAllocs(1); err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				break
+			}
+		}
+		done <- struct{}{}
+	}()
+
+	// Await goroutine completion
+	totDone := 0
+	for totDone != 2 {
+		select {
+		case <-done:
+			totDone++
+		}
+	}
+}
+
+func TestConcurrentAddAllocsUsage(t *testing.T) {
+	const expectedAllocs = 1_000_000
+
+	thread := new(starlark.Thread)
+	thread.SetMaxAllocs(0)
+
+	done := make(chan struct{}, 2)
+
+	callAddAlloc := func(n uint) {
+		for i := uint(0); i < n; i++ {
+			thread.AddAllocs(1)
+		}
+		done <- struct{}{}
+	}
+
+	go callAddAlloc(expectedAllocs / 2)
+	go callAddAlloc(expectedAllocs / 2)
+
+	// Await goroutine completion
+	totDone := 0
+	for totDone != 2 {
+		select {
+		case <-done:
+			totDone++
+		}
+	}
+
+	if allocs := thread.Allocs(); allocs != expectedAllocs {
+		t.Errorf("Concurrent thread.AddAlloc contains a race, expected %d allocs recorded but got %d", expectedAllocs, allocs)
+	}
+}
+
+func TestCheckAllocsCancelledRejection(t *testing.T) {
+	const cancellationReason = "arbitrary cancellation reason"
+	const maxAllocs = 1000
+
+	thread := new(starlark.Thread)
+	thread.Cancel(cancellationReason)
+	thread.SetMaxAllocs(maxAllocs)
+
+	if err := thread.CheckAllocs(2 * maxAllocs); err == nil {
+		t.Errorf("Expected cancellation")
+	} else if err.Error() != cancellationReason {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestAddAllocsCancelledRejection(t *testing.T) {
+	const cancellationReason = "arbitrary cancellation reason"
+	const maxAllocs = 1000
+
+	thread := new(starlark.Thread)
+	thread.Cancel(cancellationReason)
+	thread.SetMaxAllocs(maxAllocs)
+
+	if err := thread.AddAllocs(2 * maxAllocs); err == nil {
+		t.Errorf("Expected cancellation")
+	} else if err.Error() != cancellationReason {
+		t.Errorf("Unexpected error: %v", err)
+	} else if allocs := thread.Allocs(); allocs != 0 {
+		t.Errorf("Changes were recorded against cancelled thread: expected 0 allocations, got %v", allocs)
+	}
 }
