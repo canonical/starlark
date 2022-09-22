@@ -211,11 +211,12 @@ func TestToStarlarkValue(t *testing.T) {
 		{from: -1, to: starlark.MakeInt(-1)},
 		{from: 'a', to: starlark.String("a")},
 		{from: "bar", to: starlark.String("bar")},
+		{from: rune(10), to: starlark.String("\n")},
 		{from: byte(10), to: starlark.MakeInt(10)},
 		{from: int(10), to: starlark.MakeInt(10)},
 		{from: int8(10), to: starlark.MakeInt(10)},
 		{from: int16(10), to: starlark.MakeInt(10)},
-		// {from: int32(10), to: starlark.MakeInt(10)},
+		// {from: int32(10), to: starlark.MakeInt(10)}, // Not supported; indistinguishable from rune.
 		{from: int64(10), to: starlark.MakeInt(10)},
 		{from: uint(10), to: starlark.MakeInt(10)},
 		{from: uint8(10), to: starlark.MakeInt(10)},
