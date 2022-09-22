@@ -3,7 +3,7 @@
 
 This document tries to list all the possible allocations performed by the Starlark byte-code interpreter instruction by instruction, without taking into account builtin functions.
 
-The term "allocation" should be taken as an approximation since in Go it is hard to decide whether or not an instantiation actually results in a heap allocation (even when the variable does escape). Moreover, all allocations discussed here don't take into account the space required to hold a `Value` in case the instruction creates one.
+The term "allocation" should be taken as an approximation since in Go it is hard to decide whether or not an instantiation actually results in a heap allocation (even when the variable does escape). Moreover, the allocations discussed here will not take into account the space required for Go to represent the `Value` interface.
 
 ## NOP
     
@@ -148,7 +148,7 @@ No allocation directly occurs (without taking int account the internals of `fmt`
 
 #### Format `c`
 
-No allocations. It will write 5 bytes at most.
+No allocations. It will write 4 bytes at most.
 
 ## AMP
 
@@ -242,7 +242,7 @@ It will allocate an iterator. Usually a lightweight object. Custom implementatio
 
 ## ITERJMP
 
-Value types will require an allocation (as the result is an interface). Custom implementations may allocate more. This could be problematic as `Next` cannot access `Thread`.
+Custom implementations may allocate more. This could be problematic as `Next` cannot access `Thread`.
 
 ## ITERPOP
 
@@ -262,6 +262,8 @@ No allocation for return statement.
 ### HasSetKey
 
 In case of a `Dict` this could lead to rehashing (potentially more than once). User-defined types could allocate more. `SetKey` cannot access the current `Thread`.
+
+### `List`s
 
 In case of `List` no allocation occurs.
 
@@ -298,7 +300,7 @@ Append will result in an allocation if the capacity of the list is not enough to
 
 ## SLICE
 
-All `slice`s will allocate a new go slice to store the result, except for `Bytes` and `String` that (being immutable) will result in a reference to the original object if `step` is `1`.
+All `slice`s will allocate a new go slice to store the result, except for `Bytes`, `Tuple` and `String` that (being immutable) will result in a reference to the original object if `step` is `1`.
 
 Custom implementations of `Sliceable` may vary.
 
