@@ -8,8 +8,6 @@ import (
 )
 
 func TestDefaultAllocMaxIsUnbounded(t *testing.T) {
-	const maxInt64 = math.MaxUint64 >> 1
-
 	thread := new(starlark.Thread)
 
 	if err := thread.CheckAllocs(1); err != nil {
@@ -21,7 +19,7 @@ func TestDefaultAllocMaxIsUnbounded(t *testing.T) {
 	}
 
 	for i := 0; i < 3; i++ {
-		if err := thread.AddAllocs(maxInt64); err != nil {
+		if err := thread.AddAllocs(math.MaxInt64); err != nil {
 			t.Errorf("Unexpected error: %v", err)
 			break
 		}
