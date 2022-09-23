@@ -8,7 +8,7 @@ import (
 )
 
 func TestDefaultAllocMaxIsUnbounded(t *testing.T) {
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 
 	if err := thread.CheckAllocs(1); err != nil {
 		t.Errorf("Unexpected error: %v", err)
