@@ -191,9 +191,10 @@ func TestToStarlarkValue(t *testing.T) {
 	}
 
 	fooBarString := "foobar"
+	value := time.Module.Members["nanosecond"]
 
 	tests := []valueConversionTest{
-		{from: starlark.MakeInt(1234), to: starlark.MakeInt(1234)},
+		{from: value, to: value},
 		{from: nil, to: starlark.None},
 		{from: true, to: starlark.Bool(true)},
 		{from: -1, to: starlark.MakeInt(-1)},
