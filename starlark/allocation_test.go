@@ -3,7 +3,10 @@ package starlark_test
 import (
 	"fmt"
 	"math"
+	"math/bits"
 	"reflect"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -331,8 +334,146 @@ func TestAffineTrend(t *testing.T) {
 	}
 }
 
-func dummyString(len uint, char rune) string {
-	return strings.Repeat(string(char), int(len))
+func dummyInt(len uint) starlark.Int {
+	i := starlark.MakeInt(1)
+	i = i.Lsh(len - 1)
+	return i
+}
+
+func TestDummyInt(t *testing.T) {
+	const expectedLen = 1024
+	i := dummyInt(expectedLen)
+	if actualLen := bits.UintSize * len(i.BigInt().Bits()); actualLen != expectedLen {
+		t.Errorf("Incorrect dummy int length: expected %v but got %v", expectedLen, actualLen)
+	}
+}
+
+func dummyString(len uint, char rune) starlark.String {
+	return starlark.String(strings.Repeat(string(char), int(len)))
+}
+
+func TestDummyString(t *testing.T) {
+	const expectedLen = 100
+	dummy := string(dummyString(expectedLen, 'q'))
+
+	if ok, err := regexp.MatchString("q*", dummy); err != nil {
+		t.Error(err)
+	} else if !ok {
+		t.Errorf("Dummy string did not consist of the same character")
+	}
+
+	if actualLen := len(dummy); actualLen != expectedLen {
+		t.Errorf("Dummy string had wrong length: expected %d but got %d", expectedLen, actualLen)
+		t.Errorf("%s", dummy)
+	}
+}
+
+func dummyBytes(len uint, char rune) starlark.Bytes {
+	return starlark.Bytes(strings.Repeat(string(char), int(len)))
+}
+
+func TestDummyBytes(t *testing.T) {
+	const expectedLen = 100
+	dummy := string(dummyBytes(expectedLen, 'q'))
+
+	if ok, err := regexp.MatchString("q*", dummy); err != nil {
+		t.Error(err)
+	} else if !ok {
+		t.Errorf("Dummy string did not consist of the same character")
+	}
+
+	if actualLen := len(dummy); actualLen != expectedLen {
+		t.Errorf("Dummy string had wrong length: expected %d but got %d", expectedLen, actualLen)
+		t.Errorf("%s", dummy)
+	}
+}
+
+func dummyList(len uint, elem interface{}) *starlark.List {
+	elems := make([]starlark.Value, 0, len)
+	elemValue, err := toStarlarkValue(elem)
+	if err != nil {
+		panic(err)
+	}
+	for i := uint(0); i < len; i++ {
+		elems = append(elems, elemValue)
+	}
+	return starlark.NewList(elems)
+}
+
+func TestDummyList(t *testing.T) {
+	const expectedLen = 1000
+	const expectedElem = 'a'
+
+	list := dummyList(expectedLen, expectedElem)
+	if actualLen := list.Len(); actualLen != expectedLen {
+		t.Errorf("Incorrect length: expectec %d but got %d", expectedLen, actualLen)
+	}
+
+	for i := 0; i < list.Len(); i++ {
+		if actualElem := list.Index(i); string(actualElem.(starlark.String)) != string(expectedElem) {
+			t.Errorf("Incorrect value stored: expected %v (%T) but got %v (%T)", expectedElem, expectedElem, actualElem, actualElem)
+			break
+		}
+	}
+}
+
+func dummySet(len uint, first int) *starlark.Set {
+	set := starlark.NewSet(int(len))
+	for i := 0; i < int(len); i++ {
+		set.Insert(starlark.MakeInt(first + i))
+	}
+	return set
+}
+
+func TestDummySet(t *testing.T) {
+	const expectedLen = 1000
+	const minElem = 25
+
+	set := dummySet(expectedLen, minElem)
+
+	if actualLen := set.Len(); actualLen != expectedLen {
+		t.Errorf("Incorrect length: expected %d but got %d", expectedLen, actualLen)
+	}
+
+	for i := minElem; i < expectedLen+minElem; i++ {
+		if ok, err := set.Has(starlark.MakeInt(i)); err != nil {
+			t.Error(err)
+		} else if !ok {
+			t.Errorf("Expected %d to be in set", i)
+			break
+		}
+	}
+}
+
+func dummyDict(len uint) *starlark.Dict {
+	dict := starlark.NewDict(int(len))
+	for i := 1; i <= int(len); i++ {
+		s := starlark.String(strconv.Itoa(i))
+		dict.SetKey("_"+s, s)
+	}
+	return dict
+}
+
+func TestDummyDict(t *testing.T) {
+	const expectedLen = 1000
+	dict := dummyDict(expectedLen)
+
+	if actualLen := dict.Len(); actualLen != expectedLen {
+		t.Errorf("Incorrect size: expected %d but got %d", expectedLen, actualLen)
+	}
+
+	elems := make(map[starlark.Value]struct{}, expectedLen)
+	iter := dict.Iterate()
+	defer iter.Done()
+
+	var val starlark.Value
+	for iter.Next(&val) {
+		if _, ok := elems[val]; ok {
+			t.Errorf("Duplicate element: %v", val)
+			break
+		}
+		elems[val] = struct{}{}
+	}
 }
 
 func TestCheckAllocs(t *testing.T) {
