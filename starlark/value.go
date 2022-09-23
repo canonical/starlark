@@ -714,11 +714,17 @@ func (fn *Function) Param(i int) (string, syntax.Position) {
 func (fn *Function) HasVarargs() bool { return fn.funcode.HasVarargs }
 func (fn *Function) HasKwargs() bool  { return fn.funcode.HasKwargs }
 
+const nativeSafe = safetyFlagsLimit - 1
+
+func (fn *Function) Safety() Safety { return nativeSafe }
+
 // A Builtin is a function implemented in Go.
 type Builtin struct {
 	name string
 	fn   func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	recv Value // for bound methods (e.g. "".startswith)
+
+	safety Safety
 }
 
 func (b *Builtin) Name() string { return b.name }
@@ -742,10 +748,24 @@ func (b *Builtin) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Valu
 }
 func (b *Builtin) Truth() Bool { return true }
 
+func (b *Builtin) Safety() Safety              { return b.safety }
+func (b *Builtin) DeclareSafety(safety Safety) { b.safety = safety }
+
 // NewBuiltin returns a new 'builtin_function_or_method' value with the specified name
 // and implementation.  It compares unequal with all other values.
 func NewBuiltin(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)) *Builtin {
 	return &Builtin{name: name, fn: fn}
+}
+
+// NewBuiltinWithSafety is a convenience function which, like NewBuiltin,
+// returns a new `builtin_function_or_method` with the specified name and
+// implementation, which compares unequal with all other values. The safety of
+// this new builtin is declared as the provided flags.
+//
+// This function is equivalent to calling NewBuiltin and DeclareSafety on its
+// result.
+func NewBuiltinWithSafety(name string, safety Safety, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error)) *Builtin {
+	return &Builtin{name: name, fn: fn, safety: safety}
 }
 
 // BindReceiver returns a new Builtin value representing a method
