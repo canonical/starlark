@@ -138,7 +138,7 @@ def func():
 	pass
 func()
 `
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 
 	_, err := starlark.ExecFile(thread, "func_safety_test.go", prog, nil)
@@ -150,7 +150,7 @@ func()
 func TestLambdaSafeExecution(t *testing.T) {
 	// Ensure that lambdas can always be run
 	const prog = `(lambda x: x)(1)`
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 
 	_, err := starlark.ExecFile(thread, "lambda_safety_test.go", prog, nil)
@@ -160,7 +160,7 @@ func TestLambdaSafeExecution(t *testing.T) {
 }
 
 func TestBuiltinSafeExecution(t *testing.T) {
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.RequireSafety(starlark.CPUSafe | starlark.TimeSafe)
 
 	fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
@@ -226,7 +226,7 @@ func (d *dummyCallable) Safety() starlark.Safety              { return d.safety 
 func (d *dummyCallable) DeclareSafety(safety starlark.Safety) { d.safety = safety }
 
 func TestCallableSafeExecution(t *testing.T) {
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 	c := &dummyCallable{}
 	c.DeclareSafety(starlark.MemSafe)

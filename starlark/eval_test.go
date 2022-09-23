@@ -999,7 +999,7 @@ func TestDeps(t *testing.T) {
 func TestThreadPermits(t *testing.T) {
 	const threadSafety = starlark.CPUSafe | starlark.MemSafe
 	t.Run("Safety=Allowed", func(t *testing.T) {
-		thread := new(starlark.Thread)
+		thread := &starlark.Thread{}
 		thread.RequireSafety(threadSafety)
 
 		if !thread.Permits(starlark.Safe) {
@@ -1008,7 +1008,7 @@ func TestThreadPermits(t *testing.T) {
 	})
 
 	t.Run("Safety=Forbidden", func(t *testing.T) {
-		thread := new(starlark.Thread)
+		thread := &starlark.Thread{}
 		thread.RequireSafety(threadSafety)
 
 		if thread.Permits(threadSafety &^ starlark.MemSafe) {
@@ -1017,7 +1017,7 @@ func TestThreadPermits(t *testing.T) {
 	})
 
 	t.Run("Safety=Invalid", func(t *testing.T) {
-		thread := new(starlark.Thread)
+		thread := &starlark.Thread{}
 		thread.RequireSafety(threadSafety)
 
 		if thread.Permits(starlark.Safety(0xbad1091c) | threadSafety) {
@@ -1026,7 +1026,7 @@ func TestThreadPermits(t *testing.T) {
 	})
 
 	t.Run("ThreadSafety=Invalid", func(t *testing.T) {
-		thread := new(starlark.Thread)
+		thread := &starlark.Thread{}
 		const invalidSafety = starlark.Safety(0xa19ae)
 		thread.RequireSafety(invalidSafety)
 
@@ -1043,7 +1043,7 @@ func TestThreadCheckPermits(t *testing.T) {
 	t.Run("Safety=Allowed", func(t *testing.T) {
 		const allowedSafety = threadSafety | starlark.IOSafe
 
-		thread := new(starlark.Thread)
+		thread := &starlark.Thread{}
 		thread.RequireSafety(threadSafety)
 
 		if err := thread.CheckPermits(allowedSafety); err != nil {
@@ -1054,7 +1054,7 @@ func TestThreadCheckPermits(t *testing.T) {
 	t.Run("Safety=Forbidden", func(t *testing.T) {
 		const forbiddenSafety = starlark.CPUSafe
 
-		thread := new(starlark.Thread)
+		thread := &starlark.Thread{}
 		thread.RequireSafety(threadSafety)
 
 		if err := thread.CheckPermits(forbiddenSafety); err == nil {
@@ -1069,7 +1069,7 @@ func TestThreadCheckPermits(t *testing.T) {
 	})
 
 	t.Run("Safety=Invalid", func(t *testing.T) {
-		thread := new(starlark.Thread)
+		thread := &starlark.Thread{}
 		thread.RequireSafety(threadSafety)
 		const invalidSafety = starlark.Safety(0xbad1091c)
 
@@ -1081,7 +1081,7 @@ func TestThreadCheckPermits(t *testing.T) {
 	})
 
 	t.Run("ThreadSafety=Invalid", func(t *testing.T) {
-		thread := new(starlark.Thread)
+		thread := &starlark.Thread{}
 		const invalidSafety = starlark.Safety(0xa19ae)
 		thread.RequireSafety(invalidSafety)
 
@@ -1098,7 +1098,7 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 	const newSafety = starlark.IOSafe | starlark.TimeSafe
 	const expectedSafety = initialSafety | newSafety
 
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.RequireSafety(initialSafety)
 	thread.RequireSafety(newSafety)
 
