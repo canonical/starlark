@@ -331,16 +331,6 @@ func TestAffineTrend(t *testing.T) {
 	}
 }
 
-func TestStringCapitalizeAllocations(t *testing.T) {
-	allocationTest{
-		name: "string.capitalize",
-		gen: func(n uint) (string, env) {
-			return "s.capitalize()", env{"s": dummyString(n, 's')}
-		},
-		trend: linear(1),
-	}.Run(t)
-}
-
 func dummyString(len uint, char rune) string {
 	return strings.Repeat(string(char), int(len))
 }
