@@ -7,6 +7,25 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
+func TestDefaultAllocMaxIsUnbounded(t *testing.T) {
+	thread := &starlark.Thread{}
+
+	if err := thread.CheckAllocs(1); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if _, err := starlark.ExecFile(thread, "default_allocs_test", "", nil); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	for i := 0; i < 3; i++ {
+		if err := thread.AddAllocs(math.MaxInt64); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+			break
+		}
+	}
+}
+
 func TestCheckAllocs(t *testing.T) {
 	thread := new(starlark.Thread)
 	thread.SetMaxAllocs(1000)

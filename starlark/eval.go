@@ -96,9 +96,6 @@ func (thread *Thread) Allocs() uint64 {
 // via AddAllocs before Cancel is internally called. If max is zero or MaxUint64,
 // the thread will not be cancelled.
 func (thread *Thread) SetMaxAllocs(max uint64) {
-	if max == 0 {
-		max = math.MaxUint64
-	}
 	thread.maxAllocs = max
 }
 
@@ -1711,7 +1708,7 @@ func (thread *Thread) simulateAllocs(delta int64) (uint64, error) {
 		fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs, thread.maxAllocs)
 	}
 
-	if nextAllocs > thread.maxAllocs {
+	if thread.maxAllocs != 0 && nextAllocs > thread.maxAllocs {
 		return nextAllocs, &MaxAllocsError{
 			Current: thread.allocs,
 			Max:     thread.maxAllocs,
