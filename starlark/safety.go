@@ -28,8 +28,6 @@ var safetyNames = [...]string{
 	"IOSafe",
 }
 
-const safe = safetyFlagsLimit - 1
-
 var numSafetyFlagBitsDefined uint
 
 func init() {

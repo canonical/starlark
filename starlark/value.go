@@ -713,7 +713,10 @@ func (fn *Function) Param(i int) (string, syntax.Position) {
 }
 func (fn *Function) HasVarargs() bool { return fn.funcode.HasVarargs }
 func (fn *Function) HasKwargs() bool  { return fn.funcode.HasKwargs }
-func (fn *Function) Safety() Safety   { return safe }
+
+const nativeSafe = safetyFlagsLimit - 1
+
+func (fn *Function) Safety() Safety { return nativeSafe }
 
 // A Builtin is a function implemented in Go.
 type Builtin struct {

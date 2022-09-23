@@ -4,6 +4,6 @@ func ThreadSafety(thread *Thread) Safety {
 	return thread.requiredSafety
 }
 
-const Safe = safe
+const Safe = safetyFlagsLimit - 1
 
 const SafetyFlagsLimit = safetyFlagsLimit
