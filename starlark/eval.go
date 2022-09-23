@@ -5,13 +5,17 @@
 package starlark
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"math/big"
+	"os"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unicode"
@@ -50,6 +54,10 @@ type Thread struct {
 	// steps counts abstract computation steps executed by this thread.
 	steps, maxSteps uint64
 
+	// allocs counts the abstract memory units claimed by this resource pool
+	allocs, maxAllocs uint64
+	allocsLock        sync.Mutex
+
 	// cancelReason records the reason from the first call to Cancel.
 	cancelReason *string
 
@@ -81,6 +89,21 @@ func (thread *Thread) ExecutionSteps() uint64 {
 // thread.Cancel("too many steps").
 func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
+}
+
+// Allocs returns the total allocations reported to this thread via AddAllocs.
+func (thread *Thread) Allocs() uint64 {
+	return thread.allocs
+}
+
+// SetMaxAllocs sets the maximum allocations that may be reported to this thread
+// via AddAllocs before Cancel is internally called. If max is zero or MaxUint64,
+// the thread will not be cancelled.
+func (thread *Thread) SetMaxAllocs(max uint64) {
+	if max == 0 {
+		max = math.MaxUint64
+	}
+	thread.maxAllocs = max
 }
 
 // RequireSafety makes the thread only accept functions that declare at least
@@ -1660,4 +1683,85 @@ func interpolate(format string, x Value) (Value, error) {
 	}
 
 	return String(buf.String()), nil
+}
+
+type MaxAllocsError struct {
+	Current, Max uint64
+}
+
+func (e *MaxAllocsError) Error() string {
+	return "exceeded memory allocation limits"
+}
+
+// CheckAllocs returns an error if a change in allocations associated with this
+// thread would be rejected by AddAllocs.
+//
+// It is safe to call CheckAllocs from any goroutine, even if the thread is
+// actively executing.
+func (thread *Thread) CheckAllocs(delta int64) error {
+	thread.allocsLock.Lock()
+	defer thread.allocsLock.Unlock()
+
+	_, err := thread.simulateAllocs(delta)
+	return err
+}
+
+// AddAllocs reports a change in allocations associated with this thread. If
+// the total allocations exceed the limit defined via SetMaxAllocs, the thread
+// is cancelled and an error is returned.
+//
+// It is safe to call AddAllocs from any goroutine, even if the thread is
+// actively executing.
+func (thread *Thread) AddAllocs(delta int64) error {
+	thread.allocsLock.Lock()
+	defer thread.allocsLock.Unlock()
+
+	next, err := thread.simulateAllocs(delta)
+	thread.allocs = next
+	if err != nil {
+		thread.Cancel(err.Error())
+	}
+
+	return err
+}
+
+// simulateAllocs simulates a call to AddAllocs returning the new total
+// allocations associated with this thread and any error this would entail. No
+// change is recorded.
+func (thread *Thread) simulateAllocs(delta int64) (uint64, error) {
+	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
+		return thread.allocs, errors.New(*(*string)(cancelReason))
+	}
+
+	var nextAllocs uint64
+
+	if delta < 0 {
+		udelta := uint64(-delta)
+		if udelta < thread.allocs {
+			nextAllocs = thread.allocs - udelta
+		} else {
+			nextAllocs = 0
+		}
+		return nextAllocs, nil
+	}
+
+	udelta := uint64(delta)
+	if udelta <= math.MaxUint64-thread.allocs {
+		nextAllocs = thread.allocs + udelta
+	} else {
+		nextAllocs = math.MaxUint64
+	}
+
+	if vmdebug {
+		fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs, thread.maxAllocs)
+	}
+
+	if nextAllocs > thread.maxAllocs {
+		return nextAllocs, &MaxAllocsError{
+			Current: thread.allocs,
+			Max:     thread.maxAllocs,
+		}
+	}
+
+	return nextAllocs, nil
 }
