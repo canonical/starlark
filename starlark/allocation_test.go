@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/canonical/starlark/lib/time"
 	"github.com/canonical/starlark/starlark"
 )
 
@@ -100,20 +101,16 @@ func TestToStarlarkPredecls(t *testing.T) {
 		to   starlark.StringDict
 	}
 
-	tests := []envToPredeclsTest{
-		{
-			from: env{},
-			to:   starlark.StringDict{},
-		},
-		{
-			from: env{"foo": "bar"},
-			to:   starlark.StringDict{"foo": starlark.String("bar")},
-		},
-		{
-			from: env{"foo": []string{"bar", "baz"}},
-			to:   starlark.StringDict{"foo": starlark.NewList([]starlark.Value{starlark.String("bar"), starlark.String("baz")})},
-		},
-	}
+	tests := []envToPredeclsTest{{
+		from: env{},
+		to:   starlark.StringDict{},
+	}, {
+		from: env{"foo": "bar"},
+		to:   starlark.StringDict{"foo": starlark.String("bar")},
+	}, {
+		from: env{"foo": []string{"bar", "baz"}},
+		to:   starlark.StringDict{"foo": starlark.NewList([]starlark.Value{starlark.String("bar"), starlark.String("baz")})},
+	}}
 
 	for _, test := range tests {
 		if converted, err := test.from.ToStarlarkPredecls(); err != nil {
@@ -221,20 +218,17 @@ func TestToStarlarkValue(t *testing.T) {
 		{
 			from: []string{"foo", "bar"},
 			to:   starlark.NewList(append(make([]starlark.Value, 0), starlark.String("foo"), starlark.String("bar"))),
-		},
-		{
+		}, {
 			from: [...]string{"foo", "bar"},
 			to:   starlark.NewList(append(make([]starlark.Value, 0), starlark.String("foo"), starlark.String("bar"))),
-		},
-		{
+		}, {
 			from: map[string]string{"foo": "bar"},
 			to: func() starlark.Value {
 				dict := starlark.NewDict(1)
 				dict.SetKey(starlark.String("foo"), starlark.String("bar"))
 				return dict
 			}(),
-		},
-		{
+		}, {
 			from: map[string][]string{"foo": {"bar", "baz"}},
 			to: func() starlark.Value {
 				dict := starlark.NewDict(1)
