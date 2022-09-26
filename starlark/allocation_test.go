@@ -409,7 +409,8 @@ func TestDummyList(t *testing.T) {
 	}
 
 	for i := 0; i < list.Len(); i++ {
-		if actualElem := list.Index(i); string(actualElem.(starlark.String)) != string(expectedElem) {
+		actualElem := list.Index(i)
+		if elemStr, ok := actualElem.(starlark.String); !ok || string(elemStr) != string(expectedElem) {
 			t.Errorf("Incorrect value stored: expected %v (%T) but got %v (%T)", expectedElem, expectedElem, actualElem, actualElem)
 			break
 		}
