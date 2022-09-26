@@ -68,6 +68,15 @@ var Module = &starlarkstruct.Module{
 	},
 }
 
+func init() {
+	Module.Members["from_timestamp"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["is_valid_timezone"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["now"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["parse_duration"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["parse_time"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["time"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+}
+
 // NowFunc is a function that generates the current time. Intentionally exported
 // so that it can be overridden, for example by applications that require their
 // Starlark scripts to be fully deterministic.
