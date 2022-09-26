@@ -62,31 +62,28 @@ func (test *builtinAllocTest) computeDelta(n uint) (uint64, error) {
 
 // Test that expected number of allocs have been made, within a margin of error
 func (test *builtinAllocTest) testAllocAmount(t *testing.T, n uint, delta uint64) {
-	// Compute ratio between actual and expected
-	expectedAllocs := test.Trend(float64(n))
-	deltaRatio := float64(delta) / expectedAllocs
+	expectedDelta := test.Trend(float64(n))
+	deltaRatio := float64(delta) / expectedDelta
 
 	if deltaRatio < 1-errorFraction {
-		t.Errorf("%s: too few allocations, expected ~%.0f but used only %d", test.name, expectedAllocs, delta)
+		t.Errorf("%s: too few allocations, expected ~%.0f but used only %d", test.name, expectedDelta, delta)
 	} else if 1+errorFraction < deltaRatio {
-		t.Errorf("%s: too many allocations, expected ~%.0f but used %d", test.name, expectedAllocs, delta)
+		t.Errorf("%s: too many allocations, expected ~%.0f but used %d", test.name, expectedDelta, delta)
 	}
 }
 
 // Test that the allocs made followed the expected trend
 func (test *builtinAllocTest) testAllocTrend(t *testing.T, deltaSmall, deltaLarge uint64) {
-	// Compute ratio of the observed trend and expected trend
 	observedScaling := float64(deltaLarge) / float64(deltaSmall)
 	expectedScaling := test.Trend(float64(test.nLarge)) / test.Trend(float64(test.nSmall))
 	scalingRatio := observedScaling / expectedScaling
 
-	// Test ratio is within acceptable bounds
 	if scalingRatio <= 1-errorFraction || 1+errorFraction <= scalingRatio {
 		t.Errorf("%s: allocations did not %s: f(%d)=%d, f(%d)=%d, ratio=%.3f, want ~%.0f", test.name, test.trend.desc, test.nSmall, deltaSmall, test.nLarge, deltaLarge, observedScaling, expectedScaling)
 	}
 }
 
-// Convert an env to a starlark.StringDict for use as predeclared values when executing Starlark code.
+// ToStarlarkPredecls converts an env to a starlark.StringDict
 func (e env) ToStarlarkPredecls() (starlark.StringDict, error) {
 	predecls := make(starlark.StringDict, len(e))
 	for key, val := range e {
@@ -125,7 +122,8 @@ func TestToStarlarkPredecls(t *testing.T) {
 	}
 }
 
-// Convert some useful types to starlark values to make tests more readible
+// toStarlarkValue converts some useful types to starlark values to make tests
+// more readible
 func toStarlarkValue(in interface{}) (starlark.Value, error) {
 	// Special behaviours
 	if in, ok := in.(starlark.Value); ok {
