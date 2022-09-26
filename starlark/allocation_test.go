@@ -9,8 +9,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/canonical/starlark/lib/time"
+	starlarktime "github.com/canonical/starlark/lib/time"
 	"github.com/canonical/starlark/starlark"
 )
 
@@ -194,7 +195,7 @@ func TestToStarlarkValue(t *testing.T) {
 	}
 
 	fooBarString := "foobar"
-	value := time.Module.Members["nanosecond"]
+	value := starlarktime.Duration(time.Nanosecond)
 
 	tests := []valueConversionTest{
 		{from: value, to: value},
