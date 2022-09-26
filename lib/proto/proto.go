@@ -158,6 +158,17 @@ var Module = &starlarkstruct.Module{
 	},
 }
 
+func init() {
+	Module.Members["file"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["has"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["marshal"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["marshal_text"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["set_field"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["get_field"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["unmarshal"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["unmarshal_text"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+}
+
 // file(filename) loads the FileDescriptor of the given name, or the
 // first if the pool contains more than one.
 //
