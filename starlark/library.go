@@ -70,6 +70,37 @@ func init() {
 		"type":      NewBuiltin("type", type_),
 		"zip":       NewBuiltin("zip", zip),
 	}
+
+	Universe["abs"].(*Builtin).safety = NotSafe
+	Universe["any"].(*Builtin).safety = NotSafe
+	Universe["all"].(*Builtin).safety = NotSafe
+	Universe["bool"].(*Builtin).safety = NotSafe
+	Universe["bytes"].(*Builtin).safety = NotSafe
+	Universe["chr"].(*Builtin).safety = NotSafe
+	Universe["dict"].(*Builtin).safety = NotSafe
+	Universe["dir"].(*Builtin).safety = NotSafe
+	Universe["enumerate"].(*Builtin).safety = NotSafe
+	Universe["fail"].(*Builtin).safety = NotSafe
+	Universe["float"].(*Builtin).safety = NotSafe
+	Universe["getattr"].(*Builtin).safety = NotSafe
+	Universe["hasattr"].(*Builtin).safety = NotSafe
+	Universe["hash"].(*Builtin).safety = NotSafe
+	Universe["int"].(*Builtin).safety = NotSafe
+	Universe["len"].(*Builtin).safety = NotSafe
+	Universe["list"].(*Builtin).safety = NotSafe
+	Universe["max"].(*Builtin).safety = NotSafe
+	Universe["min"].(*Builtin).safety = NotSafe
+	Universe["ord"].(*Builtin).safety = NotSafe
+	Universe["print"].(*Builtin).safety = NotSafe
+	Universe["range"].(*Builtin).safety = NotSafe
+	Universe["repr"].(*Builtin).safety = NotSafe
+	Universe["reversed"].(*Builtin).safety = NotSafe
+	Universe["set"].(*Builtin).safety = NotSafe
+	Universe["sorted"].(*Builtin).safety = NotSafe
+	Universe["str"].(*Builtin).safety = NotSafe
+	Universe["tuple"].(*Builtin).safety = NotSafe
+	Universe["type"].(*Builtin).safety = NotSafe
+	Universe["zip"].(*Builtin).safety = NotSafe
 }
 
 // methods of built-in types
