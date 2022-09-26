@@ -67,6 +67,10 @@ type Thread struct {
 
 	// proftime holds the accumulated execution time since the last profile event.
 	proftime time.Duration
+
+	// requiredSafety holds the set of safety conditions which must be
+	// satisfied by any builtin which is called when running this thread.
+	requiredSafety Safety
 }
 
 // ExecutionSteps returns a count of abstract computation steps executed
@@ -96,10 +100,33 @@ func (thread *Thread) Allocs() uint64 {
 // via AddAllocs before Cancel is internally called. If max is zero or MaxUint64,
 // the thread will not be cancelled.
 func (thread *Thread) SetMaxAllocs(max uint64) {
-	if max == 0 {
-		max = math.MaxUint64
-	}
 	thread.maxAllocs = max
+}
+
+// RequireSafety makes the thread only accept functions that declare at least
+// the provided safety.
+func (thread *Thread) RequireSafety(safety Safety) {
+	thread.requiredSafety |= safety
+}
+
+// Permits checks whether this thread would allow execution of the provided
+// safety-aware value.
+func (thread *Thread) Permits(value SafetyAware) bool {
+	safety := value.Safety()
+	return safety.CheckValid() == nil && safety.Contains(thread.requiredSafety)
+}
+
+// CheckPermits returns an error if this thread would not allow execution of
+// the provided safety-aware value.
+func (thread *Thread) CheckPermits(value SafetyAware) error {
+	if err := thread.requiredSafety.CheckValid(); err != nil {
+		return fmt.Errorf("thread safety: %v", err)
+	}
+	safety := value.Safety()
+	if err := safety.CheckValid(); err != nil {
+		return err
+	}
+	return safety.CheckContains(thread.requiredSafety)
 }
 
 // Cancel causes execution of Starlark code in the specified thread to
@@ -1214,6 +1241,21 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		return nil, fmt.Errorf("invalid call of non-function (%s)", fn.Type())
 	}
 
+	// Check safety flags
+	callableSafety := NotSafe
+	if c, ok := c.(SafetyAware); ok {
+		callableSafety = c.Safety()
+	}
+	if err := thread.CheckPermits(callableSafety); err != nil {
+		if _, ok := c.(*Function); ok {
+			return nil, err
+		}
+		if b, ok := c.(*Builtin); ok {
+			return nil, fmt.Errorf("cannot call builtin '%s': %v", b.Name(), err)
+		}
+		return nil, fmt.Errorf("cannot call value of type '%s': %v", c.Type(), err)
+	}
+
 	// Allocate and push a new frame.
 	var fr *frame
 	// Optimization: use slack portion of thread.stack
@@ -1711,7 +1753,7 @@ func (thread *Thread) simulateAllocs(delta int64) (uint64, error) {
 		fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs, thread.maxAllocs)
 	}
 
-	if nextAllocs > thread.maxAllocs {
+	if thread.maxAllocs != 0 && nextAllocs > thread.maxAllocs {
 		return nextAllocs, &MaxAllocsError{
 			Current: thread.allocs,
 			Max:     thread.maxAllocs,
