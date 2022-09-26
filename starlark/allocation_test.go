@@ -14,7 +14,7 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
-type allocationTest struct {
+type builtinAllocTest struct {
 	name           string
 	gen            func(n uint) (program string, predecls env)
 	nSmall, nLarge uint
@@ -24,8 +24,8 @@ type env map[string]interface{}
 
 const errorFraction = 0.1
 
-// Tests allocations follow the specified trend, within a margin of error
-func (test allocationTest) Run(t *testing.T) {
+// Run tests whether allocs follow the specified trend
+func (test builtinAllocTest) Run(t *testing.T) {
 	if test.nSmall == 0 {
 		test.nSmall = 1000
 	}
@@ -43,11 +43,11 @@ func (test allocationTest) Run(t *testing.T) {
 		return
 	}
 
-	test.testAllocationAmount(t, test.nLarge, deltaLarge)
-	test.testAllocationTrend(t, deltaSmall, deltaLarge)
+	test.testAllocAmount(t, test.nLarge, deltaLarge)
+	test.testAllocTrend(t, deltaSmall, deltaLarge)
 }
 
-func (test *allocationTest) computeDelta(n uint) (uint64, error) {
+func (test *builtinAllocTest) computeDelta(n uint) (uint64, error) {
 	code, env := test.gen(n)
 	predeclared, err := env.ToStarlarkPredecls()
 	if err != nil {
@@ -59,8 +59,8 @@ func (test *allocationTest) computeDelta(n uint) (uint64, error) {
 	return thread.Allocs(), err
 }
 
-// Test that expected number of allocations have been made, within a margin of error
-func (test *allocationTest) testAllocationAmount(t *testing.T, n uint, delta uint64) {
+// Test that expected number of allocs have been made, within a margin of error
+func (test *builtinAllocTest) testAllocAmount(t *testing.T, n uint, delta uint64) {
 	// Compute ratio between actual and expected
 	expectedAllocs := test.Trend(float64(n))
 	deltaRatio := float64(delta) / expectedAllocs
@@ -72,8 +72,8 @@ func (test *allocationTest) testAllocationAmount(t *testing.T, n uint, delta uin
 	}
 }
 
-// Test that the allocations made followed the expected trend
-func (test *allocationTest) testAllocationTrend(t *testing.T, deltaSmall, deltaLarge uint64) {
+// Test that the allocs made followed the expected trend
+func (test *builtinAllocTest) testAllocTrend(t *testing.T, deltaSmall, deltaLarge uint64) {
 	// Compute ratio of the observed trend and expected trend
 	observedScaling := float64(deltaLarge) / float64(deltaSmall)
 	expectedScaling := test.Trend(float64(test.nLarge)) / test.Trend(float64(test.nSmall))
@@ -81,7 +81,7 @@ func (test *allocationTest) testAllocationTrend(t *testing.T, deltaSmall, deltaL
 
 	// Test ratio is within acceptable bounds
 	if scalingRatio <= 1-errorFraction || 1+errorFraction <= scalingRatio {
-		t.Errorf("%s: memory allocations did not %s: f(%d)=%d, f(%d)=%d, ratio=%.3f, want ~%.0f", test.name, test.trend.desc, test.nSmall, deltaSmall, test.nLarge, deltaLarge, observedScaling, expectedScaling)
+		t.Errorf("%s: allocations did not %s: f(%d)=%d, f(%d)=%d, ratio=%.3f, want ~%.0f", test.name, test.trend.desc, test.nSmall, deltaSmall, test.nLarge, deltaLarge, observedScaling, expectedScaling)
 	}
 }
 
