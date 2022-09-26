@@ -26,7 +26,7 @@ type env map[string]interface{}
 const errorFraction = 0.1
 
 // Run tests whether allocs follow the specified trend
-func (test *builtinAllocTest) Run(t *testing.T) {
+func (test builtinAllocTest) Run(t *testing.T) {
 	if test.nSmall == 0 {
 		test.nSmall = 1000
 	}
