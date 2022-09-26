@@ -97,12 +97,12 @@ func (e env) ToStarlarkPredecls() (starlark.StringDict, error) {
 }
 
 func TestToStarlarkPredecls(t *testing.T) {
-	type envToPredeclsTest struct {
+	type envTest struct {
 		from env
 		to   starlark.StringDict
 	}
 
-	tests := []envToPredeclsTest{{
+	tests := []envTest{{
 		from: env{},
 		to:   starlark.StringDict{},
 	}, {
@@ -187,7 +187,7 @@ func toStarlarkValue(in interface{}) (starlark.Value, error) {
 }
 
 func TestToStarlarkValue(t *testing.T) {
-	type valueConversionTest struct {
+	type conversionTest struct {
 		from interface{}
 		to   starlark.Value
 	}
@@ -195,7 +195,7 @@ func TestToStarlarkValue(t *testing.T) {
 	fooBarString := "foobar"
 	value := starlarktime.Duration(time.Nanosecond)
 
-	tests := []valueConversionTest{
+	tests := []conversionTest{
 		{from: value, to: value},
 		{from: nil, to: starlark.None},
 		{from: true, to: starlark.Bool(true)},
