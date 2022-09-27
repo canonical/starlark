@@ -122,8 +122,8 @@ func TestToStarlarkPredecls(t *testing.T) {
 	}
 }
 
-// toStarlarkValue converts some useful types to starlark values to make tests
-// more readible
+// toStarlarkValue converts go values to starlark ones. Handles arrays, slices,
+// interfaces, maps and all scalar types except int32.
 func toStarlarkValue(in interface{}) (starlark.Value, error) {
 	// Special behaviours
 	if in, ok := in.(starlark.Value); ok {
@@ -204,7 +204,6 @@ func TestToStarlarkValue(t *testing.T) {
 		{from: int(10), to: starlark.MakeInt(10)},
 		{from: int8(10), to: starlark.MakeInt(10)},
 		{from: int16(10), to: starlark.MakeInt(10)},
-		// {from: int32(10), to: starlark.MakeInt(10)}, // Not supported; indistinguishable from rune.
 		{from: int64(10), to: starlark.MakeInt(10)},
 		{from: uint(10), to: starlark.MakeInt(10)},
 		{from: uint8(10), to: starlark.MakeInt(10)},
