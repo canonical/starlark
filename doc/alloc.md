@@ -41,7 +41,9 @@ Depending on the types involved this instruction could lead to allocations. The 
 
 ### String + String
 
-This will perform string concatenation and result in an allocation of at least `Len(lhs) + Len(rhs)` bytes.
+This will perform string concatenation and result in an allocation of at least `Len(lhs) + Len(rhs)` bytes.[^empty]
+
+[^empty]: the compiler could however decide to not allocate a string if `lhs` or `rhs` is empty. We assume this doesn't happen.
 
 ### Int + Float, Float + Int, Float + Float
 
