@@ -177,8 +177,6 @@ func toStarlarkValue(in interface{}) (starlark.Value, error) {
 			d.SetKey(k, v)
 		}
 		return d, nil
-	case reflect.Pointer:
-		return toStarlarkValue(inVal.Elem())
 	case reflect.String:
 		return starlark.String(inVal.String()), nil
 	default:
@@ -192,7 +190,6 @@ func TestToStarlarkValue(t *testing.T) {
 		to   starlark.Value
 	}
 
-	fooBarString := "foobar"
 	value := starlarktime.Duration(time.Nanosecond)
 
 	tests := []conversionTest{
@@ -217,7 +214,6 @@ func TestToStarlarkValue(t *testing.T) {
 		{from: uintptr(10), to: starlark.MakeInt(10)},
 		{from: float32(2.5), to: starlark.Float(2.5)},
 		{from: float64(3.14), to: starlark.Float(3.14)},
-		{from: &fooBarString, to: starlark.String(fooBarString)},
 		{
 			from: []string{"foo", "bar"},
 			to:   starlark.NewList(append(make([]starlark.Value, 0), starlark.String("foo"), starlark.String("bar"))),
