@@ -15,7 +15,7 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
-type builtinAllocTest struct {
+type allocTest struct {
 	name           string
 	gen            func(n uint) (program string, predecls env)
 	nSmall, nLarge uint
@@ -26,7 +26,7 @@ type env map[string]interface{}
 const errorFraction = 0.1
 
 // Run tests whether allocs follow the specified trend
-func (test builtinAllocTest) Run(t *testing.T) {
+func (test allocTest) Run(t *testing.T) {
 	if test.nSmall == 0 {
 		test.nSmall = 1000
 	}
@@ -48,7 +48,7 @@ func (test builtinAllocTest) Run(t *testing.T) {
 	test.testAllocTrend(t, deltaSmall, deltaLarge)
 }
 
-func (test *builtinAllocTest) computeDelta(n uint) (uint64, error) {
+func (test *allocTest) computeDelta(n uint) (uint64, error) {
 	code, env := test.gen(n)
 	predeclared, err := env.ToStarlarkPredecls()
 	if err != nil {
@@ -61,7 +61,7 @@ func (test *builtinAllocTest) computeDelta(n uint) (uint64, error) {
 }
 
 // Test that expected number of allocs have been made, within a margin of error
-func (test *builtinAllocTest) testAllocAmount(t *testing.T, n uint, delta uint64) {
+func (test *allocTest) testAllocAmount(t *testing.T, n uint, delta uint64) {
 	expectedDelta := test.Trend(float64(n))
 	deltaRatio := float64(delta) / expectedDelta
 
@@ -73,7 +73,7 @@ func (test *builtinAllocTest) testAllocAmount(t *testing.T, n uint, delta uint64
 }
 
 // Test that the allocs made followed the expected trend
-func (test *builtinAllocTest) testAllocTrend(t *testing.T, deltaSmall, deltaLarge uint64) {
+func (test *allocTest) testAllocTrend(t *testing.T, deltaSmall, deltaLarge uint64) {
 	observedScaling := float64(deltaLarge) / float64(deltaSmall)
 	expectedScaling := test.Trend(float64(test.nLarge)) / test.Trend(float64(test.nSmall))
 	scalingRatio := observedScaling / expectedScaling
