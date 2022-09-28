@@ -749,3 +749,19 @@ func TestAddAllocsCancelledRejection(t *testing.T) {
 		t.Errorf("Changes were recorded against cancelled thread: expected 0 allocations, got %v", allocs)
 	}
 }
+
+func TestIntAllocations(t *testing.T) {
+	test := allocTest{
+		name: "int-builtin",
+		gen: func(n uint) (program string, predecl env) {
+			number := strings.Repeat("deadbeef", int(n))
+
+			return `
+x = int(number, 16)
+`, env{"number": number}
+		},
+		trend: linear(4),
+	}
+
+	test.Run(t)
+}
