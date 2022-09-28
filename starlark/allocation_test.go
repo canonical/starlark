@@ -23,6 +23,11 @@ type allocTest struct {
 }
 type env map[string]interface{}
 
+type trend interface {
+	Desc() string
+	Trend(n float64) float64
+}
+
 const errorFraction = 0.1
 
 // Run tests whether allocs follow the specified trend
@@ -80,7 +85,7 @@ func (test *allocTest) testAllocTrend(t *testing.T, deltaSmall, deltaLarge uint6
 	scalingRatio := observedScaling / expectedScaling
 
 	if scalingRatio <= 1-errorFraction || 1+errorFraction <= scalingRatio {
-		t.Errorf("%s: allocations did not %s: f(%d)=%d, f(%d)=%d, ratio=%.3f, want ~%.0f", test.name, test.trend.desc, test.nSmall, deltaSmall, test.nLarge, deltaLarge, observedScaling, expectedScaling)
+		t.Errorf("%s: allocations did not %s: f(%d)=%d, f(%d)=%d, ratio=%.3f, want ~%.0f", test.name, test.trend.Desc(), test.nSmall, deltaSmall, test.nLarge, deltaLarge, observedScaling, expectedScaling)
 	}
 }
 
@@ -252,23 +257,16 @@ func TestToStarlarkValue(t *testing.T) {
 	}
 }
 
-type trend struct {
-	desc  string
-	Trend func(n float64) float64
-}
+type constant struct{ constant float64 }
 
-func constant(c float64) trend {
-	return trend{
-		desc:  "remain constant",
-		Trend: func(_ float64) float64 { return c },
-	}
-}
+func (constant) Desc() string              { return "remain constant" }
+func (c constant) Trend(_ float64) float64 { return c.constant }
 
 func TestConstantTrend(t *testing.T) {
 	const expected = 104.0
 
 	testValues := []float64{1, 2, 3, 4, 5, 6, 7}
-	constTrend := constant(expected)
+	constTrend := constant{expected}
 	for _, v := range testValues {
 		if actual := constTrend.Trend(v); actual != expected {
 			t.Errorf("Constant trend did not remain constant: expected %g but got %g", expected, actual)
@@ -277,19 +275,17 @@ func TestConstantTrend(t *testing.T) {
 	}
 }
 
-func linear(a float64) trend {
-	return trend{
-		desc:  "increase linearly",
-		Trend: func(n float64) float64 { return a * n },
-	}
-}
+type linear struct{ gradient float64 }
+
+func (linear) Desc() string              { return "increase linearly" }
+func (l linear) Trend(n float64) float64 { return l.gradient * n }
 
 func TestLinearTrend(t *testing.T) {
 	const expectedGradient = 104.0
 
 	// Compute example trend
 	inputs := []float64{1, 2, 3, 4, 5, 6, 7}
-	linearTrend := linear(expectedGradient)
+	linearTrend := linear{expectedGradient}
 	outputs := make([]float64, len(inputs))
 	for i, v := range inputs {
 		outputs[i] = linearTrend.Trend(v)
@@ -304,12 +300,10 @@ func TestLinearTrend(t *testing.T) {
 	}
 }
 
-func affine(a, b float64) trend {
-	return trend{
-		desc:  "increase affinely",
-		Trend: func(n float64) float64 { return a*n + b },
-	}
-}
+type affine struct{ gradient, intercept float64 }
+
+func (affine) Desc() string              { return "increase affinely" }
+func (a affine) Trend(n float64) float64 { return a.gradient*n + a.intercept }
 
 func TestAffineTrend(t *testing.T) {
 	const expectedGradient = 104.0
@@ -317,7 +311,7 @@ func TestAffineTrend(t *testing.T) {
 
 	// Compute example trend
 	testValues := []float64{1, 2, 3, 4, 5, 6, 7}
-	affineTrend := affine(expectedGradient, expectedIntercept)
+	affineTrend := affine{expectedGradient, expectedIntercept}
 	trendValues := make([]float64, len(testValues))
 	for i, v := range testValues {
 		trendValues[i] = affineTrend.Trend(v)
