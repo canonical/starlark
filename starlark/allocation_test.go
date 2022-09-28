@@ -36,11 +36,12 @@ func (test allocTest) Run(t *testing.T) {
 
 	deltaSmall, err := test.computeDelta(test.nSmall)
 	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("%s: unexpected error: %v", test.name, err)
+		return
 	}
 	deltaLarge, err := test.computeDelta(test.nLarge)
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Errorf("%s: unexpected error: %v", test.name, err)
 		return
 	}
 
