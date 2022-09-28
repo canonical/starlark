@@ -240,6 +240,99 @@ func (thread *Thread) CallStack() CallStack {
 // CallStackDepth returns the number of frames in the current call stack.
 func (thread *Thread) CallStackDepth() int { return len(thread.stack) }
 
+type StringBuilder interface {
+	io.ByteWriter
+	io.Writer
+	io.StringWriter
+	fmt.Stringer
+
+	WriteRune(r rune) (size int, err error)
+	Grow(n int)
+}
+
+func (thread *Thread) CreateStringBuilder() StringBuilder {
+	return &trackingStringBuilder{new(strings.Builder), thread, nil}
+}
+
+type trackingStringBuilder struct {
+	*strings.Builder
+	*Thread
+
+	growError error
+}
+
+func (tb *trackingStringBuilder) grow(n int) error {
+	if tb.Cap()-tb.Len() < n {
+		// Make sure that we can allocate more
+		if err := tb.CheckAllocs(int64(tb.Cap()*2 + n)); err != nil {
+			return err
+		}
+		tb.Builder.Grow(n)
+	}
+	return nil
+}
+
+func (tb *trackingStringBuilder) Grow(n int) {
+	if err := tb.grow(n); err != nil {
+		tb.growError = err
+	}
+}
+
+func (tb *trackingStringBuilder) Write(b []byte) (int, error) {
+	if tb.growError != nil {
+		return 0, tb.growError
+	}
+
+	if err := tb.grow(len(b)); err != nil {
+		return 0, err
+	}
+
+	return tb.Builder.Write(b)
+}
+
+func (tb *trackingStringBuilder) WriteString(s string) (int, error) {
+	if tb.growError != nil {
+		return 0, tb.growError
+	}
+
+	if err := tb.grow(len(s)); err != nil {
+		return 0, err
+	}
+
+	return tb.Builder.WriteString(s)
+}
+
+func (tb *trackingStringBuilder) WriteByte(b byte) error {
+	if tb.growError != nil {
+		return tb.growError
+	}
+
+	if err := tb.grow(1); err != nil {
+		return err
+	}
+
+	return tb.Builder.WriteByte(b)
+}
+
+func (tb *trackingStringBuilder) WriteRune(r rune) (int, error) {
+	if tb.growError != nil {
+		return 0, tb.growError
+	}
+
+	var growAmount int
+	if r < utf8.RuneSelf {
+		growAmount = 1
+	} else {
+		growAmount = utf8.UTFMax
+	}
+
+	if err := tb.grow(growAmount); err != nil {
+		return 0, err
+	}
+
+	return tb.Builder.WriteRune(r)
+}
+
 // A StringDict is a mapping from names to values, and represents
 // an environment such as the global variables of a module.
 // It is not a true starlark.Value.
