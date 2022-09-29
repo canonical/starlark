@@ -185,6 +185,8 @@ func toStarlarkValue(in interface{}) (starlark.Value, error) {
 		return d, nil
 	case reflect.String:
 		return starlark.String(inVal.String()), nil
+	case reflect.Interface:
+		return toStarlarkValue(inVal.Interface())
 	case reflect.Ptr:
 		return toStarlarkValue(inVal.Elem())
 	default:
@@ -245,6 +247,9 @@ func TestToStarlarkValue(t *testing.T) {
 				dict.SetKey(starlark.String("foo"), starlark.NewList(append(make([]starlark.Value, 0, 2), starlark.String("bar"), starlark.String("baz"))))
 				return dict
 			}(),
+		}, {
+			from: []starlark.String{starlark.String("foo"), starlark.String("bar")},
+			to:   starlark.NewList(append(make([]starlark.Value, 0), starlark.String("foo"), starlark.String("bar"))),
 		},
 	}
 
