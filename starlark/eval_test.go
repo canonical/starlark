@@ -1061,6 +1061,41 @@ func TestAddExecutionStepsFail(t *testing.T) {
 	}
 }
 
+func TestConcurrentAddExecutionStepsUsage(t *testing.T) {
+	const expectedSteps = 1_000_000
+
+	thread := &starlark.Thread{}
+	thread.SetMaxExecutionSteps(expectedSteps)
+
+	done := make(chan struct{}, 2)
+
+	callAddExecutionSteps := func(n uint) {
+		for i := uint(0); i < n; i++ {
+			if err := thread.AddExecutionSteps(1); err != nil {
+				t.Errorf("Unexpected error %v", err)
+				break
+			}
+		}
+		done <- struct{}{}
+	}
+
+	go callAddExecutionSteps(expectedSteps / 2)
+	go callAddExecutionSteps(expectedSteps / 2)
+
+	// Await goroutine completion
+	totDone := 0
+	for totDone != 2 {
+		select {
+		case <-done:
+			totDone++
+		}
+	}
+
+	if steps := thread.ExecutionSteps(); steps != expectedSteps {
+		t.Errorf("Concurrent thread.AddExecutionSteps contains a race, expected %d steps recorded but got %d", expectedSteps, steps)
+	}
+}
+
 func TestThreadPermits(t *testing.T) {
 	const threadSafety = starlark.CPUSafe | starlark.MemSafe
 	t.Run("Safety=Allowed", func(t *testing.T) {
