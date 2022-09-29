@@ -12,6 +12,7 @@ import (
 	"log"
 	"math"
 	"math/big"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -54,6 +55,10 @@ type Thread struct {
 	steps, maxSteps uint64
 	stepsLock       sync.Mutex
 
+	// allocs counts the abstract memory units claimed by this resource pool
+	allocs, maxAllocs uint64
+	allocsLock        sync.Mutex
+
 	// cancelReason records the reason from the first call to Cancel.
 	cancelReason *string
 
@@ -63,6 +68,10 @@ type Thread struct {
 
 	// proftime holds the accumulated execution time since the last profile event.
 	proftime time.Duration
+
+	// requiredSafety holds the set of safety conditions which must be
+	// satisfied by any builtin which is called when running this thread.
+	requiredSafety Safety
 }
 
 // ExecutionSteps returns a count of abstract computation steps executed
@@ -138,6 +147,44 @@ func (thread *Thread) simulateExecutionSteps(delta uint64) (uint64, error) {
 	}
 
 	return nextExecutionSteps, nil
+}
+
+// Allocs returns the total allocations reported to this thread via AddAllocs.
+func (thread *Thread) Allocs() uint64 {
+	return thread.allocs
+}
+
+// SetMaxAllocs sets the maximum allocations that may be reported to this thread
+// via AddAllocs before Cancel is internally called. If max is zero or MaxUint64,
+// the thread will not be cancelled.
+func (thread *Thread) SetMaxAllocs(max uint64) {
+	thread.maxAllocs = max
+}
+
+// RequireSafety makes the thread only accept functions that declare at least
+// the provided safety.
+func (thread *Thread) RequireSafety(safety Safety) {
+	thread.requiredSafety |= safety
+}
+
+// Permits checks whether this thread would allow execution of the provided
+// safety-aware value.
+func (thread *Thread) Permits(value SafetyAware) bool {
+	safety := value.Safety()
+	return safety.CheckValid() == nil && safety.Contains(thread.requiredSafety)
+}
+
+// CheckPermits returns an error if this thread would not allow execution of
+// the provided safety-aware value.
+func (thread *Thread) CheckPermits(value SafetyAware) error {
+	if err := thread.requiredSafety.CheckValid(); err != nil {
+		return fmt.Errorf("thread safety: %v", err)
+	}
+	safety := value.Safety()
+	if err := safety.CheckValid(); err != nil {
+		return err
+	}
+	return safety.CheckContains(thread.requiredSafety)
 }
 
 // Cancel causes execution of Starlark code in the specified thread to
@@ -1252,6 +1299,21 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		return nil, fmt.Errorf("invalid call of non-function (%s)", fn.Type())
 	}
 
+	// Check safety flags
+	callableSafety := NotSafe
+	if c, ok := c.(SafetyAware); ok {
+		callableSafety = c.Safety()
+	}
+	if err := thread.CheckPermits(callableSafety); err != nil {
+		if _, ok := c.(*Function); ok {
+			return nil, err
+		}
+		if b, ok := c.(*Builtin); ok {
+			return nil, fmt.Errorf("cannot call builtin '%s': %v", b.Name(), err)
+		}
+		return nil, fmt.Errorf("cannot call value of type '%s': %v", c.Type(), err)
+	}
+
 	// Allocate and push a new frame.
 	var fr *frame
 	// Optimization: use slack portion of thread.stack
@@ -1676,4 +1738,85 @@ func interpolate(format string, x Value) (Value, error) {
 	}
 
 	return String(buf.String()), nil
+}
+
+type MaxAllocsError struct {
+	Current, Max uint64
+}
+
+func (e *MaxAllocsError) Error() string {
+	return "exceeded memory allocation limits"
+}
+
+// CheckAllocs returns an error if a change in allocations associated with this
+// thread would be rejected by AddAllocs.
+//
+// It is safe to call CheckAllocs from any goroutine, even if the thread is
+// actively executing.
+func (thread *Thread) CheckAllocs(delta int64) error {
+	thread.allocsLock.Lock()
+	defer thread.allocsLock.Unlock()
+
+	_, err := thread.simulateAllocs(delta)
+	return err
+}
+
+// AddAllocs reports a change in allocations associated with this thread. If
+// the total allocations exceed the limit defined via SetMaxAllocs, the thread
+// is cancelled and an error is returned.
+//
+// It is safe to call AddAllocs from any goroutine, even if the thread is
+// actively executing.
+func (thread *Thread) AddAllocs(delta int64) error {
+	thread.allocsLock.Lock()
+	defer thread.allocsLock.Unlock()
+
+	next, err := thread.simulateAllocs(delta)
+	thread.allocs = next
+	if err != nil {
+		thread.Cancel(err.Error())
+	}
+
+	return err
+}
+
+// simulateAllocs simulates a call to AddAllocs returning the new total
+// allocations associated with this thread and any error this would entail. No
+// change is recorded.
+func (thread *Thread) simulateAllocs(delta int64) (uint64, error) {
+	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
+		return thread.allocs, errors.New(*(*string)(cancelReason))
+	}
+
+	var nextAllocs uint64
+
+	if delta < 0 {
+		udelta := uint64(-delta)
+		if udelta < thread.allocs {
+			nextAllocs = thread.allocs - udelta
+		} else {
+			nextAllocs = 0
+		}
+		return nextAllocs, nil
+	}
+
+	udelta := uint64(delta)
+	if udelta <= math.MaxUint64-thread.allocs {
+		nextAllocs = thread.allocs + udelta
+	} else {
+		nextAllocs = math.MaxUint64
+	}
+
+	if vmdebug {
+		fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs, thread.maxAllocs)
+	}
+
+	if thread.maxAllocs != 0 && nextAllocs > thread.maxAllocs {
+		return nextAllocs, &MaxAllocsError{
+			Current: thread.allocs,
+			Max:     thread.maxAllocs,
+		}
+	}
+
+	return nextAllocs, nil
 }
