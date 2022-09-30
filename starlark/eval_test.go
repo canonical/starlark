@@ -1013,6 +1013,46 @@ func TestCheckExecutionSteps(t *testing.T) {
 	}
 }
 
+func TestConcurrentCheckExecutionStepsUsage(t *testing.T) {
+	const stepPeak = math.MaxUint64 ^ (math.MaxUint64 >> 1)
+	const maxSteps = stepPeak + 1
+	const repetitions = 1_000_000
+
+	thread := &starlark.Thread{}
+	thread.SetMaxExecutionSteps(maxSteps)
+	thread.AddExecutionSteps(stepPeak - 1)
+
+	done := make(chan struct{}, 2)
+
+	go func() {
+		// Flip between 1000...00 and 0111...11 allocations
+		for i := 0; i < repetitions; i++ {
+			thread.AddExecutionSteps(1)
+			thread.SubtractExecutionSteps(1)
+		}
+		done <- struct{}{}
+	}()
+	go func() {
+		for i := 0; i < repetitions; i++ {
+			// Check 1000...01 not exceeded
+			if err := thread.CheckExecutionSteps(1); err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				break
+			}
+		}
+		done <- struct{}{}
+	}()
+
+	// Await goroutine completion
+	totDone := 0
+	for totDone != 2 {
+		select {
+		case <-done:
+			totDone++
+		}
+	}
+}
+
 func TestAddExecutionStepsOk(t *testing.T) {
 	const expectedDelta = 10000
 
