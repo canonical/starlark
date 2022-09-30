@@ -447,6 +447,11 @@ var timeMethods = map[string]builtinMethod{
 	"format":      timeFormat,
 }
 
+var timeMethodSafeties = map[string]starlark.Safety{
+	"in_location": starlark.NotSafe,
+	"format":      starlark.NotSafe,
+}
+
 func timeFormat(fnname string, recV starlark.Value, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var x string
 	if err := starlark.UnpackPositionalArgs("format", args, kwargs, 1, &x); err != nil {
@@ -483,7 +488,9 @@ func builtinAttr(recv starlark.Value, name string, methods map[string]builtinMet
 	impl := func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		return method(b.Name(), b.Receiver(), args, kwargs)
 	}
-	return starlark.NewBuiltin(name, impl).BindReceiver(recv), nil
+	b := starlark.NewBuiltin(name, impl).BindReceiver(recv)
+	b.DeclareSafety(timeMethodSafeties[name])
+	return b, nil
 }
 
 func builtinAttrNames(methods map[string]builtinMethod) []string {
