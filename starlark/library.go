@@ -175,6 +175,66 @@ var (
 	}
 )
 
+func init() {
+	bytesMethods["elems"].DeclareSafety(NotSafe)
+
+	dictMethods["clear"].DeclareSafety(NotSafe)
+	dictMethods["get"].DeclareSafety(NotSafe)
+	dictMethods["items"].DeclareSafety(NotSafe)
+	dictMethods["keys"].DeclareSafety(NotSafe)
+	dictMethods["pop"].DeclareSafety(NotSafe)
+	dictMethods["popitem"].DeclareSafety(NotSafe)
+	dictMethods["setdefault"].DeclareSafety(NotSafe)
+	dictMethods["update"].DeclareSafety(NotSafe)
+	dictMethods["values"].DeclareSafety(NotSafe)
+
+	listMethods["append"].DeclareSafety(NotSafe)
+	listMethods["clear"].DeclareSafety(NotSafe)
+	listMethods["extend"].DeclareSafety(NotSafe)
+	listMethods["index"].DeclareSafety(NotSafe)
+	listMethods["insert"].DeclareSafety(NotSafe)
+	listMethods["pop"].DeclareSafety(NotSafe)
+	listMethods["remove"].DeclareSafety(NotSafe)
+
+	stringMethods["capitalize"].DeclareSafety(NotSafe)
+	stringMethods["codepoint_ords"].DeclareSafety(NotSafe)
+	stringMethods["codepoints"].DeclareSafety(NotSafe)
+	stringMethods["count"].DeclareSafety(NotSafe)
+	stringMethods["elem_ords"].DeclareSafety(NotSafe)
+	stringMethods["elems"].DeclareSafety(NotSafe)
+	stringMethods["endswith"].DeclareSafety(NotSafe)
+	stringMethods["find"].DeclareSafety(NotSafe)
+	stringMethods["format"].DeclareSafety(NotSafe)
+	stringMethods["index"].DeclareSafety(NotSafe)
+	stringMethods["isalnum"].DeclareSafety(NotSafe)
+	stringMethods["isalpha"].DeclareSafety(NotSafe)
+	stringMethods["isdigit"].DeclareSafety(NotSafe)
+	stringMethods["islower"].DeclareSafety(NotSafe)
+	stringMethods["isspace"].DeclareSafety(NotSafe)
+	stringMethods["istitle"].DeclareSafety(NotSafe)
+	stringMethods["isupper"].DeclareSafety(NotSafe)
+	stringMethods["join"].DeclareSafety(NotSafe)
+	stringMethods["lower"].DeclareSafety(NotSafe)
+	stringMethods["lstrip"].DeclareSafety(NotSafe)
+	stringMethods["partition"].DeclareSafety(NotSafe)
+	stringMethods["removeprefix"].DeclareSafety(NotSafe)
+	stringMethods["removesuffix"].DeclareSafety(NotSafe)
+	stringMethods["replace"].DeclareSafety(NotSafe)
+	stringMethods["rfind"].DeclareSafety(NotSafe)
+	stringMethods["rindex"].DeclareSafety(NotSafe)
+	stringMethods["rpartition"].DeclareSafety(NotSafe)
+	stringMethods["rsplit"].DeclareSafety(NotSafe)
+	stringMethods["rstrip"].DeclareSafety(NotSafe)
+	stringMethods["split"].DeclareSafety(NotSafe)
+	stringMethods["splitlines"].DeclareSafety(NotSafe)
+	stringMethods["startswith"].DeclareSafety(NotSafe)
+	stringMethods["strip"].DeclareSafety(NotSafe)
+	stringMethods["title"].DeclareSafety(NotSafe)
+	stringMethods["upper"].DeclareSafety(NotSafe)
+
+	setMethods["union"].DeclareSafety(NotSafe)
+}
+
 func builtinAttr(recv Value, name string, methods map[string]*Builtin) (Value, error) {
 	b := methods[name]
 	if b == nil {
