@@ -6,6 +6,7 @@ import (
 	"math/bits"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -16,77 +17,135 @@ import (
 )
 
 type allocTest struct {
-	name           string
-	gen            func(n uint) (program string, predecls env)
-	nSmall, nLarge uint
-	trend
+	name                string
+	gen                 func(n uint) (program string, predecls env)
+	ns                  []uint
+	errorCoefficient    float64
+	reportedAllocsTrend trend
+	measuredAllocsTrend trend
 }
 type env map[string]interface{}
 
 type trend interface {
 	Desc() string
-	Trend(n float64) float64
+	At(n float64) float64
 }
 
-const errorFraction = 0.1
+type Bound int
+
+const (
+	ABOVE Bound = 1 << iota
+	BELOW
+)
+
+func (test allocTest) Name() string {
+	return test.name
+}
 
 // Run tests whether allocs follow the specified trend
 func (test allocTest) Run(t *testing.T) {
-	if test.nSmall == 0 {
-		test.nSmall = 1000
+	if test.ns == nil {
+		test.ns = []uint{
+			1000,
+			10000,
+			100000,
+		}
 	}
-	if test.nLarge == 0 {
-		test.nLarge = 100000
+	if test.measuredAllocsTrend == nil {
+		test.measuredAllocsTrend = test.reportedAllocsTrend
+	}
+	if test.errorCoefficient == 0 {
+		test.errorCoefficient = 0.1
 	}
 
-	deltaSmall, err := test.computeDelta(test.nSmall)
-	if err != nil {
+	if test.errorCoefficient <= 0 || 1 <= test.errorCoefficient {
+		t.Errorf("%s: invalid error coefficient: expected between 0 and 1 but got %f", test.Name(), test.errorCoefficient)
+	}
+
+	if _, err := test.computeDelta(test.ns[len(test.ns)-1]); err != nil {
 		t.Errorf("%s: unexpected error: %v", test.name, err)
 		return
 	}
-	deltaLarge, err := test.computeDelta(test.nLarge)
-	if err != nil {
-		t.Errorf("%s: unexpected error: %v", test.name, err)
-		return
+
+	reportedAllocs := make([]uint64, len(test.ns))
+	measuredAllocs := make([]uint64, len(test.ns))
+	for i, n := range test.ns {
+		delta, err := test.computeDelta(n)
+		if err != nil {
+			t.Errorf("%s: unexpected error: %v", test.name, err)
+			return
+		}
+
+		reportedAllocs[i] = delta.reportedAllocs
+		measuredAllocs[i] = delta.measuredAllocs
 	}
 
-	test.testAllocAmount(t, test.nLarge, deltaLarge)
-	test.testAllocTrend(t, deltaSmall, deltaLarge)
+	test.testTrend(t, "reported allocs", test.ns, reportedAllocs, test.reportedAllocsTrend, ABOVE|BELOW)
+	test.testTrend(t, "measured allocs", test.ns, measuredAllocs, test.measuredAllocsTrend, ABOVE)
 }
 
-func (test *allocTest) computeDelta(n uint) (uint64, error) {
+// testTrend checks that a trend was followed over a slice of instance sizes
+// and measurements.
+func (test allocTest) testTrend(t *testing.T, measurementDesc string, ns []uint, measurements []uint64, expectation trend, bound Bound) {
+	for i, n := range ns {
+		expected := expectation.At(float64(n))
+		measured := float64(measurements[i])
+
+		if bound&BELOW != 0 && measured < (1-test.errorCoefficient)*expected {
+			t.Errorf("%s: %s did not %s: for input sizes %v, observed %v", test.name, measurementDesc, expectation.Desc(), ns, measurements)
+			break
+		}
+		if bound&ABOVE != 0 && (1+test.errorCoefficient)*expected < measured {
+			t.Errorf("%s: %s did not %s: for input sizes %v, observed %v", test.name, measurementDesc, expectation.Desc(), ns, measurements)
+			break
+		}
+	}
+}
+
+func TestAsdf(t *testing.T) {
+	allocTest{
+		name: "asdf",
+		gen: func(n uint) (string, env) {
+			return "s.capitalize()", env{"s": dummyString(n, 'a')}
+		},
+		reportedAllocsTrend: linear{1},
+		measuredAllocsTrend: linear{1},
+	}.Run(t)
+}
+
+type memoryDelta struct {
+	reportedAllocs uint64
+	measuredAllocs uint64
+}
+
+func (test *allocTest) computeDelta(n uint) (memoryDelta, error) {
 	code, env := test.gen(n)
 	predeclared, err := env.ToStarlarkPredecls()
 	if err != nil {
-		return 0, err
+		return memoryDelta{}, err
 	}
+	defer runtime.KeepAlive(code)
+	defer runtime.KeepAlive(env)
+	defer runtime.KeepAlive(predeclared)
+
+	var before, after runtime.MemStats
+
+	runtime.GC()
+	runtime.GC()
+	runtime.ReadMemStats(&before)
 
 	thread := new(starlark.Thread)
-	_, err = starlark.ExecFile(thread, test.name, code, predeclared)
-	return thread.Allocs(), err
-}
+	res, err := starlark.ExecFile(thread, test.name, code, predeclared)
+	defer runtime.KeepAlive(res)
 
-// Test that expected number of allocs have been made, within a margin of error
-func (test *allocTest) testAllocAmount(t *testing.T, n uint, delta uint64) {
-	expectedDelta := test.Trend(float64(n))
-	deltaRatio := float64(delta) / expectedDelta
+	runtime.GC()
+	runtime.GC()
+	runtime.ReadMemStats(&after)
 
-	if deltaRatio < 1-errorFraction {
-		t.Errorf("%s: too few allocations, expected ~%.0f but used only %d", test.name, expectedDelta, delta)
-	} else if 1+errorFraction < deltaRatio {
-		t.Errorf("%s: too many allocations, expected ~%.0f but used %d", test.name, expectedDelta, delta)
-	}
-}
-
-// Test that the allocs made followed the expected trend
-func (test *allocTest) testAllocTrend(t *testing.T, deltaSmall, deltaLarge uint64) {
-	observedScaling := float64(deltaLarge) / float64(deltaSmall)
-	expectedScaling := test.Trend(float64(test.nLarge)) / test.Trend(float64(test.nSmall))
-	scalingRatio := observedScaling / expectedScaling
-
-	if scalingRatio <= 1-errorFraction || 1+errorFraction <= scalingRatio {
-		t.Errorf("%s: allocations did not %s: f(%d)=%d, f(%d)=%d, ratio=%.3f, want ~%.0f", test.name, test.trend.Desc(), test.nSmall, deltaSmall, test.nLarge, deltaLarge, observedScaling, expectedScaling)
-	}
+	return memoryDelta{
+		reportedAllocs: thread.Allocs(),
+		measuredAllocs: after.Alloc - before.Alloc,
+	}, err
 }
 
 // ToStarlarkPredecls converts an env to a starlark.StringDict
@@ -264,8 +323,10 @@ func TestToStarlarkValue(t *testing.T) {
 
 type constant struct{ constant float64 }
 
-func (constant) Desc() string              { return "remain constant" }
-func (c constant) Trend(_ float64) float64 { return c.constant }
+var _ trend = constant{}
+
+func (c constant) Desc() string         { return fmt.Sprintf("remain constant at %.3f", c.constant) }
+func (c constant) At(_ float64) float64 { return c.constant }
 
 func TestConstantTrend(t *testing.T) {
 	const expected = 104.0
@@ -273,7 +334,7 @@ func TestConstantTrend(t *testing.T) {
 	testValues := []float64{1, 2, 3, 4, 5, 6, 7}
 	constTrend := constant{expected}
 	for _, v := range testValues {
-		if actual := constTrend.Trend(v); actual != expected {
+		if actual := constTrend.At(v); actual != expected {
 			t.Errorf("Constant trend did not remain constant: expected %g but got %g", expected, actual)
 			break
 		}
@@ -282,8 +343,12 @@ func TestConstantTrend(t *testing.T) {
 
 type linear struct{ gradient float64 }
 
-func (linear) Desc() string              { return "increase linearly" }
-func (l linear) Trend(n float64) float64 { return l.gradient * n }
+var _ trend = linear{}
+
+func (l linear) Desc() string {
+	return fmt.Sprintf("increase linearly with gradient=%.3f", l.gradient)
+}
+func (l linear) At(n float64) float64 { return l.gradient * n }
 
 func TestLinearTrend(t *testing.T) {
 	const expectedGradient = 104.0
@@ -293,7 +358,7 @@ func TestLinearTrend(t *testing.T) {
 	linearTrend := linear{expectedGradient}
 	outputs := make([]float64, len(inputs))
 	for i, v := range inputs {
-		outputs[i] = linearTrend.Trend(v)
+		outputs[i] = linearTrend.At(v)
 	}
 
 	for i := 1; i < len(inputs); i++ {
@@ -307,8 +372,12 @@ func TestLinearTrend(t *testing.T) {
 
 type affine struct{ gradient, intercept float64 }
 
-func (affine) Desc() string              { return "increase affinely" }
-func (a affine) Trend(n float64) float64 { return a.gradient*n + a.intercept }
+var _ trend = affine{}
+
+func (a affine) Desc() string {
+	return fmt.Sprintf("increase affinely with gradient=%.3f, intercept=%.3f", a.gradient, a.intercept)
+}
+func (a affine) At(n float64) float64 { return a.gradient*n + a.intercept }
 
 func TestAffineTrend(t *testing.T) {
 	const expectedGradient = 104.0
@@ -319,10 +388,10 @@ func TestAffineTrend(t *testing.T) {
 	affineTrend := affine{expectedGradient, expectedIntercept}
 	trendValues := make([]float64, len(testValues))
 	for i, v := range testValues {
-		trendValues[i] = affineTrend.Trend(v)
+		trendValues[i] = affineTrend.At(v)
 	}
 
-	if actualIntercept := affineTrend.Trend(0); actualIntercept != expectedIntercept {
+	if actualIntercept := affineTrend.At(0); actualIntercept != expectedIntercept {
 		t.Errorf("Affine trend had incorrect value at zero: expected %g but got %g", expectedIntercept, actualIntercept)
 	}
 	for i := 1; i < len(testValues); i++ {
@@ -446,9 +515,9 @@ func TestDummySet(t *testing.T) {
 	}
 }
 
-func dummyDict(len uint) *starlark.Dict {
-	dict := starlark.NewDict(int(len))
-	for i := 1; i <= int(len); i++ {
+func dummyDict(len int) *starlark.Dict {
+	dict := starlark.NewDict(len)
+	for i := 1; i <= len; i++ {
 		s := starlark.String(strconv.Itoa(i))
 		dict.SetKey("_"+s, s)
 	}
