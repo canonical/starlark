@@ -15,15 +15,19 @@ import (
 
 	starlarktime "github.com/canonical/starlark/lib/time"
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/starlarkstruct"
 )
 
 type AllocTest struct {
 	TestGenerator
-	Ns                       []uint
-	ErrorCoefficient         float64
-	ReportedAllocsTrend      Trend
-	MeasuredAllocsTrend      Trend
-	MeasuredTotalAllocsTrend Trend
+	Ns                          []uint
+	ErrorCoefficient            float64
+	ReportedAllocsTrend         Trend
+	MeasuredAllocsTrend         Trend
+	MeasuredTotalAllocsTrend    Trend
+	ReportedAllocsBounding      Bound
+	MeasuredAllocsBounding      Bound
+	MeasuredTotalAllocsBounding Bound
 }
 type Env map[string]interface{}
 
@@ -44,6 +48,7 @@ type Bound int
 const (
 	Above Bound = 1 << iota
 	Below
+	Unbounded
 )
 
 // Run tests whether allocs follow the specified trend
@@ -90,9 +95,9 @@ func (test AllocTest) Run(t *testing.T) {
 		measuredTotalAllocs[i] = int64(after.TotalAlloc - before.TotalAlloc)
 	}
 
-	test.testTrend(t, "reported allocs", test.Ns, reportedAllocs, test.ReportedAllocsTrend, Above|Below)
-	test.testTrend(t, "measured allocs", test.Ns, measuredAllocs, test.MeasuredAllocsTrend, Above|Below)
-	test.testTrend(t, "measured total allocs", test.Ns, measuredTotalAllocs, test.MeasuredTotalAllocsTrend, Above)
+	test.testTrend(t, "reported allocs", test.Ns, reportedAllocs, test.ReportedAllocsTrend, test.ReportedAllocsBounding)
+	test.testTrend(t, "measured allocs", test.Ns, measuredAllocs, test.MeasuredAllocsTrend, test.MeasuredAllocsBounding)
+	test.testTrend(t, "measured total allocs", test.Ns, measuredTotalAllocs, test.MeasuredTotalAllocsTrend, test.MeasuredTotalAllocsBounding)
 }
 
 func (test *AllocTest) init() error {
@@ -120,6 +125,16 @@ func (test *AllocTest) init() error {
 		test.ErrorCoefficient = 0.1
 	}
 
+	if test.MeasuredAllocsBounding == 0 {
+		test.MeasuredAllocsBounding = Above | Below
+	}
+	if test.ReportedAllocsBounding == 0 {
+		test.ReportedAllocsBounding = Above | Below
+	}
+	if test.MeasuredTotalAllocsBounding == 0 {
+		test.MeasuredTotalAllocsBounding = Above
+	}
+
 	if test.ErrorCoefficient <= 0 || 1 <= test.ErrorCoefficient {
 		return fmt.Errorf("%s: invalid error coefficient: expected between 0 and 1 but got %f", test.Name(), test.ErrorCoefficient)
 	}
@@ -129,6 +144,10 @@ func (test *AllocTest) init() error {
 // testTrend checks that a trend was followed over a slice of instance sizes
 // and measurements.
 func (test AllocTest) testTrend(t *testing.T, measurementDesc string, ns []uint, measurements []int64, expectation Trend, bound Bound) {
+	if bound&Unbounded != 0 {
+		return
+	}
+
 	for i, n := range ns {
 		expected := expectation.At(float64(n))
 		measured := float64(measurements[i])
