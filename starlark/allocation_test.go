@@ -143,19 +143,23 @@ func (test *AllocTest) init() error {
 
 // testTrend checks that a trend was followed over a slice of instance sizes
 // and measurements.
-func (test AllocTest) testTrend(t *testing.T, measurementDesc string, ns []uint, measurements []int64, expectation Trend, bound Bound) {
+func (test AllocTest) testTrend(t *testing.T, measurementDesc string, ns []uint, measurements []int64, expectedTrend Trend, bound Bound) {
 	if bound&Unbounded != 0 {
 		return
 	}
 
+	expectedMeasurements := make([]float64, len(ns))
 	for i, n := range ns {
-		expected := expectation.At(float64(n))
+		expectedMeasurements[i] = expectedTrend.At(float64(n))
+	}
+
+	for i, expected := range expectedMeasurements {
 		measured := float64(measurements[i])
 
 		tooMany := bound&Above != 0 && (1+test.ErrorCoefficient)*expected < measured
 		tooFew := bound&Below != 0 && measured < (1-test.ErrorCoefficient)*expected
 		if tooMany || tooFew {
-			t.Errorf("%s: %s did not %s: for input sizes %v, observed %v", test.Name(), measurementDesc, expectation.Desc(), ns, measurements)
+			t.Errorf("%s: %s did not %s: for input sizes %v, observed %v, expected about %v", test.Name(), measurementDesc, expectedTrend.Desc(), ns, measurements, expectedMeasurements)
 			break
 		}
 	}
