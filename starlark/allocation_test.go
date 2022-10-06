@@ -17,14 +17,21 @@ import (
 )
 
 type AllocTest struct {
-	Name_               string
-	Gen                 func(n uint) (program string, predecls Env)
-	Ns                  []uint
-	ErrorCoefficient    float64
-	ReportedAllocsTrend Trend
-	MeasuredAllocsTrend Trend
+	TestGenerator
+	Ns                       []uint
+	ErrorCoefficient         float64
+	ReportedAllocsTrend      Trend
+	MeasuredAllocsTrend      Trend
+	MeasuredTotalAllocsTrend Trend
 }
 type Env map[string]interface{}
+
+type TestGenerator interface {
+	Name() string
+	Setup(n uint) (interface{}, error)
+	Run(t *testing.T, thread *starlark.Thread, pre interface{}) (interface{}, error)
+	Measure(thread *starlark.Thread, pre, post interface{}) uint64
+}
 
 type Trend interface {
 	Desc() string
@@ -34,13 +41,9 @@ type Trend interface {
 type Bound int
 
 const (
-	ABOVE Bound = 1 << iota
-	BELOW
+	Above Bound = 1 << iota
+	Below
 )
-
-func (test AllocTest) Name() string {
-	return test.Name_
-}
 
 // Run tests whether allocs follow the specified trend
 func (test AllocTest) Run(t *testing.T) {
@@ -54,6 +57,9 @@ func (test AllocTest) Run(t *testing.T) {
 	if test.MeasuredAllocsTrend == nil {
 		test.MeasuredAllocsTrend = test.ReportedAllocsTrend
 	}
+	if test.MeasuredTotalAllocsTrend == nil {
+		test.MeasuredTotalAllocsTrend = test.ReportedAllocsTrend
+	}
 	if test.ErrorCoefficient == 0 {
 		test.ErrorCoefficient = 0.1
 	}
@@ -62,91 +68,145 @@ func (test AllocTest) Run(t *testing.T) {
 		t.Errorf("%s: invalid error coefficient: expected between 0 and 1 but got %f", test.Name(), test.ErrorCoefficient)
 	}
 
-	if _, err := test.computeDelta(test.Ns[len(test.Ns)-1]); err != nil {
-		t.Errorf("%s: unexpected error: %v", test.Name_, err)
-		return
-	}
-
-	reportedAllocs := make([]uint64, len(test.Ns))
-	measuredAllocs := make([]uint64, len(test.Ns))
+	reportedAllocs := make([]int64, len(test.Ns))
+	measuredAllocs := make([]int64, len(test.Ns))
+	measuredTotalAllocs := make([]int64, len(test.Ns))
 	for i, n := range test.Ns {
-		delta, err := test.computeDelta(n)
+		pre, err := test.Setup(n)
 		if err != nil {
-			t.Errorf("%s: unexpected error: %v", test.Name_, err)
+			t.Errorf("%s: Unexpected error during setup: %v", test.Name(), err)
 			return
 		}
 
-		reportedAllocs[i] = delta.reportedAllocs
-		measuredAllocs[i] = delta.measuredAllocs
+		thread := &starlark.Thread{}
+
+		var before, after runtime.MemStats
+
+		runtime.GC()
+		runtime.GC()
+		runtime.ReadMemStats(&before)
+
+		post, err := test.TestGenerator.Run(t, thread, pre)
+		if err != nil {
+			t.Errorf("%s: Unexpected error: %v", test.Name(), err)
+			return
+		}
+
+		runtime.GC()
+		runtime.GC()
+		runtime.ReadMemStats(&after)
+
+		runtime.KeepAlive(pre)
+		runtime.KeepAlive(thread)
+		runtime.KeepAlive(post)
+
+		reportedAllocs[i] = int64(test.Measure(thread, pre, post))
+		measuredAllocs[i] = int64(after.Alloc - before.Alloc)
+		measuredTotalAllocs[i] = int64(after.TotalAlloc - before.TotalAlloc)
 	}
 
-	test.testTrend(t, "reported allocs", test.Ns, reportedAllocs, test.ReportedAllocsTrend, ABOVE|BELOW)
-	test.testTrend(t, "measured allocs", test.Ns, measuredAllocs, test.MeasuredAllocsTrend, ABOVE)
+	test.testTrend(t, "reported allocs", test.Ns, reportedAllocs, test.ReportedAllocsTrend, Above|Below)
+	test.testTrend(t, "measured allocs", test.Ns, measuredAllocs, test.MeasuredAllocsTrend, Above|Below)
+	test.testTrend(t, "measured total allocs", test.Ns, measuredTotalAllocs, test.MeasuredTotalAllocsTrend, Above)
 }
 
 // testTrend checks that a trend was followed over a slice of instance sizes
 // and measurements.
-func (test AllocTest) testTrend(t *testing.T, measurementDesc string, ns []uint, measurements []uint64, expectation Trend, bound Bound) {
+func (test AllocTest) testTrend(t *testing.T, measurementDesc string, ns []uint, measurements []int64, expectation Trend, bound Bound) {
 	for i, n := range ns {
 		expected := expectation.At(float64(n))
 		measured := float64(measurements[i])
 
-		if bound&BELOW != 0 && measured < (1-test.ErrorCoefficient)*expected {
-			t.Errorf("%s: %s did not %s: for input sizes %v, observed %v", test.Name_, measurementDesc, expectation.Desc(), ns, measurements)
-			break
-		}
-		if bound&ABOVE != 0 && (1+test.ErrorCoefficient)*expected < measured {
-			t.Errorf("%s: %s did not %s: for input sizes %v, observed %v", test.Name_, measurementDesc, expectation.Desc(), ns, measurements)
+		tooMany := bound&Above != 0 && (1+test.ErrorCoefficient)*expected < measured
+		tooFew := bound&Below != 0 && measured < (1-test.ErrorCoefficient)*expected
+		if tooMany || tooFew {
+			t.Errorf("%s: %s did not %s: for input sizes %v, observed %v", test.Name(), measurementDesc, expectation.Desc(), ns, measurements)
 			break
 		}
 	}
 }
 
-func TestAsdf(t *testing.T) {
-	AllocTest{
-		Name_: "asdf",
-		Gen: func(n uint) (string, Env) {
-			return "s.capitalize()", Env{"s": dummyString(n, 'a')}
-		},
-		ReportedAllocsTrend: Linear{1},
-		MeasuredAllocsTrend: Linear{1},
-	}.Run(t)
+type BuiltinGenerator struct {
+	Builtin starlark.Value
+	Recv    func(n uint) interface{}
+	Args    func(n uint) []interface{}
+	Kwargs  func(n uint) map[string]starlark.Value
 }
 
-type memoryDelta struct {
-	reportedAllocs uint64
-	measuredAllocs uint64
-}
+var _ TestGenerator = &BuiltinGenerator{}
 
-func (test *AllocTest) computeDelta(n uint) (memoryDelta, error) {
-	code, env := test.Gen(n)
-	predeclared, err := env.ToStarlarkPredecls()
-	if err != nil {
-		return memoryDelta{}, err
+func (bt *BuiltinGenerator) Name() string {
+	if bt.Builtin == nil {
+		return "nil"
 	}
-	defer runtime.KeepAlive(code)
-	defer runtime.KeepAlive(env)
-	defer runtime.KeepAlive(predeclared)
-
-	var before, after runtime.MemStats
-
-	runtime.GC()
-	runtime.GC()
-	runtime.ReadMemStats(&before)
-
-	thread := new(starlark.Thread)
-	res, err := starlark.ExecFile(thread, test.Name_, code, predeclared)
-	defer runtime.KeepAlive(res)
-
-	runtime.GC()
-	runtime.GC()
-	runtime.ReadMemStats(&after)
-
-	return memoryDelta{
-		reportedAllocs: thread.Allocs(),
-		measuredAllocs: after.Alloc - before.Alloc,
-	}, err
+	if b, ok := bt.Builtin.(*starlark.Builtin); ok {
+		return b.Name()
+	}
+	return bt.Builtin.String()
 }
+
+type builtinCall struct {
+	Builtin *starlark.Builtin
+	Args    starlark.Tuple
+	Kwargs  []starlark.Tuple
+}
+
+func (bt *BuiltinGenerator) Setup(n uint) (interface{}, error) {
+	builtin, ok := bt.Builtin.(*starlark.Builtin)
+	if !ok {
+		if bt.Builtin == nil {
+			return nil, fmt.Errorf("Expected a builtin, got nil")
+		}
+		return nil, fmt.Errorf("Expected a builtin, got a %v", bt.Builtin.Type())
+	}
+
+	if bt.Recv != nil {
+		v, err := toStarlarkValue(bt.Recv(n))
+		if err != nil {
+			return nil, fmt.Errorf("Could not convert receiver: %v", err)
+		}
+		builtin = builtin.BindReceiver(v)
+	}
+
+	testCase := &builtinCall{Builtin: builtin}
+
+	if bt.Args != nil {
+		args := bt.Args(n)
+		testCase.Args = make(starlark.Tuple, len(args))
+		for i, arg := range args {
+			v, err := toStarlarkValue(arg)
+			if err != nil {
+				return nil, fmt.Errorf("Could not convert arg %d: %v", i+1, err)
+			}
+			testCase.Args = append(testCase.Args, v)
+		}
+	}
+	if bt.Kwargs != nil {
+		kwargs := bt.Kwargs(n)
+		testCase.Kwargs = make([]starlark.Tuple, len(kwargs))
+		for k, v := range kwargs {
+			v, err := toStarlarkValue(v)
+			if err != nil {
+				return nil, fmt.Errorf("Could not convert kwarg %s: %v", k, err)
+			}
+			pair := starlark.Tuple{starlark.String(k), v}
+			testCase.Kwargs = append(testCase.Kwargs, pair)
+		}
+	}
+
+	return testCase, nil
+}
+
+func (bt *BuiltinGenerator) Run(t *testing.T, thread *starlark.Thread, pre interface{}) (interface{}, error) {
+	testCase := pre.(*builtinCall)
+	return testCase.Builtin.CallInternal(thread, testCase.Args, testCase.Kwargs)
+}
+
+func (bt *BuiltinGenerator) Measure(thread *starlark.Thread, pre, post interface{}) uint64 {
+	return thread.Allocs()
+}
+
+var _ TestGenerator = &BuiltinGenerator{}
 
 // ToStarlarkPredecls converts an env to a starlark.StringDict
 func (e Env) ToStarlarkPredecls() (starlark.StringDict, error) {
