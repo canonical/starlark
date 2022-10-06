@@ -1,6 +1,7 @@
 package starlark_test
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/bits"
@@ -47,25 +48,9 @@ const (
 
 // Run tests whether allocs follow the specified trend
 func (test AllocTest) Run(t *testing.T) {
-	if test.Ns == nil {
-		test.Ns = []uint{
-			1000,
-			10000,
-			100000,
-		}
-	}
-	if test.MeasuredAllocsTrend == nil {
-		test.MeasuredAllocsTrend = test.ReportedAllocsTrend
-	}
-	if test.MeasuredTotalAllocsTrend == nil {
-		test.MeasuredTotalAllocsTrend = test.ReportedAllocsTrend
-	}
-	if test.ErrorCoefficient == 0 {
-		test.ErrorCoefficient = 0.1
-	}
-
-	if test.ErrorCoefficient <= 0 || 1 <= test.ErrorCoefficient {
-		t.Errorf("%s: invalid error coefficient: expected between 0 and 1 but got %f", test.Name(), test.ErrorCoefficient)
+	if err := test.init(); err != nil {
+		t.Error(err)
+		return
 	}
 
 	reportedAllocs := make([]int64, len(test.Ns))
@@ -108,6 +93,37 @@ func (test AllocTest) Run(t *testing.T) {
 	test.testTrend(t, "reported allocs", test.Ns, reportedAllocs, test.ReportedAllocsTrend, Above|Below)
 	test.testTrend(t, "measured allocs", test.Ns, measuredAllocs, test.MeasuredAllocsTrend, Above|Below)
 	test.testTrend(t, "measured total allocs", test.Ns, measuredTotalAllocs, test.MeasuredTotalAllocsTrend, Above)
+}
+
+func (test *AllocTest) init() error {
+	if test.TestGenerator == nil {
+		return errors.New("nil test generator")
+	}
+	if test.ReportedAllocsTrend == nil {
+		return fmt.Errorf("%s: Reported allocs trend is nil", test.Name())
+	}
+
+	if test.Ns == nil {
+		test.Ns = []uint{
+			1000,
+			10000,
+			100000,
+		}
+	}
+	if test.MeasuredAllocsTrend == nil {
+		test.MeasuredAllocsTrend = test.ReportedAllocsTrend
+	}
+	if test.MeasuredTotalAllocsTrend == nil {
+		test.MeasuredTotalAllocsTrend = test.ReportedAllocsTrend
+	}
+	if test.ErrorCoefficient == 0 {
+		test.ErrorCoefficient = 0.1
+	}
+
+	if test.ErrorCoefficient <= 0 || 1 <= test.ErrorCoefficient {
+		return fmt.Errorf("%s: invalid error coefficient: expected between 0 and 1 but got %f", test.Name(), test.ErrorCoefficient)
+	}
+	return nil
 }
 
 // testTrend checks that a trend was followed over a slice of instance sizes
