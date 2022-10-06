@@ -102,10 +102,10 @@ func (test AllocTest) Run(t *testing.T) {
 
 func (test *AllocTest) init() error {
 	if test.TestGenerator == nil {
-		return errors.New("nil test generator")
+		return errors.New("test generator undefined")
 	}
 	if test.ReportedAllocsTrend == nil {
-		return fmt.Errorf("%s: Reported allocs trend is nil", test.Name())
+		return fmt.Errorf("%s: Reported allocs not defined", test.Name())
 	}
 
 	if test.Ns == nil {
