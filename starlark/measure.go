@@ -12,7 +12,25 @@ const (
 	largeSizeDiv   = 128
 	numSizeClasses = 68
 	interfaceSize  = unsafe.Sizeof(interface{}(nil))
+
+	maxAlign  = 8
+	chanSize  = unsafe.Sizeof(hchan{}) + uintptr(-int(unsafe.Sizeof(hchan{}))&(maxAlign-1))
+	debugChan = false
 )
+
+// To be kept in sync with the original struct int go/runtime/chan.go
+type hchan struct {
+	qcount   uint           // total data in the queue
+	dataqsiz uint           // size of the circular queue
+	buf      unsafe.Pointer // points to an array of dataqsiz elements
+	elemsize uint16
+	closed   uint32
+	elemtype uintptr    // element type
+	sendx    uint       // send index
+	recvx    uint       // receive index
+	queue    [4]uintptr // list of recv waiters
+	lock     uintptr
+}
 
 var class_to_size = [numSizeClasses]uint16{0, 8, 16, 24, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 288, 320, 352, 384, 416, 448, 480, 512, 576, 640, 704, 768, 896, 1024, 1152, 1280, 1408, 1536, 1792, 2048, 2304, 2688, 3072, 3200, 3456, 4096, 4864, 5376, 6144, 6528, 6784, 6912, 8192, 9472, 9728, 10240, 10880, 12288, 13568, 14336, 16384, 18432, 19072, 20480, 21760, 24576, 27264, 28672, 32768}
 var size_to_class8 = [smallSizeMax/smallSizeDiv + 1]uint8{0, 1, 2, 3, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 21, 22, 22, 22, 22, 23, 23, 23, 23, 24, 24, 24, 24, 25, 25, 25, 25, 26, 26, 26, 26, 27, 27, 27, 27, 27, 27, 27, 27, 28, 28, 28, 28, 28, 28, 28, 28, 29, 29, 29, 29, 29, 29, 29, 29, 30, 30, 30, 30, 30, 30, 30, 30, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32}
@@ -74,7 +92,21 @@ func max(a, b uintptr) uintptr {
 
 func measureValue(v reflect.Value, recursive bool) uintptr {
 	switch v.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Map:
+	case reflect.Chan:
+		// FIXME: what to do if we want a recursive view?
+		// I cannot access without some horrendous hack
+		// to the storage... And by the way it wouldn't be a
+		// smart idea since the list behind could change at
+		// any given time... or at least that is the reasoning
+		// behind the inability to peek a channel.
+		elementType := v.Type().Elem()
+		// This is a pessimistic view since in case of
+		// an elementType that doesn't contain any pointer it
+		// will be allocated in a single bigger block (leading
+		// to a single GetAllocSize call).
+		return GetAllocSize(chanSize) + GetAllocSize(uintptr(v.Cap())*elementType.Size())
+
+	case reflect.Func, reflect.Map:
 		// HOW?
 		panic("WTF")
 
