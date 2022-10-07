@@ -15,7 +15,6 @@ import (
 
 	starlarktime "github.com/canonical/starlark/lib/time"
 	"github.com/canonical/starlark/starlark"
-	"github.com/canonical/starlark/starlarkstruct"
 )
 
 type AllocTest struct {
