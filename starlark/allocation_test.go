@@ -166,10 +166,21 @@ func (test AllocTest) testTrend(t *testing.T, measurementDesc string, ns []uint,
 }
 
 type BuiltinGenerator struct {
+	// Builtin to test
 	Builtin starlark.Value
-	Recv    func(n uint) interface{}
-	Args    func(n uint) []interface{}
-	Kwargs  func(n uint) map[string]starlark.Value
+
+	// Recv holds a value which can be converted to a starlark.Value, or a
+	// function which takes an instance size and returns the same
+	Recv interface{} // or func(n uint) interface{}
+
+	// Args holds a value which can be converted to a []starlark.Value, or a
+	// function which takes an instance size and returns the same
+	Args interface{}
+
+	// Kwargs holds a value which can be converted to a
+	// map[string]starlark.Value, or a function which takes an instance size
+	// and returns the same
+	Kwargs interface{}
 }
 
 var _ TestGenerator = &BuiltinGenerator{}
@@ -200,7 +211,12 @@ func (bt *BuiltinGenerator) Setup(n uint) (interface{}, error) {
 	}
 
 	if bt.Recv != nil {
-		v, err := toStarlarkValue(bt.Recv(n))
+		raw := bt.Recv
+		if f, ok := bt.Recv.(func(uint) interface{}); ok {
+			raw = f(n)
+		}
+
+		v, err := toStarlarkValue(raw)
 		if err != nil {
 			return nil, fmt.Errorf("Could not convert receiver: %v", err)
 		}
@@ -210,26 +226,42 @@ func (bt *BuiltinGenerator) Setup(n uint) (interface{}, error) {
 	testCase := &builtinCall{Builtin: builtin}
 
 	if bt.Args != nil {
-		args := bt.Args(n)
+		var args []interface{}
+		if f, ok := bt.Args.(func(uint) []interface{}); ok {
+			args = f(n)
+		} else if l, ok := bt.Args.([]interface{}); ok {
+			args = l
+		} else {
+			return nil, fmt.Errorf("Args field expected []interface{} or func(n uint) []interface{}: got a %T", bt.Args)
+		}
+
 		testCase.Args = make(starlark.Tuple, len(args))
 		for i, arg := range args {
 			v, err := toStarlarkValue(arg)
 			if err != nil {
 				return nil, fmt.Errorf("Could not convert arg %d: %v", i+1, err)
 			}
-			testCase.Args = append(testCase.Args, v)
+			testCase.Args[i] = v
 		}
 	}
 	if bt.Kwargs != nil {
-		kwargs := bt.Kwargs(n)
-		testCase.Kwargs = make([]starlark.Tuple, len(kwargs))
-		for k, v := range kwargs {
-			v, err := toStarlarkValue(v)
-			if err != nil {
-				return nil, fmt.Errorf("Could not convert kwarg %s: %v", k, err)
-			}
-			pair := starlark.Tuple{starlark.String(k), v}
-			testCase.Kwargs = append(testCase.Kwargs, pair)
+		var kwargs Env
+		if f, ok := bt.Kwargs.(func(uint) Env); ok {
+			kwargs = f(n)
+		} else if m, ok := bt.Kwargs.(Env); ok {
+			kwargs = m
+		} else {
+			return nil, fmt.Errorf("Kwargs field expected map[string]interface{} or func(n uint) map[string]interface{}: got a %T", bt.Kwargs)
+		}
+
+		env, err := kwargs.ToStarlarkPredecls()
+		if err != nil {
+			return nil, fmt.Errorf("Could not convert kwargs: %v", err)
+		}
+
+		testCase.Kwargs = make([]starlark.Tuple, 0, len(kwargs))
+		for k, v := range env {
+			testCase.Kwargs = append(testCase.Kwargs, starlark.Tuple{starlark.String(k), v})
 		}
 	}
 
