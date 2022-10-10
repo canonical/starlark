@@ -174,11 +174,11 @@ type builtinCall struct {
 }
 
 func (bt *BuiltinGenerator) Setup(n uint) (interface{}, error) {
+	if bt.Builtin == nil {
+		return nil, fmt.Errorf("Expected a builtin, got nil")
+	}
 	builtin, ok := bt.Builtin.(*starlark.Builtin)
 	if !ok {
-		if bt.Builtin == nil {
-			return nil, fmt.Errorf("Expected a builtin, got nil")
-		}
 		return nil, fmt.Errorf("Expected a builtin, got a %v", bt.Builtin.Type())
 	}
 
