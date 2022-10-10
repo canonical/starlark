@@ -19,15 +19,12 @@ import (
 
 type AllocTest struct {
 	TestGenerator
-	Ns                          []uint
-	ErrorCoefficient            float64
-	ReportedAllocsTrend         Trend
-	MeasuredAllocsTrend         Trend
-	MeasuredTotalAllocsTrend    Trend
-	ReportedAllocsBounding      Bound
-	MeasuredAllocsBounding      Bound
-	MeasuredTotalAllocsBounding Bound
+	Ns               []uint
+	ErrorCoefficient float64
+	OverApproxFactor float64
+	Trend            Trend
 }
+
 type Env map[string]interface{}
 
 type TestGenerator interface {
@@ -42,14 +39,6 @@ type Trend interface {
 	At(n float64) float64
 }
 
-type Bound int
-
-const (
-	Above Bound = 1 << iota
-	Below
-	Unbounded
-)
-
 // Run tests whether allocs follow the specified trend
 func (test AllocTest) Run(t *testing.T) {
 	if err := test.init(); err != nil {
@@ -59,7 +48,6 @@ func (test AllocTest) Run(t *testing.T) {
 
 	reportedAllocs := make([]int64, len(test.Ns))
 	measuredAllocs := make([]int64, len(test.Ns))
-	measuredTotalAllocs := make([]int64, len(test.Ns))
 	for i, n := range test.Ns {
 		pre, err := test.Setup(n)
 		if err != nil {
@@ -91,19 +79,17 @@ func (test AllocTest) Run(t *testing.T) {
 
 		reportedAllocs[i] = int64(test.Measure(thread, pre, post))
 		measuredAllocs[i] = int64(after.Alloc - before.Alloc)
-		measuredTotalAllocs[i] = int64(after.TotalAlloc - before.TotalAlloc)
 	}
 
-	test.testTrend(t, "reported allocs", test.Ns, reportedAllocs, test.ReportedAllocsTrend, test.ReportedAllocsBounding)
-	test.testTrend(t, "measured allocs", test.Ns, measuredAllocs, test.MeasuredAllocsTrend, test.MeasuredAllocsBounding)
-	test.testTrend(t, "measured total allocs", test.Ns, measuredTotalAllocs, test.MeasuredTotalAllocsTrend, test.MeasuredTotalAllocsBounding)
+	test.testTrend(t, "reported allocs", test.Ns, reportedAllocs, test.Trend, 1.0)
+	test.testTrend(t, "measured allocs", test.Ns, measuredAllocs, test.Trend, test.OverApproxFactor)
 }
 
 func (test *AllocTest) init() error {
 	if test.TestGenerator == nil {
 		return errors.New("test generator undefined")
 	}
-	if test.ReportedAllocsTrend == nil {
+	if test.Trend == nil {
 		return fmt.Errorf("%s: Reported allocs not defined", test.Name())
 	}
 
@@ -114,39 +100,27 @@ func (test *AllocTest) init() error {
 			100000,
 		}
 	}
-	if test.MeasuredAllocsTrend == nil {
-		test.MeasuredAllocsTrend = test.ReportedAllocsTrend
+	if test.OverApproxFactor == 0 {
+		test.OverApproxFactor = 1 // exact
 	}
-	if test.MeasuredTotalAllocsTrend == nil {
-		test.MeasuredTotalAllocsTrend = test.ReportedAllocsTrend
+
+	if test.OverApproxFactor < 1 {
+		return fmt.Errorf("%s: over-approx factor must be at least 1: got %f", test.Name(), test.OverApproxFactor)
 	}
+
 	if test.ErrorCoefficient == 0 {
 		test.ErrorCoefficient = 0.1
 	}
 
-	if test.MeasuredAllocsBounding == 0 {
-		test.MeasuredAllocsBounding = Above | Below
-	}
-	if test.ReportedAllocsBounding == 0 {
-		test.ReportedAllocsBounding = Above | Below
-	}
-	if test.MeasuredTotalAllocsBounding == 0 {
-		test.MeasuredTotalAllocsBounding = Above
-	}
-
-	if test.ErrorCoefficient <= 0 || 1 <= test.ErrorCoefficient {
-		return fmt.Errorf("%s: invalid error coefficient: expected between 0 and 1 but got %f", test.Name(), test.ErrorCoefficient)
+	if test.ErrorCoefficient < 0 || 1 < test.ErrorCoefficient {
+		return fmt.Errorf("%s: invalid error coefficient: expected 0 < expected between 0 and 1 (inclusive) but got %f", test.Name(), test.ErrorCoefficient)
 	}
 	return nil
 }
 
 // testTrend checks that a trend was followed over a slice of instance sizes
 // and measurements.
-func (test AllocTest) testTrend(t *testing.T, measurementDesc string, ns []uint, measurements []int64, expectedTrend Trend, bound Bound) {
-	if bound&Unbounded != 0 {
-		return
-	}
-
+func (test AllocTest) testTrend(t *testing.T, measurementDesc string, ns []uint, measurements []int64, expectedTrend Trend, approximationFactor float64) {
 	expectedMeasurements := make([]float64, len(ns))
 	for i, n := range ns {
 		expectedMeasurements[i] = expectedTrend.At(float64(n))
@@ -155,9 +129,9 @@ func (test AllocTest) testTrend(t *testing.T, measurementDesc string, ns []uint,
 	for i, expected := range expectedMeasurements {
 		measured := float64(measurements[i])
 
-		tooMany := bound&Above != 0 && (1+test.ErrorCoefficient)*expected < measured
-		tooFew := bound&Below != 0 && measured < (1-test.ErrorCoefficient)*expected
-		if tooMany || tooFew {
+		tooFew := measured < (1-test.ErrorCoefficient)*(expected/approximationFactor)
+		tooMany := (1+test.ErrorCoefficient)*expected < measured
+		if tooFew || tooMany {
 			t.Errorf("%s: %s did not %s: for input sizes %v, observed %v, expected about %v", test.Name(), measurementDesc, expectedTrend.Desc(), ns, measurements, expectedMeasurements)
 			break
 		}
