@@ -25,8 +25,6 @@ type AllocTest struct {
 	Trend            Trend
 }
 
-type Env map[string]interface{}
-
 type TestGenerator interface {
 	Name() string
 	Setup(n uint) (interface{}, error)
@@ -150,11 +148,12 @@ type BuiltinGenerator struct {
 	// function which takes an instance size and returns the same
 	Args interface{}
 
-	// Kwargs holds a value which can be converted to a
-	// map[string]starlark.Value, or a function which takes an instance size
+	// Kwargs holds either an Env or a function which takes an instance size
 	// and returns the same
 	Kwargs interface{}
 }
+
+type Env map[string]interface{}
 
 var _ TestGenerator = &BuiltinGenerator{}
 
@@ -224,7 +223,7 @@ func (bt *BuiltinGenerator) Setup(n uint) (interface{}, error) {
 		} else if m, ok := bt.Kwargs.(Env); ok {
 			kwargs = m
 		} else {
-			return nil, fmt.Errorf("Kwargs field expected map[string]interface{} or func(n uint) map[string]interface{}: got a %T", bt.Kwargs)
+			return nil, fmt.Errorf("Kwargs field expected Env or func(n uint) Env: got a %T", bt.Kwargs)
 		}
 
 		env, err := kwargs.ToStarlarkPredecls()
