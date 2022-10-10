@@ -20,7 +20,7 @@ import (
 type AllocTest struct {
 	TestGenerator
 	Ns               []uint
-	ErrorCoefficient float64
+	ErrorFactor      float64
 	OverApproxFactor float64
 	Trend            Trend
 }
@@ -106,12 +106,12 @@ func (test *AllocTest) init() error {
 		return fmt.Errorf("%s: over-approx factor must be at least 1: got %f", test.Name(), test.OverApproxFactor)
 	}
 
-	if test.ErrorCoefficient == 0 {
-		test.ErrorCoefficient = 0.1
+	if test.ErrorFactor == 0 {
+		test.ErrorFactor = 0.1
 	}
 
-	if test.ErrorCoefficient < 0 || 1 < test.ErrorCoefficient {
-		return fmt.Errorf("%s: invalid error coefficient: expected 0 < expected between 0 and 1 (inclusive) but got %f", test.Name(), test.ErrorCoefficient)
+	if test.ErrorFactor < 0 || 1 < test.ErrorFactor {
+		return fmt.Errorf("%s: invalid error factor: expected 0 < expected between 0 and 1 (inclusive) but got %f", test.Name(), test.ErrorFactor)
 	}
 	return nil
 }
@@ -127,8 +127,8 @@ func (test AllocTest) testTrend(t *testing.T, measurementDesc string, ns []uint,
 	for i, expected := range expectedMeasurements {
 		measured := float64(measurements[i])
 
-		tooFew := measured < (1-test.ErrorCoefficient)*(expected/approximationFactor)
-		tooMany := (1+test.ErrorCoefficient)*expected < measured
+		tooFew := measured < (1-test.ErrorFactor)*(expected/approximationFactor)
+		tooMany := (1+test.ErrorFactor)*expected < measured
 		if tooFew || tooMany {
 			t.Errorf("%s: %s did not %s: for input sizes %v, observed %v, expected about %v", test.Name(), measurementDesc, expectedTrend.Desc(), ns, measurements, expectedMeasurements)
 			break
