@@ -37,8 +37,19 @@ type AllocTest struct {
 
 type TestGenerator interface {
 	Name() string
+
+	// Setup prepares values for use in the test. Any values which create
+	// allocations but which should not be accounted in the test should be
+	// created here.
 	Setup(n uint) (ctx interface{}, err error)
+
+	// Run takes the context from Setup and performs a computation whose
+	// allocations are measured. The result of this computation must be
+	// returned to avoid it being garbage-collected.
 	Run(ctx interface{}) (result interface{}, err error)
+
+	// Measure reports the number of allocations counted, to be tested against
+	// reality.
 	Measure(ctx, result interface{}) uint64
 }
 
