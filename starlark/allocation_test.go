@@ -19,10 +19,20 @@ import (
 
 type AllocTest struct {
 	TestGenerator
-	Ns               []uint
-	ErrorFactor      float64
+
+	// Ns is an optional slice of instance sizes to test.
+	Ns []uint
+
+	// ErrorFactor defines a margin for error. Defaults to 10%.
+	ErrorFactor float64
+
+	// OverApproxFactor gives the greatest acceptable ratio between the
+	// reported allocations and the measured allocations. By default, we test
+	// that these are identical.
 	OverApproxFactor float64
-	Trend            Trend
+
+	// Trend specifies the expected number of reported allocations.
+	Trend Trend
 }
 
 type TestGenerator interface {
