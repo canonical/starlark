@@ -27,9 +27,9 @@ type AllocTest struct {
 
 type TestGenerator interface {
 	Name() string
-	Setup(n uint) (interface{}, error)
-	Run(t *testing.T, thread *starlark.Thread, pre interface{}) (interface{}, error)
-	Measure(thread *starlark.Thread, pre, post interface{}) uint64
+	Setup(n uint) (ctx interface{}, err error)
+	Run(ctx interface{}) (result interface{}, err error)
+	Measure(ctx, result interface{}) uint64
 }
 
 type Trend interface {
@@ -47,7 +47,7 @@ func (test AllocTest) Run(t *testing.T) {
 	reportedAllocs := make([]int64, len(test.Ns))
 	measuredAllocs := make([]int64, len(test.Ns))
 	for i, n := range test.Ns {
-		pre, err := test.Setup(n)
+		ctx, err := test.Setup(n)
 		if err != nil {
 			t.Errorf("%s: Unexpected error during setup: %v", test.Name(), err)
 			return
@@ -61,7 +61,7 @@ func (test AllocTest) Run(t *testing.T) {
 		runtime.GC()
 		runtime.ReadMemStats(&before)
 
-		post, err := test.TestGenerator.Run(t, thread, pre)
+		result, err := test.TestGenerator.Run(ctx)
 		if err != nil {
 			t.Errorf("%s: Unexpected error: %v", test.Name(), err)
 			return
@@ -71,11 +71,11 @@ func (test AllocTest) Run(t *testing.T) {
 		runtime.GC()
 		runtime.ReadMemStats(&after)
 
-		runtime.KeepAlive(pre)
+		runtime.KeepAlive(ctx)
 		runtime.KeepAlive(thread)
-		runtime.KeepAlive(post)
+		runtime.KeepAlive(result)
 
-		reportedAllocs[i] = int64(test.Measure(thread, pre, post))
+		reportedAllocs[i] = int64(test.Measure(ctx, result))
 		measuredAllocs[i] = int64(after.Alloc - before.Alloc)
 	}
 
@@ -168,6 +168,7 @@ func (bt *BuiltinGenerator) Name() string {
 }
 
 type builtinCall struct {
+	Thread  *starlark.Thread
 	Builtin *starlark.Builtin
 	Args    starlark.Tuple
 	Kwargs  []starlark.Tuple
@@ -182,6 +183,10 @@ func (bt *BuiltinGenerator) Setup(n uint) (interface{}, error) {
 		return nil, fmt.Errorf("Expected a builtin, got a %v", bt.Builtin.Type())
 	}
 
+	ctx := &builtinCall{Builtin: builtin}
+
+	ctx.Thread = &starlark.Thread{}
+
 	if bt.Recv != nil {
 		raw := bt.Recv
 		if f, ok := bt.Recv.(func(uint) interface{}); ok {
@@ -192,10 +197,8 @@ func (bt *BuiltinGenerator) Setup(n uint) (interface{}, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Could not convert receiver: %v", err)
 		}
-		builtin = builtin.BindReceiver(v)
+		ctx.Builtin = ctx.Builtin.BindReceiver(v)
 	}
-
-	testCase := &builtinCall{Builtin: builtin}
 
 	if bt.Args != nil {
 		var args []interface{}
@@ -207,13 +210,13 @@ func (bt *BuiltinGenerator) Setup(n uint) (interface{}, error) {
 			return nil, fmt.Errorf("Args field expected []interface{} or func(n uint) []interface{}: got a %T", bt.Args)
 		}
 
-		testCase.Args = make(starlark.Tuple, len(args))
+		ctx.Args = make(starlark.Tuple, len(args))
 		for i, arg := range args {
 			v, err := toStarlarkValue(arg)
 			if err != nil {
 				return nil, fmt.Errorf("Could not convert arg %d: %v", i+1, err)
 			}
-			testCase.Args[i] = v
+			ctx.Args[i] = v
 		}
 	}
 	if bt.Kwargs != nil {
@@ -231,22 +234,22 @@ func (bt *BuiltinGenerator) Setup(n uint) (interface{}, error) {
 			return nil, fmt.Errorf("Could not convert kwargs: %v", err)
 		}
 
-		testCase.Kwargs = make([]starlark.Tuple, 0, len(kwargs))
+		ctx.Kwargs = make([]starlark.Tuple, 0, len(kwargs))
 		for k, v := range env {
-			testCase.Kwargs = append(testCase.Kwargs, starlark.Tuple{starlark.String(k), v})
+			ctx.Kwargs = append(ctx.Kwargs, starlark.Tuple{starlark.String(k), v})
 		}
 	}
 
-	return testCase, nil
+	return ctx, nil
 }
 
-func (bt *BuiltinGenerator) Run(t *testing.T, thread *starlark.Thread, pre interface{}) (interface{}, error) {
-	testCase := pre.(*builtinCall)
-	return testCase.Builtin.CallInternal(thread, testCase.Args, testCase.Kwargs)
+func (bt *BuiltinGenerator) Run(ctx interface{}) (interface{}, error) {
+	ctx_ := ctx.(*builtinCall)
+	return ctx_.Builtin.CallInternal(ctx_.Thread, ctx_.Args, ctx_.Kwargs)
 }
 
-func (bt *BuiltinGenerator) Measure(thread *starlark.Thread, pre, post interface{}) uint64 {
-	return thread.Allocs()
+func (bt *BuiltinGenerator) Measure(ctx, result interface{}) uint64 {
+	return ctx.(*builtinCall).Thread.Allocs()
 }
 
 var _ TestGenerator = &BuiltinGenerator{}
