@@ -65,6 +65,19 @@ func (test AllocTest) Run(t *testing.T) {
 		return
 	}
 
+	// Dry run
+	maxN := uint(0)
+	for _, n := range test.Ns {
+		if maxN < n {
+			maxN = n
+		}
+	}
+	if ctx, err := test.TestGenerator.Setup(maxN); err == nil {
+		if result, err := test.TestGenerator.Run(ctx); err == nil {
+			runtime.KeepAlive(result)
+		}
+	}
+
 	reportedAllocs := make([]int64, len(test.Ns))
 	measuredAllocs := make([]int64, len(test.Ns))
 	for i, n := range test.Ns {
