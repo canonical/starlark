@@ -154,18 +154,23 @@ func (test *AllocTest) init() error {
 // testTrend checks that a trend was followed over a slice of instance sizes
 // and measurements.
 func (test AllocTest) testTrend(t *testing.T, measurementDesc string, ns []uint, measurements []int64, expectedTrend Trend, approximationFactor float64) {
-	expectedMeasurements := make([]float64, len(ns))
+	maxesExpected := make([]float64, len(ns))
+	minsExpected := make([]float64, len(ns))
 	for i, n := range ns {
-		expectedMeasurements[i] = expectedTrend.At(float64(n))
+		maxesExpected[i] = expectedTrend.At(float64(n))
+		minsExpected[i] = maxesExpected[i] / approximationFactor
 	}
 
-	for i, expected := range expectedMeasurements {
-		measured := float64(measurements[i])
+	for i, measured := range measurements {
+		measured := float64(measured)
+		maxExpected := maxesExpected[i]
+		minExpected := minsExpected[i]
 
-		tooFew := measured < (1-test.ErrorFactor)*(expected/approximationFactor)
-		tooMany := (1+test.ErrorFactor)*expected < measured
-		if tooFew || tooMany {
-			t.Errorf("%s: %s did not %s: for input sizes %v, observed %v, expected about %v", test.Name(), measurementDesc, expectedTrend.Desc(), ns, measurements, expectedMeasurements)
+		if measured > (1+test.ErrorFactor)*maxExpected {
+			t.Errorf("%s: %s did not %s: for input sizes %v, observed %v, expected at most %v (within error factor %.2f)", test.Name(), measurementDesc, expectedTrend.Desc(), ns, measurements, maxesExpected, test.ErrorFactor)
+			break
+		} else if measured < (1-test.ErrorFactor)*minExpected {
+			t.Errorf("%s: %s did not %s: for input sizes %v, observed %v, expected at least %v (within error factor %.2f)", test.Name(), measurementDesc, expectedTrend.Desc(), ns, measurements, minsExpected, test.ErrorFactor)
 			break
 		}
 	}
