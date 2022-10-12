@@ -74,8 +74,6 @@ func (test AllocTest) Run(t *testing.T) {
 			return
 		}
 
-		thread := &starlark.Thread{}
-
 		var before, after runtime.MemStats
 
 		runtime.GC()
@@ -93,7 +91,6 @@ func (test AllocTest) Run(t *testing.T) {
 		runtime.ReadMemStats(&after)
 
 		runtime.KeepAlive(ctx)
-		runtime.KeepAlive(thread)
 		runtime.KeepAlive(result)
 
 		reportedAllocs[i] = int64(test.Measure(ctx, result))
