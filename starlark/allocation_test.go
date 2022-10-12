@@ -23,12 +23,12 @@ type AllocTest struct {
 	// Ns is an optional slice of instance sizes to test.
 	Ns []uint
 
-	// ErrorFactor defines a margin for error. Defaults to 10%.
+	// ErrorFactor is optional and defines a margin for error. Defaults to 10%.
 	ErrorFactor float64
 
-	// OverApproxFactor gives the greatest acceptable ratio between the
-	// reported allocations and the measured allocations. By default, we test
-	// that these are identical.
+	// OverApproxFactor is optional and gives the greatest acceptable ratio
+	// between the reported allocations and the measured allocations. By
+	// default, we test that these are identical.
 	OverApproxFactor float64
 
 	// Trend specifies the expected number of reported allocations.
