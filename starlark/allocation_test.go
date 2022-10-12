@@ -116,6 +116,10 @@ func (test *AllocTest) init() error {
 			100000,
 		}
 	}
+	if len(test.Ns) == 0 {
+		return fmt.Errorf("Expected at least 1 instance sizes: got %d", len(test.Ns))
+	}
+
 	if test.OverApproxFactor == 0 {
 		test.OverApproxFactor = 1 // exact
 	}
