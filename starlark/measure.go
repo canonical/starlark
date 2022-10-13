@@ -60,7 +60,7 @@ func GetAllocSize(size uintptr) uintptr {
 
 // Simple types
 
-func measureType(t reflect.Type) uintptr {
+func estimateTypeSize(t reflect.Type) uintptr {
 	switch t.Kind() {
 	case reflect.Bool, reflect.Int8, reflect.Uint8:
 		return 0
@@ -70,11 +70,11 @@ func measureType(t reflect.Type) uintptr {
 	}
 }
 
-func measureSlice(v reflect.Value) uintptr {
-	return GetAllocSize(measureType(v.Type().Elem()) * uintptr(v.Cap()))
+func estimateSlice(v reflect.Value) uintptr {
+	return GetAllocSize(estimateTypeSize(v.Type().Elem()) * uintptr(v.Cap()))
 }
 
-func measureChan(v reflect.Value) uintptr {
+func estimateChan(v reflect.Value) uintptr {
 	elementType := v.Type().Elem()
 	// This is a pessimistic view since in case of
 	// an elementType that doesn't contain any pointer it
@@ -114,7 +114,7 @@ func getMapK2(k, v uintptr) uintptr {
 // For this reason, we decided to take the "experimental" route,
 // collecting data from different classes of key/value sizes
 // and finding a pessimistic allocating function.
-func measureMap(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
+func estimateMap(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	// The approximation is just a line in the form of
 	// y = k1 + k2*x
 	// Where x is the capacity, y the size and k1, k2 are constants.
@@ -147,61 +147,61 @@ func measureMap(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 		// Now visit all key-value pairs.
 		iter := v.MapRange()
 		for iter.Next() {
-			result += measureIndirect(iter.Key(), ptrs)
-			result += measureIndirect(iter.Value(), ptrs)
+			result += estimateIndirect(iter.Key(), ptrs)
+			result += estimateIndirect(iter.Value(), ptrs)
 		}
 	}
 
 	return result
 }
 
-func measureSliceValues(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
+func estimateSliceValues(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 
 	if ptrs != nil {
 		for i := 0; i < v.Len(); i++ {
-			result += measureIndirect(v.Index(i), ptrs)
+			result += estimateIndirect(v.Index(i), ptrs)
 		}
 	}
 
 	return result
 }
 
-func measureStructFields(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
+func estimateStructFields(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
 
-		result += measureValue(field, ptrs)
+		result += estimateSize(field, ptrs)
 
 	}
 
 	return result
 }
 
-func measureIndirect(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
+func estimateIndirect(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	switch v.Kind() {
 	case reflect.Ptr, reflect.Interface:
-		return measureValue(v.Elem(), ptrs)
+		return estimateSize(v.Elem(), ptrs)
 	case reflect.Map:
-		return measureMap(v, ptrs)
+		return estimateMap(v, ptrs)
 	case reflect.Slice:
-		return measureSliceValues(v, ptrs)
+		return estimateSliceValues(v, ptrs)
 	case reflect.Chan:
-		return measureChan(v)
+		return estimateChan(v)
 	default:
 		return 0
 	}
 }
 
-func measureValue(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
-	result := measureType(v.Type())
+func estimateSize(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
+	result := estimateTypeSize(v.Type())
 
 	switch v.Kind() {
 	case reflect.String:
 		result = GetAllocSize(uintptr(v.Len()))
 	case reflect.Slice:
-		result = measureSlice(v)
+		result = estimateSlice(v)
 	}
 
 	if ptrs != nil {
@@ -211,14 +211,14 @@ func measureValue(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 			if _, ok := ptrs[ptr]; !ok {
 				ptrs[ptr] = struct{}{}
 				defer delete(ptrs, ptr)
-				result += measureIndirect(v, ptrs)
+				result += estimateIndirect(v, ptrs)
 			}
 
 		case reflect.Struct:
-			result += measureStructFields(v, ptrs)
+			result += estimateStructFields(v, ptrs)
 
 		case reflect.Array:
-			result += measureSliceValues(v, ptrs)
+			result += estimateSliceValues(v, ptrs)
 		}
 	}
 
@@ -228,18 +228,18 @@ func measureValue(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 // public interface
 
 // Returns the size of the type of value pointed by obj
-func MeasureType(obj interface{}) uintptr {
-	return measureType(reflect.TypeOf(obj))
+func EstimateTypeSize(obj interface{}) uintptr {
+	return estimateTypeSize(reflect.TypeOf(obj))
 }
 
 // Returns the size of the value pointed by obj, without
 // taking into account eventual nested members
-func MeasureValue(obj interface{}) uintptr {
-	return measureValue(reflect.ValueOf(obj), nil)
+func EstimateSize(obj interface{}) uintptr {
+	return estimateSize(reflect.ValueOf(obj), nil)
 }
 
 // Returns the size of the value pointed by obj, taking
 // into account the whole object tree
-func MeasureValueDeep(obj interface{}) uintptr {
-	return measureValue(reflect.ValueOf(obj), make(map[uintptr]struct{}))
+func EstimateSizeDeep(obj interface{}) uintptr {
+	return estimateSize(reflect.ValueOf(obj), make(map[uintptr]struct{}))
 }
