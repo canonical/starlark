@@ -65,49 +65,38 @@ func (test AllocTest) Run(t *testing.T) {
 		return
 	}
 
-	// Dry run
-	maxN := uint(0)
-	for _, n := range test.Ns {
-		if maxN < n {
-			maxN = n
-		}
-	}
-	if ctx, err := test.TestGenerator.Setup(maxN); err == nil {
-		if result, err := test.TestGenerator.Run(ctx); err == nil {
-			runtime.KeepAlive(result)
-		}
-	}
-
 	reportedAllocs := make([]int64, len(test.Ns))
 	measuredAllocs := make([]int64, len(test.Ns))
-	for i, n := range test.Ns {
-		ctx, err := test.Setup(n)
-		if err != nil {
-			t.Errorf("%s: Unexpected error during setup: %v", test.Name(), err)
-			return
+	for repetitions := 0; repetitions < 2; repetitions++ {
+		for i, n := range test.Ns {
+			ctx, err := test.Setup(n)
+			if err != nil {
+				t.Errorf("%s: Unexpected error during setup: %v", test.Name(), err)
+				return
+			}
+
+			var before, after runtime.MemStats
+
+			runtime.GC()
+			runtime.GC()
+			runtime.ReadMemStats(&before)
+
+			result, err := test.TestGenerator.Run(ctx)
+			if err != nil {
+				t.Errorf("%s: Unexpected error: %v", test.Name(), err)
+				return
+			}
+
+			runtime.GC()
+			runtime.GC()
+			runtime.ReadMemStats(&after)
+
+			runtime.KeepAlive(ctx)
+			runtime.KeepAlive(result)
+
+			reportedAllocs[i] = int64(test.Measure(ctx, result))
+			measuredAllocs[i] = int64(after.Alloc - before.Alloc)
 		}
-
-		var before, after runtime.MemStats
-
-		runtime.GC()
-		runtime.GC()
-		runtime.ReadMemStats(&before)
-
-		result, err := test.TestGenerator.Run(ctx)
-		if err != nil {
-			t.Errorf("%s: Unexpected error: %v", test.Name(), err)
-			return
-		}
-
-		runtime.GC()
-		runtime.GC()
-		runtime.ReadMemStats(&after)
-
-		runtime.KeepAlive(ctx)
-		runtime.KeepAlive(result)
-
-		reportedAllocs[i] = int64(test.Measure(ctx, result))
-		measuredAllocs[i] = int64(after.Alloc - before.Alloc)
 	}
 
 	test.testTrend(t, "reported allocs", test.Ns, reportedAllocs, test.Trend, 1.0)
