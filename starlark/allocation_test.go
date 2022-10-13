@@ -174,6 +174,152 @@ func (test AllocTest) testTrend(t *testing.T, measurementDesc string, ns []uint,
 			break
 		}
 	}
+
+}
+
+func (test AllocTest) succeeds() bool {
+	t := testing.T{}
+	test.Run(&t)
+	return !t.Failed()
+}
+
+type allocTestDummyGenerator struct {
+	name      string
+	implScale float64
+}
+
+var _ TestGenerator = &allocTestDummyGenerator{}
+
+func (test *allocTestDummyGenerator) Name() string                      { return test.name }
+func (test *allocTestDummyGenerator) Setup(n uint) (interface{}, error) { return n, nil }
+func (test *allocTestDummyGenerator) Run(ctx interface{}) (interface{}, error) {
+	return make([]byte, uint(float64(ctx.(uint))*test.implScale)), nil
+}
+func (test *allocTestDummyGenerator) Measure(ctx, _ interface{}) uint64 {
+	return uint64(ctx.(uint))
+}
+
+func TestAllocTest(t *testing.T) {
+	t.Run("test=missing fields", func(t *testing.T) {
+		if test := (AllocTest{Trend: Constant{}}); test.succeeds() {
+			t.Error("Expected failure when missing generator")
+		}
+
+		if test := (AllocTest{TestGenerator: &BuiltinGenerator{}}); test.succeeds() {
+			t.Error("Expected failure when missing trend")
+		}
+	})
+
+	t.Run("test=normal usage", func(t *testing.T) {
+		AllocTest{
+			TestGenerator: &allocTestDummyGenerator{"normal usage", 1},
+			Trend:         Linear{1},
+		}.Run(t)
+
+		tooManyAllocs := AllocTest{
+			TestGenerator: &allocTestDummyGenerator{"normal usage (too many)", 2},
+			Trend:         Linear{1},
+		}
+		if tooManyAllocs.succeeds() {
+			t.Error("Expected failure when too many allocs are made")
+		}
+
+		tooFewAllocs := AllocTest{
+			TestGenerator: &allocTestDummyGenerator{"normal usage (too few)", 1},
+			Trend:         Linear{2},
+		}
+		if tooFewAllocs.succeeds() {
+			t.Error("Expected failure when too many allocs are made")
+		}
+	})
+
+	t.Run("test=Ns", func(t *testing.T) {
+		AllocTest{
+			TestGenerator: &allocTestDummyGenerator{"valid", 1},
+			Trend:         Linear{1},
+			Ns:            []uint{10000, 1000000},
+		}.Run(t)
+
+		invalidNs := AllocTest{
+			TestGenerator: &allocTestDummyGenerator{"invalid", 1},
+			Trend:         Linear{1},
+			Ns:            []uint{},
+		}
+		if invalidNs.succeeds() {
+			t.Error("Expected failure for invalid ns")
+		}
+	})
+
+	t.Run("test=error factor", func(t *testing.T) {
+		AllocTest{ // Above trend, within default error
+			TestGenerator: &allocTestDummyGenerator{"error factor (above, ok, default)", 1.05},
+			Trend:         Linear{1},
+		}.Run(t)
+		AllocTest{ // Below trend, within default error
+			TestGenerator: &allocTestDummyGenerator{"error factor (below, ok, default)", 0.95},
+			Trend:         Linear{1},
+		}.Run(t)
+		AllocTest{ // Above trend, within error
+			TestGenerator: &allocTestDummyGenerator{"error factor (above, ok, relaxed)", 1.15},
+			Trend:         Linear{1},
+			ErrorFactor:   0.25,
+		}.Run(t)
+		AllocTest{ // Above trend, within error
+			TestGenerator: &allocTestDummyGenerator{"error factor (below, ok, relaxed)", 0.85},
+			Trend:         Linear{1},
+			ErrorFactor:   0.25,
+		}.Run(t)
+
+		tooManyAllocs := AllocTest{
+			TestGenerator: &allocTestDummyGenerator{"error factor (too many)", 1.9},
+			Trend:         Linear{1},
+			ErrorFactor:   0.25,
+		}
+		if tooManyAllocs.succeeds() {
+			t.Error("Expected failure at too many allocs")
+		}
+
+		tooFewAllocs := AllocTest{
+			TestGenerator: &allocTestDummyGenerator{"error factor (too few)", 0.1},
+			Trend:         Linear{1},
+			ErrorFactor:   0.25,
+		}
+		if tooFewAllocs.succeeds() {
+			t.Error("Expected failure at too few allocs")
+		}
+	})
+
+	t.Run("test=approximation factor", func(t *testing.T) {
+		AllocTest{ // No difference accepted
+			TestGenerator:    &allocTestDummyGenerator{"approx factor (default)", 1},
+			Trend:            Linear{1},
+			OverApproxFactor: 1,
+		}.Run(t)
+
+		AllocTest{ // Bound relaxed below expectation
+			TestGenerator:    &allocTestDummyGenerator{"approx factor (below, ok)", 0.5},
+			Trend:            Linear{1},
+			OverApproxFactor: 2,
+		}.Run(t)
+
+		tooManyAllocs := AllocTest{ // Bound not relaxed below expectation
+			TestGenerator:    &allocTestDummyGenerator{"approx factor (above expected)", 1.5},
+			Trend:            Linear{1},
+			OverApproxFactor: 2,
+		}
+		if tooManyAllocs.succeeds() {
+			t.Error("Expected failure at too many allocs")
+		}
+
+		tooFewAllocs := AllocTest{
+			TestGenerator:    &allocTestDummyGenerator{"approx factor (too far below)", 0.1},
+			Trend:            Linear{1},
+			OverApproxFactor: 2,
+		}
+		if tooFewAllocs.succeeds() {
+			t.Error("Expected failure at too many allocs")
+		}
+	})
 }
 
 type BuiltinGenerator struct {
