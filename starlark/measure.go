@@ -14,16 +14,25 @@ const (
 	numSizeClasses = 68
 	pageShift      = 13
 	pageSize       = 1 << pageShift
-	interfaceSize  = unsafe.Sizeof(interface{}(nil))
 )
 
 var class_to_size = [numSizeClasses]uint16{0, 8, 16, 24, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 288, 320, 352, 384, 416, 448, 480, 512, 576, 640, 704, 768, 896, 1024, 1152, 1280, 1408, 1536, 1792, 2048, 2304, 2688, 3072, 3200, 3456, 4096, 4864, 5376, 6144, 6528, 6784, 6912, 8192, 9472, 9728, 10240, 10880, 12288, 13568, 14336, 16384, 18432, 19072, 20480, 21760, 24576, 27264, 28672, 32768}
 var size_to_class8 = [smallSizeMax/smallSizeDiv + 1]uint8{0, 1, 2, 3, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 21, 22, 22, 22, 22, 23, 23, 23, 23, 24, 24, 24, 24, 25, 25, 25, 25, 26, 26, 26, 26, 27, 27, 27, 27, 27, 27, 27, 27, 28, 28, 28, 28, 28, 28, 28, 28, 29, 29, 29, 29, 29, 29, 29, 29, 30, 30, 30, 30, 30, 30, 30, 30, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32}
 var size_to_class128 = [(maxSmallSize-smallSizeMax)/largeSizeDiv + 1]uint8{32, 33, 34, 35, 36, 37, 37, 38, 38, 39, 39, 40, 40, 40, 41, 41, 41, 42, 43, 43, 44, 44, 44, 44, 44, 45, 45, 45, 45, 45, 45, 46, 46, 46, 46, 47, 47, 47, 47, 47, 47, 48, 48, 48, 49, 49, 50, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 52, 52, 52, 52, 52, 52, 52, 52, 52, 52, 53, 53, 54, 54, 54, 54, 55, 55, 55, 55, 55, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 57, 57, 57, 57, 57, 57, 57, 57, 57, 57, 58, 58, 58, 58, 58, 58, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 61, 61, 61, 61, 61, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67}
 
-const (
-	chanSize = 10 * unsafe.Sizeof(int(0))
-)
+// Helpers
+
+func max(a, b uintptr) uintptr {
+	if a > b {
+		return a
+	} else {
+		return b
+	}
+}
+
+func nextPow2(a uintptr) uintptr {
+	return 1 << (bits.UintSize - bits.LeadingZeros(uint(a)))
+}
 
 func alignUp(n, a uintptr) uintptr {
 	return (n + a - 1) &^ (a - 1)
@@ -33,6 +42,8 @@ func divRoundUp(n, a uintptr) uintptr {
 	return (n + a - 1) / a
 }
 
+// Returns the size of an allocation, taking
+// into account the class sizes of the GC
 func GetAllocSize(size uintptr) uintptr {
 	if size < maxSmallSize {
 		if size <= smallSizeMax-8 {
@@ -47,56 +58,46 @@ func GetAllocSize(size uintptr) uintptr {
 	return alignUp(size, pageSize)
 }
 
+// Simple types
+
 func measureType(t reflect.Type) uintptr {
 	switch t.Kind() {
 	case reflect.Bool, reflect.Int8, reflect.Uint8:
 		return 0
 
-	case reflect.Int, reflect.Uint, reflect.Uintptr,
-		reflect.UnsafePointer, reflect.Ptr, reflect.Int16,
-		reflect.Uint16, reflect.Int32, reflect.Uint32,
-		reflect.Float32, reflect.Int64, reflect.Uint64,
-		reflect.Float64, reflect.Complex64, reflect.Complex128,
-		reflect.Struct, reflect.Array, reflect.Map,
-		reflect.Chan, reflect.Func:
+	default:
 		return GetAllocSize(t.Size())
-
-	case reflect.Interface:
-		return interfaceSize
-	}
-
-	panic("Unknown type")
-}
-
-func MeasureType(obj interface{}) uintptr {
-	return measureType(reflect.TypeOf(obj))
-}
-
-func max(a, b uintptr) uintptr {
-	if a > b {
-		return a
-	} else {
-		return b
 	}
 }
 
-func nextPow2(a uintptr) uintptr {
-	return 1 << (bits.UintSize - bits.LeadingZeros(uint(a)))
+func measureSlice(v reflect.Value) uintptr {
+	return GetAllocSize(measureType(v.Type().Elem()) * uintptr(v.Cap()))
 }
+
+func measureChan(v reflect.Value) uintptr {
+	elementType := v.Type().Elem()
+	// This is a pessimistic view since in case of
+	// an elementType that doesn't contain any pointer it
+	// will be allocated in a single bigger block (leading
+	// to a single GetAllocSize call).
+	return GetAllocSize(10*unsafe.Sizeof(int(0))) + GetAllocSize(uintptr(v.Cap())*elementType.Size())
+}
+
+// Recursive types
 
 // There is a little complexity here : if the key and the
 // value are too big they get allocated separately and only
 // the pointer is stored.
-func getK2(k, v uintptr) uintptr {
+func getMapK2(k, v uintptr) uintptr {
 	const maxElementSize = 128
 	if k < 128 && v < 128 {
 		return (k+v+1)*4 + unsafe.Sizeof(uintptr(0))
 	} else if k < 128 {
-		return getK2(k, 8) + v
+		return getMapK2(k, 8) + v
 	} else if v < 128 {
-		return getK2(8, v) + k
+		return getMapK2(8, v) + k
 	} else {
-		return getK2(8, 8) + k + v
+		return getMapK2(8, 8) + k + v
 	}
 }
 
@@ -113,7 +114,7 @@ func getK2(k, v uintptr) uintptr {
 // For this reason, we decided to take the "experimental" route,
 // collecting data from different classes of key/value sizes
 // and finding a pessimistic allocating function.
-func measureMap(v reflect.Value, loops map[uintptr]struct{}) uintptr {
+func measureMap(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	// The approximation is just a line in the form of
 	// y = k1 + k2*x
 	// Where x is the capacity, y the size and k1, k2 are constants.
@@ -142,91 +143,103 @@ func measureMap(v reflect.Value, loops map[uintptr]struct{}) uintptr {
 
 	result := GetAllocSize(uintptr(v.Len())*k2) + k1
 
-	if loops != nil {
+	if ptrs != nil {
 		// Now visit all key-value pairs.
 		iter := v.MapRange()
 		for iter.Next() {
-			result += measureValue(iter.Key(), loops)
-			result += measureValue(iter.Value(), loops)
+			result += measureIndirect(iter.Key(), ptrs)
+			result += measureIndirect(iter.Value(), ptrs)
 		}
 	}
 
 	return result
 }
 
-func measureSliceValues(v reflect.Value, loops map[uintptr]struct{}) uintptr {
+func measureSliceValues(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 
-	if loops != nil {
+	if ptrs != nil {
 		for i := 0; i < v.Len(); i++ {
-			result += measureValue(v.Index(i), loops)
+			result += measureIndirect(v.Index(i), ptrs)
 		}
 	}
 
 	return result
 }
 
-func measureValue(v reflect.Value, loops map[uintptr]struct{}) uintptr {
-	if loops != nil {
-		switch v.Kind() {
-		case reflect.Ptr, reflect.Chan, reflect.Map, reflect.UnsafePointer, reflect.Slice:
-			ptr := v.Pointer()
-			if _, ok := loops[ptr]; ok {
-				return 0 // Already passed here
-			} else {
-				loops[ptr] = struct{}{}
-				defer delete(loops, ptr)
-			}
-		}
-	}
+func measureStructFields(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
+	result := uintptr(0)
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
 
-	switch v.Kind() {
-	case reflect.Chan:
-		elementType := v.Type().Elem()
-		// This is a pessimistic view since in case of
-		// an elementType that doesn't contain any pointer it
-		// will be allocated in a single bigger block (leading
-		// to a single GetAllocSize call).
-		return GetAllocSize(chanSize) + GetAllocSize(uintptr(v.Cap())*elementType.Size())
-	case reflect.Map:
-		return measureMap(v, loops)
-
-	case reflect.Array:
-		if loops != nil {
-			return measureSliceValues(v, loops) + measureType(v.Type())
-		} else {
-			return measureType(v.Type())
-		}
-
-	case reflect.Ptr:
-		if loops != nil {
-			return measureValue(v.Elem(), loops)
-		}
-
-	case reflect.Slice:
-		elementType := v.Type().Elem()
-		elementSize := max(measureType(elementType), elementType.Size())
-
-		result := v.Type().Size() + GetAllocSize(elementSize*uintptr(v.Cap()))
-
-		if loops != nil {
-			return result + measureSliceValues(v, loops)
-		} else {
-			return result
-		}
-
-	case reflect.String:
-		return v.Type().Size() + GetAllocSize(uintptr(v.Len()))
+		result += measureValue(field, ptrs)
 
 	}
 
-	return measureType(v.Type())
+	return result
 }
 
+func measureIndirect(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
+	switch v.Kind() {
+	case reflect.Ptr, reflect.Interface:
+		return measureValue(v.Elem(), ptrs)
+	case reflect.Map:
+		return measureMap(v, ptrs)
+	case reflect.Slice:
+		return measureSliceValues(v, ptrs)
+	case reflect.Chan:
+		return measureChan(v)
+	default:
+		return 0
+	}
+}
+
+func measureValue(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
+	result := measureType(v.Type())
+
+	switch v.Kind() {
+	case reflect.String:
+		result = GetAllocSize(uintptr(v.Len()))
+	case reflect.Slice:
+		result = measureSlice(v)
+	}
+
+	if ptrs != nil {
+		switch v.Kind() {
+		case reflect.Ptr, reflect.Chan, reflect.Map, reflect.Slice:
+			ptr := v.Pointer()
+			if _, ok := ptrs[ptr]; !ok {
+				ptrs[ptr] = struct{}{}
+				defer delete(ptrs, ptr)
+				result += measureIndirect(v, ptrs)
+			}
+
+		case reflect.Struct:
+			result += measureStructFields(v, ptrs)
+
+		case reflect.Array:
+			result += measureSliceValues(v, ptrs)
+		}
+	}
+
+	return result
+}
+
+// public interface
+
+// Returns the size of the type of value pointed by obj
+func MeasureType(obj interface{}) uintptr {
+	return measureType(reflect.TypeOf(obj))
+}
+
+// Returns the size of the value pointed by obj, without
+// taking into account eventual nested members
 func MeasureValue(obj interface{}) uintptr {
 	return measureValue(reflect.ValueOf(obj), nil)
 }
 
+// Returns the size of the value pointed by obj, taking
+// into account the whole object tree
 func MeasureValueDeep(obj interface{}) uintptr {
 	return measureValue(reflect.ValueOf(obj), make(map[uintptr]struct{}))
 }
