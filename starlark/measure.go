@@ -113,7 +113,7 @@ func getK2(k, v uintptr) uintptr {
 // For this reason, we decided to take the "experimental" route,
 // collecting data from different classes of key/value sizes
 // and finding a pessimistic allocating function.
-func measureMap(v reflect.Value, recursive bool) uintptr {
+func measureMap(v reflect.Value, loops map[uintptr]struct{}) uintptr {
 	// The approximation is just a line in the form of
 	// y = k1 + k2*x
 	// Where x is the capacity, y the size and k1, k2 are constants.
@@ -142,19 +142,33 @@ func measureMap(v reflect.Value, recursive bool) uintptr {
 
 	result := GetAllocSize(uintptr(v.Len())*k2) + k1
 
-	if recursive {
+	if loops != nil {
 		// Now visit all key-value pairs.
 		iter := v.MapRange()
 		for iter.Next() {
-			result += measureValue(iter.Key(), true)
-			result += measureValue(iter.Value(), true)
+			result += measureValue(iter.Key(), loops)
+			result += measureValue(iter.Value(), loops)
 		}
 	}
 
 	return result
 }
 
-func measureValue(v reflect.Value, recursive bool) uintptr {
+
+func measureValue(v reflect.Value, loops map[uintptr]struct{}) uintptr {
+	if loops != nil {
+		switch v.Kind() {
+		case reflect.Ptr, reflect.Chan, reflect.Map, reflect.UnsafePointer, reflect.Slice:
+			ptr := v.Pointer()
+			if _, ok := loops[ptr]; ok {
+				return 0 // Already passed here
+			} else {
+				loops[ptr] = struct{}{}
+				defer delete(loops, ptr)
+			}
+		}
+	}
+
 	switch v.Kind() {
 	case reflect.Chan:
 		elementType := v.Type().Elem()
@@ -164,7 +178,7 @@ func measureValue(v reflect.Value, recursive bool) uintptr {
 		// to a single GetAllocSize call).
 		return GetAllocSize(chanSize) + GetAllocSize(uintptr(v.Cap())*elementType.Size())
 	case reflect.Map:
-		return measureMap(v, recursive)
+		return measureMap(v, loops)
 
 	case reflect.Slice:
 		elementType := v.Type().Elem()
@@ -173,15 +187,16 @@ func measureValue(v reflect.Value, recursive bool) uintptr {
 
 	case reflect.String:
 		return v.Type().Size() + GetAllocSize(uintptr(v.Len()))
+
 	default:
 		return measureType(v.Type())
 	}
 }
 
 func MeasureValue(obj interface{}) uintptr {
-	return measureValue(reflect.ValueOf(obj), false)
+	return measureValue(reflect.ValueOf(obj), nil)
 }
 
 func MeasureValueDeep(obj interface{}) uintptr {
-	return measureValue(reflect.ValueOf(obj), true)
+	return measureValue(reflect.ValueOf(obj), make(map[uintptr]struct{}))
 }
