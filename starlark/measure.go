@@ -154,6 +154,17 @@ func measureMap(v reflect.Value, loops map[uintptr]struct{}) uintptr {
 	return result
 }
 
+func measureSliceValues(v reflect.Value, loops map[uintptr]struct{}) uintptr {
+	result := uintptr(0)
+
+	if loops != nil {
+		for i := 0; i < v.Len(); i++ {
+			result += measureValue(v.Index(i), loops)
+		}
+	}
+
+	return result
+}
 
 func measureValue(v reflect.Value, loops map[uintptr]struct{}) uintptr {
 	if loops != nil {
@@ -180,17 +191,36 @@ func measureValue(v reflect.Value, loops map[uintptr]struct{}) uintptr {
 	case reflect.Map:
 		return measureMap(v, loops)
 
+	case reflect.Array:
+		if loops != nil {
+			return measureSliceValues(v, loops) + measureType(v.Type())
+		} else {
+			return measureType(v.Type())
+		}
+
+	case reflect.Ptr:
+		if loops != nil {
+			return measureValue(v.Elem(), loops)
+		}
+
 	case reflect.Slice:
 		elementType := v.Type().Elem()
 		elementSize := max(measureType(elementType), elementType.Size())
-		return v.Type().Size() + GetAllocSize(elementSize*uintptr(v.Cap()))
+
+		result := v.Type().Size() + GetAllocSize(elementSize*uintptr(v.Cap()))
+
+		if loops != nil {
+			return result + measureSliceValues(v, loops)
+		} else {
+			return result
+		}
 
 	case reflect.String:
 		return v.Type().Size() + GetAllocSize(uintptr(v.Len()))
 
-	default:
-		return measureType(v.Type())
 	}
+
+	return measureType(v.Type())
 }
 
 func MeasureValue(obj interface{}) uintptr {
