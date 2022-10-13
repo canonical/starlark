@@ -124,9 +124,9 @@ func (test *AllocTest) init() error {
 
 	if test.Ns == nil {
 		test.Ns = []uint{
-			1000,
 			10000,
 			100000,
+			1000000,
 		}
 	}
 	if len(test.Ns) == 0 {
