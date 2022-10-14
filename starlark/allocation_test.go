@@ -99,8 +99,8 @@ func (test AllocTest) Run(t *testing.T) {
 		}
 	}
 
-	test.testTrend(t, "reported allocs", test.Ns, reportedAllocs, test.Trend, 1.0)
-	test.testTrend(t, "measured allocs", test.Ns, measuredAllocs, test.Trend, test.OverApproxFactor)
+	test.testTrend("reported allocs", reportedAllocs, 1.0)
+	test.testTrend("measured allocs", measuredAllocs, test.OverApproxFactor)
 }
 
 func (test *AllocTest) init() error {
@@ -142,28 +142,29 @@ func (test *AllocTest) init() error {
 
 // testTrend checks that a trend was followed over a slice of instance sizes
 // and measurements.
-func (test AllocTest) testTrend(t *testing.T, measurementDesc string, ns []uint, measurements []int64, expectedTrend Trend, approximationFactor float64) {
-	maxesExpected := make([]float64, len(ns))
-	minsExpected := make([]float64, len(ns))
-	for i, n := range ns {
-		maxesExpected[i] = expectedTrend.At(float64(n))
+func (test AllocTest) testTrend(measurementDesc string, measurements []int64, approximationFactor float64) []error {
+	maxesExpected := make([]float64, len(test.Ns))
+	minsExpected := make([]float64, len(test.Ns))
+	for i, n := range test.Ns {
+		maxesExpected[i] = test.Trend.At(float64(n))
 		minsExpected[i] = maxesExpected[i] / approximationFactor
 	}
 
+	errors := []error{}
 	for i, measured := range measurements {
 		measured := float64(measured)
 		maxExpected := maxesExpected[i]
 		minExpected := minsExpected[i]
 
 		if measured > (1+test.ErrorFactor)*maxExpected {
-			t.Errorf("%s: %s did not %s: for input sizes %v, observed %v, expected at most %v (within error factor %.2f)", test.Name(), measurementDesc, expectedTrend.Desc(), ns, measurements, maxesExpected, test.ErrorFactor)
+			errors = append(errors, fmt.Errorf("%s: %s did not %s: for input sizes %v, observed %v, expected at most %v (within error factor %.2f)", test.Name(), measurementDesc, test.Trend.Desc(), test.Ns, measurements, maxesExpected, test.ErrorFactor))
 			break
 		} else if measured < (1-test.ErrorFactor)*minExpected {
-			t.Errorf("%s: %s did not %s: for input sizes %v, observed %v, expected at least %v (within error factor %.2f)", test.Name(), measurementDesc, expectedTrend.Desc(), ns, measurements, minsExpected, test.ErrorFactor)
+			errors = append(errors, fmt.Errorf("%s: %s did not %s: for input sizes %v, observed %v, expected at least %v (within error factor %.2f)", test.Name(), measurementDesc, test.Trend.Desc(), test.Ns, measurements, minsExpected, test.ErrorFactor))
 			break
 		}
 	}
-
+	return errors
 }
 
 func (test AllocTest) succeeds() bool {
