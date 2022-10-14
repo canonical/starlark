@@ -409,22 +409,22 @@ func (bt *BuiltinGenerator) Setup(n uint) (interface{}, error) {
 		}
 	}
 	if bt.Kwargs != nil {
-		var kwargs Env
+		var env Env
 		if f, ok := bt.Kwargs.(func(uint) Env); ok {
-			kwargs = f(n)
-		} else if m, ok := bt.Kwargs.(Env); ok {
-			kwargs = m
+			env = f(n)
+		} else if e, ok := bt.Kwargs.(Env); ok {
+			env = e
 		} else {
 			return nil, fmt.Errorf("Kwargs field expected Env or func(n uint) Env: got a %T", bt.Kwargs)
 		}
 
-		env, err := kwargs.ToStringDict()
+		kwargsDict, err := env.ToStringDict()
 		if err != nil {
 			return nil, fmt.Errorf("Could not convert kwargs: %v", err)
 		}
 
-		ctx.Kwargs = make([]starlark.Tuple, 0, len(kwargs))
-		for k, v := range env {
+		ctx.Kwargs = make([]starlark.Tuple, 0, len(kwargsDict))
+		for k, v := range kwargsDict {
 			ctx.Kwargs = append(ctx.Kwargs, starlark.Tuple{starlark.String(k), v})
 		}
 	}
