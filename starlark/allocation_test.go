@@ -444,8 +444,6 @@ func (bt *BuiltinGenerator) Measure(ctx, result interface{}) uint64 {
 var _ TestGenerator = &BuiltinGenerator{}
 
 func TestBuiltinGenerator(t *testing.T) {
-	// TODO(kcza): Replace cost estimates with EstimateSize and associated
-	// constants once available
 	listReprCost := 2 * reflect.TypeOf(uintptr(0)).Size()
 
 	AllocTest{
