@@ -418,7 +418,7 @@ func (bt *BuiltinGenerator) Setup(n uint) (interface{}, error) {
 			return nil, fmt.Errorf("Kwargs field expected Env or func(n uint) Env: got a %T", bt.Kwargs)
 		}
 
-		env, err := kwargs.ToStarlarkPredecls()
+		env, err := kwargs.ToStringDict()
 		if err != nil {
 			return nil, fmt.Errorf("Could not convert kwargs: %v", err)
 		}
@@ -516,8 +516,8 @@ func TestBuiltinGenerator(t *testing.T) {
 	}.Run(t)
 }
 
-// ToStarlarkPredecls converts an env to a starlark.StringDict
-func (e Env) ToStarlarkPredecls() (starlark.StringDict, error) {
+// ToStringDict converts an env to a starlark.StringDict
+func (e Env) ToStringDict() (starlark.StringDict, error) {
 	predecls := make(starlark.StringDict, len(e))
 	for key, val := range e {
 		if v, err := toStarlarkValue(val); err != nil {
@@ -547,7 +547,7 @@ func TestToStarlarkPredecls(t *testing.T) {
 	}}
 
 	for _, test := range tests {
-		if converted, err := test.from.ToStarlarkPredecls(); err != nil {
+		if converted, err := test.from.ToStringDict(); err != nil {
 			t.Error(err)
 		} else if !reflect.DeepEqual(converted, test.to) {
 			t.Errorf("Incorrect starlark value conversion: expected %v (%T) but got %v (%T)", test.to, test.to, converted, converted)
