@@ -457,7 +457,7 @@ func TestBuiltinGenerator(t *testing.T) {
 
 	AllocTest{
 		TestGenerator: &BuiltinGenerator{
-			Builtin: starlark.NewBuiltin("dup_recv", func(thread *starlark.Thread, builtin *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+			Builtin: starlark.NewBuiltin("clone", func(thread *starlark.Thread, builtin *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 				recv := builtin.Receiver().(starlark.String)
 
 				buf := strings.Builder{}
@@ -476,7 +476,7 @@ func TestBuiltinGenerator(t *testing.T) {
 
 	AllocTest{
 		TestGenerator: &BuiltinGenerator{
-			Builtin: starlark.NewBuiltin("dup_args", func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+			Builtin: starlark.NewBuiltin("tuple", func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 				copy := make(starlark.Tuple, len(args))
 				for i, v := range args {
 					copy[i] = v
