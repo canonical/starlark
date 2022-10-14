@@ -458,7 +458,15 @@ func TestBuiltinGenerator(t *testing.T) {
 	AllocTest{
 		TestGenerator: &BuiltinGenerator{
 			Builtin: starlark.NewBuiltin("dup_recv", func(thread *starlark.Thread, builtin *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-				cloned := strings.Clone(builtin.Receiver().String())
+				recv := builtin.Receiver().(starlark.String)
+
+				buf := strings.Builder{}
+				buf.Grow(len(recv))
+				if _, err := buf.WriteString(string(recv)); err != nil {
+					return nil, err
+				}
+
+				cloned := buf.String()
 				return starlark.String(cloned), thread.AddAllocs(int64(len(cloned)))
 			}),
 			Recv: func(n uint) interface{} { return dummyString(n, 'a') },
