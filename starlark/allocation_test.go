@@ -429,6 +429,73 @@ func (bt *BuiltinGenerator) Measure(ctx, result interface{}) uint64 {
 
 var _ TestGenerator = &BuiltinGenerator{}
 
+func TestBuiltinGenerator(t *testing.T) {
+	// TODO(kcza): Replace cost estimates with EstimateSize and associated
+	// constants once available
+	listReprCost := 2 * reflect.TypeOf(uintptr(0)).Size()
+
+	AllocTest{
+		TestGenerator: &BuiltinGenerator{
+			Builtin: starlark.NewBuiltin("do_nothing", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+				return starlark.None, nil
+			}),
+		},
+		Trend: Constant{0},
+	}.Run(t)
+
+	AllocTest{
+		TestGenerator: &BuiltinGenerator{
+			Builtin: starlark.NewBuiltin("dup_recv", func(thread *starlark.Thread, builtin *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+				cloned := strings.Clone(builtin.Receiver().String())
+				return starlark.String(cloned), thread.AddAllocs(int64(len(cloned)))
+			}),
+			Recv: func(n uint) interface{} { return dummyString(n, 'a') },
+		},
+		Trend: Linear{1},
+	}.Run(t)
+
+	AllocTest{
+		TestGenerator: &BuiltinGenerator{
+			Builtin: starlark.NewBuiltin("dup_args", func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+				copy := make(starlark.Tuple, len(args))
+				for i, v := range args {
+					copy[i] = v
+				}
+				return copy, thread.AddAllocs(int64(len(copy) * int(listReprCost)))
+			}),
+			Args: func(n uint) []interface{} {
+				args := make([]interface{}, n)
+				for i := 0; i < int(n); i++ {
+					args[i] = 'a'
+				}
+				return args
+			},
+		},
+		Trend: Linear{float64(listReprCost)},
+	}.Run(t)
+
+	AllocTest{
+		TestGenerator: &BuiltinGenerator{
+			Builtin: starlark.NewBuiltin("values", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+				valueList := make(starlark.Tuple, len(kwargs))
+				for i, kv := range kwargs {
+					valueList[i] = kv[1]
+				}
+				return starlark.NewList(valueList), thread.AddAllocs(int64(len(valueList) * int(listReprCost)))
+			}),
+			Kwargs: func(n uint) Env {
+				env := make(Env, n)
+				for i := 0; i < int(n); i++ {
+					s := strconv.Itoa(i)
+					env[s] = starlark.String(s)
+				}
+				return env
+			},
+		},
+		Trend: Linear{float64(listReprCost)},
+	}.Run(t)
+}
+
 // ToStarlarkPredecls converts an env to a starlark.StringDict
 func (e Env) ToStarlarkPredecls() (starlark.StringDict, error) {
 	predecls := make(starlark.StringDict, len(e))
