@@ -67,7 +67,9 @@ func (test AllocTest) Run(t *testing.T) {
 
 	reportedAllocs := make([]int64, len(test.Ns))
 	measuredAllocs := make([]int64, len(test.Ns))
-	for repetitions := 0; repetitions < 2; repetitions++ {
+	var reportedAllocErrs []error
+	var measuredAllocErrs []error
+	for attempts := 0; attempts < 5; attempts++ {
 		for i, n := range test.Ns {
 			ctx, err := test.Setup(n)
 			if err != nil {
@@ -97,10 +99,21 @@ func (test AllocTest) Run(t *testing.T) {
 			reportedAllocs[i] = int64(test.Measure(ctx, result))
 			measuredAllocs[i] = int64(after.Alloc - before.Alloc)
 		}
+
+		reportedAllocErrs = test.testTrend("reported allocs", reportedAllocs, 1.0)
+		measuredAllocErrs = test.testTrend("measured allocs", measuredAllocs, test.OverApproxFactor)
+
+		if len(reportedAllocErrs)+len(measuredAllocErrs) == 0 {
+			break
+		}
 	}
 
-	test.testTrend("reported allocs", reportedAllocs, 1.0)
-	test.testTrend("measured allocs", measuredAllocs, test.OverApproxFactor)
+	for _, err := range reportedAllocErrs {
+		t.Error(err)
+	}
+	for _, err := range measuredAllocErrs {
+		t.Error(err)
+	}
 }
 
 func (test *AllocTest) init() error {
