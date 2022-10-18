@@ -68,7 +68,7 @@ func (test AllocTest) Run(t *testing.T) {
 	reportedAllocs := make([]int64, len(test.Ns))
 	measuredAllocs := make([]int64, len(test.Ns))
 	var errors []error
-	for attempts := 0; attempts < 5; attempts++ {
+	for attempts := 0; attempts < 20; attempts++ {
 		for i, n := range test.Ns {
 			ctx, err := test.Setup(n)
 			if err != nil {
