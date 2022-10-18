@@ -22,14 +22,6 @@ var size_to_class128 = [(maxSmallSize-smallSizeMax)/largeSizeDiv + 1]uint8{32, 3
 
 // Helpers
 
-func max(a, b uintptr) uintptr {
-	if a > b {
-		return a
-	} else {
-		return b
-	}
-}
-
 func nextPow2(a uintptr) uintptr {
 	return 1 << (bits.UintSize - bits.LeadingZeros(uint(a)))
 }
@@ -45,7 +37,9 @@ func divRoundUp(n, a uintptr) uintptr {
 // Returns the size of an allocation, taking
 // into account the class sizes of the GC
 func GetAllocSize(size uintptr) uintptr {
-	if size < maxSmallSize {
+	if size < 8 {
+		return alignUp(size, nextPow2(size-1))
+	} else if size < maxSmallSize {
 		if size <= smallSizeMax-8 {
 			return uintptr(class_to_size[size_to_class8[divRoundUp(size, smallSizeDiv)]])
 		} else {
@@ -63,7 +57,11 @@ func GetAllocSize(size uintptr) uintptr {
 func estimateTypeSize(t reflect.Type) uintptr {
 	switch t.Kind() {
 	case reflect.Bool, reflect.Int8, reflect.Uint8:
-		return 0
+		// This is "pessimistic" in the sense that values of size
+		// 1 byte (given that they are immutable to keep the value
+		// semantics in place) will never be allocated when saved
+		// in an interface. It's just 1 byte though
+		return 1
 
 	default:
 		return GetAllocSize(t.Size())
@@ -71,7 +69,7 @@ func estimateTypeSize(t reflect.Type) uintptr {
 }
 
 func estimateSlice(v reflect.Value) uintptr {
-	return GetAllocSize(estimateTypeSize(v.Type().Elem()) * uintptr(v.Cap()))
+	return GetAllocSize(v.Type().Elem().Size() * uintptr(v.Cap()))
 }
 
 func estimateChan(v reflect.Value) uintptr {
@@ -131,15 +129,7 @@ func estimateMap(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	keySize := mapType.Key().Size()
 	valueSize := mapType.Elem().Size()
 
-	k2 := uintptr(0) // GetAllocSize(keySize) + GetAllocSize(valueSize)
-
-	if keySize > maxElementSize {
-		k2 += unsafe.Sizeof(uintptr(0))
-	}
-
-	if valueSize > maxElementSize {
-		k2 += unsafe.Sizeof(uintptr(0))
-	}
+	k2 := getMapK2(keySize, valueSize)
 
 	result := GetAllocSize(uintptr(v.Len())*k2) + k1
 
@@ -172,7 +162,7 @@ func estimateStructFields(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
 
-		result += estimateSize(field, ptrs)
+		result += estimateIndirect(field, ptrs)
 
 	}
 
@@ -182,7 +172,11 @@ func estimateStructFields(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 func estimateIndirect(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	switch v.Kind() {
 	case reflect.Ptr, reflect.Interface:
-		return estimateSize(v.Elem(), ptrs)
+		if v.IsNil() {
+			return 0
+		} else {
+			return estimateSize(v.Elem(), ptrs)
+		}
 	case reflect.Map:
 		return estimateMap(v, ptrs)
 	case reflect.Slice:
@@ -195,14 +189,22 @@ func estimateIndirect(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 }
 
 func estimateSize(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
-	result := estimateTypeSize(v.Type())
+	var result uintptr
 
 	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.Interface, reflect.UnsafePointer:
+		if v.IsNil() {
+			return 0
+		}
 	case reflect.String:
 		result = GetAllocSize(uintptr(v.Len()))
 	case reflect.Slice:
 		result = estimateSlice(v)
+	default:
+		result = 0
 	}
+
+	result += estimateTypeSize(v.Type())
 
 	if ptrs != nil {
 		switch v.Kind() {
