@@ -613,7 +613,7 @@ func toStarlarkValue(in interface{}) (starlark.Value, error) {
 	case reflect.Ptr:
 		return toStarlarkValue(inVal.Elem())
 	default:
-		return nil, fmt.Errorf("Cannot automatically convert a value of kind %v to a starlark.Value: encountered %v", kind, in)
+		return nil, fmt.Errorf("Cannot automatically convert a value of kind %v to a starlark.Value: got a %T", kind, in)
 	}
 }
 
