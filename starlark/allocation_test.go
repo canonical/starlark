@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/bits"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -465,7 +464,7 @@ func TestBuiltinGenerator(t *testing.T) {
 				cloned := buf.String()
 				return starlark.String(cloned), thread.AddAllocs(int64(len(cloned)))
 			}),
-			Recv: func(n uint) interface{} { return dummyString(n, 'a') },
+			Recv: dummyString,
 		},
 		Trend: Linear{1},
 	}.Run(t)
@@ -767,27 +766,69 @@ func TestAffineTrend(t *testing.T) {
 	}
 }
 
-func dummyInt(len uint) starlark.Int {
-	i := starlark.MakeInt(1)
-	i = i.Lsh(len - 1)
-	return i
-}
+// func dummyInt(len uint) interface{} {
+// 	i := starlark.MakeInt(1)
+// 	i = i.Lsh(len - 1)
+// 	return i
+// }
 
-func TestDummyInt(t *testing.T) {
-	const expectedLen = 1024
-	i := dummyInt(expectedLen)
-	if actualLen := bits.UintSize * len(i.BigInt().Bits()); actualLen != expectedLen {
-		t.Errorf("Incorrect dummy int length: expected %v but got %v", expectedLen, actualLen)
-	}
-}
+// func TestDummyInt(t *testing.T) {
+// 	const expectedLen = 1024
+// 	i := dummyInt(expectedLen).(starlark.Int)
+// 	if actualLen := bits.UintSize * len(i.BigInt().Bits()); actualLen != expectedLen {
+// 		t.Errorf("Incorrect dummy int length: expected %v but got %v", expectedLen, actualLen)
+// 	}
 
-func dummyString(len uint, char rune) starlark.String {
-	return starlark.String(strings.Repeat(string(char), int(len)))
+// 	AllocTest{
+// 		TestGenerator: &BuiltinGenerator{
+// 			Builtin: starlark.NewBuiltin("add_1", func(thread *starlark.Thread, builtin *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, bool) {
+// 				recv := builtin.Receiver().(starlark.Int)
+// 				return recv.Add(starlark.MakeInt(1)), nil
+// 			}
+// 			Recv: dummyInt,
+// 		},
+// 		Trend: Linear{1},
+// 	}.Run(t)
+// }
+
+func dummyString(len uint) interface{} {
+	return dummyStringOf(len, 'a')
 }
 
 func TestDummyString(t *testing.T) {
 	const expectedLen = 100
-	dummy := string(dummyString(expectedLen, 'q'))
+	dummy := string(dummyString(expectedLen).(starlark.String))
+	if actualLen := len(dummy); actualLen != expectedLen {
+		t.Errorf("Dummy string had wrong length: expected %d but got %d", expectedLen, actualLen)
+	}
+
+	AllocTest{
+		TestGenerator: &BuiltinGenerator{
+			Builtin: starlark.NewBuiltin("clone", func(thread *starlark.Thread, builtin *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+				recv := builtin.Receiver().(starlark.String)
+
+				buf := strings.Builder{}
+				buf.Grow(len(recv))
+				if _, err := buf.WriteString(string(recv)); err != nil {
+					return nil, err
+				}
+
+				cloned := buf.String()
+				return starlark.String(cloned), thread.AddAllocs(int64(len(cloned)))
+			}),
+			Recv: dummyString,
+		},
+		Trend: Linear{1},
+	}.Run(t)
+}
+
+func dummyStringOf(len uint, char rune) starlark.String {
+	return starlark.String(strings.Repeat(string(char), int(len)))
+}
+
+func TestDummyStringOf(t *testing.T) {
+	const expectedLen = 100
+	dummy := string(dummyStringOf(expectedLen, 'q'))
 
 	if ok, err := regexp.MatchString("q*", dummy); err != nil {
 		t.Error(err)
@@ -797,17 +838,30 @@ func TestDummyString(t *testing.T) {
 
 	if actualLen := len(dummy); actualLen != expectedLen {
 		t.Errorf("Dummy string had wrong length: expected %d but got %d", expectedLen, actualLen)
-		t.Errorf("%s", dummy)
 	}
 }
 
-func dummyBytes(len uint, char rune) starlark.Bytes {
-	return starlark.Bytes(strings.Repeat(string(char), int(len)))
+func dummyBytes(len uint) interface{} {
+	return dummyBytesOf(len, 'a')
 }
 
 func TestDummyBytes(t *testing.T) {
 	const expectedLen = 100
-	dummy := string(dummyBytes(expectedLen, 'q'))
+	dummy := dummyString(expectedLen)
+	if str, ok := dummy.(starlark.String); !ok {
+		t.Errorf("Dummy string did not return a starlark.String: got a %T", dummy)
+	} else if actualLen := len(string(str)); actualLen != expectedLen {
+		t.Errorf("Dummy string has incorrect length: expected %d but got %d", expectedLen, actualLen)
+	}
+}
+
+func dummyBytesOf(len uint, char rune) starlark.Bytes {
+	return starlark.Bytes(strings.Repeat(string(char), int(len)))
+}
+
+func TestDummyBytesOf(t *testing.T) {
+	const expectedLen = 100
+	dummy := string(dummyBytesOf(expectedLen, 'q'))
 
 	if ok, err := regexp.MatchString("q*", dummy); err != nil {
 		t.Error(err)
