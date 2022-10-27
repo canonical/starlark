@@ -2,6 +2,7 @@ package starlark_test
 
 import (
 	"math/rand"
+	"strings"
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
@@ -146,5 +147,29 @@ func TestEstimateMap(t *testing.T) {
 			thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
 			st.Track(value)
 		})
+	})
+}
+
+func TestEstimateChan(t *testing.T) {
+	st := startest.From(t)
+	st.RunThread(func(thread *starlark.Thread) {
+		value := make(chan int, st.N)
+
+		for i := 0; i < st.N; i++ {
+			value <- i
+		}
+
+		thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
+		st.Track(value)
+	})
+}
+
+func TestEstimateString(t *testing.T) {
+	st := startest.From(t)
+	st.RunThread(func(thread *starlark.Thread) {
+		value := strings.Repeat("Hello World!", st.N)
+
+		thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
+		st.Track(value)
 	})
 }
