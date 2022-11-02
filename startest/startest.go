@@ -166,7 +166,7 @@ func mostPopular(m map[uint64]int) (winner uint64, margin int) {
 	return winner, winnerVotes - runnerUpVotes
 }
 
-func (test *allocTest) n() int {
+func (test *allocTest) N() int {
 	if b, ok := test.testBase.(*testing.B); ok {
 		return b.N
 	}
