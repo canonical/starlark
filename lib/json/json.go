@@ -79,6 +79,12 @@ var Module = &starlarkstruct.Module{
 	},
 }
 
+func init() {
+	Module.Members["encode"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["decode"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["indent"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+}
+
 func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var x starlark.Value
 	if err := starlark.UnpackPositionalArgs(b.Name(), args, kwargs, 1, &x); err != nil {

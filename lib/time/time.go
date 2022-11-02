@@ -68,6 +68,15 @@ var Module = &starlarkstruct.Module{
 	},
 }
 
+func init() {
+	Module.Members["from_timestamp"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["is_valid_timezone"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["now"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["parse_duration"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["parse_time"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["time"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+}
+
 // NowFunc is a function that generates the current time. Intentionally exported
 // so that it can be overridden, for example by applications that require their
 // Starlark scripts to be fully deterministic.
@@ -438,6 +447,11 @@ var timeMethods = map[string]builtinMethod{
 	"format":      timeFormat,
 }
 
+var timeMethodSafeties = map[string]starlark.Safety{
+	"in_location": starlark.NotSafe,
+	"format":      starlark.NotSafe,
+}
+
 func timeFormat(fnname string, recV starlark.Value, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var x string
 	if err := starlark.UnpackPositionalArgs("format", args, kwargs, 1, &x); err != nil {
@@ -474,7 +488,9 @@ func builtinAttr(recv starlark.Value, name string, methods map[string]builtinMet
 	impl := func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		return method(b.Name(), b.Receiver(), args, kwargs)
 	}
-	return starlark.NewBuiltin(name, impl).BindReceiver(recv), nil
+	b := starlark.NewBuiltin(name, impl).BindReceiver(recv)
+	b.DeclareSafety(timeMethodSafeties[name])
+	return b, nil
 }
 
 func builtinAttrNames(methods map[string]builtinMethod) []string {
