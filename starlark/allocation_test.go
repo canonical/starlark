@@ -17,7 +17,7 @@ type testBase interface {
 }
 
 type allocTest struct {
-	values           starlark.StringDict
+	predefined       starlark.StringDict
 	maxAllocs        uint64
 	minAllocs        uint64
 	expectedErr      string
@@ -34,34 +34,34 @@ func From(base testBase) *allocTest {
 	return &allocTest{testBase: base}
 }
 
-// func FromT(t *testing.T) *allocTest {
-// 	return &allocTest{TestBase: t}
-// }
-
-// func FromB(b *testing.B) *allocTest {
-// 	return &allocTest{TestBase: b}
-// }
-
-// func FromC(c *check.C) *allocTest {
-// 	return &allocTest{TestBase: c}
-// }
-
 func (test *allocTest) AddBuiltin(fn *starlark.Builtin) {
-	if test.values == nil {
-		test.values = make(starlark.StringDict)
+	if test.predefined == nil {
+		test.predefined = make(starlark.StringDict)
 	}
-	test.values[fn.Name()] = fn
+	test.predefined[fn.Name()] = fn
 }
 
 func (test *allocTest) AddValue(name string, value starlark.Value) {
-	if test.values == nil {
-		test.values = make(starlark.StringDict)
+	if test.predefined == nil {
+		test.predefined = make(starlark.StringDict)
 	}
-	test.values[name] = value
+	test.predefined[name] = value
 }
 
 func (test *allocTest) SetMaxAllocs(maxAllocs uint64) {
+	if test.minAllocs > maxAllocs {
+		test.minAllocs = maxAllocs
+	}
+
 	test.maxAllocs = maxAllocs
+}
+
+func (test *allocTest) SetMinAllocs(minAllocs uint64) {
+	if test.maxAllocs < minAllocs {
+		test.maxAllocs = minAllocs
+	}
+
+	test.minAllocs = minAllocs
 }
 
 func (test *allocTest) SetAllocErrorMargin(margin float64) {
@@ -75,58 +75,49 @@ func (test *allocTest) Expect(err string) {
 	test.expectedErr = err
 }
 
-// func (test *allocTest) RunFile(path string) {
-// 	if code, err := os.ReadFile(path); err != nil {
-// 		test.Error(err)
-// 	} else {
-// 		test.RunString(string(code))
-// 	}
-// }
+func (test *allocTest) RunBuiltin(fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) {
+	test.RunThread(func(th *starlark.Thread, globals starlark.StringDict) interface{} {
+		result, err := starlark.Call(th, fn, args, kwargs)
+		if err != nil {
+			test.Error(err)
+		}
 
-// func (test *allocTest) RunString(code string) {
-// 	test.Errorf("Not implemented: %v", test)
-// }
+		return result
+	})
+}
 
-func (test *allocTest) RunThread(fn func(*starlark.Thread) error) {
+func (test *allocTest) RunThread(fn func(*starlark.Thread, starlark.StringDict) interface{}) {
 	thread := &starlark.Thread{}
 
-	if test.maxAllocs != 0 || test.minAllocs != 0 {
-		if test.allocErrorMargin == 0 {
-			test.allocErrorMargin = 0.1
-		}
+	if test.allocErrorMargin == 0 {
+		test.allocErrorMargin = 0.1
+	}
 
-		_, measured := MeasureMemory(func() interface{} {
-			fn(thread)
-			return nil
-		})
-		measuredF := float64(measured)
-		declared := float64(thread.Allocs())
+	_, measured := MeasureMemory(func() interface{} {
+		return fn(thread, test.predefined)
+	})
 
-		if test.maxAllocs != 0 {
-			if measuredF > (1+test.allocErrorMargin)*float64(test.maxAllocs) {
-				test.Errorf("too many measured allocations")
-			}
-			if declared > (1+test.allocErrorMargin)*float64(test.maxAllocs) {
-				test.Errorf("too many declared allocations")
-			}
+	measuredF := float64(measured)
+	declared := float64(thread.Allocs())
+
+	if test.maxAllocs != 0 {
+		if measuredF > (1+test.allocErrorMargin)*float64(test.maxAllocs) {
+			test.Errorf("too many measured allocations")
 		}
-		if test.minAllocs != 0 {
-			if measuredF < (1-test.allocErrorMargin)*float64(test.minAllocs) {
-				test.Errorf("too few measured allocations")
-			}
-			if declared < (1-test.allocErrorMargin)*float64(test.minAllocs) {
-				test.Errorf("too few declared allocations")
-			}
+		if declared > (1+test.allocErrorMargin)*float64(test.maxAllocs) {
+			test.Errorf("too many declared allocations")
+		}
+	}
+
+	if test.minAllocs != 0 {
+		if measuredF < (1-test.allocErrorMargin)*float64(test.minAllocs) {
+			test.Errorf("too few measured allocations")
+		}
+		if declared < (1-test.allocErrorMargin)*float64(test.minAllocs) {
+			test.Errorf("too few declared allocations")
 		}
 	}
 }
-
-// func (test *allocTest) RunFunc(fn func() error) {
-// 	test.run(fn)
-// }
-
-// func (test *allocTest) RunMeasured(func() interface{}) {
-// }
 
 func MeasureMemory(generate func() interface{}) (interface{}, uint64) {
 	var result interface{}
