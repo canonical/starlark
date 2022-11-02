@@ -65,7 +65,7 @@ func (test *allocTest) RunBuiltin(fn *starlark.Builtin, args starlark.Tuple, kwa
 
 func (test *allocTest) RunThread(fn func(*starlark.Thread, starlark.StringDict) interface{}) {
 	thread := &starlark.Thread{}
-	_, measured := MeasureMemory(func() interface{} {
+	_, measured := measureMemory(func() interface{} {
 		return fn(thread, test.predefined)
 	})
 
@@ -79,7 +79,7 @@ func (test *allocTest) RunThread(fn func(*starlark.Thread, starlark.StringDict) 
 	}
 }
 
-func MeasureMemory(generate func() interface{}) (interface{}, uint64) {
+func measureMemory(generate func() interface{}) (interface{}, uint64) {
 	var result interface{}
 	const maxVotes = 21
 	const winningMargin = 4
