@@ -1,6 +1,7 @@
 package startest
 
 import (
+	"math"
 	"runtime"
 	"testing"
 
@@ -80,51 +81,32 @@ func (test *allocTest) RunThread(fn func(*starlark.Thread, starlark.StringDict) 
 }
 
 func measureMemory(generate func() interface{}) (interface{}, uint64) {
+	measured := uint64(math.MaxUint64)
 	var result interface{}
-	const maxVotes = 21
-	const winningMargin = 4
 
-	measurements := make(map[uint64]int, maxVotes)
-	for i := 0; i < maxVotes; i++ {
+	for i := 0; i < 20; i++ {
 		var before, after runtime.MemStats
 		runtime.GC()
 		runtime.GC()
 		runtime.ReadMemStats(&before)
 
-		result = generate()
+		iterationResult := generate()
 
 		runtime.GC()
 		runtime.GC()
 		runtime.ReadMemStats(&after)
 
-		measured := after.Alloc - before.Alloc
-		measurements[measured]++
+		iterationMeasure := uint64(after.Alloc - before.Alloc)
 
-		if i >= winningMargin {
-			if measurement, margin := mostPopular(measurements); margin >= winningMargin {
-				return result, measurement
-			}
+		if iterationMeasure == measured {
+			break
+		} else if iterationMeasure < measured {
+			measured = iterationMeasure
+			result = iterationResult
 		}
 	}
 
-	measurement, _ := mostPopular(measurements)
-	return result, measurement
-}
-
-func mostPopular(m map[uint64]int) (winner uint64, margin int) {
-	var winnerVotes, runnerUpVotes int
-
-	for m, v := range m {
-		if winnerVotes < v {
-			runnerUpVotes = winnerVotes
-			winner = m
-			winnerVotes = v
-		} else if runnerUpVotes < v {
-			runnerUpVotes = v
-		}
-	}
-
-	return winner, winnerVotes - runnerUpVotes
+	return result, measured
 }
 
 func (test *allocTest) N() int {
