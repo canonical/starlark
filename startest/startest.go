@@ -1,7 +1,6 @@
 package startest
 
 import (
-	"fmt"
 	"runtime"
 	"testing"
 
@@ -16,12 +15,10 @@ type testBase interface {
 }
 
 type allocTest struct {
-	predefined       starlark.StringDict
-	maxAllocs        uint64
-	minAllocs        uint64
-	expectedErr      string
-	allocErrorMargin float64
-	err              error
+	predefined  starlark.StringDict
+	maxAllocs   uint64
+	expectedErr string
+	err         error
 	testBase
 }
 
@@ -48,26 +45,7 @@ func (test *allocTest) AddValue(name string, value starlark.Value) {
 }
 
 func (test *allocTest) SetMaxAllocs(maxAllocs uint64) {
-	if test.minAllocs > maxAllocs {
-		test.minAllocs = maxAllocs
-	}
-
 	test.maxAllocs = maxAllocs
-}
-
-func (test *allocTest) SetMinAllocs(minAllocs uint64) {
-	if test.maxAllocs < minAllocs {
-		test.maxAllocs = minAllocs
-	}
-
-	test.minAllocs = minAllocs
-}
-
-func (test *allocTest) SetAllocErrorMargin(margin float64) {
-	if margin < 0 || 1 < margin {
-		test.err = fmt.Errorf("Error margin must be between 0 and 1 (inclusive): got %f", margin)
-	}
-	test.allocErrorMargin = margin
 }
 
 func (test *allocTest) Expect(err string) {
@@ -87,33 +65,16 @@ func (test *allocTest) RunBuiltin(fn *starlark.Builtin, args starlark.Tuple, kwa
 
 func (test *allocTest) RunThread(fn func(*starlark.Thread, starlark.StringDict) interface{}) {
 	thread := &starlark.Thread{}
-
-	if test.allocErrorMargin == 0 {
-		test.allocErrorMargin = 0.1
-	}
-
 	_, measured := MeasureMemory(func() interface{} {
 		return fn(thread, test.predefined)
 	})
 
-	measuredF := float64(measured)
-	declared := float64(thread.Allocs())
-
 	if test.maxAllocs != 0 {
-		if measuredF > (1+test.allocErrorMargin)*float64(test.maxAllocs) {
+		if measured > test.maxAllocs {
 			test.Errorf("too many measured allocations")
 		}
-		if declared > (1+test.allocErrorMargin)*float64(test.maxAllocs) {
+		if thread.Allocs() > test.maxAllocs {
 			test.Errorf("too many declared allocations")
-		}
-	}
-
-	if test.minAllocs != 0 {
-		if measuredF < (1-test.allocErrorMargin)*float64(test.minAllocs) {
-			test.Errorf("too few measured allocations")
-		}
-		if declared < (1-test.allocErrorMargin)*float64(test.minAllocs) {
-			test.Errorf("too few declared allocations")
 		}
 	}
 }
