@@ -996,6 +996,146 @@ func TestDeps(t *testing.T) {
 	}
 }
 
+func TestCheckExecutionSteps(t *testing.T) {
+	const maxSteps = 10000
+
+	thread := new(starlark.Thread)
+	thread.SetMaxExecutionSteps(maxSteps)
+
+	if err := thread.CheckExecutionSteps(maxSteps / 2); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if err := thread.CheckExecutionSteps(2 * maxSteps); err == nil {
+		t.Errorf("Expected error")
+	} else if err.Error() != "too many steps" {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestConcurrentCheckExecutionStepsUsage(t *testing.T) {
+	const stepPeak = math.MaxUint64 ^ (math.MaxUint64 >> 1)
+	const maxSteps = stepPeak + 1
+	const repetitions = 1_000_000
+
+	thread := &starlark.Thread{}
+	thread.SetMaxExecutionSteps(maxSteps)
+	thread.AddExecutionSteps(stepPeak - 1)
+
+	done := make(chan struct{}, 2)
+
+	go func() {
+		// Flip between 1000...00 and 0111...11 allocations
+		for i := 0; i < repetitions; i++ {
+			thread.AddExecutionSteps(1)
+			thread.SubtractExecutionSteps(1)
+		}
+		done <- struct{}{}
+	}()
+	go func() {
+		for i := 0; i < repetitions; i++ {
+			// Check 1000...01 not exceeded
+			if err := thread.CheckExecutionSteps(1); err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				break
+			}
+		}
+		done <- struct{}{}
+	}()
+
+	// Await goroutine completion
+	totDone := 0
+	for totDone != 2 {
+		select {
+		case <-done:
+			totDone++
+		}
+	}
+}
+
+func TestAddExecutionStepsOk(t *testing.T) {
+	const expectedDelta = 10000
+
+	thread := new(starlark.Thread)
+	thread.SetMaxExecutionSteps(2 * expectedDelta)
+
+	if err := thread.AddExecutionSteps(expectedDelta); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	} else if actualDelta := thread.ExecutionSteps(); actualDelta != expectedDelta {
+		t.Errorf("Incorrect number of steps added: expected %d but got %d", expectedDelta, actualDelta)
+	}
+
+	if _, err := starlark.ExecFile(thread, "add_execution_steps", "", nil); err != nil {
+		t.Errorf("Unexpected cancellation: %v", err)
+	}
+}
+
+func TestAddExecutionStepsFail(t *testing.T) {
+	const maxSteps = 10000
+	const stepsToAdd = 2 * maxSteps
+
+	thread := new(starlark.Thread)
+	thread.SetMaxExecutionSteps(maxSteps)
+
+	if err := thread.AddExecutionSteps(stepsToAdd); err == nil {
+		t.Errorf("Expected error")
+	} else if err.Error() != "too many steps" {
+		t.Errorf("Unexpected error: %v", err)
+	} else if steps := thread.ExecutionSteps(); steps != stepsToAdd {
+		t.Errorf("Incorrect number of steps recorded: expected %v but got %v", stepsToAdd, steps)
+	}
+
+	if _, err := starlark.ExecFile(thread, "add_execution_steps", "", nil); err == nil {
+		t.Errorf("Expected cancellation")
+	} else if err.Error() != "Starlark computation cancelled: too many steps" {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	const expectedStepsAfterExec = stepsToAdd + 1
+	if err := thread.AddExecutionSteps(maxSteps / 2); err == nil {
+		t.Errorf("Expected error")
+	} else if err.Error() != "too many steps" {
+		t.Errorf("Unexpected error: %v", err)
+	} else if steps := thread.ExecutionSteps(); steps != expectedStepsAfterExec {
+		t.Errorf("Incorrect number of steps recorded: expected %v but got %v", expectedStepsAfterExec, steps)
+	}
+}
+
+func TestConcurrentAddExecutionStepsUsage(t *testing.T) {
+	const expectedSteps = 1_000_000
+
+	thread := &starlark.Thread{}
+	thread.SetMaxExecutionSteps(expectedSteps)
+
+	done := make(chan struct{}, 2)
+
+	callAddExecutionSteps := func(n uint) {
+		for i := uint(0); i < n; i++ {
+			if err := thread.AddExecutionSteps(1); err != nil {
+				t.Errorf("Unexpected error %v", err)
+				break
+			}
+		}
+		done <- struct{}{}
+	}
+
+	go callAddExecutionSteps(expectedSteps / 2)
+	go callAddExecutionSteps(expectedSteps / 2)
+
+	// Await goroutine completion
+	totDone := 0
+	for totDone != 2 {
+		select {
+		case <-done:
+			totDone++
+		}
+	}
+
+	if steps := thread.ExecutionSteps(); steps != expectedSteps {
+		t.Errorf("Concurrent thread.AddExecutionSteps contains a race, expected %d steps recorded but got %d", expectedSteps, steps)
+	}
+}
+
 func TestThreadPermits(t *testing.T) {
 	const threadSafety = starlark.CPUSafe | starlark.MemSafe
 	t.Run("Safety=Allowed", func(t *testing.T) {
