@@ -19,7 +19,6 @@ type allocTest struct {
 	predefined  starlark.StringDict
 	maxAllocs   uint64
 	expectedErr string
-	err         error
 	testBase
 }
 
