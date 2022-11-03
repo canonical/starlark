@@ -16,7 +16,7 @@ type testBase interface {
 	Failed() bool
 }
 
-type allocTest struct {
+type starTest struct {
 	predefined  starlark.StringDict
 	maxAllocs   uint64
 	expectedErr string
@@ -29,33 +29,33 @@ var _ testBase = &testing.T{}
 var _ testBase = &testing.B{}
 var _ testBase = &check.C{}
 
-func From(base testBase) *allocTest {
-	return &allocTest{testBase: base}
+func From(base testBase) *starTest {
+	return &starTest{testBase: base}
 }
 
-func (test *allocTest) AddBuiltin(fn *starlark.Builtin) {
+func (test *starTest) AddBuiltin(fn *starlark.Builtin) {
 	if test.predefined == nil {
 		test.predefined = make(starlark.StringDict)
 	}
 	test.predefined[fn.Name()] = fn
 }
 
-func (test *allocTest) AddValue(name string, value starlark.Value) {
+func (test *starTest) AddValue(name string, value starlark.Value) {
 	if test.predefined == nil {
 		test.predefined = make(starlark.StringDict)
 	}
 	test.predefined[name] = value
 }
 
-func (test *allocTest) SetMaxAllocs(maxAllocs uint64) {
+func (test *starTest) SetMaxAllocs(maxAllocs uint64) {
 	test.maxAllocs = maxAllocs
 }
 
-func (test *allocTest) Expect(err string) {
+func (test *starTest) Expect(err string) {
 	test.expectedErr = err
 }
 
-func (test *allocTest) RunBuiltin(fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) {
+func (test *starTest) RunBuiltin(fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) {
 	test.RunThread(func(th *starlark.Thread, globals starlark.StringDict) {
 		for i := 0; i < test.N; i++ {
 			result, err := starlark.Call(th, fn, args, kwargs)
@@ -68,7 +68,7 @@ func (test *allocTest) RunBuiltin(fn *starlark.Builtin, args starlark.Tuple, kwa
 	})
 }
 
-func (test *allocTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) {
+func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) {
 	thread := &starlark.Thread{}
 	measured := test.measureMemory(func() {
 		fn(thread, test.predefined)
@@ -84,11 +84,11 @@ func (test *allocTest) RunThread(fn func(*starlark.Thread, starlark.StringDict))
 	}
 }
 
-func (test *allocTest) Track(v ...interface{}) {
+func (test *starTest) Track(v ...interface{}) {
 	test.tracked = append(test.tracked, v...)
 }
 
-func (test *allocTest) measureMemory(fn func()) uint64 {
+func (test *starTest) measureMemory(fn func()) uint64 {
 	defer func() { test.tracked = make([]interface{}, 0) }()
 
 	startNano := time.Now().Nanosecond()
@@ -150,6 +150,6 @@ func (test *allocTest) measureMemory(fn func()) uint64 {
 	return uint64(float64(memoryUsed-valueTrackerOverhead) / float64(test.N))
 }
 
-func (test *allocTest) run(fn func() error) {
+func (test *starTest) run(fn func() error) {
 	test.Errorf("Not implemented")
 }
