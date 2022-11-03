@@ -7,13 +7,19 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
-func TestPredeclareds(t *testing.T) {
-}
-
 func TestExpectError(t *testing.T) {
 }
 
 func TestMaxAllocs(t *testing.T) {
+}
+
+func TestRunBuiltin(t *testing.T) {
+}
+
+func TestRunThread(t *testing.T) {
+}
+
+func TestTrack(t *testing.T) {
 }
 
 func TestPredeclared(t *testing.T) {
