@@ -83,7 +83,7 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 	if measured > test.maxAllocs {
 		test.Errorf("too many measured allocations (%d > %d)", measured, test.maxAllocs)
 	}
-	if thread.Allocs() > test.maxAllocs {
+	if thread.Allocs()/uint64(test.N) > test.maxAllocs {
 		test.Errorf("too many declared allocations")
 	}
 }
