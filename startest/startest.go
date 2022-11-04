@@ -14,6 +14,8 @@ type testBase interface {
 	Error(err ...interface{})
 	Errorf(format string, err ...interface{})
 	Failed() bool
+	Log(args ...interface{})
+	Logf(fmt string, args ...interface{})
 }
 
 type starTest struct {
@@ -95,12 +97,12 @@ func (test *starTest) measureMemory(fn func()) uint64 {
 
 	const nMax = 100_000
 	const memoryTarget = 100 * 2 << 20
-	const timeMax = 1000
+	const timeMax = 1e9
 
 	var memoryUsed int64
 	var valueTrackerOverhead int64
 	test.N = 0
-	for n := int64(1); !test.Failed() && memoryUsed-valueTrackerOverhead < memoryTarget && n < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
+	for n := int64(0); !test.Failed() && memoryUsed-valueTrackerOverhead < memoryTarget && n < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
 		valueTrackerOverhead = int64(cap(test.tracked)) * int64(unsafe.Sizeof(interface{}(nil)))
 		last := n
 		prevIters := int64(test.N)
