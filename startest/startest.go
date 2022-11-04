@@ -21,7 +21,7 @@ type testBase interface {
 
 type starTest struct {
 	predefined starlark.StringDict
-	maxAllocs  uint64
+	MaxAllocs  uint64
 	tracked    []interface{}
 	N          int
 	testBase
@@ -32,7 +32,7 @@ var _ testBase = &testing.B{}
 var _ testBase = &check.C{}
 
 func From(base testBase) *starTest {
-	return &starTest{testBase: base, maxAllocs: math.MaxUint64}
+	return &starTest{testBase: base, MaxAllocs: math.MaxUint64}
 }
 
 func (test *starTest) AddBuiltin(fn *starlark.Builtin) {
@@ -47,10 +47,6 @@ func (test *starTest) AddValue(name string, value starlark.Value) {
 		test.predefined = make(starlark.StringDict)
 	}
 	test.predefined[name] = value
-}
-
-func (test *starTest) SetMaxAllocs(maxAllocs uint64) {
-	test.maxAllocs = maxAllocs
 }
 
 func (test *starTest) RunBuiltin(fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) {
@@ -75,10 +71,10 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 	if test.Failed() {
 		return
 	}
-	if measured > test.maxAllocs {
-		test.Errorf("too many measured allocations (%d > %d)", measured, test.maxAllocs)
+	if measured > test.MaxAllocs {
+		test.Errorf("too many measured allocations (%d > %d)", measured, test.MaxAllocs)
 	}
-	if thread.Allocs()/uint64(test.N) > test.maxAllocs {
+	if thread.Allocs() > test.MaxAllocs {
 		test.Errorf("too many declared allocations")
 	}
 }
