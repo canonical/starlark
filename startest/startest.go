@@ -20,11 +20,10 @@ type testBase interface {
 }
 
 type starTest struct {
-	predefined  starlark.StringDict
-	maxAllocs   uint64
-	expectedErr string
-	tracked     []interface{}
-	N           int
+	predefined starlark.StringDict
+	maxAllocs  uint64
+	tracked    []interface{}
+	N          int
 	testBase
 }
 
@@ -52,10 +51,6 @@ func (test *starTest) AddValue(name string, value starlark.Value) {
 
 func (test *starTest) SetMaxAllocs(maxAllocs uint64) {
 	test.maxAllocs = maxAllocs
-}
-
-func (test *starTest) Expect(err string) {
-	test.expectedErr = err
 }
 
 func (test *starTest) RunBuiltin(fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) {

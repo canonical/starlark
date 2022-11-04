@@ -7,51 +7,69 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
-func TestExpectError(t *testing.T) {
-}
-
-func TestMaxAllocs(t *testing.T) {
-}
-
 func TestRunBuiltin(t *testing.T) {
 	st := startest.From(t)
 	arg := starlark.String("test")
-	st.SetMaxAllocs(1)
+	var builtin *starlark.Builtin
+	builtin = starlark.NewBuiltin(
+		"test",
+		func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			if fn != builtin {
+				st.Error("Wrong builtin")
+			}
+
+			if thread == nil {
+				st.Error("Thread is not available")
+			}
+
+			if len(args) != 1 || args[0] != arg {
+				st.Error("Wrong arguments received")
+			}
+
+			if len(kwargs) != 1 || len(kwargs[0]) != 2 || kwargs[0][0] != arg || kwargs[0][1] != arg {
+				st.Error("Wrong kw arguments received")
+			}
+
+			return starlark.None, nil
+		},
+	)
+
 	st.RunBuiltin(
-		starlark.NewBuiltin(
-			"test",
-			func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-				if len(args) != 1 || args[0] != arg {
-					st.Error("Wrong arguments received")
-				}
-
-				if len(kwargs) != 1 || len(kwargs[0]) != 2 || kwargs[0][0] != arg || kwargs[0][1] != arg {
-					st.Error("Wrong kw arguments received")
-				}
-
-				thread.AddAllocs(1)
-				return starlark.None, nil
-			},
-		),
+		builtin,
 		starlark.Tuple{arg},
 		[]starlark.Tuple{{arg, arg}},
 	)
 }
 
-func TestRunThread(t *testing.T) {
-}
-
 func TestTrack(t *testing.T) {
 	st := startest.From(t)
+
+	// Check for a non-allocating routine
 	st.SetMaxAllocs(0)
 	st.RunThread(func(t *starlark.Thread, sd starlark.StringDict) {
 		for i := 0; i < st.N; i++ {
 			st.Track(nil)
 		}
 	})
+
+	// Check for exact measuring
+	st.SetMaxAllocs(4)
+	st.RunThread(func(t *starlark.Thread, sd starlark.StringDict) {
+		for i := 0; i < st.N; i++ {
+			st.Track(new(int32))
+		}
+	})
+
+	// Check for a non-allocating routine
+	st.SetMaxAllocs(20)
+	st.RunThread(func(t *starlark.Thread, sd starlark.StringDict) {
+		for i := 0; i < st.N; i++ {
+			st.Track(new(int32))
+		}
+	})
 }
 
-func TestPredeclared(t *testing.T) {
+func TestThread(t *testing.T) {
 	st := startest.From(t)
 	testBuiltin := starlark.NewBuiltin("testBuiltin", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		return starlark.None, nil
@@ -62,7 +80,15 @@ func TestPredeclared(t *testing.T) {
 
 	st.AddValue("testValue", testValue)
 
-	st.RunThread(func(t *starlark.Thread, sd starlark.StringDict) {
+	st.RunThread(func(thread *starlark.Thread, sd starlark.StringDict) {
+		if sd == nil {
+			st.Error("Received a nil environment")
+		}
+
+		if thread == nil {
+			st.Error("Received a nil thread")
+		}
+
 		if v, ok := sd["testBuiltin"]; !ok {
 			st.Error("testBuiltin not found")
 		} else if v != testBuiltin {
