@@ -1,6 +1,7 @@
 package startest
 
 import (
+	"math"
 	"runtime"
 	"testing"
 	"time"
@@ -32,7 +33,7 @@ var _ testBase = &testing.B{}
 var _ testBase = &check.C{}
 
 func From(base testBase) *starTest {
-	return &starTest{testBase: base}
+	return &starTest{testBase: base, maxAllocs: math.MaxUint64}
 }
 
 func (test *starTest) AddBuiltin(fn *starlark.Builtin) {
@@ -76,13 +77,14 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 		fn(thread, test.predefined)
 	})
 
-	if !test.Failed() && test.maxAllocs != 0 {
-		if measured > test.maxAllocs {
-			test.Errorf("too many measured allocations")
-		}
-		if thread.Allocs() > test.maxAllocs {
-			test.Errorf("too many declared allocations")
-		}
+	if test.Failed() {
+		return
+	}
+	if measured > test.maxAllocs {
+		test.Errorf("too many measured allocations (%d > %d)", measured, test.maxAllocs)
+	}
+	if thread.Allocs() > test.maxAllocs {
+		test.Errorf("too many declared allocations")
 	}
 }
 
@@ -103,7 +105,6 @@ func (test *starTest) measureMemory(fn func()) uint64 {
 	var valueTrackerOverhead int64
 	test.N = 0
 	for n := int64(0); !test.Failed() && memoryUsed-valueTrackerOverhead < memoryTarget && n < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
-		valueTrackerOverhead = int64(cap(test.tracked)) * int64(unsafe.Sizeof(interface{}(nil)))
 		last := n
 		prevIters := int64(test.N)
 		prevMemory := memoryUsed
@@ -138,11 +139,10 @@ func (test *starTest) measureMemory(fn func()) uint64 {
 		runtime.ReadMemStats(&after)
 
 		iterationMeasure := int64(after.Alloc - before.Alloc)
-		if iterationMeasure <= 0 {
-			memoryUsed++
-		} else {
+		if iterationMeasure > 0 {
 			memoryUsed += iterationMeasure
 		}
+		valueTrackerOverhead = int64(cap(test.tracked)) * int64(unsafe.Sizeof(interface{}(nil)))
 	}
 
 	if test.Failed() {
