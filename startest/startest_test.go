@@ -20,6 +20,13 @@ func TestRunThread(t *testing.T) {
 }
 
 func TestTrack(t *testing.T) {
+	st := startest.From(t)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(t *starlark.Thread, sd starlark.StringDict) {
+		for i := 0; i < st.N; i++ {
+			st.Track(nil)
+		}
+	})
 }
 
 func TestPredeclared(t *testing.T) {
