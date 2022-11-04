@@ -243,5 +243,9 @@ func EstimateSize(obj interface{}) uintptr {
 // Returns the size of the value pointed by obj, taking
 // into account the whole object tree
 func EstimateSizeDeep(obj interface{}) uintptr {
-	return estimateSize(reflect.ValueOf(obj), make(map[uintptr]struct{}))
+	if obj == nil {
+		return 0
+	} else {
+		return estimateSize(reflect.ValueOf(obj), make(map[uintptr]struct{}))
+	}
 }

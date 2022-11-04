@@ -25,7 +25,6 @@ func runEstimateTest(t *testing.T, createObj func() interface{}) {
 }
 
 func TestEstimateBuiltinTypes(t *testing.T) {
-
 	t.Run("int8", func(t *testing.T) {
 		runEstimateTest(t, func() interface{} { return int8(rand.Int()) })
 	})
@@ -120,7 +119,6 @@ func TestEstimateBuiltinTypes(t *testing.T) {
 }
 
 func TestEstimateMap(t *testing.T) {
-
 	t.Run("map[int]int", func(t *testing.T) {
 		st := startest.From(t)
 		st.RunThread(func(thread *starlark.Thread) {
