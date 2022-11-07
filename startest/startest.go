@@ -80,9 +80,11 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 		test.Errorf("thread allocations are above maximum (%d > %d)", measured, test.MaxAllocs)
 	}
 
+	meanAllocs := (thread.Allocs() * 105 / 100) / uint64(test.N)
+	meanMeasured := measured / uint64(test.N)
 	// TODO: is it worthy to make this configurable?
-	if (thread.Allocs() * 105 / 100) > measured {
-		test.Errorf("measured memory is more than 5%% above thread allocations (%d > %d)", measured, thread.Allocs())
+	if meanMeasured > meanAllocs {
+		test.Errorf("mean measured memory is more than 5%% above thread allocations (%d > %d)", meanMeasured, meanAllocs)
 	}
 }
 

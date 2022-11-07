@@ -45,7 +45,6 @@ func TestTrack(t *testing.T) {
 	st := startest.From(t)
 
 	// Check for a non-allocating routine
-	st.MaxAllocs = 0
 	st.RunThread(func(t *starlark.Thread, sd starlark.StringDict) {
 		for i := 0; i < st.N; i++ {
 			st.Track(nil)
@@ -53,18 +52,18 @@ func TestTrack(t *testing.T) {
 	})
 
 	// Check for exact measuring
-	st.MaxAllocs = 4
 	st.RunThread(func(t *starlark.Thread, sd starlark.StringDict) {
 		for i := 0; i < st.N; i++ {
 			st.Track(new(int32))
+			t.AddAllocs(4)
 		}
 	})
 
-	// Check for a non-allocating routine
-	st.MaxAllocs = 20
+	// Check for over eximations
 	st.RunThread(func(t *starlark.Thread, sd starlark.StringDict) {
 		for i := 0; i < st.N; i++ {
 			st.Track(new(int32))
+			t.AddAllocs(20)
 		}
 	})
 }
