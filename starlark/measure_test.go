@@ -19,7 +19,9 @@ func runEstimateTest(t *testing.T, createObj func() interface{}) {
 
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			st.Track(createObj())
+			obj := createObj()
+			thread.AddAllocs(int64(starlark.EstimateSizeDeep(obj)))
+			st.KeepAlive(obj)
 		}
 	})
 }
@@ -129,7 +131,7 @@ func TestEstimateMap(t *testing.T) {
 			}
 
 			thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
-			st.Track(value)
+			st.KeepAlive(value)
 		})
 	})
 
@@ -143,7 +145,7 @@ func TestEstimateMap(t *testing.T) {
 			}
 
 			thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
-			st.Track(value)
+			st.KeepAlive(value)
 		})
 	})
 }
@@ -158,7 +160,7 @@ func TestEstimateChan(t *testing.T) {
 		}
 
 		thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
-		st.Track(value)
+		st.KeepAlive(value)
 	})
 }
 
@@ -168,6 +170,6 @@ func TestEstimateString(t *testing.T) {
 		value := strings.Repeat("Hello World!", st.N)
 
 		thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
-		st.Track(value)
+		st.KeepAlive(value)
 	})
 }
