@@ -67,6 +67,8 @@ func (test *starTest) RunBuiltin(fn *starlark.Builtin, args starlark.Tuple, kwar
 
 func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) {
 	thread := &starlark.Thread{}
+	thread.SetMaxAllocs(test.maxAllocs)
+
 	measured := test.measureMemory(func() {
 		fn(thread, test.predefined)
 	})
