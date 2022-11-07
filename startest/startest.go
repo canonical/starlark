@@ -21,7 +21,7 @@ type testBase interface {
 
 type starTest struct {
 	predefined starlark.StringDict
-	MaxAllocs  uint64
+	maxAllocs  uint64
 	tracked    []interface{}
 	N          int
 	testBase
@@ -32,7 +32,7 @@ var _ testBase = &testing.B{}
 var _ testBase = &check.C{}
 
 func From(base testBase) *starTest {
-	return &starTest{testBase: base, MaxAllocs: math.MaxUint64}
+	return &starTest{testBase: base, maxAllocs: math.MaxUint64}
 }
 
 func (test *starTest) AddBuiltin(fn *starlark.Builtin) {
@@ -47,6 +47,9 @@ func (test *starTest) AddValue(name string, value starlark.Value) {
 		test.predefined = make(starlark.StringDict)
 	}
 	test.predefined[name] = value
+}
+func (test *starTest) SetMaxAllocs(maxAllocs uint64) {
+	test.maxAllocs = maxAllocs
 }
 
 func (test *starTest) RunBuiltin(fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) {
@@ -72,12 +75,12 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 		return
 	}
 
-	if (measured / uint64(test.N)) > test.MaxAllocs {
-		test.Errorf("measured memory is above maximum (%d > %d)", measured, test.MaxAllocs)
+	if (measured / uint64(test.N)) > test.maxAllocs {
+		test.Errorf("measured memory is above maximum (%d > %d)", measured, test.maxAllocs)
 	}
 
-	if thread.Allocs() > test.MaxAllocs {
-		test.Errorf("thread allocations are above maximum (%d > %d)", measured, test.MaxAllocs)
+	if thread.Allocs() > test.maxAllocs {
+		test.Errorf("thread allocations are above maximum (%d > %d)", measured, test.maxAllocs)
 	}
 
 	meanAllocs := (thread.Allocs() * 105 / 100) / uint64(test.N)
