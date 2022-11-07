@@ -71,11 +71,18 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 	if test.Failed() {
 		return
 	}
-	if measured > test.MaxAllocs {
-		test.Errorf("too many measured allocations (%d > %d)", measured, test.MaxAllocs)
+
+	if (measured / uint64(test.N)) > test.MaxAllocs {
+		test.Errorf("measured memory is above maximum (%d > %d)", measured, test.MaxAllocs)
 	}
+
 	if thread.Allocs() > test.MaxAllocs {
-		test.Errorf("too many declared allocations")
+		test.Errorf("thread allocations are above maximum (%d > %d)", measured, test.MaxAllocs)
+	}
+
+	// TODO: is it worthy to make this configurable?
+	if (thread.Allocs() * 105 / 100) > measured {
+		test.Errorf("measured memory is more than 5%% above thread allocations (%d > %d)", measured, thread.Allocs())
 	}
 }
 
@@ -140,7 +147,9 @@ func (test *starTest) measureMemory(fn func()) uint64 {
 		return 0
 	}
 
-	return uint64(float64(memoryUsed-valueTrackerOverhead) / float64(test.N))
+	memoryUsed -= valueTrackerOverhead
+
+	return uint64(memoryUsed)
 }
 
 func (test *starTest) run(fn func() error) {
