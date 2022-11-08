@@ -158,7 +158,3 @@ func (test *starTest) measureMemory(fn func()) uint64 {
 
 	return uint64(memoryUsed)
 }
-
-func (test *starTest) run(fn func() error) {
-	test.Errorf("Not implemented")
-}
