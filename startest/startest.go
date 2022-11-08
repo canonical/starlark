@@ -60,17 +60,21 @@ func (test *starTest) SetMargin(margin float64) {
 	test.margin = margin
 }
 
-func (test *starTest) RunBuiltin(fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) {
-	test.RunThread(func(th *starlark.Thread, globals starlark.StringDict) {
-		for i := 0; i < test.N; i++ {
-			result, err := starlark.Call(th, fn, args, kwargs)
-			if err != nil {
-				test.Error(err)
-			}
+func (test *starTest) RunBuiltin(fn starlark.Value, args starlark.Tuple, kwargs []starlark.Tuple) {
+	if _, ok := fn.(*starlark.Builtin); ok {
+		test.RunThread(func(th *starlark.Thread, globals starlark.StringDict) {
+			for i := 0; i < test.N; i++ {
+				result, err := starlark.Call(th, fn, args, kwargs)
+				if err != nil {
+					test.Error(err)
+				}
 
-			test.Track(result)
-		}
-	})
+				test.Track(result)
+			}
+		})
+	} else {
+		test.Error("fn must be a builtin")
+	}
 }
 
 func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) {
