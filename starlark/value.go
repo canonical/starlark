@@ -782,7 +782,7 @@ func NewBuiltinWithSafety(name string, safety Safety, fn func(*Thread, *Builtin,
 //     "abc".index("a")
 //
 func (b *Builtin) BindReceiver(recv Value) *Builtin {
-	return &Builtin{name: b.name, fn: b.fn, recv: recv}
+	return &Builtin{name: b.name, fn: b.fn, recv: recv, safety: b.safety}
 }
 
 // A *Dict represents a Starlark dictionary.
