@@ -9,7 +9,14 @@ import (
 	starlarktime "github.com/canonical/starlark/lib/time"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
+	"gopkg.in/check.v1"
 )
+
+func Test(t *testing.T) { check.TestingT(t) }
+
+type checkSuite struct{}
+
+var _ = check.Suite(&checkSuite{})
 
 func TestRunBuiltin(t *testing.T) {
 	st := startest.From(t)
@@ -104,6 +111,30 @@ func TestThread(t *testing.T) {
 			st.Error("wrong value expected")
 		}
 	})
+}
+
+func (*checkSuite) TestFailed(c *check.C) {
+	for _, base := range []startest.TestBase{&testing.T{}, &testing.B{}, c} {
+		st := startest.From(base)
+
+		if st.Failed() {
+			c.Error("startest reported that it failed prematurely")
+		}
+
+		st.Log("foobar")
+
+		if st.Failed() {
+			c.Error("startest reported that it failed prematurely")
+		}
+
+		st.Error("snafu")
+
+		if st.Failed() {
+			c.Succeed()
+		} else {
+			c.Error("startest did not report that it had failed")
+		}
+	}
 }
 
 func TestMakeArgs(t *testing.T) {
