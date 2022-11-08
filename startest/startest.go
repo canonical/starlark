@@ -24,6 +24,7 @@ type testBase interface {
 type starTest struct {
 	predefined starlark.StringDict
 	maxAllocs  uint64
+	margin     float64
 	tracked    []interface{}
 	N          int
 	testBase
@@ -34,7 +35,7 @@ var _ testBase = &testing.B{}
 var _ testBase = &check.C{}
 
 func From(base testBase) *starTest {
-	return &starTest{testBase: base, maxAllocs: math.MaxUint64}
+	return &starTest{testBase: base, maxAllocs: math.MaxUint64, margin: 0.05}
 }
 
 func (test *starTest) AddBuiltin(fn *starlark.Builtin) {
@@ -50,8 +51,13 @@ func (test *starTest) AddValue(name string, value starlark.Value) {
 	}
 	test.predefined[name] = value
 }
+
 func (test *starTest) SetMaxAllocs(maxAllocs uint64) {
 	test.maxAllocs = maxAllocs
+}
+
+func (test *starTest) SetMargin(margin float64) {
+	test.margin = margin
 }
 
 func (test *starTest) RunBuiltin(fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) {
@@ -71,7 +77,7 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(test.maxAllocs)
 
-	measured := test.measureMemory(func() {
+	meanMeasured := test.measureMemory(func() {
 		fn(thread, test.predefined)
 	})
 
@@ -79,17 +85,16 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 		return
 	}
 
-	if (measured / uint64(test.N)) > test.maxAllocs {
-		test.Errorf("measured memory is above maximum (%d > %d)", measured, test.maxAllocs)
+	if meanMeasured > test.maxAllocs {
+		test.Errorf("measured memory is above maximum (%d > %d)", meanMeasured, test.maxAllocs)
 	}
 
 	if thread.Allocs() > test.maxAllocs {
-		test.Errorf("thread allocations are above maximum (%d > %d)", measured, test.maxAllocs)
+		test.Errorf("thread allocations are above maximum (%d > %d)", meanMeasured, test.maxAllocs)
 	}
 
-	meanAllocs := (thread.Allocs() * 105 / 100) / uint64(test.N)
-	meanMeasured := measured / uint64(test.N)
-	// TODO: is it worthy to make this configurable?
+	meanAllocs := (thread.Allocs() * uint64((1+test.margin)*100) / 100) / uint64(test.N)
+
 	if meanMeasured > meanAllocs {
 		test.Errorf("mean measured memory is more than 5%% above thread allocations (%d > %d)", meanMeasured, meanAllocs)
 	}
@@ -111,6 +116,8 @@ func (test *starTest) measureMemory(fn func()) uint64 {
 	var memoryUsed int64
 	var valueTrackerOverhead int64
 	test.N = 0
+	nTotal := int64(0)
+
 	for n := int64(0); !test.Failed() && memoryUsed-valueTrackerOverhead < memoryTarget && n < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
 		last := n
 		prevIters := int64(test.N)
@@ -133,6 +140,7 @@ func (test *starTest) measureMemory(fn func()) uint64 {
 		}
 
 		test.N = int(n)
+		nTotal += n
 
 		var before, after runtime.MemStats
 		runtime.GC()
@@ -158,7 +166,7 @@ func (test *starTest) measureMemory(fn func()) uint64 {
 
 	memoryUsed -= valueTrackerOverhead
 
-	return uint64(memoryUsed)
+	return uint64(memoryUsed / nTotal)
 }
 
 func (test *starTest) MakeArgs(raw ...interface{}) (starlark.Tuple, error) {
