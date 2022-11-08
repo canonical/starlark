@@ -1,6 +1,65 @@
 package starlark_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/canonical/starlark/starlark"
+)
+
+func TestUniverseSafeties(t *testing.T) {
+	for name, value := range starlark.Universe {
+		if builtin, ok := value.(*starlark.Builtin); ok {
+			if safety, ok := (*starlark.UniverseSafeties)[name]; !ok {
+				t.Errorf("builtin %s has no safety declaration", name)
+			} else if actualSafety := builtin.Safety(); actualSafety != safety {
+				t.Errorf("builtin %s has incorrect safety: expected %v but got %v", name, safety, actualSafety)
+			}
+
+		}
+	}
+
+	for name, _ := range *starlark.UniverseSafeties {
+		if _, ok := starlark.Universe[name]; !ok {
+			t.Errorf("safety declared for non-existent builtin: %s", name)
+		}
+	}
+}
+
+func TestBytesMethodSafeties(t *testing.T) {
+	testBuiltinSafeties(t, "bytes", starlark.BytesMethods, starlark.BytesMethodSafeties)
+}
+
+func TestDictMethodSafeties(t *testing.T) {
+	testBuiltinSafeties(t, "dict", starlark.DictMethods, starlark.DictMethodSafeties)
+}
+
+func TestListMethodSafeties(t *testing.T) {
+	testBuiltinSafeties(t, "list", starlark.ListMethods, starlark.ListMethodSafeties)
+}
+
+func TestStringMethodSafeties(t *testing.T) {
+	testBuiltinSafeties(t, "string", starlark.StringMethods, starlark.StringMethodSafeties)
+}
+
+func TestSetMethodSafeties(t *testing.T) {
+	testBuiltinSafeties(t, "set", starlark.SetMethods, starlark.SetMethodSafeties)
+}
+
+func testBuiltinSafeties(t *testing.T, recvName string, builtins map[string]*starlark.Builtin, safeties map[string]starlark.Safety) {
+	for name, builtin := range builtins {
+		if safety, ok := safeties[name]; !ok {
+			t.Errorf("builtin %s.%s has no safety declaration", recvName, name)
+		} else if actual := builtin.Safety(); actual != safety {
+			t.Errorf("builtin %s.%s has incorrect safety: expected %v but got %v", name, recvName, safety, actual)
+		}
+	}
+
+	for name, _ := range safeties {
+		if _, ok := builtins[name]; !ok {
+			t.Errorf("safety declared for non-existent builtin %s.%s", recvName, name)
+		}
+	}
+}
 
 func TestBytesElemsAllocs(t *testing.T) {
 }
