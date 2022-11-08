@@ -180,10 +180,10 @@ func TestValueConversion(t *testing.T) {
 		{from: float64(3.14), to: starlark.Float(3.14)},
 		{
 			from: []string{"foo", "bar"},
-			to:   starlark.NewList(append(make([]starlark.Value, 0), starlark.String("foo"), starlark.String("bar"))),
+			to:   starlark.NewList([]starlark.Value{starlark.String("foo"), starlark.String("bar")}),
 		}, {
 			from: [...]string{"foo", "bar"},
-			to:   starlark.NewList(append(make([]starlark.Value, 0), starlark.String("foo"), starlark.String("bar"))),
+			to:   starlark.NewList([]starlark.Value{starlark.String("foo"), starlark.String("bar")}),
 		}, {
 			from: map[string]string{"foo": "bar"},
 			to: func() starlark.Value {
@@ -195,12 +195,12 @@ func TestValueConversion(t *testing.T) {
 			from: map[string][]string{"foo": {"bar", "baz"}},
 			to: func() starlark.Value {
 				dict := starlark.NewDict(1)
-				dict.SetKey(starlark.String("foo"), starlark.NewList(append(make([]starlark.Value, 0, 2), starlark.String("bar"), starlark.String("baz"))))
+				dict.SetKey(starlark.String("foo"), starlark.NewList([]starlark.Value{starlark.String("bar"), starlark.String("baz")}))
 				return dict
 			}(),
 		}, {
 			from: []starlark.String{starlark.String("foo"), starlark.String("bar")},
-			to:   starlark.NewList(append(make([]starlark.Value, 0), starlark.String("foo"), starlark.String("bar"))),
+			to:   starlark.NewList([]starlark.Value{starlark.String("foo"), starlark.String("bar")}),
 		},
 	}
 
