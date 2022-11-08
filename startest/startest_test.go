@@ -1,6 +1,7 @@
 package startest_test
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -113,7 +114,7 @@ func TestMakeKwargs(t *testing.T) {
 	// TODO: complete me!
 }
 
-func TestConvert(t *testing.T) {
+func TestValueConversion(t *testing.T) {
 	type conversionTest struct {
 		from interface{}
 		to   starlark.Value
@@ -173,10 +174,13 @@ func TestConvert(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if converted, err := startest.ToValue(test.from); err != nil {
-			t.Error(err)
-		} else if !reflect.DeepEqual(converted, test.to) {
-			t.Errorf("Incorrect starlark value conversion: expected %v but got %v", test.to, converted)
-		}
+		t.Run(fmt.Sprintf("input-type=%v", test.from), func(t *testing.T) {
+			st := startest.From(t)
+
+			converted := st.ToValue(test.from)
+			if !reflect.DeepEqual(converted, test.to) {
+				t.Errorf("Incorrect starlark value conversion: expected %v but got %v", test.to, converted)
+			}
+		})
 	}
 }
