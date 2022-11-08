@@ -138,11 +138,50 @@ func (*checkSuite) TestFailed(c *check.C) {
 }
 
 func TestMakeArgs(t *testing.T) {
-	// TODO: complete me!
+	st := startest.From(t)
+	if emptyArgs := st.MakeArgs(); len(emptyArgs) != 0 {
+		t.Errorf("empty MakeArgs call did not return empty args: got %v", emptyArgs)
+	}
+
+	value := starlark.String("value")
+	if args := st.MakeArgs(value); len(args) != 1 {
+		t.Errorf("computed args list had wrong length: expected 1, but got %d: %v", len(args), args)
+	} else if args[0] != value {
+		t.Errorf("value was changed: expected %v but got %v", value, args[0])
+	}
+
+	expected := starlark.Tuple{starlark.MakeInt(1234), starlark.MakeInt(4321)}
+	if args := st.MakeArgs(1234, 4321); !reflect.DeepEqual(args, expected) {
+		t.Errorf("incorrect args returned: expected %v git got %v", expected, args)
+	}
+
+	dummyT := testing.T{}
+	dummiedSt := startest.From(&dummyT)
+	dummiedSt.MakeArgs(func() {})
+	if dummiedSt.Failed() {
+
+	}
 }
 
 func TestMakeKwargs(t *testing.T) {
-	// TODO: complete me!
+	st := startest.From(t)
+
+	if emptyKwargs := st.MakeKwargs(make(map[string]interface{})); len(emptyKwargs) != 0 {
+		t.Errorf("Expected kwargs from empty map be empty: got %v", emptyKwargs)
+	}
+
+	in := map[string]interface{}{"k1": "v1", "k2": "v2"}
+	expected := []starlark.Tuple{
+		{starlark.String("k1"), starlark.String("v1")},
+		{starlark.String("k2"), starlark.String("v2")},
+	}
+	if actual := st.MakeKwargs(in); len(actual) != 2 {
+		if !reflect.DeepEqual(expected[0], actual[0]) && !reflect.DeepEqual(expected[0], actual[1]) {
+			t.Errorf("Incorrect kwargs: expected %v but got %v", expected, actual)
+		} else if !reflect.DeepEqual(expected[1], actual[0]) && !reflect.DeepEqual(expected[1], actual[1]) {
+			t.Errorf("Incorrect kwargs: expected %v but got %v", expected, actual)
+		}
+	}
 }
 
 func TestValueConversion(t *testing.T) {
