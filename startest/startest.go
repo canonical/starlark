@@ -74,9 +74,14 @@ func (test *starTest) SetMaxAllocs(maxAllocs uint64) {
 	test.maxAllocs = maxAllocs
 }
 
-// SetMargin sets the fraction by which measured allocations can be greater than from declared allocations
-func (test *starTest) SetMargin(margin float64) {
-	test.margin = margin
+// SetRealityMargin sets the fraction by which measured allocations can be greater
+// than from declared allocations
+func (test *starTest) SetRealityMargin(margin float64) {
+	if test.margin > 0 {
+		test.margin = margin
+	} else {
+		test.margin = 0
+	}
 }
 
 // RunBuiltin tests the given builtin
