@@ -124,9 +124,11 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 		test.Errorf("declared allocations are above maximum (%d > %d)", meanDeclared, test.maxAllocs)
 	}
 
-	measuredUpperBound := (thread.Allocs() * uint64((1+test.margin)*100) / 100) / nTotal
-	if meanMeasured > measuredUpperBound {
-		test.Errorf("measured memory is more than %.0f%% above declared allocations (%d > %d)", test.margin*100, meanMeasured, measuredUpperBound)
+	if test.maxAllocs != math.MaxUint64 {
+		measuredUpperBound := (thread.Allocs() * uint64((1+test.margin)*100) / 100) / nTotal
+		if meanMeasured > measuredUpperBound {
+			test.Errorf("measured memory is more than %.0f%% above declared allocations (%d > %d)", test.margin*100, meanMeasured, measuredUpperBound)
+		}
 	}
 }
 
