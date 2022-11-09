@@ -283,14 +283,13 @@ func TestNewBuiltinWithSafety(t *testing.T) {
 func TestBindReceiverSafety(t *testing.T) {
 	const expected = starlark.Safety(0xba0bab)
 
-	b := starlark.NewBuiltinWithSafety("fn", expected, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+	builtin := starlark.NewBuiltinWithSafety("fn", expected, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 		return starlark.None, nil
 	})
 
-	value := starlark.String("asdf")
-	bound := b.BindReceiver(value)
-
-	if actual := bound.Safety(); actual != expected {
+	recv := starlark.String("foo")
+	boundBuiltin := builtin.BindReceiver(recv)
+	if actual := boundBuiltin.Safety(); actual != expected {
 		t.Errorf("Builtin with bound receiver had incorrect safety: expected %v but got %v", expected, actual)
 	}
 }
