@@ -1,7 +1,6 @@
 package startest_test
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -147,7 +146,7 @@ func (*checkSuite) TestFailed(c *check.C) {
 	}
 }
 
-func TestValueConversion(t *testing.T) {
+func (*checkSuite) TestValueConversion(c *check.C) {
 	type conversionTest struct {
 		from interface{}
 		to   starlark.Value
@@ -206,14 +205,14 @@ func TestValueConversion(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("input-type=%v", test.from), func(t *testing.T) {
-			st := startest.From(t)
+	for _, base := range []startest.TestBase{&testing.T{}, &testing.B{}, c} {
+		for _, test := range tests {
+			st := startest.From(base)
 
 			converted := st.ToValue(test.from)
 			if !reflect.DeepEqual(converted, test.to) {
-				t.Errorf("Incorrect starlark value conversion: expected %v but got %v", test.to, converted)
+				c.Errorf("Incorrect starlark value conversion: expected %v but got %v", test.to, converted)
 			}
-		})
+		}
 	}
 }
