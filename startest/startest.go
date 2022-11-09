@@ -21,11 +21,13 @@ type testBase interface {
 }
 
 type starTest struct {
-	predefined starlark.StringDict
-	maxAllocs  uint64
-	margin     float64
-	tracked    []interface{}
-	N          int
+	predefined    starlark.StringDict
+	builtinArgs   starlark.Tuple
+	builtinKwargs []starlark.Tuple
+	maxAllocs     uint64
+	margin        float64
+	tracked       []interface{}
+	N             int
 	testBase
 }
 
@@ -59,7 +61,7 @@ func (test *starTest) SetMargin(margin float64) {
 	test.margin = margin
 }
 
-func (test *starTest) RunBuiltin(fn starlark.Value, args starlark.Tuple, kwargs []starlark.Tuple) {
+func (test *starTest) RunBuiltin(fn starlark.Value) {
 	if _, ok := fn.(*starlark.Builtin); !ok {
 		test.Error("fn must be a builtin")
 		return
@@ -67,7 +69,7 @@ func (test *starTest) RunBuiltin(fn starlark.Value, args starlark.Tuple, kwargs 
 
 	test.RunThread(func(th *starlark.Thread, globals starlark.StringDict) {
 		for i := 0; i < test.N; i++ {
-			result, err := starlark.Call(th, fn, args, kwargs)
+			result, err := starlark.Call(th, fn, test.builtinArgs, test.builtinKwargs)
 			if err != nil {
 				test.Error(err)
 			}
@@ -173,33 +175,12 @@ func (test *starTest) measureMemory(fn func()) uint64 {
 	return uint64(memoryUsed / nTotal)
 }
 
-func (test *starTest) MakeArgs(rawArgs ...interface{}) starlark.Tuple {
-	args := make(starlark.Tuple, 0, len(rawArgs))
-
-	for _, rawArg := range rawArgs {
-		args = append(args, test.ToValue(rawArg))
-		if test.Failed() {
-			return nil
-		}
-	}
-
-	return args
+func (test *starTest) AddArgs(rawArgs ...starlark.Value) {
+	test.builtinArgs = append(test.builtinArgs, rawArgs...)
 }
 
-func (test *starTest) MakeKwargs(raw map[string]interface{}) []starlark.Tuple {
-	kwargs := make([]starlark.Tuple, 0, len(raw))
-
-	for k, v := range raw {
-		k := test.ToValue(k)
-		v := test.ToValue(v)
-		kwargs = append(kwargs, starlark.Tuple{k, v})
-
-		if test.Failed() {
-			return nil
-		}
-	}
-
-	return kwargs
+func (test *starTest) AddKwarg(key string, value starlark.Value) {
+	test.builtinKwargs = append(test.builtinKwargs, starlark.Tuple{starlark.String(key), value})
 }
 
 // ToValue converts go values to starlark ones. Handles arrays, slices,
