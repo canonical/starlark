@@ -35,10 +35,13 @@ var _ testBase = &testing.T{}
 var _ testBase = &testing.B{}
 var _ testBase = &check.C{}
 
+// From returns a new starTest instance with a given test base.
 func From(base testBase) *starTest {
 	return &starTest{testBase: base, maxAllocs: math.MaxUint64, margin: 0.05}
 }
 
+// AddBuiltin inserts the given Builtin into the predeclared values passed to
+// RunThread.
 func (test *starTest) AddBuiltin(fn *starlark.Builtin) {
 	if test.predefined == nil {
 		test.predefined = make(starlark.StringDict)
@@ -46,6 +49,8 @@ func (test *starTest) AddBuiltin(fn *starlark.Builtin) {
 	test.predefined[fn.Name()] = fn
 }
 
+// AddValue inserts the given value into the predeclared values passed to
+// RunThread.
 func (test *starTest) AddValue(name string, value starlark.Value) {
 	if test.predefined == nil {
 		test.predefined = make(starlark.StringDict)
@@ -53,14 +58,28 @@ func (test *starTest) AddValue(name string, value starlark.Value) {
 	test.predefined[name] = value
 }
 
+// AddArgs allows the given values to be passed as arguments to a RunBuiltin call.
+func (test *starTest) AddArgs(rawArgs ...starlark.Value) {
+	test.builtinArgs = append(test.builtinArgs, rawArgs...)
+}
+
+// AddArgs allows the given key-value pair to be passed as keyword-arguments to
+// a RunBuiltin call.
+func (test *starTest) AddKwarg(key string, value starlark.Value) {
+	test.builtinKwargs = append(test.builtinKwargs, starlark.Tuple{starlark.String(key), value})
+}
+
+// SetMaxAllocs optionally sets the max allocations allowed per test.N
 func (test *starTest) SetMaxAllocs(maxAllocs uint64) {
 	test.maxAllocs = maxAllocs
 }
 
+// SetMargin sets the fraction by which measured allocations can be greater than from declared allocations
 func (test *starTest) SetMargin(margin float64) {
 	test.margin = margin
 }
 
+// RunBuiltin tests the given builtin
 func (test *starTest) RunBuiltin(fn starlark.Value) {
 	if _, ok := fn.(*starlark.Builtin); !ok {
 		test.Error("fn must be a builtin")
@@ -79,6 +98,7 @@ func (test *starTest) RunBuiltin(fn starlark.Value) {
 	})
 }
 
+// RunThread tests a function which has access to a starlark thread and a global environment
 func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) {
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(test.maxAllocs)
@@ -105,6 +125,7 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 	}
 }
 
+// Track forces the memory usage of the given objects to be tracked
 func (test *starTest) Track(v ...interface{}) {
 	test.tracked = append(test.tracked, v...)
 }
@@ -172,14 +193,6 @@ func (test *starTest) measureMemory(fn func()) (meanMemory, nTotal uint64) {
 	memoryUsed -= valueTrackerOverhead
 
 	return uint64(memoryUsed) / nTotal, nTotal
-}
-
-func (test *starTest) AddArgs(rawArgs ...starlark.Value) {
-	test.builtinArgs = append(test.builtinArgs, rawArgs...)
-}
-
-func (test *starTest) AddKwarg(key string, value starlark.Value) {
-	test.builtinKwargs = append(test.builtinKwargs, starlark.Tuple{starlark.String(key), value})
 }
 
 // ToValue converts go values to starlark ones. Handles arrays, slices,
