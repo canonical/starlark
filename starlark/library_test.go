@@ -8,13 +8,15 @@ import (
 
 func TestUniverseSafeties(t *testing.T) {
 	for name, value := range starlark.Universe {
-		if builtin, ok := value.(*starlark.Builtin); ok {
-			if safety, ok := (*starlark.UniverseSafeties)[name]; !ok {
-				t.Errorf("builtin %s has no safety declaration", name)
-			} else if actualSafety := builtin.Safety(); actualSafety != safety {
-				t.Errorf("builtin %s has incorrect safety: expected %v but got %v", name, safety, actualSafety)
-			}
+		builtin, ok := value.(*starlark.Builtin)
+		if !ok {
+			continue
+		}
 
+		if safety, ok := (*starlark.UniverseSafeties)[name]; !ok {
+			t.Errorf("builtin %s has no safety declaration", name)
+		} else if actualSafety := builtin.Safety(); actualSafety != safety {
+			t.Errorf("builtin %s has incorrect safety: expected %v but got %v", name, safety, actualSafety)
 		}
 	}
 

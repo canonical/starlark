@@ -9,12 +9,15 @@ import (
 
 func TestModuleSafeties(t *testing.T) {
 	for name, value := range time.Module.Members {
-		if builtin, ok := value.(*starlark.Builtin); ok {
-			if safety, ok := time.Safeties[name]; !ok {
-				t.Errorf("builtin time.%s has no safety declaration", name)
-			} else if actualSafety := builtin.Safety(); actualSafety != safety {
-				t.Errorf("builtin time.%s has incorrect safety: expected %v but got %v", name, safety, actualSafety)
-			}
+		builtin, ok := value.(*starlark.Builtin)
+		if !ok {
+			continue
+		}
+
+		if safety, ok := time.Safeties[name]; !ok {
+			t.Errorf("builtin time.%s has no safety declaration", name)
+		} else if actualSafety := builtin.Safety(); actualSafety != safety {
+			t.Errorf("builtin time.%s has incorrect safety: expected %v but got %v", name, safety, actualSafety)
 		}
 	}
 	for name, _ := range time.Safeties {
