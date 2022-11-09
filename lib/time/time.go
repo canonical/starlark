@@ -67,14 +67,23 @@ var Module = &starlarkstruct.Module{
 		"hour":        Duration(time.Hour),
 	},
 }
+var safeties = map[string]starlark.Safety{
+	"from_timestamp":    starlark.NotSafe,
+	"is_valid_timezone": starlark.NotSafe,
+	"now":               starlark.NotSafe,
+	"parse_duration":    starlark.NotSafe,
+	"parse_time":        starlark.NotSafe,
+	"time":              starlark.NotSafe,
+}
 
 func init() {
-	Module.Members["from_timestamp"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
-	Module.Members["is_valid_timezone"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
-	Module.Members["now"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
-	Module.Members["parse_duration"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
-	Module.Members["parse_time"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
-	Module.Members["time"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	for name, safety := range safeties {
+		if v, ok := Module.Members[name]; ok {
+			if builtin, ok := v.(*starlark.Builtin); ok {
+				builtin.DeclareSafety(safety)
+			}
+		}
+	}
 }
 
 // NowFunc is a function that generates the current time. Intentionally exported
