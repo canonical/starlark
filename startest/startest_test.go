@@ -20,7 +20,10 @@ var _ = check.Suite(&checkSuite{})
 
 func TestRunBuiltin(t *testing.T) {
 	st := startest.From(t)
-	arg := starlark.String("test")
+	expectedArgs := starlark.Tuple{starlark.String("a"), starlark.String("b"), starlark.String("c")}
+	k := starlark.String("k")
+	v := starlark.String("v")
+
 	var builtin *starlark.Builtin
 	builtin = starlark.NewBuiltin(
 		"test",
@@ -33,11 +36,11 @@ func TestRunBuiltin(t *testing.T) {
 				st.Error("Thread is not available")
 			}
 
-			if len(args) != 1 || args[0] != arg {
-				st.Error("Wrong arguments received")
+			if !reflect.DeepEqual(args, expectedArgs) {
+				st.Errorf("Incorrect arguments: expected %v but got %v", expectedArgs, args)
 			}
 
-			if len(kwargs) != 1 || len(kwargs[0]) != 2 || kwargs[0][0] != arg || kwargs[0][1] != arg {
+			if len(kwargs) != 1 || len(kwargs[0]) != 2 || kwargs[0][0] != k || kwargs[0][1] != v {
 				st.Error("Wrong kw arguments received")
 			}
 
@@ -45,8 +48,9 @@ func TestRunBuiltin(t *testing.T) {
 		},
 	)
 
-	st.AddArgs(arg)
-	st.AddKwarg(string(arg), arg)
+	st.AddArgs(expectedArgs[0])
+	st.AddArgs(expectedArgs[1:]...)
+	st.AddKwarg(string(k), v)
 	st.RunBuiltin(builtin)
 }
 
