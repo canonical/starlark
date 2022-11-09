@@ -80,7 +80,7 @@ var Module = &starlarkstruct.Module{
 }
 var safeties = map[string]starlark.Safety{
 	"encode": starlark.NotSafe,
-	"decode": starlark.IOSafe,
+	"decode": starlark.NotSafe,
 	"indent": starlark.NotSafe,
 }
 
