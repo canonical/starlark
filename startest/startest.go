@@ -83,7 +83,7 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(test.maxAllocs)
 
-	meanMeasured := test.measureMemory(func() {
+	meanMeasured, nTotal := test.measureMemory(func() {
 		fn(thread, test.predefined)
 	})
 
@@ -95,14 +95,13 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 		test.Errorf("measured memory is above maximum (%d > %d)", meanMeasured, test.maxAllocs)
 	}
 
-	if thread.Allocs() > test.maxAllocs {
+	if meanDeclared := thread.Allocs() / nTotal; meanDeclared > test.maxAllocs {
 		test.Errorf("declared allocations are above maximum (%d > %d)", meanDeclared, test.maxAllocs)
 	}
 
-	meanAllocs := (thread.Allocs() * uint64((1+test.margin)*100) / 100) / uint64(test.N)
-
-	if meanMeasured > meanAllocs {
-		test.Errorf("measured memory is more than %.0f%% above declared allocations (%d > %d)", test.margin*100, meanMeasured, meanAllocs)
+	measuredUpperBound := (thread.Allocs() * uint64((1+test.margin)*100) / 100) / nTotal
+	if meanMeasured > measuredUpperBound {
+		test.Errorf("measured memory is more than %.0f%% above declared allocations (%d > %d)", test.margin*100, meanMeasured, measuredUpperBound)
 	}
 }
 
@@ -110,7 +109,7 @@ func (test *starTest) Track(v ...interface{}) {
 	test.tracked = append(test.tracked, v...)
 }
 
-func (test *starTest) measureMemory(fn func()) uint64 {
+func (test *starTest) measureMemory(fn func()) (meanMemory, nTotal uint64) {
 	defer func() { test.tracked = make([]interface{}, 0) }()
 
 	startNano := time.Now().Nanosecond()
@@ -119,14 +118,14 @@ func (test *starTest) measureMemory(fn func()) uint64 {
 	const memoryTarget = 100 * 2 << 20
 	const timeMax = 1e9
 
-	var memoryUsed int64
-	var valueTrackerOverhead int64
+	var memoryUsed uint64
+	var valueTrackerOverhead uint64
 	test.N = 0
-	nTotal := int64(0)
+	nTotal = 0
 
-	for n := int64(0); !test.Failed() && memoryUsed-valueTrackerOverhead < memoryTarget && n < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
+	for n := uint64(0); !test.Failed() && memoryUsed-valueTrackerOverhead < memoryTarget && n < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
 		last := n
-		prevIters := int64(test.N)
+		prevIters := uint64(test.N)
 		prevMemory := memoryUsed
 		if prevMemory <= 0 {
 			prevMemory = 1
@@ -161,18 +160,18 @@ func (test *starTest) measureMemory(fn func()) uint64 {
 
 		iterationMeasure := int64(after.Alloc - before.Alloc)
 		if iterationMeasure > 0 {
-			memoryUsed += iterationMeasure
+			memoryUsed += uint64(iterationMeasure)
 		}
-		valueTrackerOverhead = int64(cap(test.tracked)) * int64(unsafe.Sizeof(interface{}(nil)))
+		valueTrackerOverhead = uint64(cap(test.tracked)) * uint64(unsafe.Sizeof(interface{}(nil)))
 	}
 
 	if test.Failed() {
-		return 0
+		return 0, 1
 	}
 
 	memoryUsed -= valueTrackerOverhead
 
-	return uint64(memoryUsed / nTotal)
+	return uint64(memoryUsed) / nTotal, nTotal
 }
 
 func (test *starTest) AddArgs(rawArgs ...starlark.Value) {
