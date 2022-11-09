@@ -157,9 +157,10 @@ func TestMakeArgs(t *testing.T) {
 
 	dummyT := testing.T{}
 	dummiedSt := startest.From(&dummyT)
-	dummiedSt.MakeArgs(func() {})
-	if dummiedSt.Failed() {
-
+	if v := dummiedSt.MakeArgs(func() {}); v != nil {
+		t.Errorf("expected unconvertable call to return nil: got %v", v)
+	} else if !dummiedSt.Failed() {
+		t.Errorf("expected test to be failed")
 	}
 }
 
@@ -181,6 +182,16 @@ func TestMakeKwargs(t *testing.T) {
 		} else if !reflect.DeepEqual(expected[1], actual[0]) && !reflect.DeepEqual(expected[1], actual[1]) {
 			t.Errorf("Incorrect kwargs: expected %v but got %v", expected, actual)
 		}
+	}
+
+	dummyT := testing.T{}
+	dummiedSt := startest.From(&dummyT)
+	badInput := map[string]interface{}{"k": func() {}}
+
+	if v := dummiedSt.MakeKwargs(badInput); v != nil {
+		t.Errorf("Kwargs did not return nil: got %v", v)
+	} else if !dummiedSt.Failed() {
+		t.Error("Expected test set to be failed")
 	}
 }
 
