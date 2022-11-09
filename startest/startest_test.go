@@ -127,13 +127,13 @@ func (*checkSuite) TestFailed(c *check.C) {
 		st := startest.From(base)
 
 		if st.Failed() {
-			c.Error("startest reported that it failed prematurely")
+			c.Error("Startest reported that it failed prematurely")
 		}
 
 		st.Log("foobar")
 
 		if st.Failed() {
-			c.Error("startest reported that it failed prematurely")
+			c.Error("Startest reported that it failed prematurely")
 		}
 
 		st.Error("snafu")
@@ -141,7 +141,7 @@ func (*checkSuite) TestFailed(c *check.C) {
 		if st.Failed() {
 			c.Succeed()
 		} else {
-			c.Error("startest did not report that it had failed")
+			c.Error("Startest did not report that it had failed")
 		}
 	}
 }
