@@ -213,6 +213,10 @@ func (*checkSuite) TestValueConversion(c *check.C) {
 			if !reflect.DeepEqual(converted, test.to) {
 				c.Errorf("Incorrect starlark value conversion: expected %v but got %v", test.to, converted)
 			}
+
+			if st.Failed() {
+				c.Errorf("Unexpected failure converting values")
+			}
 		}
 	}
 }
