@@ -157,16 +157,25 @@ var Module = &starlarkstruct.Module{
 		// - clone(msg) -> msg
 	},
 }
+var safeties = map[string]starlark.Safety{
+	"file":           starlark.NotSafe,
+	"has":            starlark.NotSafe,
+	"marshal":        starlark.NotSafe,
+	"marshal_text":   starlark.NotSafe,
+	"set_field":      starlark.NotSafe,
+	"get_field":      starlark.NotSafe,
+	"unmarshal":      starlark.NotSafe,
+	"unmarshal_text": starlark.NotSafe,
+}
 
 func init() {
-	Module.Members["file"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
-	Module.Members["has"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
-	Module.Members["marshal"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
-	Module.Members["marshal_text"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
-	Module.Members["set_field"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
-	Module.Members["get_field"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
-	Module.Members["unmarshal"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
-	Module.Members["unmarshal_text"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	for name, safety := range safeties {
+		if v, ok := Module.Members[name]; ok {
+			if builtin, ok := v.(*starlark.Builtin); ok {
+				builtin.DeclareSafety(safety)
+			}
+		}
+	}
 }
 
 // file(filename) loads the FileDescriptor of the given name, or the
