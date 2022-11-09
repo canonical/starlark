@@ -13,11 +13,11 @@ import (
 
 func Test(t *testing.T) { check.TestingT(t) }
 
-type checkSuite struct{}
+type startestSuite struct{}
 
-var _ = check.Suite(&checkSuite{})
+var _ = check.Suite(&startestSuite{})
 
-func (*checkSuite) TestRunBuiltin(c *check.C) {
+func (*startestSuite) TestRunBuiltin(c *check.C) {
 	for _, base := range []startest.TestBase{&testing.T{}, &testing.B{}, c} {
 		st := startest.From(base)
 
@@ -56,7 +56,7 @@ func (*checkSuite) TestRunBuiltin(c *check.C) {
 	}
 }
 
-func (*checkSuite) TestTrack(c *check.C) {
+func (*startestSuite) TestTrack(c *check.C) {
 	for _, base := range []startest.TestBase{&testing.T{}, &testing.B{}, c} {
 		st := startest.From(base)
 
@@ -85,7 +85,7 @@ func (*checkSuite) TestTrack(c *check.C) {
 	}
 }
 
-func (*checkSuite) TestThread(c *check.C) {
+func (*startestSuite) TestThread(c *check.C) {
 	for _, base := range []startest.TestBase{&testing.T{}, &testing.B{}, c} {
 		st := startest.From(base)
 
@@ -122,7 +122,7 @@ func (*checkSuite) TestThread(c *check.C) {
 	}
 }
 
-func (*checkSuite) TestFailed(c *check.C) {
+func (*startestSuite) TestFailed(c *check.C) {
 	for _, base := range []startest.TestBase{&testing.T{}, &testing.B{}, c} {
 		st := startest.From(base)
 
@@ -146,7 +146,7 @@ func (*checkSuite) TestFailed(c *check.C) {
 	}
 }
 
-func (*checkSuite) TestValueConversion(c *check.C) {
+func (*startestSuite) TestValueConversion(c *check.C) {
 	type conversionTest struct {
 		from interface{}
 		to   starlark.Value
