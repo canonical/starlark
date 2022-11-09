@@ -78,11 +78,20 @@ var Module = &starlarkstruct.Module{
 		"indent": starlark.NewBuiltin("json.indent", indent),
 	},
 }
+var safeties = map[string]starlark.Safety{
+	"encode": starlark.NotSafe,
+	"decode": starlark.IOSafe,
+	"indent": starlark.NotSafe,
+}
 
 func init() {
-	Module.Members["encode"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
-	Module.Members["decode"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
-	Module.Members["indent"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	for name, safety := range safeties {
+		if v, ok := Module.Members[name]; ok {
+			if builtin, ok := v.(*starlark.Builtin); ok {
+				builtin.DeclareSafety(safety)
+			}
+		}
+	}
 }
 
 func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
