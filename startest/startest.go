@@ -102,7 +102,7 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 	meanAllocs := (thread.Allocs() * uint64((1+test.margin)*100) / 100) / uint64(test.N)
 
 	if meanMeasured > meanAllocs {
-		test.Errorf("mean measured memory is more than 5%% above thread allocations (%d > %d)", meanMeasured, meanAllocs)
+		test.Errorf("mean measured memory is more than %.0f%% above thread allocations (%d > %d)", test.margin*100, meanMeasured, meanAllocs)
 	}
 }
 
