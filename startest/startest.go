@@ -201,7 +201,11 @@ func (test *starTest) measureMemory(fn func()) (totMemory, nTotal uint64) {
 		return 0, 1
 	}
 
-	memoryUsed -= valueTrackerOverhead
+	if valueTrackerOverhead > memoryUsed {
+		memoryUsed = 0
+	} else {
+		memoryUsed -= valueTrackerOverhead
+	}
 
 	return memoryUsed, nTotal
 }
