@@ -59,14 +59,18 @@ func (test *starTest) AddValue(name string, value starlark.Value) {
 }
 
 // AddArgs allows the given values to be passed as arguments to a RunBuiltin call.
-func (test *starTest) AddArgs(rawArgs ...starlark.Value) {
-	test.builtinArgs = append(test.builtinArgs, rawArgs...)
+func (test *starTest) SetArgs(args ...starlark.Value) {
+	test.builtinArgs = args
 }
 
 // AddArgs allows the given key-value pair to be passed as keyword-arguments to
 // a RunBuiltin call.
-func (test *starTest) AddKwarg(key string, value starlark.Value) {
-	test.builtinKwargs = append(test.builtinKwargs, starlark.Tuple{starlark.String(key), value})
+func (test *starTest) SetKwargs(kwargs starlark.StringDict) {
+	test.builtinKwargs = make([]starlark.Tuple, 0, len(kwargs))
+
+	for key, value := range kwargs {
+		test.builtinKwargs = append(test.builtinKwargs, starlark.Tuple{starlark.String(key), value})
+	}
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per test.N
