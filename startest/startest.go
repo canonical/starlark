@@ -144,7 +144,7 @@ func (test *starTest) Track(values ...interface{}) {
 }
 
 func (test *starTest) measureMemory(fn func()) (totMemory, nTotal uint64) {
-	defer func() { test.tracked = make([]interface{}, 0) }()
+	defer func() { test.tracked = nil }()
 
 	startNano := time.Now().Nanosecond()
 
