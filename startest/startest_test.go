@@ -45,31 +45,61 @@ func TestRunBuiltin(t *testing.T) {
 }
 
 func TestTrack(t *testing.T) {
-	st := startest.From(t)
-
 	// Check for a non-allocating routine
-	st.SetMaxAllocs(0)
-	st.RunThread(func(_ *starlark.Thread, _ starlark.StringDict) {
-		for i := 0; i < st.N; i++ {
-			st.Track(nil)
-		}
+	t.Run("check=non-allocating", func(t *testing.T) {
+		st := startest.From(t)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread, _ starlark.StringDict) {
+			for i := 0; i < st.N; i++ {
+				st.Track(nil)
+			}
+		})
 	})
 
 	// Check for exact measuring
-	st.SetMaxAllocs(4)
-	st.RunThread(func(t *starlark.Thread, _ starlark.StringDict) {
-		for i := 0; i < st.N; i++ {
-			st.Track(new(int32))
-			t.AddAllocs(4)
-		}
+	t.Run("check=exact", func(t *testing.T) {
+		st := startest.From(t)
+		st.SetMaxAllocs(4)
+		st.RunThread(func(thread *starlark.Thread, _ starlark.StringDict) {
+			for i := 0; i < st.N; i++ {
+				st.Track(new(int32))
+				thread.AddAllocs(4)
+			}
+		})
 	})
 
 	// Check for over estimations
-	st.SetMaxAllocs(4)
-	st.RunThread(func(t *starlark.Thread, _ starlark.StringDict) {
-		for i := 0; i < st.N; i++ {
-			st.Track(new(int32))
-			t.AddAllocs(20)
+	t.Run("check=over-estimation", func(t *testing.T) {
+		dummyT := testing.T{}
+		st := startest.From(&dummyT)
+		st.SetMaxAllocs(4)
+		st.RunThread(func(thread *starlark.Thread, _ starlark.StringDict) {
+			for i := 0; i < st.N; i++ {
+				st.Track(new(int32))
+				thread.AddAllocs(20)
+			}
+		})
+		if !dummyT.Failed() {
+			t.Error("Expected allocation test failure")
+		}
+	})
+
+	// Check for too many allocs
+	t.Run("check=over-allocation", func(t *testing.T) {
+		dummyT := testing.T{}
+		st := startest.From(&dummyT)
+		st.SetMaxAllocs(4)
+		st.RunThread(func(thread *starlark.Thread, _ starlark.StringDict) {
+			for i := 0; i < st.N; i++ {
+				st.Track(make([]int32, 10))
+				if err := thread.AddAllocs(4); err != nil {
+					t.Errorf("Unexpected error: %v", err)
+					return
+				}
+			}
+		})
+		if !dummyT.Failed() {
+			t.Error("Expected allocation test failure")
 		}
 	})
 }
