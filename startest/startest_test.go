@@ -43,9 +43,7 @@ func TestRunBuiltin(t *testing.T) {
 
 	st.SetArgs(expectedArgs...)
 	st.SetKwargs(starlark.StringDict{string(k): v})
-	// st.SetKwargs(map[string]interface{}{string(k): v})
 	st.RunBuiltin(builtin)
-	// st.RunBuiltin(builtin, st.MakeArgs(...), nil)
 }
 
 func TestTrack(t *testing.T) {
