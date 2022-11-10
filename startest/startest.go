@@ -109,7 +109,6 @@ func (test *starTest) RunBuiltin(fn starlark.Value) {
 // RunThread tests a function which has access to a starlark thread and a global environment
 func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) {
 	thread := &starlark.Thread{}
-	thread.SetMaxAllocs(test.maxAllocs)
 
 	totMemory, nTotal := test.measureMemory(func() {
 		fn(thread, test.predefined)
