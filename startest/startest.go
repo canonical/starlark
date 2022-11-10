@@ -2,7 +2,6 @@ package startest
 
 import (
 	"math"
-	"reflect"
 	"runtime"
 	"testing"
 	"time"
@@ -206,69 +205,4 @@ func (test *starTest) measureMemory(fn func()) (totMemory, nTotal uint64) {
 	memoryUsed -= valueTrackerOverhead
 
 	return memoryUsed, nTotal
-}
-
-// ToValue converts go values to starlark ones. Handles arrays, slices,
-// interfaces, maps and all scalar types except int32.
-func (test *starTest) ToValue(in interface{}) starlark.Value {
-	if test.Failed() {
-		return nil
-	}
-
-	// Special behaviours
-	if in, ok := in.(starlark.Value); ok {
-		return in
-	}
-	if c, ok := in.(rune); ok {
-		return starlark.String(c)
-	}
-
-	var inVal reflect.Value
-	if v, ok := in.(reflect.Value); ok {
-		inVal = v
-	} else {
-		inVal = reflect.ValueOf(in)
-	}
-
-	kind := inVal.Kind()
-	switch kind {
-	case reflect.Invalid:
-		return starlark.None
-	case reflect.Bool:
-		return starlark.Bool(inVal.Bool())
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return starlark.MakeInt(int(inVal.Int()))
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return starlark.MakeInt(int(inVal.Uint()))
-	case reflect.Float32, reflect.Float64:
-		return starlark.Float(inVal.Float())
-	case reflect.Array, reflect.Slice:
-		len := inVal.Len()
-		elems := make([]starlark.Value, len)
-		for i := 0; i < len; i++ {
-			elems[i] = test.ToValue(inVal.Index(i))
-			if test.Failed() {
-				return nil
-			}
-		}
-		return starlark.NewList(elems)
-	case reflect.Map:
-		d := starlark.NewDict(inVal.Len())
-		iter := inVal.MapRange()
-		for iter.Next() {
-			k := test.ToValue(iter.Key())
-			v := test.ToValue(iter.Value())
-			d.SetKey(k, v)
-		}
-		return d
-	case reflect.String:
-		return starlark.String(inVal.String())
-	case reflect.Interface:
-		return test.ToValue(inVal.Interface())
-	case reflect.Ptr:
-		return test.ToValue(inVal.Elem())
-	default:
-		test.Errorf("Cannot automatically convert a value of kind %v to a starlark.Value: encountered %v", kind, in)
-		return nil
-	}
 }

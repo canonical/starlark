@@ -3,9 +3,7 @@ package startest_test
 import (
 	"reflect"
 	"testing"
-	"time"
 
-	starlarktime "github.com/canonical/starlark/lib/time"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
 )
@@ -130,80 +128,5 @@ func TestFailed(t *testing.T) {
 
 	if !st.Failed() {
 		t.Error("Startest did not report that it had failed")
-	}
-}
-
-func TestValueConversion(t *testing.T) {
-	type conversionTest struct {
-		from interface{}
-		to   starlark.Value
-	}
-
-	str := "foobar"
-	strPtr := &str
-	value := starlarktime.Duration(time.Nanosecond)
-
-	tests := []conversionTest{
-		{from: value, to: value},
-		{from: nil, to: starlark.None},
-		{from: true, to: starlark.Bool(true)},
-		{from: -1, to: starlark.MakeInt(-1)},
-		{from: 'a', to: starlark.String("a")},
-		{from: str, to: starlark.String(str)},
-		{from: &str, to: starlark.String(str)},
-		{from: &strPtr, to: starlark.String(str)},
-		{from: rune(10), to: starlark.String("\n")},
-		{from: byte(10), to: starlark.MakeInt(10)},
-		{from: int(10), to: starlark.MakeInt(10)},
-		{from: int8(10), to: starlark.MakeInt(10)},
-		{from: int16(10), to: starlark.MakeInt(10)},
-		{from: int64(10), to: starlark.MakeInt(10)},
-		{from: uint(10), to: starlark.MakeInt(10)},
-		{from: uint8(10), to: starlark.MakeInt(10)},
-		{from: uint16(10), to: starlark.MakeInt(10)},
-		{from: uint32(10), to: starlark.MakeInt(10)},
-		{from: uint64(10), to: starlark.MakeInt(10)},
-		{from: uintptr(10), to: starlark.MakeInt(10)},
-		{from: float32(2.5), to: starlark.Float(2.5)},
-		{from: float64(3.14), to: starlark.Float(3.14)},
-		{
-			from: []string{"foo", "bar"},
-			to:   starlark.NewList([]starlark.Value{starlark.String("foo"), starlark.String("bar")}),
-		}, {
-			from: [...]string{"foo", "bar"},
-			to:   starlark.NewList([]starlark.Value{starlark.String("foo"), starlark.String("bar")}),
-		}, {
-			from: map[string]string{"foo": "bar"},
-			to: func() starlark.Value {
-				dict := starlark.NewDict(1)
-				dict.SetKey(starlark.String("foo"), starlark.String("bar"))
-				return dict
-			}(),
-		}, {
-			from: map[string][]string{"foo": {"bar", "baz"}},
-			to: func() starlark.Value {
-				dict := starlark.NewDict(1)
-				dict.SetKey(starlark.String("foo"), starlark.NewList([]starlark.Value{starlark.String("bar"), starlark.String("baz")}))
-				return dict
-			}(),
-		}, {
-			from: []starlark.String{starlark.String("foo"), starlark.String("bar")},
-			to:   starlark.NewList([]starlark.Value{starlark.String("foo"), starlark.String("bar")}),
-		},
-	}
-
-	for _, base := range []startest.TestBase{&testing.T{}, &testing.B{}, c} {
-		for _, test := range tests {
-			st := startest.From(base)
-
-			converted := st.ToValue(test.from)
-			if !reflect.DeepEqual(converted, test.to) {
-				c.Errorf("Incorrect starlark value conversion: expected %v but got %v", test.to, converted)
-			}
-
-			if st.Failed() {
-				c.Errorf("Unexpected failure converting values")
-			}
-		}
 	}
 }
