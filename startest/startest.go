@@ -112,13 +112,15 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(test.maxAllocs)
 
-	meanMeasured, nTotal := test.measureMemory(func() {
+	totMemory, nTotal := test.measureMemory(func() {
 		fn(thread, test.predefined)
 	})
 
 	if test.Failed() {
 		return
 	}
+
+	meanMeasured := totMemory / nTotal
 
 	if meanMeasured > test.maxAllocs {
 		test.Errorf("measured memory is above maximum (%d > %d)", meanMeasured, test.maxAllocs)
@@ -141,7 +143,7 @@ func (test *starTest) Track(v ...interface{}) {
 	test.tracked = append(test.tracked, v...)
 }
 
-func (test *starTest) measureMemory(fn func()) (meanMemory, nTotal uint64) {
+func (test *starTest) measureMemory(fn func()) (totMemory, nTotal uint64) {
 	defer func() { test.tracked = make([]interface{}, 0) }()
 
 	startNano := time.Now().Nanosecond()
@@ -203,7 +205,7 @@ func (test *starTest) measureMemory(fn func()) (meanMemory, nTotal uint64) {
 
 	memoryUsed -= valueTrackerOverhead
 
-	return uint64(memoryUsed) / nTotal, nTotal
+	return memoryUsed, nTotal
 }
 
 // ToValue converts go values to starlark ones. Handles arrays, slices,
