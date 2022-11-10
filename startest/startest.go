@@ -138,9 +138,9 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 	}
 }
 
-// Track forces the memory usage of the given objects to be tracked
-func (test *starTest) Track(v ...interface{}) {
-	test.tracked = append(test.tracked, v...)
+// Track causes the memory of the passed objects to be measured
+func (test *starTest) Track(values ...interface{}) {
+	test.tracked = append(test.tracked, values...)
 }
 
 func (test *starTest) measureMemory(fn func()) (totMemory, nTotal uint64) {
