@@ -50,7 +50,7 @@ func TestTrack(t *testing.T) {
 	st := startest.From(t)
 
 	// Check for a non-allocating routine
-	st.SetMaxAllocs(4)
+	st.SetMaxAllocs(0)
 	st.RunThread(func(t *starlark.Thread, sd starlark.StringDict) {
 		for i := 0; i < st.N; i++ {
 			st.Track(nil)
