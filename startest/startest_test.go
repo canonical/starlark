@@ -1,48 +1,11 @@
 package startest_test
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
 )
-
-func TestRunBuiltin(t *testing.T) {
-	st := startest.From(t)
-
-	expectedArgs := starlark.Tuple{starlark.String("a"), starlark.String("b"), starlark.String("c")}
-	k := starlark.String("k")
-	v := starlark.String("v")
-
-	var builtin *starlark.Builtin
-	builtin = starlark.NewBuiltin(
-		"test",
-		func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-			if fn != builtin {
-				st.Error("Wrong builtin")
-			}
-
-			if thread == nil {
-				st.Error("Thread is not available")
-			}
-
-			if !reflect.DeepEqual(args, expectedArgs) {
-				st.Errorf("Incorrect arguments: expected %v but got %v", expectedArgs, args)
-			}
-
-			if len(kwargs) != 1 || len(kwargs[0]) != 2 || kwargs[0][0] != k || kwargs[0][1] != v {
-				st.Error("Wrong kw arguments received")
-			}
-
-			return starlark.None, nil
-		},
-	)
-
-	st.SetArgs(expectedArgs...)
-	st.SetKwargs(starlark.StringDict{string(k): v})
-	st.RunBuiltin(builtin)
-}
 
 func TestTrack(t *testing.T) {
 	// Check for a non-allocating routine

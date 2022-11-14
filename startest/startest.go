@@ -20,13 +20,11 @@ type testBase interface {
 }
 
 type S struct {
-	predefined    starlark.StringDict
-	builtinArgs   starlark.Tuple
-	builtinKwargs []starlark.Tuple
-	maxAllocs     uint64
-	margin        float64
-	tracked       []interface{}
-	N             int
+	predefined starlark.StringDict
+	maxAllocs  uint64
+	margin     float64
+	tracked    []interface{}
+	N          int
 	testBase
 }
 
@@ -57,21 +55,6 @@ func (test *S) AddValue(name string, value starlark.Value) {
 	test.predefined[name] = value
 }
 
-// AddArgs allows the given values to be passed as arguments to a RunBuiltin call.
-func (test *S) SetArgs(args ...starlark.Value) {
-	test.builtinArgs = args
-}
-
-// AddArgs allows the given key-value pair to be passed as keyword-arguments to
-// a RunBuiltin call.
-func (test *S) SetKwargs(kwargs starlark.StringDict) {
-	test.builtinKwargs = make([]starlark.Tuple, 0, len(kwargs))
-
-	for key, value := range kwargs {
-		test.builtinKwargs = append(test.builtinKwargs, starlark.Tuple{starlark.String(key), value})
-	}
-}
-
 // SetMaxAllocs optionally sets the max allocations allowed per test.N
 func (test *S) SetMaxAllocs(maxAllocs uint64) {
 	test.maxAllocs = maxAllocs
@@ -85,25 +68,6 @@ func (test *S) SetRealityMargin(margin float64) {
 	} else {
 		test.margin = 0
 	}
-}
-
-// RunBuiltin tests the given builtin
-func (test *S) RunBuiltin(fn starlark.Value) {
-	if _, ok := fn.(*starlark.Builtin); !ok {
-		test.Error("fn must be a builtin")
-		return
-	}
-
-	test.RunThread(func(th *starlark.Thread, globals starlark.StringDict) {
-		for i := 0; i < test.N; i++ {
-			result, err := starlark.Call(th, fn, test.builtinArgs, test.builtinKwargs)
-			if err != nil {
-				test.Error(err)
-			}
-
-			test.Track(result)
-		}
-	})
 }
 
 // RunThread tests a function which has access to a starlark thread and a global environment
