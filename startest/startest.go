@@ -21,7 +21,6 @@ type testBase interface {
 
 type S struct {
 	maxAllocs uint64
-	margin    float64
 	tracked   []interface{}
 	N         int
 	testBase
@@ -33,7 +32,7 @@ var _ testBase = &check.C{}
 
 // From returns a new starTest instance with a given test base.
 func From(base testBase) *S {
-	return &S{testBase: base, maxAllocs: math.MaxUint64, margin: 0.05}
+	return &S{testBase: base, maxAllocs: math.MaxUint64}
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per test.N
@@ -41,21 +40,11 @@ func (test *S) SetMaxAllocs(maxAllocs uint64) {
 	test.maxAllocs = maxAllocs
 }
 
-// SetRealityMargin sets the fraction by which measured allocations can be greater
-// than from declared allocations
-func (test *S) SetRealityMargin(margin float64) {
-	if test.margin > 0 {
-		test.margin = margin
-	} else {
-		test.margin = 0
-	}
-}
-
 // RunThread tests a function which has access to a starlark thread and a global environment
 func (test *S) RunThread(fn func(*starlark.Thread)) {
 	thread := &starlark.Thread{}
 
-	totMemory, nTotal := test.measureMemory(func() {
+	memorySum, nSum := test.measureMemory(func() {
 		fn(thread)
 	})
 
@@ -63,20 +52,19 @@ func (test *S) RunThread(fn func(*starlark.Thread)) {
 		return
 	}
 
-	meanMeasured := totMemory / nTotal
+	meanMeasured := memorySum / nSum
 
 	if meanMeasured > test.maxAllocs {
 		test.Errorf("measured memory is above maximum (%d > %d)", meanMeasured, test.maxAllocs)
 	}
 
-	if meanDeclared := thread.Allocs() / nTotal; meanDeclared > test.maxAllocs {
+	if meanDeclared := thread.Allocs() / nSum; meanDeclared > test.maxAllocs {
 		test.Errorf("declared allocations are above maximum (%d > %d)", meanDeclared, test.maxAllocs)
 	}
 
 	if test.maxAllocs != math.MaxUint64 {
-		measuredUpperBound := (thread.Allocs() * uint64((1+test.margin)*100) / 100) / nTotal
-		if meanMeasured > measuredUpperBound {
-			test.Errorf("measured memory is more than %.0f%% above declared allocations (%d > %d)", test.margin*100, meanMeasured, measuredUpperBound)
+		if meanMeasured > thread.Allocs() {
+			test.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasured, thread.Allocs())
 		}
 	}
 }
