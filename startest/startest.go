@@ -135,7 +135,7 @@ func (test *S) measureMemory(fn func()) (memorySum, nSum uint64) {
 
 		iterationMeasure := int64(after.Alloc - before.Alloc)
 		valueTrackerOverhead += uint64(cap(test.tracked)) * uint64(unsafe.Sizeof(interface{}(nil)))
-		test.tracked = make([]interface{}, 0)
+		test.tracked = nil
 		if iterationMeasure > 0 {
 			memoryUsed += uint64(iterationMeasure)
 		}
