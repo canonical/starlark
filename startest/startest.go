@@ -141,28 +141,28 @@ func (test *starTest) Track(values ...interface{}) {
 	test.tracked = append(test.tracked, values...)
 }
 
-func (test *starTest) measureMemory(fn func()) (totMemory, nTotal uint64) {
+func (test *starTest) measureMemory(fn func()) (memorySum, nSum uint64) {
 	defer func() { test.tracked = nil }()
 
 	startNano := time.Now().Nanosecond()
 
 	const nMax = 100_000
-	const memoryTarget = 100 * 2 << 20
+	const memoryMax = 100 * 2 << 20
 	const timeMax = 1e9
 
 	var memoryUsed uint64
 	var valueTrackerOverhead uint64
 	test.N = 0
-	nTotal = 0
+	nSum = 0
 
-	for n := uint64(0); !test.Failed() && memoryUsed-valueTrackerOverhead < memoryTarget && n < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
+	for n := uint64(0); !test.Failed() && memoryUsed-valueTrackerOverhead < memoryMax && n < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
 		last := n
 		prevIters := uint64(test.N)
 		prevMemory := memoryUsed
 		if prevMemory <= 0 {
 			prevMemory = 1
 		}
-		n = memoryTarget * prevIters / prevMemory
+		n = memoryMax * prevIters / prevMemory
 		n += n / 5
 		maxGrowth := last * 100
 		minGrowth := last + 1
@@ -177,7 +177,7 @@ func (test *starTest) measureMemory(fn func()) (totMemory, nTotal uint64) {
 		}
 
 		test.N = int(n)
-		nTotal += n
+		nSum += n
 
 		var before, after runtime.MemStats
 		runtime.GC()
@@ -191,10 +191,11 @@ func (test *starTest) measureMemory(fn func()) (totMemory, nTotal uint64) {
 		runtime.ReadMemStats(&after)
 
 		iterationMeasure := int64(after.Alloc - before.Alloc)
+		valueTrackerOverhead += uint64(cap(test.tracked)) * uint64(unsafe.Sizeof(interface{}(nil)))
+		test.tracked = make([]interface{}, 0)
 		if iterationMeasure > 0 {
 			memoryUsed += uint64(iterationMeasure)
 		}
-		valueTrackerOverhead = uint64(cap(test.tracked)) * uint64(unsafe.Sizeof(interface{}(nil)))
 	}
 
 	if test.Failed() {
@@ -207,5 +208,5 @@ func (test *starTest) measureMemory(fn func()) (totMemory, nTotal uint64) {
 		memoryUsed -= valueTrackerOverhead
 	}
 
-	return memoryUsed, nTotal
+	return memoryUsed, nSum
 }
