@@ -158,6 +158,17 @@ var Module = &starlarkstruct.Module{
 	},
 }
 
+func init() {
+	Module.Members["file"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["has"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["marshal"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["marshal_text"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["set_field"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["get_field"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["unmarshal"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+	Module.Members["unmarshal_text"].(*starlark.Builtin).DeclareSafety(starlark.NotSafe)
+}
+
 // file(filename) loads the FileDescriptor of the given name, or the
 // first if the pool contains more than one.
 //
@@ -1005,6 +1016,8 @@ type MessageDescriptor struct {
 var (
 	_ starlark.Callable = MessageDescriptor{}
 	_ starlark.HasAttrs = MessageDescriptor{}
+
+	_ starlark.SafetyAware = MessageDescriptor{}
 )
 
 func (d MessageDescriptor) String() string       { return string(d.Desc.FullName()) }
@@ -1043,6 +1056,8 @@ func (d MessageDescriptor) AttrNames() []string {
 	return names
 }
 func (d MessageDescriptor) Name() string { return string(d.Desc.Name()) } // for Callable
+
+func (d MessageDescriptor) Safety() starlark.Safety { return starlark.NotSafe }
 
 // A FieldDescriptor is an immutable Starlark value that describes
 // a field (possibly an extension field) of protocol message.
@@ -1101,6 +1116,8 @@ type EnumDescriptor struct {
 var (
 	_ starlark.HasAttrs = EnumDescriptor{}
 	_ starlark.Callable = EnumDescriptor{}
+
+	_ starlark.SafetyAware = EnumDescriptor{}
 )
 
 func (e EnumDescriptor) String() string              { return string(e.Desc.FullName()) }
@@ -1138,6 +1155,7 @@ func (e EnumDescriptor) CallInternal(_ *starlark.Thread, args starlark.Tuple, kw
 	}
 	return EnumValueDescriptor{Desc: v}, nil
 }
+func (EnumDescriptor) Safety() starlark.Safety { return starlark.NotSafe }
 
 // enumValueOf converts an int, string, or enum value to a value of the specified enum type.
 func enumValueOf(enum protoreflect.EnumDescriptor, x starlark.Value) (protoreflect.EnumValueDescriptor, error) {

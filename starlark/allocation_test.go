@@ -27,7 +27,7 @@ func TestDefaultAllocMaxIsUnbounded(t *testing.T) {
 }
 
 func TestCheckAllocs(t *testing.T) {
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(1000)
 
 	if err := thread.CheckAllocs(500); err != nil {
@@ -51,7 +51,7 @@ func TestCheckAllocs(t *testing.T) {
 
 func TestAllocDeclAndCheckBoundary(t *testing.T) {
 	const allocCap = 1000
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(allocCap)
 
 	if err := thread.CheckAllocs(allocCap); err != nil {
@@ -73,7 +73,7 @@ func TestAllocDeclAndCheckBoundary(t *testing.T) {
 func TestPositiveDeltaDeclaration(t *testing.T) {
 	const intendedAllocIncrease = 1000
 
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
 
 	// Accept and correctly store reasonable size increase
@@ -95,7 +95,7 @@ func TestPositiveDeltaDeclarationExceedingMax(t *testing.T) {
 	const allocationIncrease = 1000
 	const maxAllocs = allocationIncrease / 2
 
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(maxAllocs)
 
 	// Error when too much memory is required
@@ -118,7 +118,7 @@ func TestOverflowingPositiveDeltaDeclaration(t *testing.T) {
 	const allocationIncrease = math.MaxInt64
 	const expectedErrMsg = "exceeded memory allocation limits"
 
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
 
 	// Increase so that the next allocation will cause an overflow
@@ -149,7 +149,7 @@ func TestNegativeDeltaDeclaration(t *testing.T) {
 	const allocReduction = 100
 	const expectedFinalAllocs = allocGreatest - allocReduction
 
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
 
 	if err := thread.AddAllocs(allocGreatest); err != nil {
@@ -168,7 +168,7 @@ func TestOverzealousNegativeDeltaDeclaration(t *testing.T) {
 	const allocReduction = 2 * allocGreatest
 	const expectedFinalAllocs = 0
 
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
 
 	if err := thread.AddAllocs(allocGreatest); err != nil {
@@ -187,7 +187,7 @@ func TestConcurrentCheckAllocsUsage(t *testing.T) {
 	const maxAllocs = allocPeak + 1
 	const repetitions = 1_000_000
 
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(maxAllocs)
 	thread.AddAllocs(allocPeak - 1)
 
@@ -225,7 +225,7 @@ func TestConcurrentCheckAllocsUsage(t *testing.T) {
 func TestConcurrentAddAllocsUsage(t *testing.T) {
 	const expectedAllocs = 1_000_000
 
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
 
 	done := make(chan struct{}, 2)
@@ -258,7 +258,7 @@ func TestCheckAllocsCancelledRejection(t *testing.T) {
 	const cancellationReason = "arbitrary cancellation reason"
 	const maxAllocs = 1000
 
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.Cancel(cancellationReason)
 	thread.SetMaxAllocs(maxAllocs)
 
@@ -273,7 +273,7 @@ func TestAddAllocsCancelledRejection(t *testing.T) {
 	const cancellationReason = "arbitrary cancellation reason"
 	const maxAllocs = 1000
 
-	thread := new(starlark.Thread)
+	thread := &starlark.Thread{}
 	thread.Cancel(cancellationReason)
 	thread.SetMaxAllocs(maxAllocs)
 

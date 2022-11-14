@@ -53,6 +53,7 @@ type Thread struct {
 
 	// steps counts abstract computation steps executed by this thread.
 	steps, maxSteps uint64
+	stepsLock       sync.Mutex
 
 	// allocs counts the abstract memory units claimed by this resource pool
 	allocs, maxAllocs uint64
@@ -80,6 +81,9 @@ type Thread struct {
 //
 // The precise meaning of "step" is not specified and may change.
 func (thread *Thread) ExecutionSteps() uint64 {
+	thread.stepsLock.Lock()
+	defer thread.stepsLock.Unlock()
+
 	return thread.steps
 }
 
@@ -89,6 +93,60 @@ func (thread *Thread) ExecutionSteps() uint64 {
 // thread.Cancel("too many steps").
 func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
+}
+
+// CheckExecutionSteps returns an error if an increase in execution steps taken
+// by this thread would be rejected by AddExecutionSteps.
+//
+// It is safe to call CheckExecutionSteps from any goroutine, even if the thread
+// is actively executing.
+func (thread *Thread) CheckExecutionSteps(delta uint64) error {
+	thread.stepsLock.Lock()
+	defer thread.stepsLock.Unlock()
+
+	_, err := thread.simulateExecutionSteps(delta)
+	return err
+}
+
+// AddExecutionSteps reports an increase in the number of execution steps taken
+// by this thread. If the new total steps exceeds the limit defined by
+// SetMaxExecutionSteps, the thread is cancelled and an error is returned.
+//
+// It is safe to call AddExecutionSteps from any goroutine, even if the thread
+// is actively executing.
+func (thread *Thread) AddExecutionSteps(delta uint64) error {
+	thread.stepsLock.Lock()
+	defer thread.stepsLock.Unlock()
+
+	nextSteps, err := thread.simulateExecutionSteps(delta)
+	thread.steps = nextSteps
+	if err != nil {
+		thread.Cancel(err.Error())
+	}
+
+	return err
+}
+
+// simulateExecutionSteps simulates a call to AddExecutionSteps returning the
+// new total step-count and any error this would entail. No change is
+// recorded.
+func (thread *Thread) simulateExecutionSteps(delta uint64) (uint64, error) {
+	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
+		return thread.steps, errors.New(*(*string)(cancelReason))
+	}
+
+	var nextExecutionSteps uint64
+	if delta <= math.MaxUint64-thread.steps {
+		nextExecutionSteps = thread.steps + delta
+	} else {
+		nextExecutionSteps = math.MaxUint64
+	}
+
+	if nextExecutionSteps > thread.maxSteps {
+		return nextExecutionSteps, errors.New("too many steps")
+	}
+
+	return nextExecutionSteps, nil
 }
 
 // Allocs returns the total allocations reported to this thread via AddAllocs.

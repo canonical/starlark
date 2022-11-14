@@ -70,6 +70,37 @@ func init() {
 		"type":      NewBuiltin("type", type_),
 		"zip":       NewBuiltin("zip", zip),
 	}
+
+	Universe["abs"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["any"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["all"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["bool"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["bytes"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["chr"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["dict"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["dir"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["enumerate"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["fail"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["float"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["getattr"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["hasattr"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["hash"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["int"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["len"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["list"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["max"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["min"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["ord"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["print"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["range"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["repr"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["reversed"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["set"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["sorted"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["str"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["tuple"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["type"].(*Builtin).DeclareSafety(NotSafe)
+	Universe["zip"].(*Builtin).DeclareSafety(NotSafe)
 }
 
 // methods of built-in types
@@ -143,6 +174,66 @@ var (
 		"union": NewBuiltin("union", set_union),
 	}
 )
+
+func init() {
+	bytesMethods["elems"].DeclareSafety(NotSafe)
+
+	dictMethods["clear"].DeclareSafety(NotSafe)
+	dictMethods["get"].DeclareSafety(NotSafe)
+	dictMethods["items"].DeclareSafety(NotSafe)
+	dictMethods["keys"].DeclareSafety(NotSafe)
+	dictMethods["pop"].DeclareSafety(NotSafe)
+	dictMethods["popitem"].DeclareSafety(NotSafe)
+	dictMethods["setdefault"].DeclareSafety(NotSafe)
+	dictMethods["update"].DeclareSafety(NotSafe)
+	dictMethods["values"].DeclareSafety(NotSafe)
+
+	listMethods["append"].DeclareSafety(NotSafe)
+	listMethods["clear"].DeclareSafety(NotSafe)
+	listMethods["extend"].DeclareSafety(NotSafe)
+	listMethods["index"].DeclareSafety(NotSafe)
+	listMethods["insert"].DeclareSafety(NotSafe)
+	listMethods["pop"].DeclareSafety(NotSafe)
+	listMethods["remove"].DeclareSafety(NotSafe)
+
+	stringMethods["capitalize"].DeclareSafety(NotSafe)
+	stringMethods["codepoint_ords"].DeclareSafety(NotSafe)
+	stringMethods["codepoints"].DeclareSafety(NotSafe)
+	stringMethods["count"].DeclareSafety(NotSafe)
+	stringMethods["elem_ords"].DeclareSafety(NotSafe)
+	stringMethods["elems"].DeclareSafety(NotSafe)
+	stringMethods["endswith"].DeclareSafety(NotSafe)
+	stringMethods["find"].DeclareSafety(NotSafe)
+	stringMethods["format"].DeclareSafety(NotSafe)
+	stringMethods["index"].DeclareSafety(NotSafe)
+	stringMethods["isalnum"].DeclareSafety(NotSafe)
+	stringMethods["isalpha"].DeclareSafety(NotSafe)
+	stringMethods["isdigit"].DeclareSafety(NotSafe)
+	stringMethods["islower"].DeclareSafety(NotSafe)
+	stringMethods["isspace"].DeclareSafety(NotSafe)
+	stringMethods["istitle"].DeclareSafety(NotSafe)
+	stringMethods["isupper"].DeclareSafety(NotSafe)
+	stringMethods["join"].DeclareSafety(NotSafe)
+	stringMethods["lower"].DeclareSafety(NotSafe)
+	stringMethods["lstrip"].DeclareSafety(NotSafe)
+	stringMethods["partition"].DeclareSafety(NotSafe)
+	stringMethods["removeprefix"].DeclareSafety(NotSafe)
+	stringMethods["removesuffix"].DeclareSafety(NotSafe)
+	stringMethods["replace"].DeclareSafety(NotSafe)
+	stringMethods["rfind"].DeclareSafety(NotSafe)
+	stringMethods["rindex"].DeclareSafety(NotSafe)
+	stringMethods["rpartition"].DeclareSafety(NotSafe)
+	stringMethods["rsplit"].DeclareSafety(NotSafe)
+	stringMethods["rstrip"].DeclareSafety(NotSafe)
+	stringMethods["split"].DeclareSafety(NotSafe)
+	stringMethods["splitlines"].DeclareSafety(NotSafe)
+	stringMethods["startswith"].DeclareSafety(NotSafe)
+	stringMethods["strip"].DeclareSafety(NotSafe)
+	stringMethods["title"].DeclareSafety(NotSafe)
+	stringMethods["upper"].DeclareSafety(NotSafe)
+
+	setMethods["union"].DeclareSafety(NotSafe)
+}
 
 func builtinAttr(recv Value, name string, methods map[string]*Builtin) (Value, error) {
 	b := methods[name]
