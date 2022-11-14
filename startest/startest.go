@@ -20,11 +20,10 @@ type testBase interface {
 }
 
 type S struct {
-	predefined starlark.StringDict
-	maxAllocs  uint64
-	margin     float64
-	tracked    []interface{}
-	N          int
+	maxAllocs uint64
+	margin    float64
+	tracked   []interface{}
+	N         int
 	testBase
 }
 
@@ -35,24 +34,6 @@ var _ testBase = &check.C{}
 // From returns a new starTest instance with a given test base.
 func From(base testBase) *S {
 	return &S{testBase: base, maxAllocs: math.MaxUint64, margin: 0.05}
-}
-
-// AddBuiltin inserts the given Builtin into the predeclared values passed to
-// RunThread.
-func (test *S) AddBuiltin(fn *starlark.Builtin) {
-	if test.predefined == nil {
-		test.predefined = make(starlark.StringDict)
-	}
-	test.predefined[fn.Name()] = fn
-}
-
-// AddValue inserts the given value into the predeclared values passed to
-// RunThread.
-func (test *S) AddValue(name string, value starlark.Value) {
-	if test.predefined == nil {
-		test.predefined = make(starlark.StringDict)
-	}
-	test.predefined[name] = value
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per test.N
@@ -71,11 +52,11 @@ func (test *S) SetRealityMargin(margin float64) {
 }
 
 // RunThread tests a function which has access to a starlark thread and a global environment
-func (test *S) RunThread(fn func(*starlark.Thread, starlark.StringDict)) {
+func (test *S) RunThread(fn func(*starlark.Thread)) {
 	thread := &starlark.Thread{}
 
 	totMemory, nTotal := test.measureMemory(func() {
-		fn(thread, test.predefined)
+		fn(thread)
 	})
 
 	if test.Failed() {

@@ -12,7 +12,7 @@ func TestTrack(t *testing.T) {
 	t.Run("check=non-allocating", func(t *testing.T) {
 		st := startest.From(t)
 		st.SetMaxAllocs(0)
-		st.RunThread(func(thread *starlark.Thread, _ starlark.StringDict) {
+		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.Track(nil)
 			}
@@ -23,7 +23,7 @@ func TestTrack(t *testing.T) {
 	t.Run("check=exact", func(t *testing.T) {
 		st := startest.From(t)
 		st.SetMaxAllocs(4)
-		st.RunThread(func(thread *starlark.Thread, _ starlark.StringDict) {
+		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.Track(new(int32))
 				thread.AddAllocs(4)
@@ -36,7 +36,7 @@ func TestTrack(t *testing.T) {
 		dummyT := testing.T{}
 		st := startest.From(&dummyT)
 		st.SetMaxAllocs(4)
-		st.RunThread(func(thread *starlark.Thread, _ starlark.StringDict) {
+		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.Track(new(int32))
 				thread.AddAllocs(20)
@@ -52,7 +52,7 @@ func TestTrack(t *testing.T) {
 		dummyT := testing.T{}
 		st := startest.From(&dummyT)
 		st.SetMaxAllocs(4)
-		st.RunThread(func(thread *starlark.Thread, _ starlark.StringDict) {
+		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.Track(make([]int32, 10))
 				if err := thread.AddAllocs(4); err != nil {
@@ -69,35 +69,9 @@ func TestTrack(t *testing.T) {
 
 func TestThread(t *testing.T) {
 	st := startest.From(t)
-
-	testBuiltin := starlark.NewBuiltin("testBuiltin", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-		return starlark.None, nil
-	})
-	testValue := starlark.String("value")
-
-	st.AddBuiltin(testBuiltin)
-
-	st.AddValue("testValue", testValue)
-
-	st.RunThread(func(thread *starlark.Thread, sd starlark.StringDict) {
-		if sd == nil {
-			st.Error("Received a nil environment")
-		}
-
+	st.RunThread(func(thread *starlark.Thread) {
 		if thread == nil {
 			st.Error("Received a nil thread")
-		}
-
-		if v, ok := sd["testBuiltin"]; !ok {
-			st.Error("testBuiltin not found")
-		} else if v != testBuiltin {
-			st.Error("wrong value expected")
-		}
-
-		if v, ok := sd["testValue"]; !ok {
-			st.Error("testValue not found")
-		} else if v != testValue {
-			st.Error("wrong value expected")
 		}
 	})
 }
