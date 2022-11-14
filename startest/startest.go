@@ -19,7 +19,7 @@ type testBase interface {
 	Logf(fmt string, args ...interface{})
 }
 
-type starTest struct {
+type S struct {
 	predefined    starlark.StringDict
 	builtinArgs   starlark.Tuple
 	builtinKwargs []starlark.Tuple
@@ -35,13 +35,13 @@ var _ testBase = &testing.B{}
 var _ testBase = &check.C{}
 
 // From returns a new starTest instance with a given test base.
-func From(base testBase) *starTest {
-	return &starTest{testBase: base, maxAllocs: math.MaxUint64, margin: 0.05}
+func From(base testBase) *S {
+	return &S{testBase: base, maxAllocs: math.MaxUint64, margin: 0.05}
 }
 
 // AddBuiltin inserts the given Builtin into the predeclared values passed to
 // RunThread.
-func (test *starTest) AddBuiltin(fn *starlark.Builtin) {
+func (test *S) AddBuiltin(fn *starlark.Builtin) {
 	if test.predefined == nil {
 		test.predefined = make(starlark.StringDict)
 	}
@@ -50,7 +50,7 @@ func (test *starTest) AddBuiltin(fn *starlark.Builtin) {
 
 // AddValue inserts the given value into the predeclared values passed to
 // RunThread.
-func (test *starTest) AddValue(name string, value starlark.Value) {
+func (test *S) AddValue(name string, value starlark.Value) {
 	if test.predefined == nil {
 		test.predefined = make(starlark.StringDict)
 	}
@@ -58,13 +58,13 @@ func (test *starTest) AddValue(name string, value starlark.Value) {
 }
 
 // AddArgs allows the given values to be passed as arguments to a RunBuiltin call.
-func (test *starTest) SetArgs(args ...starlark.Value) {
+func (test *S) SetArgs(args ...starlark.Value) {
 	test.builtinArgs = args
 }
 
 // AddArgs allows the given key-value pair to be passed as keyword-arguments to
 // a RunBuiltin call.
-func (test *starTest) SetKwargs(kwargs starlark.StringDict) {
+func (test *S) SetKwargs(kwargs starlark.StringDict) {
 	test.builtinKwargs = make([]starlark.Tuple, 0, len(kwargs))
 
 	for key, value := range kwargs {
@@ -73,13 +73,13 @@ func (test *starTest) SetKwargs(kwargs starlark.StringDict) {
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per test.N
-func (test *starTest) SetMaxAllocs(maxAllocs uint64) {
+func (test *S) SetMaxAllocs(maxAllocs uint64) {
 	test.maxAllocs = maxAllocs
 }
 
 // SetRealityMargin sets the fraction by which measured allocations can be greater
 // than from declared allocations
-func (test *starTest) SetRealityMargin(margin float64) {
+func (test *S) SetRealityMargin(margin float64) {
 	if test.margin > 0 {
 		test.margin = margin
 	} else {
@@ -88,7 +88,7 @@ func (test *starTest) SetRealityMargin(margin float64) {
 }
 
 // RunBuiltin tests the given builtin
-func (test *starTest) RunBuiltin(fn starlark.Value) {
+func (test *S) RunBuiltin(fn starlark.Value) {
 	if _, ok := fn.(*starlark.Builtin); !ok {
 		test.Error("fn must be a builtin")
 		return
@@ -107,7 +107,7 @@ func (test *starTest) RunBuiltin(fn starlark.Value) {
 }
 
 // RunThread tests a function which has access to a starlark thread and a global environment
-func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) {
+func (test *S) RunThread(fn func(*starlark.Thread, starlark.StringDict)) {
 	thread := &starlark.Thread{}
 
 	totMemory, nTotal := test.measureMemory(func() {
@@ -137,13 +137,11 @@ func (test *starTest) RunThread(fn func(*starlark.Thread, starlark.StringDict)) 
 }
 
 // Track causes the memory of the passed objects to be measured
-func (test *starTest) Track(values ...interface{}) {
+func (test *S) Track(values ...interface{}) {
 	test.tracked = append(test.tracked, values...)
 }
 
-func (test *starTest) measureMemory(fn func()) (memorySum, nSum uint64) {
-	defer func() { test.tracked = nil }()
-
+func (test *S) measureMemory(fn func()) (memorySum, nSum uint64) {
 	startNano := time.Now().Nanosecond()
 
 	const nMax = 100_000
