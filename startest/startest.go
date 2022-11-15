@@ -11,7 +11,7 @@ import (
 	"gopkg.in/check.v1"
 )
 
-type testBase interface {
+type TestBase interface {
 	Error(err ...interface{})
 	Errorf(format string, err ...interface{})
 	Failed() bool
@@ -23,16 +23,16 @@ type S struct {
 	maxAllocs uint64
 	tracked   []interface{}
 	N         int
-	testBase
+	TestBase
 }
 
-var _ testBase = &testing.T{}
-var _ testBase = &testing.B{}
-var _ testBase = &check.C{}
+var _ TestBase = &testing.T{}
+var _ TestBase = &testing.B{}
+var _ TestBase = &check.C{}
 
 // From returns a new starTest instance with a given test base.
 func From(base testBase) *S {
-	return &S{testBase: base, maxAllocs: math.MaxUint64}
+	return &S{TestBase: base, maxAllocs: math.MaxUint64}
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per test.N
