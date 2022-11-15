@@ -69,8 +69,8 @@ func (test *S) RunThread(fn func(*starlark.Thread)) {
 	}
 }
 
-// Track causes the memory of the passed objects to be measured
-func (test *S) Track(values ...interface{}) {
+// KeepAlive causes the memory of the passed objects to be measured
+func (test *S) KeepAlive(values ...interface{}) {
 	test.tracked = append(test.tracked, values...)
 }
 

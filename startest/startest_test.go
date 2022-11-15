@@ -7,14 +7,14 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
-func TestTrack(t *testing.T) {
+func TestKeepAlive(t *testing.T) {
 	// Check for a non-allocating routine
 	t.Run("check=non-allocating", func(t *testing.T) {
 		st := startest.From(t)
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				st.Track(nil)
+				st.KeepAlive(nil)
 			}
 		})
 	})
@@ -25,7 +25,7 @@ func TestTrack(t *testing.T) {
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				st.Track(new(int32))
+				st.KeepAlive(new(int32))
 				thread.AddAllocs(4)
 			}
 		})
@@ -38,7 +38,7 @@ func TestTrack(t *testing.T) {
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				st.Track(new(int32))
+				st.KeepAlive(new(int32))
 				thread.AddAllocs(20)
 			}
 		})
@@ -54,7 +54,7 @@ func TestTrack(t *testing.T) {
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				st.Track(make([]int32, 10))
+				st.KeepAlive(make([]int32, 10))
 				if err := thread.AddAllocs(4); err != nil {
 					t.Errorf("Unexpected error: %v", err)
 					return
