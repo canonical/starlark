@@ -21,7 +21,7 @@ type TestBase interface {
 
 type S struct {
 	maxAllocs uint64
-	tracked   []interface{}
+	alive     []interface{}
 	N         int
 	TestBase
 }
@@ -71,7 +71,7 @@ func (test *S) RunThread(fn func(*starlark.Thread)) {
 
 // KeepAlive causes the memory of the passed objects to be measured
 func (test *S) KeepAlive(values ...interface{}) {
-	test.tracked = append(test.tracked, values...)
+	test.alive = append(test.alive, values...)
 }
 
 func (test *S) measureMemory(fn func()) (memorySum, nSum uint64) {
@@ -122,8 +122,8 @@ func (test *S) measureMemory(fn func()) (memorySum, nSum uint64) {
 		runtime.ReadMemStats(&after)
 
 		iterationMeasure := int64(after.Alloc - before.Alloc)
-		valueTrackerOverhead += uint64(cap(test.tracked)) * uint64(unsafe.Sizeof(interface{}(nil)))
-		test.tracked = nil
+		valueTrackerOverhead += uint64(cap(test.alive)) * uint64(unsafe.Sizeof(interface{}(nil)))
+		test.alive = nil
 		if iterationMeasure > 0 {
 			memoryUsed += uint64(iterationMeasure)
 		}
