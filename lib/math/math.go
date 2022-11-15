@@ -106,6 +106,46 @@ var Module = &starlarkstruct.Module{
 		"pi": starlark.Float(math.Pi),
 	},
 }
+var safeties = map[string]starlark.Safety{
+	"ceil":      starlark.NotSafe,
+	"copysign":  starlark.NotSafe,
+	"fabs":      starlark.NotSafe,
+	"floor":     starlark.NotSafe,
+	"mod":       starlark.NotSafe,
+	"pow":       starlark.NotSafe,
+	"remainder": starlark.NotSafe,
+	"round":     starlark.NotSafe,
+	"exp":       starlark.NotSafe,
+	"sqrt":      starlark.NotSafe,
+	"acos":      starlark.NotSafe,
+	"asin":      starlark.NotSafe,
+	"atan":      starlark.NotSafe,
+	"atan2":     starlark.NotSafe,
+	"cos":       starlark.NotSafe,
+	"hypot":     starlark.NotSafe,
+	"sin":       starlark.NotSafe,
+	"tan":       starlark.NotSafe,
+	"degrees":   starlark.NotSafe,
+	"radians":   starlark.NotSafe,
+	"acosh":     starlark.NotSafe,
+	"asinh":     starlark.NotSafe,
+	"atanh":     starlark.NotSafe,
+	"cosh":      starlark.NotSafe,
+	"sinh":      starlark.NotSafe,
+	"tanh":      starlark.NotSafe,
+	"log":       starlark.NotSafe,
+	"gamma":     starlark.NotSafe,
+}
+
+func init() {
+	for name, safety := range safeties {
+		if v, ok := Module.Members[name]; ok {
+			if builtin, ok := v.(*starlark.Builtin); ok {
+				builtin.DeclareSafety(safety)
+			}
+		}
+	}
+}
 
 // floatOrInt is an Unpacker that converts a Starlark int or float to Go's float64.
 type floatOrInt float64

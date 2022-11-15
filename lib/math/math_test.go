@@ -1,6 +1,32 @@
 package math_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/canonical/starlark/lib/math"
+	"github.com/canonical/starlark/starlark"
+)
+
+func TestModuleSafeties(t *testing.T) {
+	for name, value := range math.Module.Members {
+		builtin, ok := value.(*starlark.Builtin)
+		if !ok {
+			continue
+		}
+
+		if safety, ok := (*math.Safeties)[name]; !ok {
+			t.Errorf("builtin math.%s has no safety declaration", name)
+		} else if actual := builtin.Safety(); actual != safety {
+			t.Errorf("builtin math.%s has incorrect safety: expected %v but got %v", name, safety, actual)
+		}
+	}
+
+	for name, _ := range *math.Safeties {
+		if _, ok := math.Module.Members[name]; !ok {
+			t.Errorf("safety declared for non-existent builtin math.%s", name)
+		}
+	}
+}
 
 func TestMathCeilAllocs(t *testing.T) {
 }
