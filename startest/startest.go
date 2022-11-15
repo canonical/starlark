@@ -31,7 +31,7 @@ var _ TestBase = &testing.B{}
 var _ TestBase = &check.C{}
 
 // From returns a new starTest instance with a given test base.
-func From(base testBase) *S {
+func From(base TestBase) *S {
 	return &S{TestBase: base, maxAllocs: math.MaxUint64}
 }
 
