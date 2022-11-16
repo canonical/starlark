@@ -458,3 +458,48 @@ func TestSafeStringBuilder(t *testing.T) {
 		})
 	})
 }
+
+func TestBytesAllocations(t *testing.T) {
+	bytesBuiltin, ok := starlark.Universe["bytes"]
+	if !ok {
+		t.Errorf("No such builtin: bytes")
+		return
+	}
+
+	t.Run("arg=bytes", func(t *testing.T) {
+		s := startest.From(t)
+		s.RequireSafety(starlark.MemSafe)
+		arg := starlark.Bytes("foobar")
+		s.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < s.N; i++ {
+				args := starlark.Tuple{arg}
+				result, err := starlark.Call(thread, bytesBuiltin, args, nil)
+				if err != nil {
+					s.Error(err)
+				}
+				s.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("arg=string", func(t *testing.T) {
+		s := startest.From(t)
+		s.RequireSafety(starlark.MemSafe)
+		arg := starlark.String("hello, world!")
+		// s.SetMaxAllocs(uint64(arg.Len()))
+		s.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < s.N; i++ {
+				args := starlark.Tuple{arg}
+				result, err := starlark.Call(thread, bytesBuiltin, args, nil)
+				if err != nil {
+					s.Error(err)
+				}
+				s.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("arg=iterable", func(t *testing.T) {})
+
+	t.Run("arg=invalid", func(t *testing.T) {})
+}
