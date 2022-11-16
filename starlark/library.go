@@ -77,7 +77,7 @@ func init() {
 
 	universeSafeties = map[string]Safety{
 		"abs":       NotSafe,
-		"any":       NotSafe,
+		"any":       MemSafe,
 		"all":       MemSafe,
 		"bool":      NotSafe,
 		"bytes":     NotSafe,

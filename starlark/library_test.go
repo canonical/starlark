@@ -182,6 +182,23 @@ func TestAbsAllocs(t *testing.T) {
 }
 
 func TestAnyAllocs(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			args := starlark.Tuple{
+				starlark.NewList([]starlark.Value{
+					starlark.False, starlark.False, starlark.True,
+				}),
+			}
+			result, err := starlark.Call(thread, starlark.Universe["any"], args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestAllAllocs(t *testing.T) {
