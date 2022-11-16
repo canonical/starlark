@@ -89,7 +89,7 @@ func init() {
 		"getattr":   NotSafe,
 		"hasattr":   NotSafe,
 		"hash":      NotSafe,
-		"int":       NotSafe,
+		"int":       MemSafe,
 		"len":       NotSafe,
 		"list":      NotSafe,
 		"max":       NotSafe,
