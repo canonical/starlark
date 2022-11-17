@@ -422,6 +422,29 @@ func TestStringRemovesuffixAllocs(t *testing.T) {
 }
 
 func TestStringReplaceAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	st.RequireSafety(starlark.NotSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		str := starlark.String(strings.Repeat("deadbeef", st.N))
+		toReplace := starlark.String("beef")
+		replacement := starlark.String("🍖")
+		fn, err := str.Attr("replace")
+
+		if err != nil {
+			st.Error(err)
+			return
+		}
+
+		result, err := starlark.Call(thread, fn, starlark.Tuple{toReplace, replacement}, nil)
+
+		if err != nil {
+			st.Error(err)
+			return
+		}
+
+		st.KeepAlive(result)
+	})
 }
 
 func TestStringRfindAllocs(t *testing.T) {
