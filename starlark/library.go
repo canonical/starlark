@@ -21,6 +21,7 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
+	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -994,6 +995,10 @@ func range_(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if step == 0 {
 		// we were given range(start, stop, 0)
 		return nil, nameErr(b, "step argument must not be zero")
+	}
+
+	if err := thread.AddAllocs(int64(unsafe.Sizeof(rangeValue{}))); err != nil {
+		return nil, err
 	}
 
 	return rangeValue{start: start, stop: stop, step: step, len: rangeLen(start, stop, step)}, nil
