@@ -296,7 +296,7 @@ func TestHashAllocations(t *testing.T) {
 
 	t.Run("input=string", func(t *testing.T) {
 		s := startest.From(t)
-		s.SetMaxAllocs(0)
+		s.SetMaxAllocs(16)
 		s.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < s.N; i++ {
 				args := starlark.Tuple{starlark.String("foo")}
@@ -311,7 +311,7 @@ func TestHashAllocations(t *testing.T) {
 
 	t.Run("input=bytes", func(t *testing.T) {
 		s := startest.From(t)
-		s.SetMaxAllocs(0)
+		s.SetMaxAllocs(16)
 		s.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < s.N; i++ {
 				args := starlark.Tuple{starlark.String("bar")}
