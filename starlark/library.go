@@ -227,7 +227,7 @@ var (
 		"partition":      NotSafe,
 		"removeprefix":   NotSafe,
 		"removesuffix":   NotSafe,
-		"replace":        NotSafe,
+		"replace":        MemSafe,
 		"rfind":          NotSafe,
 		"rindex":         NotSafe,
 		"rpartition":     NotSafe,

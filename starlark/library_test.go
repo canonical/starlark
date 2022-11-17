@@ -424,7 +424,7 @@ func TestStringRemovesuffixAllocs(t *testing.T) {
 func TestStringReplaceAllocs(t *testing.T) {
 	st := startest.From(t)
 
-	st.RequireSafety(starlark.NotSafe)
+	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		str := starlark.String(strings.Repeat("deadbeef", st.N))
 		toReplace := starlark.String("beef")
