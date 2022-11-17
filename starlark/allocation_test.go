@@ -299,7 +299,7 @@ func TestHashAllocations(t *testing.T) {
 		s.SetMaxAllocs(0)
 		s.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < s.N; i++ {
-				args := starlark.Tuple{starlark.String("to me")}
+				args := starlark.Tuple{starlark.String("foo")}
 				result, err := starlark.Call(thread, hash, args, nil)
 				if err != nil {
 					s.Error(err)
@@ -314,7 +314,7 @@ func TestHashAllocations(t *testing.T) {
 		s.SetMaxAllocs(0)
 		s.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < s.N; i++ {
-				args := starlark.Tuple{starlark.String("to you")}
+				args := starlark.Tuple{starlark.String("bar")}
 				result, err := starlark.Call(thread, hash, args, nil)
 				if err != nil {
 					s.Error(err)
