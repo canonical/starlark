@@ -15,6 +15,7 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -393,7 +394,7 @@ func bytes_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	}
 	switch x := args[0].(type) {
 	case Bytes:
-		return x, nil
+		return x, thread.AddAllocs(int64(reflect.TypeOf(x).Size()))
 	case String:
 		// Invalid encodings are replaced by that of U+FFFD.
 		return Bytes(utf8Transcode(string(x))), nil

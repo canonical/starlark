@@ -469,10 +469,11 @@ func TestBytesAllocations(t *testing.T) {
 	t.Run("arg=bytes", func(t *testing.T) {
 		s := startest.From(t)
 		s.RequireSafety(starlark.MemSafe)
+		s.SetMaxAllocs(16)
 		arg := starlark.Bytes("foobar")
 		s.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < s.N; i++ {
-				args := starlark.Tuple{arg}
+				args := starlark.Tuple{starlark.Bytes("foobar")}
 				result, err := starlark.Call(thread, bytesBuiltin, args, nil)
 				if err != nil {
 					s.Error(err)
