@@ -275,6 +275,57 @@ func TestPrintAllocs(t *testing.T) {
 }
 
 func TestRangeAllocs(t *testing.T) {
+	range_, ok := starlark.Universe["range"]
+	if !ok {
+		t.Errorf("No such builtin: range")
+		return
+	}
+
+	t.Run("non-enumerating", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(10000), starlark.MakeInt(1)}
+				result, err := starlark.Call(thread, range_, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("enumerating", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			args := starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(st.N), starlark.MakeInt(1)}
+			result, err := starlark.Call(thread, range_, args, nil)
+			if err != nil {
+				st.Fatal(err)
+			}
+			st.KeepAlive(result)
+
+			iter, err := starlark.SafeIterate(thread, result)
+			if err != nil {
+				st.Fatal(err)
+			}
+
+			defer iter.Done()
+
+			var value starlark.Value
+			for iter.Next(&value) {
+				st.KeepAlive(value)
+			}
+
+			if err := iter.Err(); err != nil {
+				st.Fatal(err)
+			}
+		})
+	})
 }
 
 func TestReprAllocs(t *testing.T) {
