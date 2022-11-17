@@ -536,7 +536,7 @@ func TestZipAllocs(t *testing.T) {
 	t.Run("hydrated", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			list := starlark.NewList(make([]starlark.Value, st.N))
 			result, err := starlark.Call(thread, starlark.Universe["zip"], starlark.Tuple{list, list}, nil)
@@ -552,7 +552,7 @@ func TestZipAllocs(t *testing.T) {
 	t.Run("lazy-sequence", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			sequence := &repeatSequence{repeatIterable{st.N, starlark.True}}
 			result, err := starlark.Call(thread, starlark.Universe["zip"], starlark.Tuple{sequence, sequence}, nil)
@@ -568,7 +568,7 @@ func TestZipAllocs(t *testing.T) {
 	t.Run("lazy-iterable", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			iterable := &repeatIterable{st.N, starlark.True}
 			result, err := starlark.Call(thread, starlark.Universe["zip"], starlark.Tuple{iterable, iterable}, nil)
@@ -584,7 +584,7 @@ func TestZipAllocs(t *testing.T) {
 	t.Run("mixed", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			iterable := &repeatIterable{st.N, starlark.True}
 			sequence := &repeatSequence{repeatIterable{st.N * 2, starlark.True}}

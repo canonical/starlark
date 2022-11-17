@@ -104,7 +104,7 @@ func init() {
 		"str":       NotSafe,
 		"tuple":     NotSafe,
 		"type":      NotSafe,
-		"zip":       NotSafe,
+		"zip":       MemSafe,
 	}
 
 	for name, flags := range universeSafeties {
