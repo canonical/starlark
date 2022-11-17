@@ -22,7 +22,6 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -430,7 +429,11 @@ func chr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if i > unicode.MaxRune {
 		return nil, fmt.Errorf("chr: Unicode code point U+%X out of range (>0x10FFFF)", i)
 	}
-	return String(string(rune(i))), thread.AddAllocs(int64(unsafe.Sizeof(reflect.StringHeader{}) + unsafe.Sizeof('a')))
+	return String(string(rune(i))),
+		thread.AddAllocs(int64(
+			reflect.TypeOf(reflect.StringHeader{}).Size() +
+				reflect.TypeOf('a').Size(),
+		))
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict
