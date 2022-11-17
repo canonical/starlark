@@ -234,7 +234,7 @@ var (
 		"rpartition":     NotSafe,
 		"rsplit":         NotSafe,
 		"rstrip":         NotSafe,
-		"split":          NotSafe,
+		"split":          MemSafe,
 		"splitlines":     NotSafe,
 		"startswith":     NotSafe,
 		"strip":          NotSafe,
