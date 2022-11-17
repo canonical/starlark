@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/startest"
 )
 
 func TestDefaultAllocMaxIsUnbounded(t *testing.T) {
@@ -284,4 +285,24 @@ func TestAddAllocsCancelledRejection(t *testing.T) {
 	} else if allocs := thread.Allocs(); allocs != 0 {
 		t.Errorf("Changes were recorded against cancelled thread: expected 0 allocations, got %v", allocs)
 	}
+}
+
+func TestStringIsdigitAllocations(t *testing.T) {
+	string_isdigit, _ := starlark.String("1234567890").Attr("isdigit")
+	if string_isdigit == nil {
+		t.Errorf("No such method: string.isdigit")
+		return
+	}
+
+	s := startest.From(t)
+	s.SetMaxAllocs(0)
+	s.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < s.N; i++ {
+			result, err := starlark.Call(thread, string_isdigit, nil, nil)
+			if err != nil {
+				s.Error(err)
+			}
+			s.KeepAlive(result)
+		}
+	})
 }
