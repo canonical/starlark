@@ -239,6 +239,39 @@ func TestAllAllocs(t *testing.T) {
 }
 
 func TestBoolAllocs(t *testing.T) {
+	values := []starlark.Value{
+		starlark.None,
+		starlark.True,
+		starlark.MakeInt(0),
+		starlark.MakeInt64(1 << 40),
+		starlark.String("deadbeef"),
+		starlark.NewSet(10),
+		starlark.NewDict(10),
+		starlark.NewList(nil),
+		starlark.Float(0.5),
+	}
+	fn, err := starlark.Universe["bool"]
+
+	if !err {
+		t.Error("'bool' builtin doesn't exits")
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(0)
+	st.RequireSafety(starlark.NotSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			for _, value := range values {
+				value, err := starlark.Call(thread, fn, starlark.Tuple{value}, nil)
+
+				if err != nil {
+					st.Error(err)
+				}
+
+				st.KeepAlive(value)
+			}
+		}
+	})
 }
 
 func TestBytesAllocs(t *testing.T) {
