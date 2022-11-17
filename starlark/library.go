@@ -97,7 +97,7 @@ func init() {
 		"min":       NotSafe,
 		"ord":       NotSafe,
 		"print":     NotSafe,
-		"range":     NotSafe,
+		"range":     MemSafe,
 		"repr":      NotSafe,
 		"reversed":  NotSafe,
 		"set":       NotSafe,
