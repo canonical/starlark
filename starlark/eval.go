@@ -1774,10 +1774,12 @@ func (thread *Thread) CheckAllocs(delta int64) error {
 // actively executing.
 func (thread *Thread) AddAllocs(delta int64) error {
 	thread.allocsLock.Lock()
-	defer thread.allocsLock.Unlock()
 
 	next, err := thread.simulateAllocs(delta)
 	thread.allocs = next
+
+	thread.allocsLock.Unlock()
+
 	if err != nil {
 		if thread.OnMaxAllocs != nil {
 			thread.OnMaxAllocs(thread)
