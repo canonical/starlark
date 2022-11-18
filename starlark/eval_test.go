@@ -1007,9 +1007,7 @@ func TestOnMaxAllocs(t *testing.T) {
 			t.Error("Callback got wrong thread")
 		}
 
-		if thread.AllocsLocked() {
-			t.Error("Allocs are still locked; deadlock may occur")
-		}
+		thread.TryDeadlockAllocsLock()
 	}
 
 	// Test CheckAllocs does not trigger the call
