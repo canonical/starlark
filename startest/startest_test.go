@@ -65,6 +65,21 @@ func TestKeepAlive(t *testing.T) {
 			t.Error("Expected allocation test failure")
 		}
 	})
+
+	t.Run("check=means-compared", func(t *testing.T) {
+		dummyT := testing.T{}
+		st := startest.From(&dummyT)
+		st.SetMaxAllocs(10)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				st.KeepAlive(new(int32))
+				thread.AddAllocs(1)
+			}
+		})
+		if !dummyT.Failed() {
+			t.Error("Expected failure")
+		}
+	})
 }
 
 func TestThread(t *testing.T) {
