@@ -998,39 +998,62 @@ func TestDeps(t *testing.T) {
 
 func TestOnMaxAllocs(t *testing.T) {
 	customCalled := false
-	thread := &starlark.Thread{}
-	thread.SetMaxAllocs(10)
-	thread.OnMaxAllocs = func(callbackThread *starlark.Thread) {
-		customCalled = true
 
-		if callbackThread != thread {
-			t.Error("Callback got wrong thread")
+	t.Run("try=CheckAllocs", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.SetMaxAllocs(10)
+		thread.OnMaxAllocs = func(callbackThread *starlark.Thread) {
+			customCalled = true
+
+			if callbackThread != thread {
+				t.Error("Callback got wrong thread")
+			}
+
+			thread.SetMaxAllocs(50)
+
+			if err := thread.AddAllocs(-15); err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
 		}
 
-		thread.TryDeadlockAllocsLock()
-	}
+		if err := thread.CheckAllocs(20); err == nil {
+			t.Error("Expected error")
+		}
+		if customCalled {
+			t.Error("Custom handler was called when CheckAllocs failed")
+		}
+		if _, err := starlark.ExecFile(thread, "on_max_allocs", "", nil); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+	})
 
-	// Test CheckAllocs does not trigger the call
-	if err := thread.CheckAllocs(20); err == nil {
-		t.Error("Expected error")
-	}
-	if customCalled {
-		t.Error("Custom handler was called when CheckAllocs failed")
-	}
-	if _, err := starlark.ExecFile(thread, "on_max_allocs", "", nil); err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
+	t.Run("try=AddAllocs", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.SetMaxAllocs(10)
+		thread.OnMaxAllocs = func(callbackThread *starlark.Thread) {
+			customCalled = true
 
-	// Test AddAllocs does trigger the call
-	if err := thread.AddAllocs(20); err == nil {
-		t.Error("Expected error")
-	}
-	if !customCalled {
-		t.Error("Custom handler was not called when AddAllocs failed")
-	}
-	if _, err := starlark.ExecFile(thread, "on_max_allocs", "", nil); err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
+			if callbackThread != thread {
+				t.Error("Callback got wrong thread")
+			}
+
+			thread.SetMaxAllocs(50)
+
+			if err := thread.AddAllocs(-15); err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		}
+
+		if err := thread.AddAllocs(20); err == nil {
+			t.Error("Expected error")
+		}
+		if !customCalled {
+			t.Error("Custom handler was not called when AddAllocs failed")
+		}
+		if _, err := starlark.ExecFile(thread, "on_max_allocs", "", nil); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+	})
 }
 
 func TestCheckExecutionSteps(t *testing.T) {
