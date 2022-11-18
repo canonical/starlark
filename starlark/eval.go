@@ -51,6 +51,11 @@ type Thread struct {
 	// See example_test.go for some example implementations of Load.
 	Load func(thread *Thread, module string) (StringDict, error)
 
+	// OnMaxAllocs is called when the thread reaches the limit set by
+	// SetMaxAllocs. The default behavior is to call
+	// thread.Cancel("exceeded memory allocation limits").
+	OnMaxAllocs func(thread *Thread)
+
 	// steps counts abstract computation steps executed by this thread.
 	steps, maxSteps uint64
 	stepsLock       sync.Mutex
@@ -1774,7 +1779,11 @@ func (thread *Thread) AddAllocs(delta int64) error {
 	next, err := thread.simulateAllocs(delta)
 	thread.allocs = next
 	if err != nil {
-		thread.Cancel(err.Error())
+		if thread.OnMaxAllocs != nil {
+			thread.OnMaxAllocs(thread)
+		} else {
+			thread.Cancel(err.Error())
+		}
 	}
 
 	return err
