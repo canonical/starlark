@@ -18,3 +18,21 @@ func TestMethodSafetiesExist(t *testing.T) {
 		}
 	}
 }
+
+func TestTimeFromTimestampAllocs(t *testing.T) {
+}
+
+func TestTimeIsValidTimezoneAllocs(t *testing.T) {
+}
+
+func TestTimeNowAllocs(t *testing.T) {
+}
+
+func TestTimeParseDurationAllocs(t *testing.T) {
+}
+
+func TestTimeParseTimeAllocs(t *testing.T) {
+}
+
+func TestTimeTimeAllocs(t *testing.T) {
+}
