@@ -1000,8 +1000,12 @@ func TestOnMaxAllocs(t *testing.T) {
 	customCalled := false
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(10)
-	thread.OnMaxAllocs = func(_ *starlark.Thread) {
+	thread.OnMaxAllocs = func(callbackThread *starlark.Thread) {
 		customCalled = true
+
+		if callbackThread != thread {
+			t.Error("Callback got wrong thread")
+		}
 	}
 
 	// Test CheckAllocs does not trigger the call
