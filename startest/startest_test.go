@@ -69,7 +69,7 @@ func TestKeepAlive(t *testing.T) {
 	t.Run("check=means-compared", func(t *testing.T) {
 		dummyT := testing.T{}
 		st := startest.From(&dummyT)
-		st.SetMaxAllocs(10)
+		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.KeepAlive(new(int32))
