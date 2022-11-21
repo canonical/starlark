@@ -92,6 +92,13 @@ type SafetyAware interface {
 var _ SafetyAware = Safety(0)
 var _ SafetyAware = new(Function)
 var _ SafetyAware = new(Builtin)
+var _ SafetyAware = new(rangeIterator)
+var _ SafetyAware = new(stringElemsIterator)
+var _ SafetyAware = new(stringCodepointsIterator)
+var _ SafetyAware = new(bytesIterator)
+var _ SafetyAware = new(listIterator)
+var _ SafetyAware = new(tupleIterator)
+var _ SafetyAware = new(keyIterator)
 
 func (set Safety) Safety() Safety { return set }
 
