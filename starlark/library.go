@@ -103,7 +103,7 @@ func init() {
 		"sorted":    NotSafe,
 		"str":       NotSafe,
 		"tuple":     NotSafe,
-		"type":      NotSafe,
+		"type":      MemSafe,
 		"zip":       NotSafe,
 	}
 

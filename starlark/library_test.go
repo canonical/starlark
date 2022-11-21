@@ -315,7 +315,7 @@ func TestTypeAllocs(t *testing.T) {
 		return
 	}
 
-	st.RequireSafety(starlark.NotSafe)
+	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			for _, value := range values {
