@@ -410,7 +410,7 @@ func TestStringLowerAllocs(t *testing.T) {
 	t.Run("ASCII", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("dEaDbEeF", st.N))
 			fn, err := str.Attr("lower")
@@ -434,7 +434,7 @@ func TestStringLowerAllocs(t *testing.T) {
 	t.Run("Unicode", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("ΔΗΑΔΒΗΗΦ", st.N))
 			fn, err := str.Attr("lower")
@@ -458,7 +458,7 @@ func TestStringLowerAllocs(t *testing.T) {
 	t.Run("Unicode-single", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("Φ")
 			fn, err := str.Attr("lower")
@@ -531,7 +531,7 @@ func TestStringUpperAllocs(t *testing.T) {
 	t.Run("ASCII", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("dEaDbEeF", st.N))
 			fn, err := str.Attr("upper")
@@ -555,7 +555,7 @@ func TestStringUpperAllocs(t *testing.T) {
 	t.Run("Unicode", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("δηαδβηηφ", st.N))
 			fn, err := str.Attr("upper")
@@ -579,7 +579,7 @@ func TestStringUpperAllocs(t *testing.T) {
 	t.Run("Unicode-single", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("φ")
 			fn, err := str.Attr("upper")

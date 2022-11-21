@@ -222,7 +222,7 @@ var (
 		"istitle":        NotSafe,
 		"isupper":        NotSafe,
 		"join":           NotSafe,
-		"lower":          NotSafe,
+		"lower":          MemSafe,
 		"lstrip":         NotSafe,
 		"partition":      NotSafe,
 		"removeprefix":   NotSafe,
