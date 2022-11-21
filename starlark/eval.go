@@ -248,6 +248,8 @@ type StringBuilder interface {
 
 	WriteRune(r rune) (size int, err error)
 	Grow(n int)
+	Cap() int
+	Len() int
 }
 
 func (thread *Thread) CreateStringBuilder() StringBuilder {
