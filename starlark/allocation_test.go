@@ -295,31 +295,31 @@ func TestHashAllocations(t *testing.T) {
 	}
 
 	t.Run("input=string", func(t *testing.T) {
-		s := startest.From(t)
-		s.SetMaxAllocs(16)
-		s.RunThread(func(thread *starlark.Thread) {
-			for i := 0; i < s.N; i++ {
+		st := startest.From(t)
+		st.SetMaxAllocs(16)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.String("foo")}
 				result, err := starlark.Call(thread, hash, args, nil)
 				if err != nil {
-					s.Error(err)
+					st.Error(err)
 				}
-				s.KeepAlive(result)
+				st.KeepAlive(result)
 			}
 		})
 	})
 
 	t.Run("input=bytes", func(t *testing.T) {
-		s := startest.From(t)
-		s.SetMaxAllocs(16)
-		s.RunThread(func(thread *starlark.Thread) {
-			for i := 0; i < s.N; i++ {
+		st := startest.From(t)
+		st.SetMaxAllocs(16)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.String("bar")}
 				result, err := starlark.Call(thread, hash, args, nil)
 				if err != nil {
-					s.Error(err)
+					st.Error(err)
 				}
-				s.KeepAlive(result)
+				st.KeepAlive(result)
 			}
 		})
 	})
