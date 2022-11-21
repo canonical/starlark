@@ -296,6 +296,40 @@ func TestTupleAllocs(t *testing.T) {
 }
 
 func TestTypeAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	values := []starlark.Value{
+		starlark.None,
+		starlark.True,
+		starlark.MakeInt(1),
+		starlark.MakeInt64(1 << 40),
+		starlark.String("\"test\""),
+		starlark.NewDict(0),
+		starlark.NewSet(0),
+	}
+
+	fn, err := starlark.Universe["type"]
+
+	if !err {
+		st.Error("Can't find `type` builtin")
+		return
+	}
+
+	st.RequireSafety(starlark.NotSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			for _, value := range values {
+				result, err := starlark.Call(thread, fn, starlark.Tuple{value}, nil)
+
+				if err != nil {
+					st.Error(err)
+					return
+				}
+
+				st.KeepAlive(result)
+			}
+		}
+	})
 }
 
 func TestZipAllocs(t *testing.T) {
