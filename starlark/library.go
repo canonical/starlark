@@ -238,7 +238,7 @@ var (
 		"startswith":     NotSafe,
 		"strip":          NotSafe,
 		"title":          NotSafe,
-		"upper":          NotSafe,
+		"upper":          MemSafe,
 	}
 
 	setMethods = map[string]*Builtin{
