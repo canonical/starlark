@@ -392,7 +392,7 @@ func TestStringFormatAllocs(t *testing.T) {
 	t.Run("args", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			elems := make([]starlark.Value, st.N)
 
@@ -429,7 +429,7 @@ func TestStringFormatAllocs(t *testing.T) {
 	t.Run("kwargs", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			elems := make([]starlark.Value, st.N)
 
