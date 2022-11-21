@@ -355,19 +355,87 @@ func TestListRemoveAllocs(t *testing.T) {
 func TestStringCapitalizeAllocs(t *testing.T) {
 }
 
-func TestStringCodepoint_ordsAllocs(t *testing.T) {
+func TestStringCodepointOrdsAllocs(t *testing.T) {
+	codepoint_ords, _ := starlark.String("pancakes").Attr("codepoint_ords")
+	if codepoint_ords == nil {
+		t.Error("No such method: string.codepoint_ords")
+		return
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(24)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, codepoint_ords, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringCodepointsAllocs(t *testing.T) {
+	codepoints, _ := starlark.String("pancakes").Attr("codepoints")
+	if codepoints == nil {
+		t.Error("No such method: string.codepoints")
+		return
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(24)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, codepoints, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringCountAllocs(t *testing.T) {
 }
 
-func TestStringElem_ordsAllocs(t *testing.T) {
+func TestStringElemOrdsAllocs(t *testing.T) {
+	elem_ords, _ := starlark.String("pancakes").Attr("elem_ords")
+	if elem_ords == nil {
+		t.Error("No such method: string.elem_ords")
+		return
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(24)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, elem_ords, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringElemsAllocs(t *testing.T) {
+	elems, _ := starlark.String("pancakes").Attr("elems")
+	if elems == nil {
+		t.Error("No such method: string.elems")
+		return
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(24)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, elems, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringEndswithAllocs(t *testing.T) {
