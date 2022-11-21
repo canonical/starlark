@@ -377,6 +377,91 @@ func TestStringFindAllocs(t *testing.T) {
 }
 
 func TestStringFormatAllocs(t *testing.T) {
+
+	sample := starlark.Tuple{
+		nil, // Not a starlark value, but useful for testing
+		starlark.None,
+		starlark.True,
+		starlark.MakeInt(1),
+		starlark.MakeInt64(1 << 40),
+		starlark.String("\"test\""),
+		starlark.NewDict(0),
+		starlark.NewSet(0),
+	}
+
+	t.Run("args", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			elems := make([]starlark.Value, st.N)
+
+			for i, _ := range elems {
+				elems[i] = sample
+			}
+
+			format := starlark.String("{{{0!s}}}")
+			value := starlark.NewList(elems)
+
+			fn, err := format.Attr("format")
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			if fn == nil {
+				st.Errorf("`string.format` builtin doesn't exists")
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, starlark.Tuple{value}, nil)
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("kwargs", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			elems := make([]starlark.Value, st.N)
+
+			for i, _ := range elems {
+				elems[i] = sample
+			}
+
+			format := starlark.String("{{{a!s}}}")
+			value := starlark.NewList(elems)
+
+			fn, err := format.Attr("format")
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			if fn == nil {
+				st.Errorf("`string.format` builtin doesn't exists")
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, nil, []starlark.Tuple{{starlark.String("a"), value}})
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			st.KeepAlive(result)
+		})
+	})
 }
 
 func TestStringIndexAllocs(t *testing.T) {
