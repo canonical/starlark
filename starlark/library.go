@@ -232,7 +232,7 @@ var (
 		"rfind":          NotSafe,
 		"rindex":         NotSafe,
 		"rpartition":     NotSafe,
-		"rsplit":         NotSafe,
+		"rsplit":         MemSafe,
 		"rstrip":         NotSafe,
 		"split":          MemSafe,
 		"splitlines":     NotSafe,

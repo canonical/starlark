@@ -437,7 +437,7 @@ func TestStringRsplitAllocs(t *testing.T) {
 	t.Run("delimiter", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("deadbeef", st.N))
 			delimiter := starlark.String("beef")
@@ -462,7 +462,7 @@ func TestStringRsplitAllocs(t *testing.T) {
 	t.Run("empty-delimiter", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("go    go", st.N))
 			fn, err := str.Attr("rsplit")
