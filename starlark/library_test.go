@@ -2,6 +2,96 @@ package starlark_test
 
 import "testing"
 
+func TestAbsAllocs(t *testing.T) {
+}
+
+func TestAnyAllocs(t *testing.T) {
+}
+
+func TestAllAllocs(t *testing.T) {
+}
+
+func TestBoolAllocs(t *testing.T) {
+}
+
+func TestBytesAllocs(t *testing.T) {
+}
+
+func TestChrAllocs(t *testing.T) {
+}
+
+func TestDictAllocs(t *testing.T) {
+}
+
+func TestDirAllocs(t *testing.T) {
+}
+
+func TestEnumerateAllocs(t *testing.T) {
+}
+
+func TestFailAllocs(t *testing.T) {
+}
+
+func TestFloatAllocs(t *testing.T) {
+}
+
+func TestGetattrAllocs(t *testing.T) {
+}
+
+func TestHasattrAllocs(t *testing.T) {
+}
+
+func TestHashAllocs(t *testing.T) {
+}
+
+func TestIntAllocs(t *testing.T) {
+}
+
+func TestLenAllocs(t *testing.T) {
+}
+
+func TestListAllocs(t *testing.T) {
+}
+
+func TestMaxAllocs(t *testing.T) {
+}
+
+func TestMinAllocs(t *testing.T) {
+}
+
+func TestOrdAllocs(t *testing.T) {
+}
+
+func TestPrintAllocs(t *testing.T) {
+}
+
+func TestRangeAllocs(t *testing.T) {
+}
+
+func TestReprAllocs(t *testing.T) {
+}
+
+func TestReversedAllocs(t *testing.T) {
+}
+
+func TestSetAllocs(t *testing.T) {
+}
+
+func TestSortedAllocs(t *testing.T) {
+}
+
+func TestStrAllocs(t *testing.T) {
+}
+
+func TestTupleAllocs(t *testing.T) {
+}
+
+func TestTypeAllocs(t *testing.T) {
+}
+
+func TestZipAllocs(t *testing.T) {
+}
+
 func TestBytesElemsAllocs(t *testing.T) {
 }
 
