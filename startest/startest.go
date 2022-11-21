@@ -20,9 +20,10 @@ type TestBase interface {
 }
 
 type ST struct {
-	maxAllocs uint64
-	alive     []interface{}
-	N         int
+	maxAllocs      uint64
+	alive          []interface{}
+	N              int
+	requiredSafety starlark.Safety
 	TestBase
 }
 
@@ -40,9 +41,15 @@ func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
 }
 
+// RequireSafety optionally sets the required safety of tested code
+func (st *ST) RequireSafety(safety starlark.Safety) {
+	st.requiredSafety = safety
+}
+
 // RunThread tests a function which has access to a starlark thread and a global environment
 func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	thread := &starlark.Thread{}
+	thread.RequireSafety(st.requiredSafety)
 
 	memorySum, nSum := st.measureMemory(func() {
 		fn(thread)

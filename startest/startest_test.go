@@ -112,3 +112,37 @@ func TestFailed(t *testing.T) {
 		t.Error("Startest did not report that it had failed")
 	}
 }
+
+func TestRequireSafety(t *testing.T) {
+	t.Run("method=RunThread", func(t *testing.T) {
+		t.Run("safety=safe", func(t *testing.T) {
+			builtin := starlark.NewBuiltinWithSafety("fn", starlark.MemSafe|starlark.IOSafe, func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+				return starlark.None, nil
+			})
+
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe | starlark.IOSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				if _, err := starlark.Call(thread, builtin, nil, nil); err != nil {
+					st.Errorf("Unexpected error: %v", err)
+				}
+			})
+		})
+
+		t.Run("safety=unsafe", func(t *testing.T) {
+			builtin := starlark.NewBuiltin("fn", func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+				return starlark.None, nil
+			})
+
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe | starlark.IOSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				if _, err := starlark.Call(thread, builtin, nil, nil); err == nil {
+					st.Error("Expected error")
+				} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
+					st.Errorf("Unexpected error: %v", err)
+				}
+			})
+		})
+	})
+}
