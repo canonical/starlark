@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/startest"
 )
 
 func TestUniverseSafeties(t *testing.T) {
@@ -250,6 +251,23 @@ func TestStringIsspaceAllocs(t *testing.T) {
 }
 
 func TestStringIstitleAllocs(t *testing.T) {
+	string_istitle, _ := starlark.String("Hello, world!").Attr("istitle")
+	if string_istitle == nil {
+		t.Errorf("No such method: string.istitle")
+		return
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, string_istitle, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringIsupperAllocs(t *testing.T) {
