@@ -2034,11 +2034,29 @@ func string_join(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·lower
-func string_lower(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_lower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	return String(strings.ToLower(string(b.Receiver().(String)))), nil
+
+	arg := string(b.Receiver().(String))
+
+	// There could be actually a difference between the size of the encoded
+	// upper and the size of the encoded lower. The maximum difference among
+	// them (according to unicode.ToLower implementation) is only 1 byte,
+	// which could be expected. This means that this logic must take that
+	// spike into account.
+	if err := thread.CheckAllocs(EstimateMakeSize([]byte{}, len(arg)*2)); err != nil {
+		return nil, err
+	}
+
+	var result Value = String(strings.ToLower(arg))
+
+	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·partition
