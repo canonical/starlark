@@ -294,15 +294,15 @@ func TestStringIsalphaAllocations(t *testing.T) {
 		return
 	}
 
-	s := startest.From(t)
-	s.SetMaxAllocs(0)
-	s.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < s.N; i++ {
+	st := startest.From(t)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
 			result, err := starlark.Call(thread, string_isalpha, nil, nil)
 			if err != nil {
-				s.Error(err)
+				st.Error(err)
 			}
-			s.KeepAlive(result)
+			st.KeepAlive(result)
 		}
 	})
 }
