@@ -407,6 +407,79 @@ func TestStringJoinAllocs(t *testing.T) {
 }
 
 func TestStringLowerAllocs(t *testing.T) {
+	t.Run("ASCII", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("dEaDbEeF", st.N))
+			fn, err := str.Attr("lower")
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("Unicode", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("ΔΗΑΔΒΗΗΦ", st.N))
+			fn, err := str.Attr("lower")
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("Unicode-single", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String("Φ")
+			fn, err := str.Attr("lower")
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+
+				if err != nil {
+					st.Error(err)
+					return
+				}
+
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestStringLstripAllocs(t *testing.T) {
