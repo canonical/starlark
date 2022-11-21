@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
-	"github.com/canonical/starlark/startest"
 )
 
 func TestDefaultAllocMaxIsUnbounded(t *testing.T) {
@@ -285,24 +284,4 @@ func TestAddAllocsCancelledRejection(t *testing.T) {
 	} else if allocs := thread.Allocs(); allocs != 0 {
 		t.Errorf("Changes were recorded against cancelled thread: expected 0 allocations, got %v", allocs)
 	}
-}
-
-func TestStringIsalphaAllocations(t *testing.T) {
-	string_isalpha, _ := starlark.String("hello, world!").Attr("isalpha")
-	if string_isalpha == nil {
-		t.Errorf("No such method: string.isalpha")
-		return
-	}
-
-	st := startest.From(t)
-	st.SetMaxAllocs(0)
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, string_isalpha, nil, nil)
-			if err != nil {
-				st.Error(err)
-			}
-			st.KeepAlive(result)
-		}
-	})
 }
