@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/startest"
 )
 
 func TestUniverseSafeties(t *testing.T) {
@@ -235,6 +236,23 @@ func TestStringIndexAllocs(t *testing.T) {
 }
 
 func TestStringIsalnumAllocs(t *testing.T) {
+	string_isalnum, _ := starlark.String("hello, world!").Attr("isalnum")
+	if string_isalnum == nil {
+		t.Errorf("No such method: string.isalnum")
+		return
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, string_isalnum, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringIsalphaAllocs(t *testing.T) {
