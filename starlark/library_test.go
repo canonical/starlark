@@ -200,16 +200,16 @@ func TestChrAllocs(t *testing.T) {
 		return
 	}
 
-	s := startest.From(t)
-	s.SetMaxAllocs(20)
-	s.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < s.N; i++ {
+	st := startest.From(t)
+	st.SetMaxAllocs(20)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
 			args := starlark.Tuple{starlark.MakeInt(97)}
 			result, err := starlark.Call(thread, chr, args, nil)
 			if err != nil {
-				s.Error(err)
+				st.Error(err)
 			}
-			s.KeepAlive(result)
+			st.KeepAlive(result)
 		}
 	})
 }
