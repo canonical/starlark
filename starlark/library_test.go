@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/startest"
 )
 
 func TestUniverseSafeties(t *testing.T) {
@@ -103,6 +104,41 @@ func TestHasattrAllocs(t *testing.T) {
 }
 
 func TestHashAllocs(t *testing.T) {
+	hash, ok := starlark.Universe["hash"]
+	if !ok {
+		t.Errorf("No such builtin: hash")
+		return
+	}
+
+	t.Run("input=string", func(t *testing.T) {
+		st := startest.From(t)
+		st.SetMaxAllocs(16)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.String("foo")}
+				result, err := starlark.Call(thread, hash, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("input=bytes", func(t *testing.T) {
+		st := startest.From(t)
+		st.SetMaxAllocs(16)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.String("bar")}
+				result, err := starlark.Call(thread, hash, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestIntAllocs(t *testing.T) {
