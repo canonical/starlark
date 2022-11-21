@@ -434,6 +434,54 @@ func TestStringRpartitionAllocs(t *testing.T) {
 }
 
 func TestStringRsplitAllocs(t *testing.T) {
+	t.Run("delimiter", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("deadbeef", st.N))
+			delimiter := starlark.String("beef")
+			fn, err := str.Attr("rsplit")
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, starlark.Tuple{delimiter, starlark.MakeInt(st.N)}, nil)
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("empty-delimiter", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("go    go", st.N))
+			fn, err := str.Attr("rsplit")
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, starlark.Tuple{starlark.None, starlark.MakeInt(st.N)}, nil)
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			st.KeepAlive(result)
+		})
+	})
 }
 
 func TestStringRstripAllocs(t *testing.T) {
