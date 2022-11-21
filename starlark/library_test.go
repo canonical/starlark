@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/startest"
 )
 
 func TestUniverseSafeties(t *testing.T) {
@@ -244,6 +245,23 @@ func TestStringIsdigitAllocs(t *testing.T) {
 }
 
 func TestStringIslowerAllocs(t *testing.T) {
+	string_islower, _ := starlark.String("sphinx of black quartz, judge my vow").Attr("islower")
+	if string_islower == nil {
+		t.Errorf("No such method: string.islower")
+		return
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, string_islower, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringIsspaceAllocs(t *testing.T) {
