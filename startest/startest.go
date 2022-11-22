@@ -66,16 +66,18 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	meanMeasured := memorySum / nSum
 	meanDeclared := thread.Allocs() / nSum
 
-	if meanMeasured > st.maxAllocs {
-		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasured, st.maxAllocs)
-	}
+	if st.requiredSafety.Contains(starlark.MemSafe) {
+		if meanMeasured > st.maxAllocs {
+			st.Errorf("measured memory is above maximum (%d > %d)", meanMeasured, st.maxAllocs)
+		}
 
-	if meanDeclared > st.maxAllocs {
-		st.Errorf("declared allocations are above maximum (%d > %d)", meanDeclared, st.maxAllocs)
-	}
+		if meanDeclared > st.maxAllocs {
+			st.Errorf("declared allocations are above maximum (%d > %d)", meanDeclared, st.maxAllocs)
+		}
 
-	if st.maxAllocs != math.MaxUint64 && meanMeasured > meanDeclared {
-		st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasured, meanDeclared)
+		if meanMeasured > meanDeclared {
+			st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasured, meanDeclared)
+		}
 	}
 }
 
