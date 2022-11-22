@@ -109,18 +109,38 @@ func TestHashAllocs(t *testing.T) {
 }
 
 func TestIntAllocs(t *testing.T) {
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunThread(func(th *starlark.Thread) {
-		inputString := starlark.String(strings.Repeat("deadbeef", st.N))
-		args := []starlark.Value{inputString, starlark.MakeInt(16)}
+	t.Run("small", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(th *starlark.Thread) {
+			inputString := starlark.String("deadbeef")
+			args := []starlark.Value{inputString, starlark.MakeInt(16)}
 
-		result, err := starlark.Call(th, starlark.Universe["int"], args, nil)
-		if err != nil {
-			st.Error(err)
-		}
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(th, starlark.Universe["int"], args, nil)
+				if err != nil {
+					st.Error(err)
+				}
 
-		st.KeepAlive(result)
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("big", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(th *starlark.Thread) {
+			inputString := starlark.String(strings.Repeat("deadbeef", st.N))
+			args := []starlark.Value{inputString, starlark.MakeInt(16)}
+
+			result, err := starlark.Call(th, starlark.Universe["int"], args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(result)
+		})
 	})
 }
 
