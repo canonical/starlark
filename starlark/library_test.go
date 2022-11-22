@@ -436,6 +436,11 @@ func TestStringReplaceAllocs(t *testing.T) {
 			return
 		}
 
+		if fn == nil {
+			st.Errorf("`string.replace` builtin doesn't exists")
+			return
+		}
+
 		result, err := starlark.Call(thread, fn, starlark.Tuple{toReplace, replacement}, nil)
 
 		if err != nil {
