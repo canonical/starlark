@@ -80,6 +80,17 @@ func TestKeepAlive(t *testing.T) {
 			t.Error("Expected failure")
 		}
 	})
+
+	t.Run("check=none", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.NotSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				st.KeepAlive(new(int32))
+			}
+		})
+	})
 }
 
 func TestThread(t *testing.T) {
