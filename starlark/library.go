@@ -536,15 +536,33 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	}
 	switch x := args[0].(type) {
 	case Bool:
+		// Constant **value types** statically casted to interfaces become
+		// symbols in the text part of the executable, so they won't actually
+		// allocate anything.
 		if x {
 			return Float(1.0), nil
 		} else {
 			return Float(0.0), nil
 		}
 	case Int:
-		return x.finiteFloat()
+		result, err := x.finiteFloat()
+		if err != nil {
+			return nil, err
+		}
+
+		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+			return nil, err
+		}
+
+		return result, nil
+
 	case Float:
+		if err := thread.AddAllocs(EstimateSize(x)); err != nil {
+			return nil, err
+		}
+
 		return x, nil
+
 	case String:
 		if x == "" {
 			return nil, fmt.Errorf("float: empty string")
@@ -576,7 +594,14 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		if err != nil {
 			return nil, fmt.Errorf("invalid float literal: %s", s)
 		}
-		return Float(f), nil
+
+		result := Float(f)
+
+		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+			return nil, err
+		}
+
+		return result, nil
 	default:
 		return nil, fmt.Errorf("float got %s, want number or string", x.Type())
 	}
