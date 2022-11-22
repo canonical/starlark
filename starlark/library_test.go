@@ -265,7 +265,7 @@ func TestLenAllocs(t *testing.T) {
 		st.Errorf("`len` builtin not found")
 	}
 
-	st.RequireSafety(starlark.NotSafe)
+	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			result, err := starlark.Call(thread, fn, starlark.Tuple{starlark.String("test")}, nil)
