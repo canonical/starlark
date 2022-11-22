@@ -826,7 +826,14 @@ func len_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if len < 0 {
 		return nil, fmt.Errorf("len: value of type %s has no len", x.Type())
 	}
-	return MakeInt(len), nil
+
+	result := MakeInt(len)
+
+	if err := thread.AddAllocs(result.EstimateSize()); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list
