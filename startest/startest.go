@@ -33,7 +33,11 @@ var _ TestBase = &check.C{}
 
 // From returns a new starTest instance with a given test base.
 func From(base TestBase) *ST {
-	return &ST{TestBase: base, maxAllocs: math.MaxUint64}
+	return &ST{
+		TestBase:       base,
+		maxAllocs:      math.MaxUint64,
+		requiredSafety: starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
+	}
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per test.N
