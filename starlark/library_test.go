@@ -420,6 +420,11 @@ func TestStringLowerAllocs(t *testing.T) {
 				return
 			}
 
+			if fn == nil {
+				st.Errorf("`string.lower` builtin doesn't exists")
+				return
+			}
+
 			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
 
 			if err != nil {
@@ -444,6 +449,11 @@ func TestStringLowerAllocs(t *testing.T) {
 				return
 			}
 
+			if fn == nil {
+				st.Errorf("`string.lower` builtin doesn't exists")
+				return
+			}
+
 			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
 
 			if err != nil {
@@ -465,6 +475,11 @@ func TestStringLowerAllocs(t *testing.T) {
 
 			if err != nil {
 				st.Error(err)
+				return
+			}
+
+			if fn == nil {
+				st.Errorf("`string.lower` builtin doesn't exists")
 				return
 			}
 
