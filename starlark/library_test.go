@@ -448,6 +448,11 @@ func TestStringRsplitAllocs(t *testing.T) {
 				return
 			}
 
+			if fn == nil {
+				st.Errorf("`string.rsplit` builtin doesn't exists")
+				return
+			}
+
 			result, err := starlark.Call(thread, fn, starlark.Tuple{delimiter, starlark.MakeInt(st.N)}, nil)
 
 			if err != nil {
@@ -469,6 +474,11 @@ func TestStringRsplitAllocs(t *testing.T) {
 
 			if err != nil {
 				st.Error(err)
+				return
+			}
+
+			if fn == nil {
+				st.Errorf("`string.rsplit` builtin doesn't exists")
 				return
 			}
 
@@ -502,6 +512,11 @@ func TestStringSplitAllocs(t *testing.T) {
 				return
 			}
 
+			if fn == nil {
+				st.Errorf("`string.split` builtin doesn't exists")
+				return
+			}
+
 			result, err := starlark.Call(thread, fn, starlark.Tuple{delimiter}, nil)
 
 			if err != nil {
@@ -523,6 +538,11 @@ func TestStringSplitAllocs(t *testing.T) {
 
 			if err != nil {
 				st.Error(err)
+				return
+			}
+
+			if fn == nil {
+				st.Errorf("`string.split` builtin doesn't exists")
 				return
 			}
 
