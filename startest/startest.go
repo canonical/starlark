@@ -1,8 +1,10 @@
 package startest
 
 import (
+	"errors"
 	"math"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 	"unsafe"
@@ -28,6 +30,9 @@ type ST struct {
 	TestBase
 }
 
+var _ starlark.Value = &ST{}
+var _ starlark.HasAttrs = &ST{}
+
 var _ TestBase = &testing.T{}
 var _ TestBase = &testing.B{}
 var _ TestBase = &check.C{}
@@ -46,6 +51,49 @@ func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 func (st *ST) RequireSafety(safety starlark.Safety) {
 	st.requiredSafety |= safety
 	st.safetyGiven = true
+}
+
+func (st *ST) RunString(code string) {
+	sb := strings.Builder{}
+	sb.Grow(len(code))
+
+	// Clean code
+	var baseIndent string
+	lines := strings.Split(code, "\n")
+	for i, line := range lines {
+		if i == 0 && line == "" {
+			continue
+		}
+
+		if i == 1 {
+			for i, c := range line {
+				if c != ' ' && c != '\t' {
+					baseIndent = line[:i]
+					break
+				}
+			}
+		} else if (i > 1 && i < len(lines)-1) && !strings.HasPrefix(line, baseIndent) {
+			st.Errorf("Expected prefix %#v in line %#v", baseIndent, line)
+			return
+		}
+
+		if len(baseIndent) <= len(line) {
+			sb.WriteString(line[len(baseIndent):])
+			sb.WriteRune('\n')
+		}
+	}
+	code = sb.String()
+
+	st.Errorf("%#v", code)
+	st.RunThread(func(thread *starlark.Thread) {
+		predecls := starlark.StringDict{
+			"st": st,
+		}
+		_, err := starlark.ExecFile(thread, "startest.RunString", code, predecls)
+		if err != nil {
+			st.Error(err)
+		}
+	})
 }
 
 // RunThread tests a function which has access to a starlark thread and a global environment
@@ -155,3 +203,9 @@ func (st *ST) measureMemory(fn func()) (memorySum, nSum uint64) {
 
 	return memoryUsed, nSum
 }
+
+func (st *ST) String() string        { return "startest instance" }
+func (st *ST) Type() string          { return "startest.ST" }
+func (st *ST) Freeze()               {}
+func (st *ST) Truth() starlark.Bool  { return starlark.True }
+func (st *ST) Hash() (uint32, error) { return 0, errors.New("unhashable type: startest.ST") }

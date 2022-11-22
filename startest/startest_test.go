@@ -212,3 +212,13 @@ func TestRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 		}
 	})
 }
+
+func TestString(t *testing.T) {
+	st := startest.From(t)
+	st.RunString(`
+		print('Hello, world!')
+		if False:
+			print('42')
+		test.error()
+	`)
+}
