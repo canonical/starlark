@@ -209,6 +209,42 @@ func TestFailAllocs(t *testing.T) {
 }
 
 func TestFloatAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	values := []starlark.Value{
+		starlark.True,
+		starlark.MakeInt(1),
+		starlark.MakeInt64(1 << 32),
+		starlark.Float(1 << 32),
+		starlark.String("2147483648"),
+		starlark.String("18446744073709551616"),
+	}
+
+	fn, ok := starlark.Universe["float"]
+
+	if !ok {
+		st.Errorf("`float` builtin doesn't exists")
+		return
+	}
+
+	st.RequireSafety(starlark.NotSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			for _, value := range values {
+				result, err := starlark.Call(thread, fn, starlark.Tuple{value}, nil)
+				if err != nil {
+					st.Error(err)
+					return
+				}
+				if err != nil {
+					st.Error(err)
+					return
+				}
+
+				st.KeepAlive(result)
+			}
+		}
+	})
 }
 
 func TestGetattrAllocs(t *testing.T) {
