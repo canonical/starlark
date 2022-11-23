@@ -7,13 +7,14 @@ import (
 )
 
 const (
-	maxSmallSize   = 32768
-	smallSizeDiv   = 8
-	smallSizeMax   = 1024
-	largeSizeDiv   = 128
-	numSizeClasses = 68
-	pageShift      = 13
-	pageSize       = 1 << pageShift
+	tinyAllocMaxSize = 16
+	maxSmallSize     = 32768
+	smallSizeDiv     = 8
+	smallSizeMax     = 1024
+	largeSizeDiv     = 128
+	numSizeClasses   = 68
+	pageShift        = 13
+	pageSize         = 1 << pageShift
 )
 
 var class_to_size = [numSizeClasses]uint16{0, 8, 16, 24, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 288, 320, 352, 384, 416, 448, 480, 512, 576, 640, 704, 768, 896, 1024, 1152, 1280, 1408, 1536, 1792, 2048, 2304, 2688, 3072, 3200, 3456, 4096, 4864, 5376, 6144, 6528, 6784, 6912, 8192, 9472, 9728, 10240, 10880, 12288, 13568, 14336, 16384, 18432, 19072, 20480, 21760, 24576, 27264, 28672, 32768}
@@ -37,8 +38,10 @@ func divRoundUp(n, a uintptr) uintptr {
 // Returns the size of an allocation, taking
 // into account the class sizes of the GC
 func GetAllocSize(size uintptr) uintptr {
-	if size < 8 {
-		return alignUp(size, nextPow2(size-1))
+	if size < tinyAllocMaxSize {
+		// Pessimistic view to take into account linked-lifetimes of
+		// transient values in tiny allocator.
+		return tinyAllocMaxSize
 	} else if size < maxSmallSize {
 		if size <= smallSizeMax-8 {
 			return uintptr(class_to_size[size_to_class8[divRoundUp(size, smallSizeDiv)]])
@@ -53,21 +56,6 @@ func GetAllocSize(size uintptr) uintptr {
 }
 
 // Simple types
-
-func estimateTypeSize(t reflect.Type) uintptr {
-	switch t.Kind() {
-	case reflect.Bool, reflect.Int8, reflect.Uint8:
-		// This is "pessimistic" in the sense that values of size
-		// 1 byte (given that they are immutable to keep the value
-		// semantics in place) will never be allocated when saved
-		// in an interface. It's just 1 byte though
-		return 1
-
-	default:
-		return GetAllocSize(t.Size())
-	}
-}
-
 func estimateSlice(v reflect.Value) uintptr {
 	return GetAllocSize(v.Type().Elem().Size() * uintptr(v.Cap()))
 }
@@ -204,7 +192,7 @@ func estimateSize(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 		result = 0
 	}
 
-	result += estimateTypeSize(v.Type())
+	result += GetAllocSize(v.Type().Size())
 
 	if ptrs != nil {
 		switch v.Kind() {
@@ -231,7 +219,7 @@ func estimateSize(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 
 // Returns the size of the type of value pointed by obj
 func EstimateTypeSize(obj interface{}) uintptr {
-	return estimateTypeSize(reflect.TypeOf(obj))
+	return GetAllocSize(reflect.TypeOf(obj).Size())
 }
 
 // Returns the size of the value pointed by obj, without

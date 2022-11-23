@@ -164,12 +164,42 @@ func TestEstimateChan(t *testing.T) {
 	})
 }
 
-func TestEstimateString(t *testing.T) {
+func TestTinyAllocator(t *testing.T) {
+	var anchor *int64
 	st := startest.From(t)
 	st.RunThread(func(thread *starlark.Thread) {
-		value := strings.Repeat("Hello World!", st.N)
+		for i := 0; i < st.N; i++ {
+			anchor = new(int64)
+			*anchor = int64(i)
 
-		thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
-		st.KeepAlive(value)
+			value := int64(i * 0xcc9e2d51)
+
+			thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
+			st.KeepAlive(value)
+		}
+	})
+}
+
+func TestEstimateString(t *testing.T) {
+	t.Run("small", func(t *testing.T) {
+		st := startest.From(t)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				value := string([]byte("Hello World!"))
+
+				thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
+				st.KeepAlive(value)
+			}
+		})
+	})
+
+	t.Run("big", func(t *testing.T) {
+		st := startest.From(t)
+		st.RunThread(func(thread *starlark.Thread) {
+			value := strings.Repeat("Hello World!", st.N)
+
+			thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
+			st.KeepAlive(value)
+		})
 	})
 }
