@@ -108,6 +108,13 @@ type Value interface {
 	Hash() (uint32, error)
 }
 
+// SizeAwareValue allows a value to declare its own size
+type SizeAwareValue interface {
+	Value
+
+	EstimateSize() int64
+}
+
 // A Comparable is a value that defines its own equivalence relation and
 // perhaps ordered comparisons.
 type Comparable interface {
