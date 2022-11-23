@@ -244,6 +244,12 @@ type Iterator interface {
 	Done()
 }
 
+// SizeAwareIterator allows an iterator to declare allocations it makes as it runs
+type SizeAwareIterator interface {
+	Iterator
+	NextAllocs() int64
+}
+
 // A Mapping is a mapping from keys to values, such as a dictionary.
 //
 // If a type satisfies both Mapping and Iterable, the iterator yields
