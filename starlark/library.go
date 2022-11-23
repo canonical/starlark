@@ -85,7 +85,7 @@ func init() {
 		"dir":       NotSafe,
 		"enumerate": NotSafe,
 		"fail":      NotSafe,
-		"float":     NotSafe,
+		"float":     MemSafe,
 		"getattr":   NotSafe,
 		"hasattr":   NotSafe,
 		"hash":      NotSafe,
