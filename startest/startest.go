@@ -27,6 +27,7 @@ type ST struct {
 	N              int
 	requiredSafety starlark.Safety
 	safetyGiven    bool
+	predecls       starlark.StringDict
 	TestBase
 }
 
@@ -51,6 +52,23 @@ func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 func (st *ST) RequireSafety(safety starlark.Safety) {
 	st.requiredSafety |= safety
 	st.safetyGiven = true
+}
+
+func (test *ST) AddValue(name string, value starlark.Value) {
+	if test.predecls == nil {
+		test.predecls = make(starlark.StringDict)
+	}
+	test.predecls[name] = value
+}
+
+func (test *ST) AddBuiltin(fn starlark.Value) {
+	builtin, ok := fn.(*starlark.Builtin)
+	if !ok {
+		test.Error("expected builtin: got %v", fn)
+		return
+	}
+
+	test.AddValue(builtin.Name(), builtin)
 }
 
 func (st *ST) RunString(code string) {
@@ -86,10 +104,7 @@ func (st *ST) RunString(code string) {
 
 	st.Errorf("%#v", code)
 	st.RunThread(func(thread *starlark.Thread) {
-		predecls := starlark.StringDict{
-			"st": st,
-		}
-		_, err := starlark.ExecFile(thread, "startest.RunString", code, predecls)
+		_, err := starlark.ExecFile(thread, "startest.RunString", code, st.predecls)
 		if err != nil {
 			st.Error(err)
 		}
