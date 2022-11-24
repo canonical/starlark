@@ -6,6 +6,7 @@ package starlark
 
 import (
 	"fmt"
+	"unsafe"
 	_ "unsafe" // for go:linkname hack
 )
 
@@ -50,6 +51,16 @@ func (ht *hashtable) init(size int) {
 		ht.table = make([]bucket, nb)
 	}
 	ht.tailLink = &ht.head
+}
+
+func (ht *hashtable) estimateSize() int64 {
+	size := unsafe.Sizeof(*ht)
+
+	if ht.table != nil && &ht.bucket0[0] != &ht.table[0] {
+		size += unsafe.Sizeof(bucket{}) * uintptr(cap(ht.table))
+	}
+
+	return int64(size)
 }
 
 func (ht *hashtable) freeze() {
