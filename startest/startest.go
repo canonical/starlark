@@ -2,6 +2,7 @@ package startest
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"runtime"
 	"strings"
@@ -37,6 +38,42 @@ var _ starlark.HasAttrs = &ST{}
 var _ TestBase = &testing.T{}
 var _ TestBase = &testing.B{}
 var _ TestBase = &check.C{}
+
+var STMethods = map[string]*starlark.Builtin{
+	"keep_alive": starlark.NewBuiltin("keep_alive", s_keep_alive),
+}
+
+func (st *ST) Attr(name string) (starlark.Value, error) {
+	if name == "N" {
+		return starlark.MakeInt(st.N), nil
+	}
+	if method, ok := STMethods[name]; ok {
+		return method.BindReceiver(st), nil
+	}
+	return nil, nil
+}
+
+func (st *ST) AttrNames() []string {
+	names := make([]string, 0, len(STMethods))
+	for name := range STMethods {
+		names = append(names, name)
+	}
+	names = append(names, "N")
+	return names
+}
+
+func s_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	if len(kwargs) > 0 {
+		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
+	}
+
+	recv := b.Receiver().(*ST)
+	for _, arg := range args {
+		recv.KeepAlive(arg)
+	}
+
+	return starlark.None, nil
+}
 
 // From returns a new starTest instance with a given test base.
 func From(base TestBase) *ST {
@@ -119,6 +156,9 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 
 	thread := &starlark.Thread{}
 	thread.RequireSafety(st.requiredSafety)
+	thread.Print = func(_ *starlark.Thread, msg string) {
+		st.Log(msg)
+	}
 
 	memorySum, nSum := st.measureMemory(func() {
 		fn(thread)
