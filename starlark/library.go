@@ -1556,15 +1556,37 @@ func dict_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·items
-func dict_items(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_items(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	items := b.Receiver().(*Dict).Items()
-	res := make([]Value, len(items))
-	for i, item := range items {
-		res[i] = item // convert [2]Value to Value
+	// This function will return a list of `Tuple` (wrapped as values) of length
+	// `len` (wher `len` is the length of the array).
+	// Then it will convert this list in a list of `Values` (allocating each `Tuple`)
+	// So it can take rought twice the size it's returning. For this case it is worth
+	// it to check if there is enough transient memory left.
+	receiver := b.Receiver().(*Dict) // FIXME should this be checked? It wasn't in the upstream...
+	len := uintptr(receiver.Len())
+
+	transientMemory := unsafe.Sizeof(Tuple{}) * len
+	returnedMemory := (unsafe.Sizeof(Value(nil))*2+unsafe.Sizeof(Value(nil))+unsafe.Sizeof(Tuple{}))*len + unsafe.Sizeof(List{})
+
+	if err := thread.CheckAllocs(int64(transientMemory + returnedMemory)); err != nil {
+		return nil, err
 	}
+
+	items := receiver.Items()
+	res := make([]Value, len)
+	for i, item := range items {
+		res[i] = item // convert [2]Value to Value, this will allocate
+	}
+
+	// FIXME: I'm adding 10% to take into account size classes. This should be improved after #15 gets merged
+	returnedMemory += returnedMemory / 10
+	if err := thread.AddAllocs(int64(returnedMemory)); err != nil {
+		return nil, err
+	}
+
 	return NewList(res), nil
 }
 
