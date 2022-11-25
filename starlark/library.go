@@ -1630,17 +1630,12 @@ func dict_update(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	return None, nil
 }
 
-// https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·update
+// https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·values
 func dict_values(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	items := b.Receiver().(*Dict).Items()
-	res := make([]Value, len(items))
-	for i, item := range items {
-		res[i] = item[1]
-	}
-	return NewList(res), nil
+	return NewList(b.Receiver().(*Dict).Values()), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·append
