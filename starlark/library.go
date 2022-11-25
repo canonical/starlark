@@ -1624,7 +1624,8 @@ func dict_pop(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·popitem
-func dict_popitem(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_popitem(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	// There is no rehashing, so no allocations to be counted here
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
@@ -1637,6 +1638,12 @@ func dict_popitem(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	if err != nil {
 		return nil, nameErr(b, err) // dict is frozen
 	}
+
+	// There is still an allocation for the tuple
+	if err := thread.AddAllocs(int64(unsafe.Sizeof(Tuple{}) + unsafe.Sizeof(Value(nil))*2)); err != nil {
+		return nil, err
+	}
+
 	return Tuple{k, v}, nil
 }
 
