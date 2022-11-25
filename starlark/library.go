@@ -1544,6 +1544,11 @@ func dict_get(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·clear
 func dict_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	// From the memory safety POV, dict_clear releases all the references to
+	// the values inside of it, but we cannot really assess if that memory
+	// is actually released. Space for the buckets is not released, so no point
+	// in counting that. (= this function doesn't allocate and doesn't release
+	// anything reliably)
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
