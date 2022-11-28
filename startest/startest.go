@@ -111,6 +111,10 @@ func (test *ST) AddBuiltin(fn starlark.Value) {
 func (st *ST) RunString(code string) {
 	sb := strings.Builder{}
 	sb.Grow(len(code))
+	sb.WriteString("def __test__():\n")
+	if code == "" {
+		sb.WriteString("\tpass\n")
+	}
 
 	// Clean code
 	var baseIndent string
@@ -133,16 +137,27 @@ func (st *ST) RunString(code string) {
 		}
 
 		if len(baseIndent) <= len(line) {
+			sb.WriteString("\t")
 			sb.WriteString(line[len(baseIndent):])
 			sb.WriteRune('\n')
 		}
 	}
+	sb.WriteString("__test__()")
 	code = sb.String()
 
-	st.Errorf("%#v", code)
+	st.AddValue("st", st)
+	_, mod, err := starlark.SourceProgram("startest.RunString", code, func(name string) bool {
+		_, ok := st.predecls[name]
+		return ok
+	})
+	if err != nil {
+		st.Error(err)
+		return
+	}
+
+	st.predecls.Freeze()
 	st.RunThread(func(thread *starlark.Thread) {
-		_, err := starlark.ExecFile(thread, "startest.RunString", code, st.predecls)
-		if err != nil {
+		if _, err := mod.Init(thread, st.predecls); err != nil {
 			st.Error(err)
 		}
 	})
