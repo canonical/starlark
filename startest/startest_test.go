@@ -232,6 +232,7 @@ func TestString(t *testing.T) {
 		})
 
 		st := startest.From(t)
+		st.RequireSafety(starlark.NotSafe)
 		st.AddBuiltin(fn)
 		st.AddValue("foo", starlark.String("bar"))
 		st.RunString(`
@@ -252,6 +253,7 @@ func TestString(t *testing.T) {
 			})
 
 			st := startest.From(t)
+			st.RequireSafety(starlark.NotSafe)
 			st.SetMaxAllocs(128)
 			st.AddBuiltin(allocate)
 			st.RunString(`

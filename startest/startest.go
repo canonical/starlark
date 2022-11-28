@@ -91,6 +91,8 @@ func (st *ST) RequireSafety(safety starlark.Safety) {
 	st.safetyGiven = true
 }
 
+// AddValue adds a starlark Value into the starlark environment used by
+// RunString
 func (test *ST) AddValue(name string, value starlark.Value) {
 	if test.predecls == nil {
 		test.predecls = make(starlark.StringDict)
@@ -98,6 +100,8 @@ func (test *ST) AddValue(name string, value starlark.Value) {
 	test.predecls[name] = value
 }
 
+// AddBuiltin adds a builtin into the starlark environment used by RunString
+// under the name specified in its Name() method.
 func (test *ST) AddBuiltin(fn starlark.Value) {
 	builtin, ok := fn.(*starlark.Builtin)
 	if !ok {
@@ -108,6 +112,7 @@ func (test *ST) AddBuiltin(fn starlark.Value) {
 	test.AddValue(builtin.Name(), builtin)
 }
 
+// RunString tests a string of starlark code
 func (st *ST) RunString(code string) {
 	sb := strings.Builder{}
 	sb.Grow(len(code))
