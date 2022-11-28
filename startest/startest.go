@@ -19,7 +19,7 @@ type TestBase interface {
 	Logf(fmt string, args ...interface{})
 }
 
-type S struct {
+type ST struct {
 	maxAllocs uint64
 	alive     []interface{}
 	N         int
@@ -31,49 +31,49 @@ var _ TestBase = &testing.B{}
 var _ TestBase = &check.C{}
 
 // From returns a new starTest instance with a given test base.
-func From(base TestBase) *S {
-	return &S{TestBase: base, maxAllocs: math.MaxUint64}
+func From(base TestBase) *ST {
+	return &ST{TestBase: base, maxAllocs: math.MaxUint64}
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per test.N
-func (test *S) SetMaxAllocs(maxAllocs uint64) {
-	test.maxAllocs = maxAllocs
+func (st *ST) SetMaxAllocs(maxAllocs uint64) {
+	st.maxAllocs = maxAllocs
 }
 
 // RunThread tests a function which has access to a starlark thread and a global environment
-func (test *S) RunThread(fn func(*starlark.Thread)) {
+func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	thread := &starlark.Thread{}
 
-	memorySum, nSum := test.measureMemory(func() {
+	memorySum, nSum := st.measureMemory(func() {
 		fn(thread)
 	})
 
-	if test.Failed() {
+	if st.Failed() {
 		return
 	}
 
 	meanMeasured := memorySum / nSum
 	meanDeclared := thread.Allocs() / nSum
 
-	if meanMeasured > test.maxAllocs {
-		test.Errorf("measured memory is above maximum (%d > %d)", meanMeasured, test.maxAllocs)
+	if meanMeasured > st.maxAllocs {
+		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasured, st.maxAllocs)
 	}
 
-	if meanDeclared > test.maxAllocs {
-		test.Errorf("declared allocations are above maximum (%d > %d)", meanDeclared, test.maxAllocs)
+	if meanDeclared > st.maxAllocs {
+		st.Errorf("declared allocations are above maximum (%d > %d)", meanDeclared, st.maxAllocs)
 	}
 
-	if test.maxAllocs != math.MaxUint64 && meanMeasured > meanDeclared {
-		test.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasured, meanDeclared)
+	if st.maxAllocs != math.MaxUint64 && meanMeasured > meanDeclared {
+		st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasured, meanDeclared)
 	}
 }
 
 // KeepAlive causes the memory of the passed objects to be measured
-func (test *S) KeepAlive(values ...interface{}) {
-	test.alive = append(test.alive, values...)
+func (st *ST) KeepAlive(values ...interface{}) {
+	st.alive = append(st.alive, values...)
 }
 
-func (test *S) measureMemory(fn func()) (memorySum, nSum uint64) {
+func (st *ST) measureMemory(fn func()) (memorySum, nSum uint64) {
 	startNano := time.Now().Nanosecond()
 
 	const nMax = 100_000
@@ -82,12 +82,12 @@ func (test *S) measureMemory(fn func()) (memorySum, nSum uint64) {
 
 	var memoryUsed uint64
 	var valueTrackerOverhead uint64
-	test.N = 0
+	st.N = 0
 	nSum = 0
 
-	for n := uint64(0); !test.Failed() && memoryUsed-valueTrackerOverhead < memoryMax && n < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
+	for n := uint64(0); !st.Failed() && memoryUsed-valueTrackerOverhead < memoryMax && n < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
 		last := n
-		prevIters := uint64(test.N)
+		prevIters := uint64(st.N)
 		prevMemory := memoryUsed
 		if prevMemory <= 0 {
 			prevMemory = 1
@@ -106,7 +106,7 @@ func (test *S) measureMemory(fn func()) (memorySum, nSum uint64) {
 			n = nMax
 		}
 
-		test.N = int(n)
+		st.N = int(n)
 		nSum += n
 
 		var before, after runtime.MemStats
@@ -121,14 +121,14 @@ func (test *S) measureMemory(fn func()) (memorySum, nSum uint64) {
 		runtime.ReadMemStats(&after)
 
 		iterationMeasure := int64(after.Alloc - before.Alloc)
-		valueTrackerOverhead += uint64(cap(test.alive)) * uint64(unsafe.Sizeof(interface{}(nil)))
-		test.alive = nil
+		valueTrackerOverhead += uint64(cap(st.alive)) * uint64(unsafe.Sizeof(interface{}(nil)))
+		st.alive = nil
 		if iterationMeasure > 0 {
 			memoryUsed += uint64(iterationMeasure)
 		}
 	}
 
-	if test.Failed() {
+	if st.Failed() {
 		return 0, 1
 	}
 
