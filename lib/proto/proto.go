@@ -926,6 +926,8 @@ type repeatedFieldIterator struct {
 	i  int
 }
 
+var _ starlark.SafetyAware = &repeatedFieldIterator{}
+
 func (it *repeatedFieldIterator) Next(p *starlark.Value) bool {
 	if it.i < it.rf.Len() {
 		*p = it.rf.Index(it.i)
@@ -940,6 +942,8 @@ func (it *repeatedFieldIterator) Done() {
 		it.rf.itercount--
 	}
 }
+
+func (*repeatedFieldIterator) Safety() starlark.Safety { return starlark.NotSafe }
 
 func writeString(buf *bytes.Buffer, fdesc protoreflect.FieldDescriptor, v protoreflect.Value) {
 	// TODO(adonovan): opt: don't materialize the Starlark value.

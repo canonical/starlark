@@ -349,6 +349,8 @@ func (it *keyIterator) Done() {
 	}
 }
 
+func (*keyIterator) Safety() Safety { return NotSafe }
+
 // hashString computes the hash of s.
 func hashString(s string) uint32 {
 	if len(s) >= 12 {

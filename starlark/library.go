@@ -1035,6 +1035,8 @@ func (it *rangeIterator) Next(p *Value) bool {
 }
 func (*rangeIterator) Done() {}
 
+func (*rangeIterator) Safety() Safety { return NotSafe }
+
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#repr
 func repr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var x Value
@@ -1610,6 +1612,8 @@ func (it *bytesIterator) Next(p *Value) bool {
 }
 
 func (*bytesIterator) Done() {}
+
+func (*bytesIterator) Safety() Safety { return NotSafe }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·count
 func string_count(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
