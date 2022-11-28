@@ -39,42 +39,6 @@ var _ TestBase = &testing.T{}
 var _ TestBase = &testing.B{}
 var _ TestBase = &check.C{}
 
-var STMethods = map[string]*starlark.Builtin{
-	"keep_alive": starlark.NewBuiltin("keep_alive", s_keep_alive),
-}
-
-func (st *ST) Attr(name string) (starlark.Value, error) {
-	if name == "n" {
-		return starlark.MakeInt(st.N), nil
-	}
-	if method, ok := STMethods[name]; ok {
-		return method.BindReceiver(st), nil
-	}
-	return nil, nil
-}
-
-func (st *ST) AttrNames() []string {
-	names := make([]string, 0, len(STMethods))
-	for name := range STMethods {
-		names = append(names, name)
-	}
-	names = append(names, "n")
-	return names
-}
-
-func s_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	if len(kwargs) > 0 {
-		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
-	}
-
-	recv := b.Receiver().(*ST)
-	for _, arg := range args {
-		recv.KeepAlive(arg)
-	}
-
-	return starlark.None, nil
-}
-
 // From returns a new starTest instance with a given test base.
 func From(base TestBase) *ST {
 	return &ST{TestBase: base, maxAllocs: math.MaxUint64}
@@ -284,3 +248,39 @@ func (st *ST) Type() string          { return "startest.ST" }
 func (st *ST) Freeze()               {}
 func (st *ST) Truth() starlark.Bool  { return starlark.True }
 func (st *ST) Hash() (uint32, error) { return 0, errors.New("unhashable type: startest.ST") }
+
+var STMethods = map[string]*starlark.Builtin{
+	"keep_alive": starlark.NewBuiltin("keep_alive", s_keep_alive),
+}
+
+func (st *ST) Attr(name string) (starlark.Value, error) {
+	if name == "n" {
+		return starlark.MakeInt(st.N), nil
+	}
+	if method, ok := STMethods[name]; ok {
+		return method.BindReceiver(st), nil
+	}
+	return nil, nil
+}
+
+func (st *ST) AttrNames() []string {
+	names := make([]string, 0, len(STMethods))
+	for name := range STMethods {
+		names = append(names, name)
+	}
+	names = append(names, "n")
+	return names
+}
+
+func s_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	if len(kwargs) > 0 {
+		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
+	}
+
+	recv := b.Receiver().(*ST)
+	for _, arg := range args {
+		recv.KeepAlive(arg)
+	}
+
+	return starlark.None, nil
+}
