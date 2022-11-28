@@ -81,16 +81,20 @@ func (st *ST) RunString(code string) {
 	sb := strings.Builder{}
 	sb.Grow(len(code))
 	sb.WriteString("def __test__():\n")
-	if code == "" {
-		sb.WriteString("\tpass\n")
-	}
+	code = strings.TrimRight(code, " \t\n")
 
 	// Clean code
 	var baseIndent string
 	lines := strings.Split(code, "\n")
 	for i, line := range lines {
-		if i == 0 && line == "" {
-			continue
+		if i == 0 {
+			line = strings.TrimRight(line, " \t")
+			if line == "" {
+				continue
+			} else if len(lines) > 1 {
+				test.Error("Multi-line snippets should start with a newline")
+				return
+			}
 		}
 
 		if i == 1 {
@@ -111,7 +115,11 @@ func (st *ST) RunString(code string) {
 			sb.WriteRune('\n')
 		}
 	}
+	if code == "" {
+		sb.WriteString("\tpass\n")
+	}
 	sb.WriteString("__test__()")
+
 	code = sb.String()
 
 	st.AddValue("st", st)

@@ -214,6 +214,14 @@ func TestRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
+	t.Run("test=formatting", func(t *testing.T) {
+		srcs := []string{"", "\n", " ", "\t", "\n\t"}
+		for _, src := range srcs {
+			st := startest.From(t)
+			st.RunString(src)
+		}
+	})
+
 	t.Run("test=fail", func(t *testing.T) {
 		st := startest.From(&testing.T{})
 		st.RunString("fail('some failure reason'")
