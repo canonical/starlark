@@ -973,6 +973,39 @@ func TestDictKeysAllocs(t *testing.T) {
 }
 
 func TestDictPopAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	dict := starlark.NewDict(100)
+
+	for i := 0; i < 100; i++ {
+		key := starlark.MakeInt(i)
+		dict.SetKey(key, key)
+	}
+
+	fn, err := dict.Attr("pop")
+
+	if err != nil {
+		st.Fatal(err)
+	}
+
+	if fn == nil {
+		st.Fatal("`dict.pop` method doesn't exists")
+	}
+
+	st.SetMaxAllocs(0)
+	st.RequireSafety(starlark.NotSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			value, err := starlark.Call(thread, fn, starlark.Tuple{starlark.MakeInt(i % 100)}, nil)
+			if err != nil {
+				st.Fatal(err)
+			}
+
+			st.KeepAlive(value)
+
+			dict.SetKey(value, value)
+		}
+	})
 }
 
 func TestDictPopitemAllocs(t *testing.T) {
