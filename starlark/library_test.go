@@ -907,6 +907,63 @@ func TestDictClearAllocs(t *testing.T) {
 }
 
 func TestDictGetAllocs(t *testing.T) {
+
+	dict := starlark.NewDict(100)
+	keys := make([]starlark.Value, 100)
+
+	for i := 0; i < 100; i++ {
+		keys[i] = starlark.MakeInt(i)
+		dict.SetKey(keys[i], keys[i])
+	}
+
+	fn, err := dict.Attr("get")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("present", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.SetMaxAllocs(0)
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				value, err := starlark.Call(thread, fn, starlark.Tuple{starlark.MakeInt(i % 100)}, nil)
+				if err != nil {
+					st.Fatal(err)
+				}
+
+				if value == starlark.None {
+					st.Fatalf("key %v not found", keys[i])
+				}
+
+				st.KeepAlive(value)
+			}
+			st.KeepAlive(dict)
+		})
+	})
+
+	t.Run("missing", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.SetMaxAllocs(0)
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				value, err := starlark.Call(thread, fn, starlark.Tuple{starlark.None}, nil)
+				if err != nil {
+					st.Fatal(err)
+				}
+
+				if value != starlark.None {
+					st.Fatal("`None` is not a key")
+				}
+
+				st.KeepAlive(value)
+			}
+			st.KeepAlive(dict)
+		})
+	})
 }
 
 func TestDictItemsAllocs(t *testing.T) {
