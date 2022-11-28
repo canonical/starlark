@@ -244,4 +244,38 @@ func TestString(t *testing.T) {
 			t.Error("Builtin was not called")
 		}
 	})
+
+	t.Run("test=MemSafety", func(t *testing.T) {
+		t.Run("safety=safe", func(t *testing.T) {
+			allocate := starlark.NewBuiltin("allocate", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+				return starlark.String(make([]byte, 100)), thread.AddAllocs(128)
+			})
+
+			st := startest.From(t)
+			st.SetMaxAllocs(128)
+			st.AddBuiltin(allocate)
+			st.RunString(`
+				for _ in range(st.n):
+					st.keep_alive(allocate())
+			`)
+		})
+
+		t.Run("safety=unsafe", func(t *testing.T) {
+			overallocate := starlark.NewBuiltin("overallocate", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+				return starlark.String(make([]byte, 100)), nil
+			})
+
+			st := startest.From(&testing.T{})
+			st.SetMaxAllocs(128)
+			st.AddBuiltin(overallocate)
+			st.RunString(`
+				for _ in range(st.n):
+					st.keep_alive(overallocate())
+			`)
+
+			if !st.Failed() {
+				t.Error("Expected failure")
+			}
+		})
+	})
 }
