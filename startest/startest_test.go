@@ -224,26 +224,38 @@ func TestString(t *testing.T) {
 	})
 
 	t.Run("test=predecls", func(t *testing.T) {
-		builtinCalled := false
+		t.Run("predecls=valid", func(t *testing.T) {
+			builtinCalled := false
 
-		fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
-			builtinCalled = true
-			return starlark.None, nil
+			fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+				builtinCalled = true
+				return starlark.None, nil
+			})
+
+			st := startest.From(t)
+			st.AddBuiltin(fn)
+			st.AddValue("foo", starlark.String("bar"))
+			st.RunString(`
+				fn()
+				if foo != 'bar':
+					fail("foo was incorrect: expected 'bar' but got '%s'" % foo)
+			`)
+
+			if !builtinCalled {
+				t.Error("Builtin was not called")
+			}
 		})
 
-		st := startest.From(t)
-		st.RequireSafety(starlark.NotSafe)
-		st.AddBuiltin(fn)
-		st.AddValue("foo", starlark.String("bar"))
-		st.RunString(`
-			fn()
-			if foo != 'bar':
-				fail("foo was incorrect: expected 'bar' but got '%s'" % foo)
-		`)
+		t.Run("predecls=invalid", func(t *testing.T) {
+			for _, val := range []starlark.Value{nil, starlark.String("interloper")} {
+				st := startest.From(&testing.T{})
+				st.AddBuiltin(val)
 
-		if !builtinCalled {
-			t.Error("Builtin was not called")
-		}
+				if st.Failed() {
+					t.Errorf("Expected failure with value %v", val)
+				}
+			}
+		})
 	})
 
 	t.Run("test=MemSafety", func(t *testing.T) {
