@@ -214,12 +214,12 @@ func TestRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	st := startest.From(t)
-	st.RequireSafety(starlark.NotSafe)
-	st.RunString(`
-		print('Hello, world!')
-		if False:
-			print('42')
-		fail('asdf')
-	`)
+	t.Run("test=fail", func(t *testing.T) {
+		st := startest.From(&testing.T{})
+		st.RunString("fail('some failure reason'")
+
+		if !st.Failed() {
+			t.Error("Expected error")
+		}
+	})
 }
