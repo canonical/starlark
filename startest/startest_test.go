@@ -222,4 +222,26 @@ func TestString(t *testing.T) {
 			t.Error("Expected error")
 		}
 	})
+
+	t.Run("test=predecls", func(t *testing.T) {
+		builtinCalled := false
+
+		fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+			builtinCalled = true
+			return starlark.None, nil
+		})
+
+		st := startest.From(t)
+		st.AddBuiltin(fn)
+		st.AddValue("foo", starlark.String("bar"))
+		st.RunString(`
+			fn()
+			if foo != 'bar':
+				fail("foo was incorrect: expected 'bar' but got %v" % foo)
+		`)
+
+		if !builtinCalled {
+			t.Error("Builtin was not called")
+		}
+	})
 }
