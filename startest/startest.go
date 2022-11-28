@@ -249,7 +249,7 @@ func (st *ST) Freeze()               {}
 func (st *ST) Truth() starlark.Bool  { return starlark.True }
 func (st *ST) Hash() (uint32, error) { return 0, errors.New("unhashable type: startest.ST") }
 
-var STMethods = map[string]*starlark.Builtin{
+var stMethods = map[string]*starlark.Builtin{
 	"keep_alive": starlark.NewBuiltin("keep_alive", s_keep_alive),
 }
 
@@ -257,15 +257,15 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 	if name == "n" {
 		return starlark.MakeInt(st.N), nil
 	}
-	if method, ok := STMethods[name]; ok {
+	if method, ok := stMethods[name]; ok {
 		return method.BindReceiver(st), nil
 	}
 	return nil, nil
 }
 
 func (st *ST) AttrNames() []string {
-	names := make([]string, 0, len(STMethods))
-	for name := range STMethods {
+	names := make([]string, 0, len(stMethods))
+	for name := range stMethods {
 		names = append(names, name)
 	}
 	names = append(names, "n")
