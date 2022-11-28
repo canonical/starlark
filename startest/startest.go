@@ -92,7 +92,7 @@ func (st *ST) RunString(code string) {
 			if line == "" {
 				continue
 			} else if len(lines) > 1 {
-				test.Error("Multi-line snippets should start with a newline")
+				st.Error("Multi-line snippets should start with a newline")
 				return
 			}
 		}
