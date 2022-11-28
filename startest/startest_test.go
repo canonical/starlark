@@ -220,6 +220,6 @@ func TestString(t *testing.T) {
 		print('Hello, world!')
 		if False:
 			print('42')
-		st.error()
+		fail('asdf')
 	`)
 }

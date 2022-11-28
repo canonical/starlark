@@ -131,7 +131,7 @@ func (st *ST) RunString(code string) {
 					break
 				}
 			}
-		} else if (i > 1 && i < len(lines)-1) && !strings.HasPrefix(line, baseIndent) {
+		} else if (i > 1 && i < len(lines)-1) && len(line) != 0 && !strings.HasPrefix(line, baseIndent) {
 			st.Errorf("Expected prefix %#v in line %#v", baseIndent, line)
 			return
 		}
