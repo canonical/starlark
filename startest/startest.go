@@ -124,7 +124,6 @@ func (st *ST) RunString(code string) {
 		return
 	}
 
-	st.predecls.Freeze()
 	st.RunThread(func(thread *starlark.Thread) {
 		if _, err := mod.Init(thread, st.predecls); err != nil {
 			st.Error(err)
@@ -245,7 +244,7 @@ func (st *ST) measureMemory(fn func()) (memorySum, nSum uint64) {
 
 func (st *ST) String() string        { return "startest instance" }
 func (st *ST) Type() string          { return "startest.ST" }
-func (st *ST) Freeze()               {}
+func (st *ST) Freeze()               { st.predecls.Freeze() }
 func (st *ST) Truth() starlark.Bool  { return starlark.True }
 func (st *ST) Hash() (uint32, error) { return 0, errors.New("unhashable type: startest.ST") }
 
