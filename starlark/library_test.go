@@ -925,7 +925,7 @@ func TestDictGetAllocs(t *testing.T) {
 		st := startest.From(t)
 
 		st.SetMaxAllocs(0)
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				value, err := starlark.Call(thread, fn, starlark.Tuple{starlark.MakeInt(i % 100)}, nil)
@@ -947,7 +947,7 @@ func TestDictGetAllocs(t *testing.T) {
 		st := startest.From(t)
 
 		st.SetMaxAllocs(0)
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				value, err := starlark.Call(thread, fn, starlark.Tuple{starlark.None}, nil)
