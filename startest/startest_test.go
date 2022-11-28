@@ -238,7 +238,7 @@ func TestString(t *testing.T) {
 		st.RunString(`
 			fn()
 			if foo != 'bar':
-				fail("foo was incorrect: expected 'bar' but got %v" % foo)
+				fail("foo was incorrect: expected 'bar' but got '%s'" % foo)
 		`)
 
 		if !builtinCalled {
