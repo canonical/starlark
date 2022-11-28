@@ -137,7 +137,7 @@ var (
 		"values":     NewBuiltin("values", dict_values),
 	}
 	dictMethodSafeties = map[string]Safety{
-		"clear":      NotSafe,
+		"clear":      MemSafe,
 		"get":        NotSafe,
 		"items":      NotSafe,
 		"keys":       NotSafe,
