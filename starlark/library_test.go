@@ -876,6 +876,34 @@ func TestBytesElemsAllocs(t *testing.T) {
 }
 
 func TestDictClearAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	dict := starlark.NewDict(100)
+	keys := make([]starlark.Value, 100)
+
+	for i := 0; i < 100; i++ {
+		keys[i] = starlark.MakeInt(i)
+	}
+
+	fn, err := dict.Attr("clear")
+	if err != nil {
+		st.Fatal(err)
+	}
+
+	st.SetMaxAllocs(0)
+	st.RequireSafety(starlark.NotSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			for _, k := range keys {
+				dict.SetKey(k, starlark.None)
+			}
+
+			_, err := starlark.Call(thread, fn, nil, nil)
+			if err != nil {
+				st.Fatal(err)
+			}
+		}
+	})
 }
 
 func TestDictGetAllocs(t *testing.T) {
