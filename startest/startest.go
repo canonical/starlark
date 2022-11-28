@@ -56,7 +56,7 @@ func (st *ST) RequireSafety(safety starlark.Safety) {
 }
 
 // AddValue adds the given starlark Value into the starlark environment used by
-// RunString
+// RunString.
 func (st *ST) AddValue(name string, value starlark.Value) {
 	if st.predecls == nil {
 		st.predecls = make(starlark.StringDict)
