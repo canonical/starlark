@@ -264,6 +264,7 @@ func (*ST) AttrNames() []string {
 	return []string{"keep_alive", "n"}
 }
 
+// test_keep_alive passes values to test.KeepAlive.
 func test_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(kwargs) > 0 {
 		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
