@@ -251,7 +251,7 @@ func TestString(t *testing.T) {
 				st := startest.From(&testing.T{})
 				st.AddBuiltin(val)
 
-				if st.Failed() {
+				if !st.Failed() {
 					t.Errorf("Expected failure with value %v", val)
 				}
 			}
