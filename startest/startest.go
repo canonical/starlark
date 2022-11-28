@@ -44,7 +44,7 @@ var STMethods = map[string]*starlark.Builtin{
 }
 
 func (st *ST) Attr(name string) (starlark.Value, error) {
-	if name == "N" {
+	if name == "n" {
 		return starlark.MakeInt(st.N), nil
 	}
 	if method, ok := STMethods[name]; ok {
@@ -58,7 +58,7 @@ func (st *ST) AttrNames() []string {
 	for name := range STMethods {
 		names = append(names, name)
 	}
-	names = append(names, "N")
+	names = append(names, "n")
 	return names
 }
 
