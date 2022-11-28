@@ -244,15 +244,32 @@ type Iterator interface {
 	Done()
 }
 
-// SizeAwareIterator allows an iterator to declare allocations it makes as it runs
-type SizeAwareIterator interface {
-	Iterator
-	// NextAllocs declares the allocations which will be made in the next call
-	// to Next
-	NextAllocs() int64
-	// DoneAllocs declares the allocations which will be made in the next call
-	// to Done
-	DoneAllocs() int64
+// A SafeIterator provides a sequence of values to the caller, where errors are
+// allowed. The caller must call Done when the safe iterator is no longer
+// needed. Operations which modify a sequence will fail if it has active
+// iterators.
+//
+// Example usage:
+//
+// iter := starlark.SafeIterator(iterable)
+// var x Value
+// var ok bool
+// var err error
+// for ok, err = iter.Next(&x); ok {
+//     ...
+// }
+// if err2 := iter.Done(); err2 != nil {
+//     ...
+// }
+// if err != nil {
+//     ...
+// }
+type SafeIterator interface {
+	SafetyAware
+	// If the iterator is exhausted, Next returns (false, nil). If the iterator
+	// errored, it returns (false, err), otherwise it sets *p to the current element of the sequence, advances the iterator and returns (true, nil)
+	SafeNext(thread *Thread, p *Value) (bool, error)
+	SafeDone(thread *Thread) error
 }
 
 // A Mapping is a mapping from keys to values, such as a dictionary.
