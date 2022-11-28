@@ -69,7 +69,7 @@ func (test *ST) AddValue(name string, value starlark.Value) {
 func (test *ST) AddBuiltin(fn starlark.Value) {
 	builtin, ok := fn.(*starlark.Builtin)
 	if !ok {
-		test.Error("expected builtin: got %v", fn)
+		test.Error("AddBuiltin expected a builtin: got %v", fn)
 		return
 	}
 
