@@ -141,7 +141,7 @@ var (
 		"get":        MemSafe,
 		"items":      NotSafe,
 		"keys":       NotSafe,
-		"pop":        NotSafe,
+		"pop":        MemSafe,
 		"popitem":    NotSafe,
 		"setdefault": NotSafe,
 		"update":     NotSafe,
