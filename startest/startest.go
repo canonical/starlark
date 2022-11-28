@@ -83,7 +83,7 @@ func (st *ST) RunString(code string) {
 	sb.WriteString("def __test__():\n")
 	code = strings.TrimRight(code, " \t\n")
 
-	// Clean code
+	// Unindent code
 	var baseIndent string
 	lines := strings.Split(code, "\n")
 	for i, line := range lines {
