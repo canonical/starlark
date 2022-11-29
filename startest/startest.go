@@ -32,6 +32,8 @@ type ST struct {
 	TestBase
 }
 
+const stSafe = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
+
 var _ starlark.Value = &ST{}
 var _ starlark.HasAttrs = &ST{}
 
@@ -256,7 +258,7 @@ func (st *ST) Freeze()               { st.predecls.Freeze() }
 func (st *ST) Truth() starlark.Bool  { return starlark.True }
 func (st *ST) Hash() (uint32, error) { return 0, errors.New("unhashable type: startest.ST") }
 
-var keepAliveMethod = starlark.NewBuiltin("keep_alive", test_keep_alive)
+var keepAliveMethod = starlark.NewBuiltinWithSafety("keep_alive", stSafe, test_keep_alive)
 
 func (st *ST) Attr(name string) (starlark.Value, error) {
 	switch name {
