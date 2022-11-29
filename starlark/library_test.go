@@ -1009,6 +1009,51 @@ func TestDictPopAllocs(t *testing.T) {
 }
 
 func TestDictPopitemAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	dict := starlark.NewDict(100)
+
+	for i := 0; i < 100; i++ {
+		key := starlark.MakeInt(i)
+		dict.SetKey(key, key)
+	}
+
+	fn, err := dict.Attr("popitem")
+
+	if err != nil {
+		st.Fatal(err)
+		return
+	}
+
+	if fn == nil {
+		st.Fatal("`dict.popitem` method doesn't exists")
+	}
+
+	st.RequireSafety(starlark.NotSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			tuple, err := starlark.Call(thread, fn, nil, nil)
+
+			if err != nil {
+				st.Fatal(err)
+			}
+
+			var k, v starlark.Value
+
+			if value, ok := tuple.(starlark.Tuple); !ok {
+				st.Fatalf("expected Tuple got %v", value.Type())
+			} else if value.Len() != 2 {
+				st.Fatal("expected a pair")
+			} else {
+				k = value[0]
+				v = value[1]
+			}
+
+			st.KeepAlive(tuple)
+			dict.SetKey(k, v)
+		}
+		st.KeepAlive(dict)
+	})
 }
 
 func TestDictSetdefaultAllocs(t *testing.T) {
