@@ -566,6 +566,33 @@ func TestDictValuesAllocs(t *testing.T) {
 }
 
 func TestListAppendAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	list := starlark.NewList([]starlark.Value{})
+	fn, err := list.Attr("append")
+
+	if err != nil {
+		st.Error(err)
+		return
+	}
+
+	if fn == nil {
+		st.Errorf("`list.append` builtin doesn't exists")
+	}
+
+	st.RequireSafety(starlark.NotSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			_, err := starlark.Call(thread, fn, starlark.Tuple{starlark.None}, nil)
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+		}
+
+		st.KeepAlive(list)
+	})
 }
 
 func TestListClearAllocs(t *testing.T) {
