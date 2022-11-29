@@ -1057,6 +1057,36 @@ func TestDictPopitemAllocs(t *testing.T) {
 }
 
 func TestDictSetdefaultAllocs(t *testing.T) {
+	st := startest.From(t)
+	dict := starlark.NewDict(0)
+	fn, err := dict.Attr("setdefault")
+
+	if err != nil {
+		st.Fatal(err)
+	}
+
+	if fn == nil {
+		st.Fatal("`dict.setdefault` method doesn't exists")
+	}
+
+	st.RequireSafety(starlark.NotSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			key := starlark.MakeInt(i)
+			thread.AddAllocs(starlark.EstimateSize(key))
+
+			value, err := starlark.Call(thread, fn, starlark.Tuple{key, key}, nil)
+			if err != nil {
+				st.Fatal(err)
+			}
+
+			if err := thread.AddAllocs(starlark.EstimateSize(value)); err != nil {
+				st.Fatal(err)
+			}
+		}
+
+		st.KeepAlive(dict)
+	})
 }
 
 func TestDictUpdateAllocs(t *testing.T) {
