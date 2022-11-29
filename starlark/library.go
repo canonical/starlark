@@ -1523,6 +1523,19 @@ func dict_values(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	return NewList(res), nil
 }
 
+func safe_append(thread *Thread, elements []Value, element Value) ([]Value, error) {
+
+	originalCap := cap(elements)
+	elems := append(elements, element)
+	finalCap := cap(elems)
+
+	if err := thread.AddAllocs(int64(uintptr(finalCap-originalCap) * unsafe.Sizeof(Value(nil)))); err != nil {
+		return nil, err
+	}
+
+	return elems, nil
+}
+
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·append
 func list_append(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var object Value
@@ -1534,15 +1547,11 @@ func list_append(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		return nil, nameErr(b, err)
 	}
 
-	originalCap := cap(recv.elems)
-	elems := append(recv.elems, object)
-	finalCap := cap(elems)
-
-	if err := thread.AddAllocs(int64(uintptr(finalCap-originalCap) * unsafe.Sizeof(Value(nil)))); err != nil {
+	if elems, err := safe_append(thread, recv.elems, object); err != nil {
 		return nil, err
+	} else {
+		recv.elems = elems
 	}
-
-	recv.elems = elems
 
 	return None, nil
 }
@@ -1597,7 +1606,7 @@ func list_index(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·insert
-func list_insert(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_insert(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := b.Receiver().(*List)
 	var index int
 	var object Value
@@ -1614,15 +1623,25 @@ func list_insert(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 
 	if index >= recv.Len() {
 		// end
-		recv.elems = append(recv.elems, object)
+		if elems, err := safe_append(thread, recv.elems, object); err != nil {
+			return nil, err
+		} else {
+			recv.elems = elems
+		}
 	} else {
 		if index < 0 {
 			index = 0 // start
 		}
-		recv.elems = append(recv.elems, nil)
+		if elems, err := safe_append(thread, recv.elems, nil); err != nil {
+			return nil, err
+		} else {
+			recv.elems = elems
+		}
+
 		copy(recv.elems[index+1:], recv.elems[index:]) // slide up one
 		recv.elems[index] = object
 	}
+
 	return None, nil
 }
 
