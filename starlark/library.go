@@ -1651,7 +1651,7 @@ func dict_popitem(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·setdefault
-func dict_setdefault(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_setdefault(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var key, dflt Value = nil, None
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &key, &dflt); err != nil {
 		return nil, err
@@ -1661,10 +1661,15 @@ func dict_setdefault(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		return nil, nameErr(b, err)
 	} else if ok {
 		return v, nil
-	} else if err := dict.SetKey(key, dflt); err != nil {
-		return nil, nameErr(b, err)
 	} else {
-		return dflt, nil
+		before := dict.EstimateSize()
+		if err := dict.SetKey(key, dflt); err != nil {
+			return nil, nameErr(b, err)
+		} else if err := thread.AddAllocs(dict.EstimateSize() - before); err != nil {
+			return nil, err
+		} else {
+			return dflt, nil
+		}
 	}
 }
 
