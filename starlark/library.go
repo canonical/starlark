@@ -143,7 +143,7 @@ var (
 		"keys":       NotSafe,
 		"pop":        MemSafe,
 		"popitem":    MemSafe,
-		"setdefault": NotSafe,
+		"setdefault": MemSafe,
 		"update":     NotSafe,
 		"values":     NotSafe,
 	}

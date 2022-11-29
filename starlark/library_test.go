@@ -1069,7 +1069,7 @@ func TestDictSetdefaultAllocs(t *testing.T) {
 		st.Fatal("`dict.setdefault` method doesn't exists")
 	}
 
-	st.RequireSafety(starlark.NotSafe)
+	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			key := starlark.MakeInt(i)
