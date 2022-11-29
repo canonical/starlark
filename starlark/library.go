@@ -21,6 +21,7 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
+	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -1523,7 +1524,7 @@ func dict_values(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·append
-func list_append(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_append(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var object Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &object); err != nil {
 		return nil, err
@@ -1532,7 +1533,17 @@ func list_append(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := recv.checkMutable("append to"); err != nil {
 		return nil, nameErr(b, err)
 	}
-	recv.elems = append(recv.elems, object)
+
+	originalCap := cap(recv.elems)
+	elems := append(recv.elems, object)
+	finalCap := cap(elems)
+
+	if err := thread.AddAllocs(int64(uintptr(finalCap-originalCap) * unsafe.Sizeof(Value(nil)))); err != nil {
+		return nil, err
+	}
+
+	recv.elems = elems
+
 	return None, nil
 }
 
