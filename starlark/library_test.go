@@ -580,7 +580,7 @@ func TestListAppendAllocs(t *testing.T) {
 		st.Errorf("`list.append` builtin doesn't exists")
 	}
 
-	st.RequireSafety(starlark.NotSafe)
+	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			_, err := starlark.Call(thread, fn, starlark.Tuple{starlark.None}, nil)

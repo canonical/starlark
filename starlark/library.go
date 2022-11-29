@@ -158,7 +158,7 @@ var (
 		"remove": NewBuiltin("remove", list_remove),
 	}
 	listMethodSafeties = map[string]Safety{
-		"append": NotSafe,
+		"append": MemSafe,
 		"clear":  NotSafe,
 		"extend": NotSafe,
 		"index":  NotSafe,
