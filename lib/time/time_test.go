@@ -5,6 +5,7 @@ import (
 
 	"github.com/canonical/starlark/lib/time"
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/startest"
 )
 
 func TestModuleSafeties(t *testing.T) {
@@ -41,6 +42,23 @@ func TestMethodSafetiesExist(t *testing.T) {
 }
 
 func TestTimeFromTimestampAllocs(t *testing.T) {
+	from_timestamp, ok := time.Module.Members["from_timestamp"]
+	if !ok {
+		t.Errorf("No such method: from_timestamp")
+		return
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(24)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, from_timestamp, starlark.Tuple{starlark.MakeInt(10000)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestTimeIsValidTimezoneAllocs(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 	"time"
+	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarkstruct"
@@ -68,7 +69,7 @@ var Module = &starlarkstruct.Module{
 	},
 }
 var safeties = map[string]starlark.Safety{
-	"from_timestamp":    starlark.NotSafe,
+	"from_timestamp":    starlark.MemSafe,
 	"is_valid_timezone": starlark.NotSafe,
 	"now":               starlark.NotSafe,
 	"parse_duration":    starlark.NotSafe,
@@ -143,7 +144,7 @@ func fromTimestamp(thread *starlark.Thread, _ *starlark.Builtin, args starlark.T
 	if err := starlark.UnpackPositionalArgs("from_timestamp", args, kwargs, 1, &sec, &nsec); err != nil {
 		return nil, err
 	}
-	return Time(time.Unix(sec, nsec)), nil
+	return Time(time.Unix(sec, nsec)), thread.AddAllocs(int64(unsafe.Sizeof(Time{})))
 }
 
 func now(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
