@@ -164,7 +164,7 @@ var (
 		"index":  NotSafe,
 		"insert": MemSafe,
 		"pop":    MemSafe,
-		"remove": NotSafe,
+		"remove": MemSafe,
 	}
 
 	stringMethods = map[string]*Builtin{
