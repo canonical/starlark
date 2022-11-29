@@ -142,7 +142,7 @@ var (
 		"items":      NotSafe,
 		"keys":       NotSafe,
 		"pop":        MemSafe,
-		"popitem":    NotSafe,
+		"popitem":    MemSafe,
 		"setdefault": NotSafe,
 		"update":     NotSafe,
 		"values":     NotSafe,
@@ -1639,12 +1639,15 @@ func dict_popitem(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		return nil, nameErr(b, err) // dict is frozen
 	}
 
-	// There is still an allocation for the tuple
-	if err := thread.AddAllocs(int64(unsafe.Sizeof(Tuple{}) + unsafe.Sizeof(Value(nil))*2)); err != nil {
+	result := make(Tuple, 2)
+	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
 	}
 
-	return Tuple{k, v}, nil
+	result[0] = k
+	result[1] = v
+
+	return result, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·setdefault

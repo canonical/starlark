@@ -1029,7 +1029,7 @@ func TestDictPopitemAllocs(t *testing.T) {
 		st.Fatal("`dict.popitem` method doesn't exists")
 	}
 
-	st.RequireSafety(starlark.NotSafe)
+	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			tuple, err := starlark.Call(thread, fn, nil, nil)
