@@ -667,6 +667,40 @@ func TestListInsertAllocs(t *testing.T) {
 }
 
 func TestListPopAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	list := starlark.NewList(make([]starlark.Value, 0, 100))
+	fn, err := list.Attr("pop")
+
+	if err != nil {
+		st.Error(err)
+		return
+	}
+
+	if fn == nil {
+		st.Errorf("`list.pop` builtin doesn't exists")
+	}
+
+	st.SetMaxAllocs(0)
+	st.RequireSafety(starlark.NotSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			if list.Len() == 0 {
+				for j := 0; j < 100; j++ {
+					list.Append(starlark.None)
+				}
+			}
+
+			_, err := starlark.Call(thread, fn, starlark.Tuple{starlark.MakeInt(-1)}, nil)
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+		}
+
+		st.KeepAlive(list)
+	})
 }
 
 func TestListRemoveAllocs(t *testing.T) {
