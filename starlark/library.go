@@ -32,6 +32,7 @@ import (
 // All values in the dictionary must be immutable.
 // Starlark programs cannot modify the dictionary.
 var Universe StringDict
+var universeSafeties map[string]Safety
 
 func init() {
 	// https://github.com/google/starlark-go/blob/master/doc/spec.md#built-in-constants-and-functions
@@ -71,36 +72,44 @@ func init() {
 		"zip":       NewBuiltin("zip", zip),
 	}
 
-	Universe["abs"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["any"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["all"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["bool"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["bytes"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["chr"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["dict"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["dir"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["enumerate"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["fail"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["float"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["getattr"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["hasattr"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["hash"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["int"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["len"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["list"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["max"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["min"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["ord"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["print"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["range"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["repr"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["reversed"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["set"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["sorted"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["str"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["tuple"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["type"].(*Builtin).DeclareSafety(NotSafe)
-	Universe["zip"].(*Builtin).DeclareSafety(NotSafe)
+	universeSafeties = map[string]Safety{
+		"abs":       NotSafe,
+		"any":       NotSafe,
+		"all":       NotSafe,
+		"bool":      NotSafe,
+		"bytes":     NotSafe,
+		"chr":       NotSafe,
+		"dict":      NotSafe,
+		"dir":       NotSafe,
+		"enumerate": NotSafe,
+		"fail":      NotSafe,
+		"float":     NotSafe,
+		"getattr":   NotSafe,
+		"hasattr":   NotSafe,
+		"hash":      NotSafe,
+		"int":       NotSafe,
+		"len":       NotSafe,
+		"list":      NotSafe,
+		"max":       NotSafe,
+		"min":       NotSafe,
+		"ord":       NotSafe,
+		"print":     NotSafe,
+		"range":     NotSafe,
+		"repr":      NotSafe,
+		"reversed":  NotSafe,
+		"set":       NotSafe,
+		"sorted":    NotSafe,
+		"str":       NotSafe,
+		"tuple":     NotSafe,
+		"type":      NotSafe,
+		"zip":       NotSafe,
+	}
+
+	for name, flags := range universeSafeties {
+		if b, ok := Universe[name].(*Builtin); ok {
+			b.DeclareSafety(flags)
+		}
+	}
 }
 
 // methods of built-in types
@@ -108,6 +117,9 @@ func init() {
 var (
 	bytesMethods = map[string]*Builtin{
 		"elems": NewBuiltin("elems", bytes_elems),
+	}
+	bytesMethodSafeties = map[string]Safety{
+		"elems": NotSafe,
 	}
 
 	dictMethods = map[string]*Builtin{
@@ -121,6 +133,17 @@ var (
 		"update":     NewBuiltin("update", dict_update),
 		"values":     NewBuiltin("values", dict_values),
 	}
+	dictMethodSafeties = map[string]Safety{
+		"clear":      NotSafe,
+		"get":        NotSafe,
+		"items":      NotSafe,
+		"keys":       NotSafe,
+		"pop":        NotSafe,
+		"popitem":    NotSafe,
+		"setdefault": NotSafe,
+		"update":     NotSafe,
+		"values":     NotSafe,
+	}
 
 	listMethods = map[string]*Builtin{
 		"append": NewBuiltin("append", list_append),
@@ -130,6 +153,15 @@ var (
 		"insert": NewBuiltin("insert", list_insert),
 		"pop":    NewBuiltin("pop", list_pop),
 		"remove": NewBuiltin("remove", list_remove),
+	}
+	listMethodSafeties = map[string]Safety{
+		"append": NotSafe,
+		"clear":  NotSafe,
+		"extend": NotSafe,
+		"index":  NotSafe,
+		"insert": NotSafe,
+		"pop":    NotSafe,
+		"remove": NotSafe,
 	}
 
 	stringMethods = map[string]*Builtin{
@@ -169,70 +201,82 @@ var (
 		"title":          NewBuiltin("title", string_title),
 		"upper":          NewBuiltin("upper", string_upper),
 	}
+	stringMethodSafeties = map[string]Safety{
+		"capitalize":     NotSafe,
+		"codepoint_ords": NotSafe,
+		"codepoints":     NotSafe,
+		"count":          NotSafe,
+		"elem_ords":      NotSafe,
+		"elems":          NotSafe,
+		"endswith":       NotSafe,
+		"find":           NotSafe,
+		"format":         NotSafe,
+		"index":          NotSafe,
+		"isalnum":        NotSafe,
+		"isalpha":        NotSafe,
+		"isdigit":        NotSafe,
+		"islower":        NotSafe,
+		"isspace":        NotSafe,
+		"istitle":        NotSafe,
+		"isupper":        NotSafe,
+		"join":           NotSafe,
+		"lower":          NotSafe,
+		"lstrip":         NotSafe,
+		"partition":      NotSafe,
+		"removeprefix":   NotSafe,
+		"removesuffix":   NotSafe,
+		"replace":        NotSafe,
+		"rfind":          NotSafe,
+		"rindex":         NotSafe,
+		"rpartition":     NotSafe,
+		"rsplit":         NotSafe,
+		"rstrip":         NotSafe,
+		"split":          NotSafe,
+		"splitlines":     NotSafe,
+		"startswith":     NotSafe,
+		"strip":          NotSafe,
+		"title":          NotSafe,
+		"upper":          NotSafe,
+	}
 
 	setMethods = map[string]*Builtin{
 		"union": NewBuiltin("union", set_union),
 	}
+	setMethodSafeties = map[string]Safety{
+		"union": NotSafe,
+	}
 )
 
 func init() {
-	bytesMethods["elems"].DeclareSafety(NotSafe)
+	for name, safety := range bytesMethodSafeties {
+		if builtin, ok := bytesMethods[name]; ok {
+			builtin.DeclareSafety(safety)
+		}
+	}
 
-	dictMethods["clear"].DeclareSafety(NotSafe)
-	dictMethods["get"].DeclareSafety(NotSafe)
-	dictMethods["items"].DeclareSafety(NotSafe)
-	dictMethods["keys"].DeclareSafety(NotSafe)
-	dictMethods["pop"].DeclareSafety(NotSafe)
-	dictMethods["popitem"].DeclareSafety(NotSafe)
-	dictMethods["setdefault"].DeclareSafety(NotSafe)
-	dictMethods["update"].DeclareSafety(NotSafe)
-	dictMethods["values"].DeclareSafety(NotSafe)
+	for name, safety := range dictMethodSafeties {
+		if builtin, ok := dictMethods[name]; ok {
+			builtin.DeclareSafety(safety)
+		}
+	}
 
-	listMethods["append"].DeclareSafety(NotSafe)
-	listMethods["clear"].DeclareSafety(NotSafe)
-	listMethods["extend"].DeclareSafety(NotSafe)
-	listMethods["index"].DeclareSafety(NotSafe)
-	listMethods["insert"].DeclareSafety(NotSafe)
-	listMethods["pop"].DeclareSafety(NotSafe)
-	listMethods["remove"].DeclareSafety(NotSafe)
+	for name, safety := range listMethodSafeties {
+		if builtin, ok := listMethods[name]; ok {
+			builtin.DeclareSafety(safety)
+		}
+	}
 
-	stringMethods["capitalize"].DeclareSafety(NotSafe)
-	stringMethods["codepoint_ords"].DeclareSafety(NotSafe)
-	stringMethods["codepoints"].DeclareSafety(NotSafe)
-	stringMethods["count"].DeclareSafety(NotSafe)
-	stringMethods["elem_ords"].DeclareSafety(NotSafe)
-	stringMethods["elems"].DeclareSafety(NotSafe)
-	stringMethods["endswith"].DeclareSafety(NotSafe)
-	stringMethods["find"].DeclareSafety(NotSafe)
-	stringMethods["format"].DeclareSafety(NotSafe)
-	stringMethods["index"].DeclareSafety(NotSafe)
-	stringMethods["isalnum"].DeclareSafety(NotSafe)
-	stringMethods["isalpha"].DeclareSafety(NotSafe)
-	stringMethods["isdigit"].DeclareSafety(NotSafe)
-	stringMethods["islower"].DeclareSafety(NotSafe)
-	stringMethods["isspace"].DeclareSafety(NotSafe)
-	stringMethods["istitle"].DeclareSafety(NotSafe)
-	stringMethods["isupper"].DeclareSafety(NotSafe)
-	stringMethods["join"].DeclareSafety(NotSafe)
-	stringMethods["lower"].DeclareSafety(NotSafe)
-	stringMethods["lstrip"].DeclareSafety(NotSafe)
-	stringMethods["partition"].DeclareSafety(NotSafe)
-	stringMethods["removeprefix"].DeclareSafety(NotSafe)
-	stringMethods["removesuffix"].DeclareSafety(NotSafe)
-	stringMethods["replace"].DeclareSafety(NotSafe)
-	stringMethods["rfind"].DeclareSafety(NotSafe)
-	stringMethods["rindex"].DeclareSafety(NotSafe)
-	stringMethods["rpartition"].DeclareSafety(NotSafe)
-	stringMethods["rsplit"].DeclareSafety(NotSafe)
-	stringMethods["rstrip"].DeclareSafety(NotSafe)
-	stringMethods["split"].DeclareSafety(NotSafe)
-	stringMethods["splitlines"].DeclareSafety(NotSafe)
-	stringMethods["startswith"].DeclareSafety(NotSafe)
-	stringMethods["strip"].DeclareSafety(NotSafe)
-	stringMethods["title"].DeclareSafety(NotSafe)
-	stringMethods["upper"].DeclareSafety(NotSafe)
+	for name, safety := range stringMethodSafeties {
+		if builtin, ok := stringMethods[name]; ok {
+			builtin.DeclareSafety(safety)
+		}
+	}
 
-	setMethods["union"].DeclareSafety(NotSafe)
+	for name, safety := range setMethodSafeties {
+		if builtin, ok := setMethods[name]; ok {
+			builtin.DeclareSafety(safety)
+		}
+	}
 }
 
 func builtinAttr(recv Value, name string, methods map[string]*Builtin) (Value, error) {
