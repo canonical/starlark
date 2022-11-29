@@ -611,7 +611,7 @@ func TestListClearAllocs(t *testing.T) {
 	}
 
 	st.SetMaxAllocs(0)
-	st.RequireSafety(starlark.NotSafe)
+	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			for j := 0; j < 100; j++ {

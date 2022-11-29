@@ -159,7 +159,7 @@ var (
 	}
 	listMethodSafeties = map[string]Safety{
 		"append": MemSafe,
-		"clear":  NotSafe,
+		"clear":  MemSafe,
 		"extend": NotSafe,
 		"index":  NotSafe,
 		"insert": NotSafe,
