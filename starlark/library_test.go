@@ -704,6 +704,44 @@ func TestListPopAllocs(t *testing.T) {
 }
 
 func TestListRemoveAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	ints := make([]starlark.Int, 100)
+	list := starlark.NewList(make([]starlark.Value, 0, 100))
+
+	for i := 0; i < 100; i++ {
+		ints[i] = starlark.MakeInt(i)
+		list.Append(ints[i])
+	}
+
+	fn, err := list.Attr("remove")
+
+	if err != nil {
+		st.Error(err)
+		return
+	}
+
+	if fn == nil {
+		st.Errorf("`list.remove` builtin doesn't exists")
+	}
+
+	st.SetMaxAllocs(0)
+	st.RequireSafety(starlark.NotSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			_, err := starlark.Call(thread, fn, starlark.Tuple{starlark.MakeInt(i % 100)}, nil)
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			list.Append(ints[i%100])
+
+		}
+
+		st.KeepAlive(list)
+	})
 }
 
 func TestStringCapitalizeAllocs(t *testing.T) {
