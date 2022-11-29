@@ -682,7 +682,7 @@ func TestListPopAllocs(t *testing.T) {
 	}
 
 	st.SetMaxAllocs(0)
-	st.RequireSafety(starlark.NotSafe)
+	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			if list.Len() == 0 {

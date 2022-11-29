@@ -163,7 +163,7 @@ var (
 		"extend": NotSafe,
 		"index":  NotSafe,
 		"insert": MemSafe,
-		"pop":    NotSafe,
+		"pop":    MemSafe,
 		"remove": NotSafe,
 	}
 
