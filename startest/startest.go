@@ -258,7 +258,7 @@ func (st *ST) Freeze()               { st.predecls.Freeze() }
 func (st *ST) Truth() starlark.Bool  { return starlark.True }
 func (st *ST) Hash() (uint32, error) { return 0, errors.New("unhashable type: startest.ST") }
 
-var keepAliveMethod = starlark.NewBuiltinWithSafety("keep_alive", stSafe, test_keep_alive)
+var keepAliveMethod = starlark.NewBuiltinWithSafety("keep_alive", stSafe, st_keep_alive)
 
 func (st *ST) Attr(name string) (starlark.Value, error) {
 	switch name {
@@ -274,9 +274,9 @@ func (*ST) AttrNames() []string {
 	return []string{"keep_alive", "n"}
 }
 
-// test_keep_alive causes the memory of the passed starlark objects to be
+// st_keep_alive causes the memory of the passed starlark objects to be
 // measured
-func test_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func st_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(kwargs) > 0 {
 		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
 	}
