@@ -169,6 +169,44 @@ func TestRequireSafety(t *testing.T) {
 			})
 		})
 	})
+
+	t.Run("method=RunString", func(t *testing.T) {
+		fn := starlark.NewBuiltinWithSafety("fn", starlark.MemSafe|starlark.CPUSafe, func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+			return starlark.None, nil
+		})
+
+		t.Run("safety=safe", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.AddBuiltin(fn)
+			st.RunString(`fn()`)
+		})
+
+		t.Run("safety=unsafe", func(t *testing.T) {
+			st := startest.From(&testing.T{})
+			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
+			st.AddBuiltin(fn)
+			st.RunString(`fn()`)
+
+			if !st.Failed() {
+				t.Error("Expected failure")
+			}
+		})
+
+		t.Run("safety=undeclared", func(t *testing.T) {
+			fn := starlark.NewBuiltin("fn", func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+				return starlark.None, nil
+			})
+
+			st := startest.From(&testing.T{})
+			st.AddBuiltin(fn)
+			st.RunString(`fn()`)
+
+			if !st.Failed() {
+				t.Error("Expected failure")
+			}
+		})
+	})
 }
 
 func TestRequireSafetyDefault(t *testing.T) {
