@@ -5,6 +5,7 @@ import (
 
 	"github.com/canonical/starlark/lib/time"
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/startest"
 )
 
 func TestModuleSafeties(t *testing.T) {
@@ -47,6 +48,23 @@ func TestTimeIsValidTimezoneAllocs(t *testing.T) {
 }
 
 func TestTimeNowAllocs(t *testing.T) {
+	now, ok := time.Module.Members["now"]
+	if !ok {
+		t.Errorf("No such builtin: now")
+		return
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(24)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, now, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestTimeParseDurationAllocs(t *testing.T) {
