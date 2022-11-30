@@ -206,11 +206,11 @@ var (
 	}
 	stringMethodSafeties = map[string]Safety{
 		"capitalize":     NotSafe,
-		"codepoint_ords": NotSafe,
-		"codepoints":     NotSafe,
+		"codepoint_ords": MemSafe,
+		"codepoints":     MemSafe,
 		"count":          NotSafe,
-		"elem_ords":      NotSafe,
-		"elems":          NotSafe,
+		"elem_ords":      MemSafe,
+		"elems":          MemSafe,
 		"endswith":       NotSafe,
 		"find":           NotSafe,
 		"format":         NotSafe,
