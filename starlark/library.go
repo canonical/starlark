@@ -215,7 +215,7 @@ var (
 		"isalnum":        NotSafe,
 		"isalpha":        NotSafe,
 		"isdigit":        NotSafe,
-		"islower":        NotSafe,
+		"islower":        MemSafe,
 		"isspace":        NotSafe,
 		"istitle":        NotSafe,
 		"isupper":        NotSafe,
