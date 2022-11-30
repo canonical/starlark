@@ -7,8 +7,10 @@ package time // import "github.com/canonical/starlark/lib/time"
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"time"
+	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarkstruct"
@@ -71,7 +73,7 @@ var safeties = map[string]starlark.Safety{
 	"from_timestamp":    starlark.NotSafe,
 	"is_valid_timezone": starlark.NotSafe,
 	"now":               starlark.NotSafe,
-	"parse_duration":    starlark.NotSafe,
+	"parse_duration":    starlark.MemSafe,
 	"parse_time":        starlark.NotSafe,
 	"time":              starlark.NotSafe,
 }
@@ -94,6 +96,9 @@ var NowFunc = time.Now
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var d Duration
 	err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &d)
+	if err == nil {
+		err = thread.AddAllocs(int64(math.Max(16, float64(unsafe.Sizeof(Duration(0)))))) // Due to tiny allocations
+	}
 	return d, err
 }
 

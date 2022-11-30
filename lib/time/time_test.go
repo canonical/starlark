@@ -5,6 +5,7 @@ import (
 
 	"github.com/canonical/starlark/lib/time"
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/startest"
 )
 
 func TestModuleSafeties(t *testing.T) {
@@ -50,6 +51,37 @@ func TestTimeNowAllocs(t *testing.T) {
 }
 
 func TestTimeParseDurationAllocs(t *testing.T) {
+	parse_duration, ok := time.Module.Members["parse_duration"]
+	if !ok {
+		t.Errorf("No such builtin: parse_duration")
+		return
+	}
+
+	t.Run("arg=duration", func(t *testing.T) {
+		st := startest.From(t)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			result, err := starlark.Call(thread, parse_duration, starlark.Tuple{time.Duration(10)}, nil)
+			if err != nil {
+				t.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("arg=string", func(t *testing.T) {
+		st := startest.From(t)
+		st.SetMaxAllocs(16)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, parse_duration, starlark.Tuple{starlark.String("10h47m")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestTimeParseTimeAllocs(t *testing.T) {
