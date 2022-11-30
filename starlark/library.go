@@ -212,7 +212,7 @@ var (
 		"find":           NotSafe,
 		"format":         NotSafe,
 		"index":          NotSafe,
-		"isalnum":        NotSafe,
+		"isalnum":        MemSafe,
 		"isalpha":        NotSafe,
 		"isdigit":        NotSafe,
 		"islower":        NotSafe,
