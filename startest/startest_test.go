@@ -260,12 +260,12 @@ func TestString(t *testing.T) {
 		}
 	})
 
-	t.Run("test=fail", func(t *testing.T) {
+	t.Run("test=error", func(t *testing.T) {
 		st := startest.From(&testing.T{})
-		st.RunString("fail('some failure reason'")
+		st.RunString("st.error('hello, world')")
 
 		if !st.Failed() {
-			t.Error("Expected error")
+			t.Error("Expected failure")
 		}
 	})
 
@@ -285,7 +285,7 @@ func TestString(t *testing.T) {
 			st.RunString(`
 				fn()
 				if foo != 'bar':
-					fail("foo was incorrect: expected 'bar' but got '%s'" % foo)
+					st.error("foo was incorrect: expected 'bar' but got '%s'" % foo)
 			`)
 
 			if !builtinCalled {
