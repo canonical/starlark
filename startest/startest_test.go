@@ -81,15 +81,28 @@ func TestKeepAlive(t *testing.T) {
 		}
 	})
 
-	t.Run("check=none", func(t *testing.T) {
+	t.Run("check=not-safe", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				st.KeepAlive(new(int32))
+			}
+		})
+	})
+
+	t.Run("check=not-safe-capped-allocs", func(t *testing.T) {
+		st := startest.From(&testing.T{})
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.KeepAlive(new(int32))
 			}
 		})
+
+		if !st.Failed() {
+			t.Error("Expected failure")
+		}
 	})
 }
 
