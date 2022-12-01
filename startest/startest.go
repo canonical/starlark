@@ -144,7 +144,7 @@ func (st *ST) RunString(code string) {
 // RunThread tests a function which has access to a starlark thread and a global environment
 func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	if !st.safetyGiven {
-		st.requiredSafety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
+		st.requiredSafety = stSafe
 	}
 
 	thread := &starlark.Thread{}
