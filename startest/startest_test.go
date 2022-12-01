@@ -282,10 +282,10 @@ func TestRunStringPredecls(t *testing.T) {
 		st.AddBuiltin(fn)
 		st.AddValue("foo", starlark.String("bar"))
 		st.RunString(`
-				fn()
-				if foo != 'bar':
-					st.error("foo was incorrect: expected 'bar' but got '%s'" % foo)
-			`)
+			fn()
+			if foo != 'bar':
+				st.error("foo was incorrect: expected 'bar' but got '%s'" % foo)
+		`)
 
 		if !builtinCalled {
 			t.Error("Builtin was not called")
@@ -315,9 +315,9 @@ func TestRunStringMemSafety(t *testing.T) {
 		st.SetMaxAllocs(128)
 		st.AddBuiltin(allocate)
 		st.RunString(`
-				for _ in range(st.n):
-					st.keep_alive(allocate())
-			`)
+			for _ in range(st.n):
+				st.keep_alive(allocate())
+		`)
 	})
 
 	t.Run("safety=unsafe", func(t *testing.T) {
@@ -329,9 +329,9 @@ func TestRunStringMemSafety(t *testing.T) {
 		st.SetMaxAllocs(128)
 		st.AddBuiltin(overallocate)
 		st.RunString(`
-				for _ in range(st.n):
-					st.keep_alive(overallocate())
-			`)
+			for _ in range(st.n):
+				st.keep_alive(overallocate())
+		`)
 
 		if !st.Failed() {
 			t.Error("Expected failure")
