@@ -251,92 +251,90 @@ func TestRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 	})
 }
 
-func TestString(t *testing.T) {
-	t.Run("test=formatting", func(t *testing.T) {
-		srcs := []string{"", "\n", " ", "\t", "\n\t"}
-		for _, src := range srcs {
-			st := startest.From(t)
-			st.RunString(src)
-		}
-	})
+func TestRunStringFormatting(t *testing.T) {
+	srcs := []string{"", "\n", " ", "\t", "\n\t"}
+	for _, src := range srcs {
+		st := startest.From(t)
+		st.RunString(src)
+	}
+}
 
-	t.Run("test=error", func(t *testing.T) {
-		st := startest.From(&testing.T{})
-		st.RunString("st.error('hello, world')")
+func TestRunStringError(t *testing.T) {
+	st := startest.From(&testing.T{})
+	st.RunString("st.error('hello, world')")
 
-		if !st.Failed() {
-			t.Error("Expected failure")
-		}
-	})
+	if !st.Failed() {
+		t.Error("Expected failure")
+	}
+}
 
-	t.Run("test=predecls", func(t *testing.T) {
-		t.Run("predecls=valid", func(t *testing.T) {
-			builtinCalled := false
+func TestRunStringPredecls(t *testing.T) {
+	t.Run("predecls=valid", func(t *testing.T) {
+		builtinCalled := false
 
-			fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
-				builtinCalled = true
-				return starlark.None, nil
-			})
+		fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+			builtinCalled = true
+			return starlark.None, nil
+		})
 
-			st := startest.From(t)
-			st.RequireSafety(starlark.NotSafe)
-			st.AddBuiltin(fn)
-			st.AddValue("foo", starlark.String("bar"))
-			st.RunString(`
+		st := startest.From(t)
+		st.RequireSafety(starlark.NotSafe)
+		st.AddBuiltin(fn)
+		st.AddValue("foo", starlark.String("bar"))
+		st.RunString(`
 				fn()
 				if foo != 'bar':
 					st.error("foo was incorrect: expected 'bar' but got '%s'" % foo)
 			`)
 
-			if !builtinCalled {
-				t.Error("Builtin was not called")
-			}
-		})
-
-		t.Run("predecls=invalid", func(t *testing.T) {
-			for _, val := range []starlark.Value{nil, starlark.String("interloper")} {
-				st := startest.From(&testing.T{})
-				st.AddBuiltin(val)
-
-				if !st.Failed() {
-					t.Errorf("Expected failure with value %v", val)
-				}
-			}
-		})
+		if !builtinCalled {
+			t.Error("Builtin was not called")
+		}
 	})
 
-	t.Run("test=MemSafety", func(t *testing.T) {
-		t.Run("safety=safe", func(t *testing.T) {
-			allocate := starlark.NewBuiltin("allocate", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-				return starlark.String(make([]byte, 100)), thread.AddAllocs(128)
-			})
+	t.Run("predecls=invalid", func(t *testing.T) {
+		for _, val := range []starlark.Value{nil, starlark.String("interloper")} {
+			st := startest.From(&testing.T{})
+			st.AddBuiltin(val)
 
-			st := startest.From(t)
-			st.RequireSafety(starlark.NotSafe)
-			st.SetMaxAllocs(128)
-			st.AddBuiltin(allocate)
-			st.RunString(`
+			if !st.Failed() {
+				t.Errorf("Expected failure with value %v", val)
+			}
+		}
+	})
+}
+
+func TestRunStringMemSafety(t *testing.T) {
+	t.Run("safety=safe", func(t *testing.T) {
+		allocate := starlark.NewBuiltin("allocate", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+			return starlark.String(make([]byte, 100)), thread.AddAllocs(128)
+		})
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.NotSafe)
+		st.SetMaxAllocs(128)
+		st.AddBuiltin(allocate)
+		st.RunString(`
 				for _ in range(st.n):
 					st.keep_alive(allocate())
 			`)
+	})
+
+	t.Run("safety=unsafe", func(t *testing.T) {
+		overallocate := starlark.NewBuiltin("overallocate", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+			return starlark.String(make([]byte, 100)), nil
 		})
 
-		t.Run("safety=unsafe", func(t *testing.T) {
-			overallocate := starlark.NewBuiltin("overallocate", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-				return starlark.String(make([]byte, 100)), nil
-			})
-
-			st := startest.From(&testing.T{})
-			st.SetMaxAllocs(128)
-			st.AddBuiltin(overallocate)
-			st.RunString(`
+		st := startest.From(&testing.T{})
+		st.SetMaxAllocs(128)
+		st.AddBuiltin(overallocate)
+		st.RunString(`
 				for _ in range(st.n):
 					st.keep_alive(overallocate())
 			`)
 
-			if !st.Failed() {
-				t.Error("Expected failure")
-			}
-		})
+		if !st.Failed() {
+			t.Error("Expected failure")
+		}
 	})
 }
