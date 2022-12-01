@@ -157,3 +157,45 @@ func TestRequireSafety(t *testing.T) {
 		})
 	})
 }
+
+func TestRequireSafetyDefault(t *testing.T) {
+	const safe = starlark.CPUSafe | starlark.IOSafe | starlark.MemSafe | starlark.TimeSafe
+
+	st := startest.From(t)
+	st.RunThread(func(thread *starlark.Thread) {
+		if err := thread.CheckPermits(safe); err != nil {
+			st.Error(err)
+		}
+	})
+
+	for flag := starlark.Safety(1); flag < safe; flag <<= 1 {
+		st := startest.From(&testing.T{})
+		toCheck := safe &^ flag
+		st.RunThread(func(thread *starlark.Thread) {
+			if err := thread.CheckPermits(toCheck); err == nil {
+				t.Errorf("Expected safety error checking %v", toCheck)
+			}
+		})
+	}
+}
+
+func TestRequireSafetyDoesNotUnsetFlags(t *testing.T) {
+	const initialSafety = starlark.CPUSafe
+	const newSafety = starlark.IOSafe | starlark.TimeSafe
+	const expectedSafety = initialSafety | newSafety
+
+	st := startest.From(t)
+	st.RequireSafety(initialSafety)
+	st.RequireSafety(newSafety)
+
+	if safety := startest.STSafety(st); safety != expectedSafety {
+		missing := safety &^ expectedSafety
+		t.Errorf("Missing safety flags %v, expected %v", missing.String(), expectedSafety.String())
+	}
+
+	st.RunThread(func(thread *starlark.Thread) {
+		if err := thread.CheckPermits(expectedSafety); err != nil {
+			st.Error(err)
+		}
+	})
+}

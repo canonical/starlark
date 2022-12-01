@@ -24,6 +24,7 @@ type ST struct {
 	alive          []interface{}
 	N              int
 	requiredSafety starlark.Safety
+	safetyGiven    bool
 	TestBase
 }
 
@@ -33,11 +34,7 @@ var _ TestBase = &check.C{}
 
 // From returns a new starTest instance with a given test base.
 func From(base TestBase) *ST {
-	return &ST{
-		TestBase:       base,
-		maxAllocs:      math.MaxUint64,
-		requiredSafety: starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
-	}
+	return &ST{TestBase: base, maxAllocs: math.MaxUint64}
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per test.N
@@ -47,11 +44,16 @@ func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 
 // RequireSafety optionally sets the required safety of tested code
 func (st *ST) RequireSafety(safety starlark.Safety) {
-	st.requiredSafety = safety
+	st.requiredSafety |= safety
+	st.safetyGiven = true
 }
 
 // RunThread tests a function which has access to a starlark thread and a global environment
 func (st *ST) RunThread(fn func(*starlark.Thread)) {
+	if !st.safetyGiven {
+		st.requiredSafety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
+	}
+
 	thread := &starlark.Thread{}
 	thread.RequireSafety(st.requiredSafety)
 
