@@ -323,6 +323,7 @@ func all(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if err := UnpackPositionalArgs("all", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
+	// TODO: use SafeIterate
 	iter := iterable.Iterate()
 	defer iter.Done()
 	var x Value
@@ -340,6 +341,7 @@ func any(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if err := UnpackPositionalArgs("any", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
+	// TODO: use SafeIterate
 	iter := iterable.Iterate()
 	defer iter.Done()
 	var x Value
@@ -381,6 +383,7 @@ func bytes_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 			// common case: known length
 			buf.Grow(n)
 		}
+		// No need for SafeIterate as allocation is only transitional
 		iter := x.Iterate()
 		defer iter.Done()
 		var elem Value
@@ -426,6 +429,7 @@ func dict(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		return nil, fmt.Errorf("dict: got %d arguments, want at most 1", len(args))
 	}
 	dict := new(Dict)
+	// TODO: use SafeIterate
 	if err := updateDict(dict, args, kwargs); err != nil {
 		return nil, fmt.Errorf("dict: %v", err)
 	}
@@ -461,6 +465,7 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 
+	// TODO: use SafeIterate
 	iter := iterable.Iterate()
 	defer iter.Done()
 
@@ -808,6 +813,7 @@ func list(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	}
 	var elems []Value
 	if iterable != nil {
+		// TODO: use SafeIterate
 		iter := iterable.Iterate()
 		defer iter.Done()
 		if n := Len(iterable); n > 0 {
@@ -842,6 +848,7 @@ func minmax(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	} else {
 		iterable = args
 	}
+	// No need for SafeIterate since only one will be returned.
 	iter := Iterate(iterable)
 	if iter == nil {
 		return nil, fmt.Errorf("%s: %s value is not iterable", b.Name(), iterable.Type())
@@ -1097,6 +1104,7 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	if err := UnpackPositionalArgs("reversed", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
+	// TODO: use SafeIterate
 	iter := iterable.Iterate()
 	defer iter.Done()
 	var elems []Value
@@ -1122,6 +1130,7 @@ func set(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	}
 	set := new(Set)
 	if iterable != nil {
+		// TODO: use SafeIterate
 		iter := iterable.Iterate()
 		defer iter.Done()
 		var x Value
@@ -1147,7 +1156,7 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	); err != nil {
 		return nil, err
 	}
-
+	// TODO: use SafeIterate
 	iter := iterable.Iterate()
 	defer iter.Done()
 	var values []Value
@@ -1248,6 +1257,7 @@ func tuple(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if len(args) == 0 {
 		return Tuple(nil), nil
 	}
+	// TODO: use SafeIterate
 	iter := iterable.Iterate()
 	defer iter.Done()
 	var elems Tuple
@@ -1287,6 +1297,7 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		}
 	}()
 	for i, seq := range args {
+		// TODO: use SafeIterate
 		it := Iterate(seq)
 		if it == nil {
 			return nil, fmt.Errorf("zip: argument #%d is not iterable: %s", i+1, seq.Type())
@@ -1429,6 +1440,7 @@ func dict_update(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if len(args) > 1 {
 		return nil, fmt.Errorf("update: got %d arguments, want at most 1", len(args))
 	}
+	// TODO: use SafeIterate
 	if err := updateDict(b.Receiver().(*Dict), args, kwargs); err != nil {
 		return nil, fmt.Errorf("update: %v", err)
 	}
@@ -1483,6 +1495,7 @@ func list_extend(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := recv.checkMutable("extend"); err != nil {
 		return nil, nameErr(b, err)
 	}
+	// TODO: use SafeIterate
 	listExtend(recv, iterable)
 	return None, nil
 }
@@ -1978,6 +1991,7 @@ func string_join(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
+	// No need for SafeIterate as they are transient.
 	iter := iterable.Iterate()
 	defer iter.Done()
 	buf := new(strings.Builder)
@@ -2315,6 +2329,7 @@ func set_union(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &iterable); err != nil {
 		return nil, err
 	}
+	// TODO: use SafeIterate
 	iter := iterable.Iterate()
 	defer iter.Done()
 	union, err := b.Receiver().(*Set).Union(iter)
@@ -2371,6 +2386,7 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 			}
 		default:
 			// all other sequences
+			// TODO: use SafeIterate
 			iter := Iterate(updates)
 			if iter == nil {
 				return fmt.Errorf("got %s, want iterable", updates.Type())
@@ -2378,6 +2394,7 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 			defer iter.Done()
 			var pair Value
 			for i := 0; iter.Next(&pair); i++ {
+				// TODO: use SafeIterate
 				iter2 := Iterate(pair)
 				if iter2 == nil {
 					return fmt.Errorf("dictionary update sequence element #%d is not iterable (%s)", i, pair.Type())
