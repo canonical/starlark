@@ -1432,7 +1432,14 @@ func Iterate(x Value) Iterator {
 	return nil
 }
 
-// This time this is private.
+func estimateValueSize(v Value) int64 {
+	if v, ok := v.(SizeAwareValue); ok {
+		return v.EstimateSize()
+	} else {
+		return int64(EstimateSizeDeep(v))
+	}
+}
+
 type defaultSafeIterator struct {
 	iter   Iterator
 	thread *Thread
@@ -1448,8 +1455,7 @@ func (it *defaultSafeIterator) Next(p *Value) bool {
 
 	var result Value
 	if it.iter.Next(&result) {
-		// TODO use SizeAware
-		if err := it.thread.AddAllocs(int64(EstimateSizeDeep(result))); err != nil {
+		if err := it.thread.AddAllocs(estimateValueSize(result)); err != nil {
 			it.err = err
 			return false
 		}
@@ -1502,7 +1508,6 @@ func SafeIterate(thread *Thread, x Value) Iterator {
 	if x, ok := x.(Iterable); ok {
 		iter := x.Iterate()
 
-		// TODO sizeAware iterators
 		if memSafeIter, ok := iter.(MemSafeIterator); ok {
 			result := &memSafeIterator{iter: memSafeIter, thread: thread}
 			return result
