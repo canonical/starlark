@@ -242,6 +242,13 @@ type Iterator interface {
 	// advances the iterator, and returns true.
 	Next(p *Value) bool
 	Done()
+	Err() error
+}
+
+type MemSafeIterator interface {
+	Iterator
+
+	NextAllocs() int64
 }
 
 // A Mapping is a mapping from keys to values, such as a dictionary.
@@ -605,6 +612,7 @@ func (it *stringElemsIterator) Next(p *Value) bool {
 
 func (*stringElemsIterator) Done() {}
 
+func (it *stringElemsIterator) Err() error     { return nil }
 func (it *stringElemsIterator) Safety() Safety { return NotSafe }
 
 // A stringCodepoints is an iterable whose iterator yields a sequence of
@@ -656,6 +664,7 @@ func (it *stringCodepointsIterator) Next(p *Value) bool {
 
 func (*stringCodepointsIterator) Done() {}
 
+func (it *stringCodepointsIterator) Err() error     { return nil }
 func (it *stringCodepointsIterator) Safety() Safety { return NotSafe }
 
 // A Function is a function defined by a Starlark def statement or lambda expression.
@@ -954,6 +963,8 @@ type listIterator struct {
 	i int
 }
 
+func (it *listIterator) NextAllocs() int64 { return 0 }
+
 func (it *listIterator) Next(p *Value) bool {
 	if it.i < it.l.Len() {
 		*p = it.l.elems[it.i]
@@ -969,6 +980,7 @@ func (it *listIterator) Done() {
 	}
 }
 
+func (it *listIterator) Err() error     { return nil }
 func (it *listIterator) Safety() Safety { return NotSafe }
 
 func (l *List) SetIndex(i int, v Value) error {
@@ -1048,6 +1060,8 @@ func (t Tuple) Hash() (uint32, error) {
 
 type tupleIterator struct{ elems Tuple }
 
+func (it *tupleIterator) NextAllocs() int64 { return 0 }
+
 func (it *tupleIterator) Next(p *Value) bool {
 	if len(it.elems) > 0 {
 		*p = it.elems[0]
@@ -1059,6 +1073,7 @@ func (it *tupleIterator) Next(p *Value) bool {
 
 func (it *tupleIterator) Done() {}
 
+func (it *tupleIterator) Err() error     { return nil }
 func (it *tupleIterator) Safety() Safety { return NotSafe }
 
 // A Set represents a Starlark set value.
@@ -1407,6 +1422,89 @@ func Iterate(x Value) Iterator {
 	if x, ok := x.(Iterable); ok {
 		return x.Iterate()
 	}
+	return nil
+}
+
+// This time this is private.
+type defaultSafeIterator struct {
+	iter   Iterator
+	thread *Thread
+	err    error
+}
+
+var _ Iterator = &defaultSafeIterator{}
+
+func (it *defaultSafeIterator) Next(p *Value) bool {
+	if it.err != nil {
+		return false
+	}
+
+	var result Value
+	if it.iter.Next(&result) {
+		// TODO use SizeAware
+		if err := it.thread.AddAllocs(int64(EstimateSizeDeep(result))); err != nil {
+			it.err = err
+			return false
+		}
+		return true
+	} else {
+		return false
+	}
+}
+
+func (it *defaultSafeIterator) Done() {
+	it.iter.Done()
+	it.thread = nil
+}
+
+func (it *defaultSafeIterator) Err() error {
+	return it.err
+}
+
+type memSafeIterator struct {
+	iter   MemSafeIterator
+	thread *Thread
+	err    error
+}
+
+var _ Iterator = &memSafeIterator{}
+
+func (it *memSafeIterator) Next(p *Value) bool {
+	if it.err != nil {
+		return false
+	}
+
+	if err := it.thread.AddAllocs(it.iter.NextAllocs()); err != nil {
+		it.err = err
+		return false
+	}
+
+	return it.iter.Next(p)
+}
+
+func (it *memSafeIterator) Done() {
+	it.iter.Done()
+	it.thread = nil
+}
+
+func (it *memSafeIterator) Err() error {
+	return it.err
+}
+
+func SafeIterate(thread *Thread, x Value) Iterator {
+	if x, ok := x.(Iterable); ok {
+		iter := x.Iterate()
+
+		// TODO sizeAware iterators
+		if memSafeIter, ok := iter.(MemSafeIterator); ok {
+			result := &memSafeIterator{iter: memSafeIter, thread: thread}
+			return result
+		} else {
+			result := &defaultSafeIterator{iter: iter, thread: thread}
+			return result
+		}
+	}
+
 	return nil
 }
 

@@ -1079,6 +1079,7 @@ func (it *rangeIterator) Next(p *Value) bool {
 }
 func (*rangeIterator) Done() {}
 
+func (it *rangeIterator) Err() error     { return nil }
 func (it *rangeIterator) Safety() Safety { return NotSafe }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#repr
@@ -1657,6 +1658,7 @@ func (it *bytesIterator) Next(p *Value) bool {
 
 func (*bytesIterator) Done() {}
 
+func (it *bytesIterator) Err() error     { return nil }
 func (it *bytesIterator) Safety() Safety { return NotSafe }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·count
