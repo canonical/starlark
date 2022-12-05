@@ -1508,12 +1508,16 @@ func SafeIterate(thread *Thread, x Value) Iterator {
 	if x, ok := x.(Iterable); ok {
 		iter := x.Iterate()
 
-		if memSafeIter, ok := iter.(MemSafeIterator); ok {
-			result := &memSafeIterator{iter: memSafeIter, thread: thread}
-			return result
+		if thread != nil {
+			if memSafeIter, ok := iter.(MemSafeIterator); ok {
+				result := &memSafeIterator{iter: memSafeIter, thread: thread}
+				return result
+			} else {
+				result := &defaultSafeIterator{iter: iter, thread: thread}
+				return result
+			}
 		} else {
-			result := &defaultSafeIterator{iter: iter, thread: thread}
-			return result
+			return iter
 		}
 	}
 
