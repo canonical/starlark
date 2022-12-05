@@ -140,9 +140,7 @@ func estimateStructFields(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
-
 		result += estimateIndirect(field, ptrs)
-
 	}
 
 	return result
