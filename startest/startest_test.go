@@ -397,6 +397,40 @@ func TestRunStringPredecls(t *testing.T) {
 	})
 }
 
+func TestLocals(t *testing.T) {
+	const localName = "P. Sherman"
+	const expected = "42 Wallaby Way, Sydney"
+
+	testLocals := func(t *testing.T, thread *starlark.Thread) {
+		if local := thread.Local(localName); local == nil {
+			t.Error("Local was not set")
+		} else if actual, ok := local.(string); !ok {
+			t.Errorf("Expected a string, got a %T", local)
+		} else if actual != expected {
+			t.Errorf("Incorrect local: expected '%v' but got '%v'", expected, actual)
+		}
+	}
+
+	t.Run("entrypoint=RunString", func(t *testing.T) {
+		st := startest.From(t)
+		st.AddLocal(localName, expected)
+		st.AddBuiltin(
+			starlark.NewBuiltinWithSafety("testlocals", startest.StSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+				testLocals(t, thread)
+				return starlark.None, nil
+			}))
+		st.RunString(`testlocals()`)
+	})
+
+	t.Run("entrypoint=RunThread", func(t *testing.T) {
+		st := startest.From(t)
+		st.AddLocal(localName, expected)
+		st.RunThread(func(thread *starlark.Thread) {
+			testLocals(t, thread)
+		})
+	})
+}
+
 var dummyRangeBuiltin = starlark.NewBuiltinWithSafety("rangw", startest.StSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 	if len(args) < 1 {
 		return nil, errors.New("Expected at least one arg, got 0")
