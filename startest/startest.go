@@ -306,6 +306,8 @@ func (*ST) AttrNames() []string {
 	}
 }
 
+// errorBuiltin implements the error function required by starlarktest's assert
+// module
 var errorBuiltin = starlark.NewBuiltinWithSafety("error", stSafe, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	buf := &strings.Builder{}
 	if len(kwargs) > 0 {
