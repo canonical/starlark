@@ -398,8 +398,8 @@ func TestRunStringPredecls(t *testing.T) {
 }
 
 func TestLocals(t *testing.T) {
-	const localName = "P. Sherman"
-	const expected = "42 Wallaby Way, Sydney"
+	const localName = "foo"
+	const expected = "bar"
 
 	testLocals := func(t *testing.T, thread *starlark.Thread) {
 		if local := thread.Local(localName); local == nil {
