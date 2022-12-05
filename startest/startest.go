@@ -79,7 +79,7 @@ func (st *ST) AddBuiltin(fn starlark.Value) {
 }
 
 // RunString tests a string of starlark code
-func (st *ST) RunString(code string) {
+func (st *ST) RunString(code string) error {
 	sb := strings.Builder{}
 	sb.Grow(len(code))
 	sb.WriteString("def __test__():\n")
@@ -95,7 +95,7 @@ func (st *ST) RunString(code string) {
 				continue
 			} else if len(lines) > 1 {
 				st.Error("Multi-line snippets should start with a newline")
-				return
+				return errors.New("internal error")
 			}
 		}
 
@@ -108,7 +108,7 @@ func (st *ST) RunString(code string) {
 			}
 		} else if (i > 1 && i < len(lines)-1) && len(line) != 0 && !strings.HasPrefix(line, baseIndent) {
 			st.Errorf("Expected prefix %#v in line %#v", baseIndent, line)
-			return
+			return errors.New("internal error")
 		}
 
 		if len(baseIndent) <= len(line) {
@@ -131,14 +131,17 @@ func (st *ST) RunString(code string) {
 	})
 	if err != nil {
 		st.Error(err)
-		return
+		return errors.New("internal error")
 	}
 
+	var codeErr error
 	st.RunThread(func(thread *starlark.Thread) {
-		if _, err := mod.Init(thread, st.predecls); err != nil {
-			st.Error(err)
+		if codeErr != nil {
+			return
 		}
+		_, codeErr = mod.Init(thread, st.predecls)
 	})
+	return codeErr
 }
 
 // RunThread tests a function which has access to a starlark thread and a global environment

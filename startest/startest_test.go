@@ -171,25 +171,31 @@ func TestRequireSafety(t *testing.T) {
 	})
 
 	t.Run("method=RunString", func(t *testing.T) {
-		fn := starlark.NewBuiltinWithSafety("fn", starlark.MemSafe|starlark.CPUSafe, func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-			return starlark.None, nil
-		})
-
 		t.Run("safety=safe", func(t *testing.T) {
+			fn := starlark.NewBuiltinWithSafety("fn", starlark.MemSafe|starlark.TimeSafe, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+				return starlark.None, nil
+			})
+
 			st := startest.From(t)
 			st.RequireSafety(starlark.MemSafe)
 			st.AddBuiltin(fn)
-			st.RunString(`fn()`)
+			if err := st.RunString(`fn()`); err != nil {
+				st.Error("Unexpected error")
+			}
 		})
 
 		t.Run("safety=unsafe", func(t *testing.T) {
+			fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+				return starlark.None, nil
+			})
+
 			st := startest.From(&testing.T{})
 			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 			st.AddBuiltin(fn)
-			st.RunString(`fn()`)
-
-			if !st.Failed() {
-				t.Error("Expected failure")
+			if err := st.RunString(`fn()`); err == nil {
+				t.Error("Expected error")
+			} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
+				t.Errorf("Unexpected error: %v", err)
 			}
 		})
 
@@ -200,10 +206,15 @@ func TestRequireSafety(t *testing.T) {
 
 			st := startest.From(&testing.T{})
 			st.AddBuiltin(fn)
-			st.RunString(`fn()`)
+			err := st.RunString(`fn()`)
+			if err == nil {
+				t.Error("Expected error")
+			} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
+				t.Errorf("Unexpected error: %v", err)
+			}
 
-			if !st.Failed() {
-				t.Error("Expected failure")
+			if st.Failed() {
+				t.Error("Unexpected failure")
 			}
 		})
 	})
@@ -255,7 +266,9 @@ func TestRunStringFormatting(t *testing.T) {
 	srcs := []string{"", "\n", " ", "\t", "\n\t"}
 	for _, src := range srcs {
 		st := startest.From(t)
-		st.RunString(src)
+		if err := st.RunString(src); err != nil {
+			st.Error(err)
+		}
 	}
 }
 
@@ -306,32 +319,43 @@ func TestRunStringPredecls(t *testing.T) {
 
 func TestRunStringMemSafety(t *testing.T) {
 	t.Run("safety=safe", func(t *testing.T) {
-		allocate := starlark.NewBuiltin("allocate", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+		allocate := starlark.NewBuiltinWithSafety("allocate", startest.StSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			return starlark.String(make([]byte, 100)), thread.AddAllocs(128)
 		})
 
 		st := startest.From(t)
-		st.RequireSafety(starlark.NotSafe)
 		st.SetMaxAllocs(128)
 		st.AddBuiltin(allocate)
-		st.RunString(`
+		st.AddValue("range", dummyRangeBuiltin)
+		err := st.RunString(`
 			for _ in range(st.n):
 				st.keep_alive(allocate())
 		`)
+		if err != nil {
+			st.Errorf("Unexpected error: %v", err)
+		}
+
+		if st.Failed() {
+			st.Error("Unexpected failure")
+		}
 	})
 
 	t.Run("safety=unsafe", func(t *testing.T) {
-		overallocate := starlark.NewBuiltin("overallocate", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+		overallocate := starlark.NewBuiltinWithSafety("overallocate", startest.StSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			return starlark.String(make([]byte, 100)), nil
 		})
 
 		st := startest.From(&testing.T{})
 		st.SetMaxAllocs(128)
 		st.AddBuiltin(overallocate)
-		st.RunString(`
+		st.AddValue("range", dummyRangeBuiltin)
+		err := st.RunString(`
 			for _ in range(st.n):
 				st.keep_alive(overallocate())
 		`)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 
 		if !st.Failed() {
 			t.Error("Expected failure")
