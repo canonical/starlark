@@ -1,6 +1,8 @@
 package startest_test
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
@@ -220,6 +222,81 @@ func TestRequireSafety(t *testing.T) {
 	})
 }
 
+func TestStringFormatting(t *testing.T) {
+	srcs := []string{"", "\n", " ", "\t", "\n\t"}
+	for _, src := range srcs {
+		st := startest.From(t)
+		err := st.RunString(src)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+	}
+}
+
+func TestStringFail(t *testing.T) {
+	safeFail := starlark.NewBuiltinWithSafety("fail", startest.StSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+		msg, ok := args[0].(starlark.String)
+		if !ok {
+			return nil, fmt.Errorf("Expected string, got %v", args[0])
+		}
+		return starlark.None, errors.New(string(msg))
+	})
+
+	st := startest.From(t)
+	st.AddValue("fail", safeFail)
+	err := st.RunString(`fail("oh no!")`)
+	if err == nil {
+		st.Errorf("Expected error: %v", err)
+	} else if err.Error() != "oh no!" {
+		st.Errorf("Unexpected error: %v", err)
+	}
+
+	if st.Failed() {
+		t.Error("Unexpected error")
+	}
+}
+
+func TestStringPredecls(t *testing.T) {
+	t.Run("predecls=valid", func(t *testing.T) {
+		builtinCalled := false
+
+		fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+			builtinCalled = true
+			return starlark.None, nil
+		})
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.NotSafe)
+		st.AddBuiltin(fn)
+		st.AddValue("foo", starlark.String("bar"))
+		err := st.RunString(`
+			fn()
+			if foo != 'bar':
+				fail("foo was incorrect: expected 'bar' but got '%s'" % foo)
+		`)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+
+		if !builtinCalled {
+			t.Error("Builtin was not called")
+		}
+	})
+
+	t.Run("predecls=invalid", func(t *testing.T) {
+		st := startest.From(&testing.T{})
+		st.RequireSafety(starlark.NotSafe)
+		st.AddBuiltin(starlark.String("spanner"))
+		err := st.RunString(``)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if !st.Failed() {
+			t.Error("Expected failure")
+		}
+	})
+}
+
 func TestRequireSafetyDefault(t *testing.T) {
 	const safe = starlark.CPUSafe | starlark.IOSafe | starlark.MemSafe | starlark.TimeSafe
 
@@ -319,6 +396,48 @@ func TestRunStringPredecls(t *testing.T) {
 		}
 	})
 }
+
+var dummyRangeBuiltin = starlark.NewBuiltinWithSafety("rangw", startest.StSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+	if len(args) < 1 {
+		return nil, errors.New("Expected at least one arg, got 0")
+	}
+	max, ok := args[0].(starlark.Int)
+	if !ok {
+		return nil, fmt.Errorf("Expected int, got a %T: %v", args[0], args[0])
+	}
+	max64, ok := max.Int64()
+	if !ok {
+		return nil, fmt.Errorf("Too large")
+	}
+	return &dummyRange{int(max64)}, nil
+})
+
+type dummyRange struct{ max int }
+type dummyRangeIterator struct {
+	current int
+	dummyRange
+}
+
+var _ starlark.Value = &dummyRange{}
+var _ starlark.Iterable = &dummyRange{}
+var _ starlark.Iterator = &dummyRangeIterator{}
+
+func (*dummyRange) String() string                { return "dummyRange" }
+func (*dummyRange) Type() string                  { return "dummyRange" }
+func (*dummyRange) Freeze()                       {}
+func (*dummyRange) Truth() starlark.Bool          { return starlark.True }
+func (*dummyRange) Hash() (uint32, error)         { return 0, errors.New("unhashable type: startest.ST") }
+func (dr *dummyRange) Iterate() starlark.Iterator { return &dummyRangeIterator{0, *dr} }
+
+func (iter *dummyRangeIterator) Next(p *starlark.Value) bool {
+	if iter.current < iter.max {
+		*p = starlark.MakeInt(iter.current)
+		iter.current++
+		return true
+	}
+	return false
+}
+func (iter *dummyRangeIterator) Done() {}
 
 func TestRunStringMemSafety(t *testing.T) {
 	t.Run("safety=safe", func(t *testing.T) {
