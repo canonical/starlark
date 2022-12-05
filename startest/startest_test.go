@@ -274,7 +274,10 @@ func TestRunStringFormatting(t *testing.T) {
 
 func TestRunStringError(t *testing.T) {
 	st := startest.From(&testing.T{})
-	st.RunString("st.error('hello, world')")
+	err := st.RunString("error('hello, world')")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 
 	if !st.Failed() {
 		t.Error("Expected failure")

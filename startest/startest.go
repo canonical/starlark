@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/starlarktest"
 	"gopkg.in/check.v1"
 )
 
@@ -29,6 +30,7 @@ type ST struct {
 	requiredSafety starlark.Safety
 	safetyGiven    bool
 	predecls       starlark.StringDict
+	locals         map[string]interface{}
 	TestBase
 }
 
@@ -40,6 +42,8 @@ var _ starlark.HasAttrs = &ST{}
 var _ TestBase = &testing.T{}
 var _ TestBase = &testing.B{}
 var _ TestBase = &check.C{}
+
+const stLocalKey = "__st__"
 
 // From returns a new starTest instance with a given test base.
 func From(base TestBase) *ST {
@@ -71,11 +75,18 @@ func (st *ST) AddValue(name string, value starlark.Value) {
 func (st *ST) AddBuiltin(fn starlark.Value) {
 	builtin, ok := fn.(*starlark.Builtin)
 	if !ok {
-		st.Error("AddBuiltin expected a builtin: got %v", fn)
+		st.Errorf("AddBuiltin expected a builtin: got %v", fn)
 		return
 	}
 
 	st.AddValue(builtin.Name(), builtin)
+}
+
+func (st *ST) AddLocal(name string, value interface{}) {
+	if st.locals == nil {
+		st.locals = make(map[string]interface{})
+	}
+	st.locals[name] = value
 }
 
 // RunString tests a string of starlark code
@@ -124,7 +135,18 @@ func (st *ST) RunString(code string) error {
 
 	code = sb.String()
 
+	assert, err := starlarktest.LoadAssertModule()
+	if err != nil {
+		st.Error(err)
+		return errors.New("internal error")
+	}
+	for k, v := range assert {
+		st.AddValue(k, v)
+	}
+
 	st.AddValue("st", st)
+	st.AddLocal(stLocalKey, st)
+	st.AddValue("error", errorBuiltin)
 	_, mod, err := starlark.SourceProgram("startest.RunString", code, func(name string) bool {
 		_, ok := st.predecls[name]
 		return ok
@@ -154,6 +176,9 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	thread.RequireSafety(st.requiredSafety)
 	thread.Print = func(_ *starlark.Thread, msg string) {
 		st.Log(msg)
+	}
+	for k, v := range st.locals {
+		thread.SetLocal(k, v)
 	}
 
 	memorySum, nSum := st.measureMemory(func() {
@@ -261,13 +286,10 @@ func (st *ST) Freeze()               { st.predecls.Freeze() }
 func (st *ST) Truth() starlark.Bool  { return starlark.True }
 func (st *ST) Hash() (uint32, error) { return 0, errors.New("unhashable type: startest.ST") }
 
-var errorMethod = starlark.NewBuiltinWithSafety("error", stSafe, st_error)
 var keepAliveMethod = starlark.NewBuiltinWithSafety("keep_alive", stSafe, st_keep_alive)
 
 func (st *ST) Attr(name string) (starlark.Value, error) {
 	switch name {
-	case "error":
-		return errorMethod.BindReceiver(st), nil
 	case "keep_alive":
 		return keepAliveMethod.BindReceiver(st), nil
 	case "n":
@@ -278,13 +300,12 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 
 func (*ST) AttrNames() []string {
 	return []string{
-		"error",
 		"keep_alive",
 		"n",
 	}
 }
 
-func st_error(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+var errorBuiltin = starlark.NewBuiltinWithSafety("error", stSafe, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	buf := &strings.Builder{}
 	if len(kwargs) > 0 {
 		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
@@ -304,11 +325,18 @@ func st_error(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwar
 		}
 	}
 
-	st := b.Receiver().(*ST)
+	stLocal := thread.Local(stLocalKey)
+	if stLocal == nil {
+		panic(fmt.Sprintf("Expected local '%s' to be non-nil, this has been changed", stLocalKey))
+	}
+	st, ok := stLocal.(*ST)
+	if !ok {
+		panic(fmt.Sprintf("Expected *ST in thread local '%s', please do not change this", stLocalKey))
+	}
 	st.Error(buf.String())
 
 	return starlark.None, nil
-}
+})
 
 // st_keep_alive causes the memory of the passed starlark objects to be
 // measured
