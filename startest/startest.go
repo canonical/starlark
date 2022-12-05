@@ -82,6 +82,7 @@ func (st *ST) AddBuiltin(fn starlark.Value) {
 	st.AddValue(builtin.Name(), builtin)
 }
 
+// AddLocal adds the given object into the local values available to spawned threads
 func (st *ST) AddLocal(name string, value interface{}) {
 	if st.locals == nil {
 		st.locals = make(map[string]interface{})
