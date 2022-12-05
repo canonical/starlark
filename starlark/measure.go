@@ -113,7 +113,7 @@ func estimateMap(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	result := GetAllocSize(uintptr(v.Len())*k2) + k1
 
 	if ptrs != nil {
-		// Now visit all key-value pairs.
+		// Now visit all key/value pairs.
 		iter := v.MapRange()
 		for iter.Next() {
 			result += estimateIndirect(iter.Key(), ptrs)
