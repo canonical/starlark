@@ -157,7 +157,7 @@ func (st *ST) RunString(code string) (ok bool) {
 	return codeErr == nil
 }
 
-// RunThread tests a function which has access to a starlark thread and a global environment
+// RunThread tests a function which has access to a starlark thread
 func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	if !st.safetyGiven {
 		st.requiredSafety = stSafe
