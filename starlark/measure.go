@@ -210,13 +210,6 @@ func estimateSize(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	return result
 }
 
-// public interface
-
-// Returns the size of the type of value pointed by obj
-func EstimateTypeSize(obj interface{}) uintptr {
-	return GetAllocSize(reflect.TypeOf(obj).Size())
-}
-
 // Returns the size of the value pointed by obj, without
 // taking into account eventual nested members
 func EstimateSize(obj interface{}) uintptr {
