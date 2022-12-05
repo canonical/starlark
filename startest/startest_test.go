@@ -431,7 +431,7 @@ func TestLocals(t *testing.T) {
 	})
 }
 
-var dummyRangeBuiltin = starlark.NewBuiltinWithSafety("rangw", startest.StSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+var dummyRangeBuiltin = starlark.NewBuiltinWithSafety("range", startest.StSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 	if len(args) < 1 {
 		return nil, errors.New("Expected at least one arg, got 0")
 	}
