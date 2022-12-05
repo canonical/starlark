@@ -431,21 +431,6 @@ func TestLocals(t *testing.T) {
 	})
 }
 
-var dummyRangeBuiltin = starlark.NewBuiltinWithSafety("range", startest.StSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-	if len(args) < 1 {
-		return nil, errors.New("Expected at least one arg, got 0")
-	}
-	max, ok := args[0].(starlark.Int)
-	if !ok {
-		return nil, fmt.Errorf("Expected int, got a %T: %v", args[0], args[0])
-	}
-	max64, ok := max.Int64()
-	if !ok {
-		return nil, fmt.Errorf("Too large")
-	}
-	return &dummyRange{int(max64)}, nil
-})
-
 type dummyRange struct{ max int }
 type dummyRangeIterator struct {
 	current int
@@ -472,6 +457,23 @@ func (iter *dummyRangeIterator) Next(p *starlark.Value) bool {
 	return false
 }
 func (iter *dummyRangeIterator) Done() {}
+
+// dummyRangeBuiltin replaces the range builtin which has not yet been declared
+// sufficiently safe
+var dummyRangeBuiltin = starlark.NewBuiltinWithSafety("range", startest.StSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+	if len(args) < 1 {
+		return nil, errors.New("Expected at least one arg, got 0")
+	}
+	max, ok := args[0].(starlark.Int)
+	if !ok {
+		return nil, fmt.Errorf("Expected int, got a %T: %v", args[0], args[0])
+	}
+	max64, ok := max.Int64()
+	if !ok {
+		return nil, fmt.Errorf("Too large")
+	}
+	return &dummyRange{int(max64)}, nil
+})
 
 func TestRunStringMemSafety(t *testing.T) {
 	t.Run("safety=safe", func(t *testing.T) {
