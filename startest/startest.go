@@ -158,14 +158,13 @@ func (st *ST) RunString(code string) error {
 		return errors.New("internal error")
 	}
 
-	var codeErr error
 	st.RunThread(func(thread *starlark.Thread) {
-		if codeErr != nil {
+		if err != nil {
 			return
 		}
-		_, codeErr = mod.Init(thread, st.predecls)
+		_, err = mod.Init(thread, st.predecls)
 	})
-	return codeErr
+	return err
 }
 
 // RunThread tests a function which has access to a starlark thread and a global environment
