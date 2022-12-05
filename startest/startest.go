@@ -146,8 +146,9 @@ func (st *ST) RunString(code string) error {
 	}
 
 	st.AddValue("st", st)
-	st.AddLocal(stLocalKey, st)
 	st.AddValue("error", errorBuiltin)
+	st.AddLocal(stLocalKey, st)
+
 	_, mod, err := starlark.SourceProgram("startest.RunString", code, func(name string) bool {
 		_, ok := st.predecls[name]
 		return ok
