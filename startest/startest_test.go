@@ -517,4 +517,22 @@ func TestRunStringMemSafety(t *testing.T) {
 			t.Error("Expected failure")
 		}
 	})
+
+	t.Run("safety=notsafe", func(t *testing.T) {
+		overallocate := starlark.NewBuiltinWithSafety("overallocate", startest.StSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+			return starlark.String(make([]byte, 100)), nil
+		})
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.NotSafe)
+		st.AddBuiltin(overallocate)
+		st.AddValue("range", dummyRangeBuiltin)
+		err := st.RunString(`
+			for _ in range(st.n):
+				st.keep_alive(overallocate())
+		`)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+	})
 }
