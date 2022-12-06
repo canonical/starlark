@@ -20,9 +20,11 @@ type TestBase interface {
 }
 
 type ST struct {
-	maxAllocs uint64
-	alive     []interface{}
-	N         int
+	maxAllocs      uint64
+	alive          []interface{}
+	N              int
+	requiredSafety starlark.Safety
+	safetyGiven    bool
 	TestBase
 }
 
@@ -40,9 +42,20 @@ func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
 }
 
+// RequireSafety optionally sets the required safety of tested code
+func (st *ST) RequireSafety(safety starlark.Safety) {
+	st.requiredSafety |= safety
+	st.safetyGiven = true
+}
+
 // RunThread tests a function which has access to a starlark thread and a global environment
 func (st *ST) RunThread(fn func(*starlark.Thread)) {
+	if !st.safetyGiven {
+		st.requiredSafety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
+	}
+
 	thread := &starlark.Thread{}
+	thread.RequireSafety(st.requiredSafety)
 
 	memorySum, nSum := st.measureMemory(func() {
 		fn(thread)
@@ -55,16 +68,18 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	meanMeasured := memorySum / nSum
 	meanDeclared := thread.Allocs() / nSum
 
-	if meanMeasured > st.maxAllocs {
+	if st.maxAllocs != math.MaxUint64 && meanMeasured > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasured, st.maxAllocs)
 	}
 
-	if meanDeclared > st.maxAllocs {
-		st.Errorf("declared allocations are above maximum (%d > %d)", meanDeclared, st.maxAllocs)
-	}
+	if st.requiredSafety.Contains(starlark.MemSafe) {
+		if meanDeclared > st.maxAllocs {
+			st.Errorf("declared allocations are above maximum (%d > %d)", meanDeclared, st.maxAllocs)
+		}
 
-	if st.maxAllocs != math.MaxUint64 && meanMeasured > meanDeclared {
-		st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasured, meanDeclared)
+		if meanMeasured > meanDeclared {
+			st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasured, meanDeclared)
+		}
 	}
 }
 
