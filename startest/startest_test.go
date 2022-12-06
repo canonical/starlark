@@ -291,22 +291,63 @@ func TestStringPredecls(t *testing.T) {
 func TestRequireSafetyDefault(t *testing.T) {
 	const safe = starlark.CPUSafe | starlark.IOSafe | starlark.MemSafe | starlark.TimeSafe
 
-	st := startest.From(t)
-	st.RunThread(func(thread *starlark.Thread) {
-		if err := thread.CheckPermits(safe); err != nil {
-			st.Error(err)
-		}
-	})
+	t.Run("safety=safe", func(t *testing.T) {
+		t.Run("method=RunThread", func(t *testing.T) {
+			st := startest.From(t)
+			st.RunThread(func(thread *starlark.Thread) {
+				if err := thread.CheckPermits(safe); err != nil {
+					st.Error(err)
+				}
+			})
+		})
 
-	for flag := starlark.Safety(1); flag < safe; flag <<= 1 {
-		st := startest.From(&testing.T{})
-		toCheck := safe &^ flag
-		st.RunThread(func(thread *starlark.Thread) {
-			if err := thread.CheckPermits(toCheck); err == nil {
-				t.Errorf("Expected safety error checking %v", toCheck)
+		t.Run("method=RunString", func(t *testing.T) {
+			fn := starlark.NewBuiltinWithSafety("fn", safe, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+				return starlark.None, nil
+			})
+
+			st := startest.From(t)
+			st.AddBuiltin(fn)
+			err := st.RunString(`fn()`)
+			if err != nil {
+				st.Error(err)
 			}
 		})
-	}
+	})
+
+	t.Run("safety=insufficient", func(t *testing.T) {
+		safetyTest := func(t *testing.T, toTest func(*startest.ST, starlark.Safety)) {
+			for flag := starlark.Safety(1); flag < safe; flag <<= 1 {
+				st := startest.From(&testing.T{})
+				toTest(st, safe&^flag)
+			}
+		}
+
+		t.Run("method=RunThread", func(t *testing.T) {
+			safetyTest(t, func(st *startest.ST, safety starlark.Safety) {
+				st.RunThread(func(thread *starlark.Thread) {
+					if err := thread.CheckPermits(safety); err == nil {
+						t.Errorf("Expected safety error checking %v", safety)
+					}
+				})
+			})
+		})
+
+		t.Run("method=RunString", func(t *testing.T) {
+			safetyTest(t, func(st *startest.ST, safety starlark.Safety) {
+				fn := starlark.NewBuiltinWithSafety("fn", safety, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+					return starlark.None, nil
+				})
+
+				st.AddBuiltin(fn)
+				if err := st.RunString(`fn()`); err == nil {
+					t.Errorf("Expected failure testing %v", safety)
+				} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
+					t.Errorf("Unexpected error testing %v: %v", safety, err)
+				}
+			})
+		})
+	})
 }
 
 func TestRequireSafetyDoesNotUnsetFlags(t *testing.T) {
