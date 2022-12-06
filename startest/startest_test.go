@@ -402,7 +402,7 @@ func TestLocals(t *testing.T) {
 		}
 	}
 
-	t.Run("entrypoint=RunString", func(t *testing.T) {
+	t.Run("method=RunString", func(t *testing.T) {
 		st := startest.From(t)
 		st.AddLocal(localName, expected)
 		st.AddBuiltin(
@@ -413,7 +413,7 @@ func TestLocals(t *testing.T) {
 		st.RunString(`testlocals()`)
 	})
 
-	t.Run("entrypoint=RunThread", func(t *testing.T) {
+	t.Run("method=RunThread", func(t *testing.T) {
 		st := startest.From(t)
 		st.AddLocal(localName, expected)
 		st.RunThread(func(thread *starlark.Thread) {
