@@ -111,6 +111,7 @@ func (st *ST) RunString(code string) error {
 		if i == 0 {
 			line = strings.TrimRight(line, " \t")
 			if line == "" {
+				sb.WriteRune('\n')
 				continue
 			} else if len(lines) > 1 {
 				st.Error("Multi-line snippets should start with a newline")
