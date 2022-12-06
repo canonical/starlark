@@ -127,17 +127,31 @@ func TestEstimateBuiltinTypes(t *testing.T) {
 	})
 }
 
-func TestEstimateTopLevel(t *testing.T) {
-	st := startest.From(t)
+func TestEstimateNotDeep(t *testing.T) {
+	t.Run("const string", func(t *testing.T) {
+		st := startest.From(t)
 
-	st.RunThread(func(thread *starlark.Thread) {
-		str := "just a string"
-		obj := []string{}
-		for i := 0; i < st.N; i++ {
-			obj = append(obj, str)
-		}
-		thread.AddAllocs(int64(starlark.EstimateSize(obj)))
-		st.KeepAlive(obj)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := "just a string"
+			obj := []string{}
+			for i := 0; i < st.N; i++ {
+				obj = append(obj, str)
+			}
+			thread.AddAllocs(int64(starlark.EstimateSize(obj)))
+			st.KeepAlive(obj)
+		})
+	})
+
+	t.Run("pointer", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				obj := interface{}(new(struct{ _ [64]int }))
+				thread.AddAllocs(int64(starlark.EstimateSize(obj)))
+				st.KeepAlive(obj)
+			}
+		})
 	})
 }
 
