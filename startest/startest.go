@@ -94,6 +94,7 @@ func (st *ST) AddLocal(name string, value interface{}) {
 func (st *ST) RunString(code string) error {
 	sb := strings.Builder{}
 	sb.Grow(len(code))
+	sb.WriteString("load('assert.star', 'assert')\n")
 	sb.WriteString("def __test__():\n")
 	code = strings.TrimRight(code, " \t\n")
 
@@ -141,16 +142,15 @@ func (st *ST) RunString(code string) error {
 		st.Error(err)
 		return errors.New("internal error")
 	}
-	for k, v := range assert {
-		st.AddValue(k, v)
-	}
 
 	st.AddValue("st", st)
-	st.AddValue("error", errorBuiltin)
 	st.AddLocal(stLocalKey, st)
 
 	_, mod, err := starlark.SourceProgram("startest.RunString", code, func(name string) bool {
 		_, ok := st.predecls[name]
+		if !ok {
+			_, ok = assert[name]
+		}
 		return ok
 	})
 	if err != nil {
@@ -161,6 +161,13 @@ func (st *ST) RunString(code string) error {
 	st.RunThread(func(thread *starlark.Thread) {
 		if err != nil {
 			return
+		}
+		starlarktest.SetReporter(thread, st)
+		thread.Load = func(_ *starlark.Thread, module string) (starlark.StringDict, error) {
+			if module == "assert.star" {
+				return assert, nil
+			}
+			panic("impossible")
 		}
 		_, err = mod.Init(thread, st.predecls)
 	})

@@ -66,6 +66,11 @@ func LoadAssertModule() (starlark.StringDict, error) {
 			"module":  starlark.NewBuiltin("module", starlarkstruct.MakeModule),
 			"_freeze": starlark.NewBuiltin("freeze", freeze),
 		}
+		for _, v := range predeclared {
+			if b, ok := v.(*starlark.Builtin); ok {
+				b.DeclareSafety(starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe)
+			}
+		}
 		// TODO(adonovan): embed the file using embed.FS when we can rely on go1.16,
 		// and make the apparent filename reference that file.
 		thread := new(starlark.Thread)

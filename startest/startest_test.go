@@ -191,13 +191,12 @@ func TestRequireSafety(t *testing.T) {
 				return starlark.None, nil
 			})
 
-			st := startest.From(&testing.T{})
+			st := startest.From(t)
 			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 			st.AddBuiltin(fn)
-			if err := st.RunString(`fn()`); err == nil {
-				t.Error("Expected error")
-			} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
-				t.Errorf("Unexpected error: %v", err)
+			err := st.RunString(`assert.fails(lambda: fn(), "cannot call builtin 'fn': feature unavailable to the sandbox")`)
+			if err != nil {
+				t.Error("Unexpected error")
 			}
 		})
 
@@ -351,7 +350,7 @@ func TestRunStringFormatting(t *testing.T) {
 
 func TestRunStringError(t *testing.T) {
 	st := startest.From(&testing.T{})
-	err := st.RunString("error('hello, world')")
+	err := st.RunString("assert.fail('hello, world')")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -535,6 +534,27 @@ func TestRunStringMemSafety(t *testing.T) {
 		`)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
+		}
+	})
+}
+
+func TestAssertModuleIntegration(t *testing.T) {
+	t.Run("test=pass", func(t *testing.T) {
+		st := startest.From(t)
+		err := st.RunString("assert.eq(1,1)")
+		if err != nil {
+			t.Error("Unexpected error")
+		}
+	})
+
+	t.Run("test=fail", func(t *testing.T) {
+		st := startest.From(&testing.T{})
+		err := st.RunString("assert.eq(1, 2)")
+		if err != nil {
+			t.Error("Unexpected error")
+		}
+		if !st.Failed() {
+			t.Error("Expected failure")
 		}
 	})
 }
