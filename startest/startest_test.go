@@ -572,22 +572,61 @@ func TestRunStringMemSafety(t *testing.T) {
 }
 
 func TestAssertModuleIntegration(t *testing.T) {
-	t.Run("test=pass", func(t *testing.T) {
-		st := startest.From(t)
-		err := st.RunString("assert.eq(1,1)")
-		if err != nil {
-			t.Error("Unexpected error")
+	t.Run("assertions=pass", func(t *testing.T) {
+		passingTests := []string{
+			`assert.eq(1,1)`,
+			`assert.ne(1,2)`,
+			`assert.true('str')`,
+			`assert.lt(1,2)`,
+			`assert.contains([1,2],2)`,
+			`assert.fails(lambda: fail("don't touch anything"), "fail: don't touch anything")`,
+		}
+
+		failValue, ok := starlark.Universe["fail"]
+		if !ok {
+			t.Error("No such builtin: fail")
+		}
+		fail, ok := failValue.(*starlark.Builtin)
+		if !ok {
+			t.Errorf("fail is not a builtin: got a %T", failValue)
+		}
+		safeFail := *fail
+		safeFail.DeclareSafety(startest.STSafe)
+
+		for _, passingTest := range passingTests {
+			st := startest.From(t)
+			st.AddValue("fail", &safeFail)
+			if err := st.RunString(passingTest); err != nil {
+				t.Errorf("Unexpected error testing %v: %v", passingTest, err)
+			}
 		}
 	})
 
-	t.Run("test=fail", func(t *testing.T) {
-		st := startest.From(&testing.T{})
-		err := st.RunString("assert.eq(1, 2)")
-		if err != nil {
-			t.Error("Unexpected error")
+	t.Run("assertions=fail", func(t *testing.T) {
+		no_error := starlark.NewBuiltinWithSafety("no_error", startest.STSafe, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+			return starlark.None, nil
+		})
+
+		failingTests := []string{
+			`assert.fail('oh no')`,
+			`assert.eq(1,2)`,
+			`assert.ne(1,1)`,
+			`assert.true('')`,
+			`assert.lt(1,1)`,
+			`assert.contains([],1)`,
+			`assert.fails(lambda: no_error(), 'some expected error')`,
 		}
-		if !st.Failed() {
-			t.Error("Expected failure")
+
+		for _, failingTest := range failingTests {
+			st := startest.From(&testing.T{})
+			st.AddBuiltin(no_error)
+			if err := st.RunString(failingTest); err != nil {
+				t.Errorf("Unexpected error when running '%s': %v", failingTest, err)
+			}
+
+			if !st.Failed() {
+				t.Errorf("Expected failure when running '%s'", failingTest)
+			}
 		}
 	})
 }
