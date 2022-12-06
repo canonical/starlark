@@ -233,25 +233,17 @@ func TestStringFormatting(t *testing.T) {
 }
 
 func TestStringFail(t *testing.T) {
-	safeFail := starlark.NewBuiltinWithSafety("fail", startest.StSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-		msg, ok := args[0].(starlark.String)
-		if !ok {
-			return nil, fmt.Errorf("Expected string, got %v", args[0])
-		}
-		return starlark.None, errors.New(string(msg))
-	})
-
 	st := startest.From(t)
-	st.AddValue("fail", safeFail)
+	st.RequireSafety(starlark.NotSafe)
 	err := st.RunString(`fail("oh no!")`)
 	if err == nil {
-		st.Errorf("Expected error: %v", err)
-	} else if err.Error() != "oh no!" {
+		st.Errorf("Expected error")
+	} else if err.Error() != "fail: oh no!" {
 		st.Errorf("Unexpected error: %v", err)
 	}
 
 	if st.Failed() {
-		t.Error("Unexpected error")
+		t.Error("Unexpected failure")
 	}
 }
 
