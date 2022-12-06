@@ -148,7 +148,7 @@ func (st *ST) RunString(code string) error {
 	}
 
 	st.AddValue("st", st)
-	st.AddLocal(stLocalKey, st)
+	st.AddLocal("Reporter", st) // Set starlarktest reporter
 
 	_, mod, err := starlark.SourceProgram("startest.RunString", code, func(name string) bool {
 		_, ok := st.predecls[name]
