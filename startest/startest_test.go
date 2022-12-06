@@ -406,7 +406,7 @@ func TestLocals(t *testing.T) {
 		st := startest.From(t)
 		st.AddLocal(localName, expected)
 		st.AddBuiltin(
-			starlark.NewBuiltinWithSafety("testlocals", startest.StSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+			starlark.NewBuiltinWithSafety("testlocals", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 				testLocals(t, thread)
 				return starlark.None, nil
 			}))
@@ -451,7 +451,7 @@ func (iter *dummyRangeIterator) Done() {}
 
 // dummyRangeBuiltin replaces the range builtin which has not yet been declared
 // sufficiently safe
-var dummyRangeBuiltin = starlark.NewBuiltinWithSafety("range", startest.StSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+var dummyRangeBuiltin = starlark.NewBuiltinWithSafety("range", startest.STSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 	if len(args) < 1 {
 		return nil, errors.New("Expected at least one arg, got 0")
 	}
@@ -468,7 +468,7 @@ var dummyRangeBuiltin = starlark.NewBuiltinWithSafety("range", startest.StSafe, 
 
 func TestRunStringMemSafety(t *testing.T) {
 	t.Run("safety=safe", func(t *testing.T) {
-		allocate := starlark.NewBuiltinWithSafety("allocate", startest.StSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+		allocate := starlark.NewBuiltinWithSafety("allocate", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			return starlark.String(make([]byte, 100)), thread.AddAllocs(128)
 		})
 
@@ -490,7 +490,7 @@ func TestRunStringMemSafety(t *testing.T) {
 	})
 
 	t.Run("safety=unsafe", func(t *testing.T) {
-		overallocate := starlark.NewBuiltinWithSafety("overallocate", startest.StSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+		overallocate := starlark.NewBuiltinWithSafety("overallocate", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			return starlark.String(make([]byte, 100)), nil
 		})
 
@@ -512,7 +512,7 @@ func TestRunStringMemSafety(t *testing.T) {
 	})
 
 	t.Run("safety=notsafe", func(t *testing.T) {
-		overallocate := starlark.NewBuiltinWithSafety("overallocate", startest.StSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+		overallocate := starlark.NewBuiltinWithSafety("overallocate", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			return starlark.String(make([]byte, 100)), nil
 		})
 
