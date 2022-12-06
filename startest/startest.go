@@ -93,11 +93,16 @@ func (st *ST) AddLocal(name string, value interface{}) {
 
 // RunString tests a string of starlark code.
 func (st *ST) RunString(code string) error {
+	code = strings.TrimRight(code, " \t\n")
+
+	if code == "" {
+		return nil
+	}
+
 	sb := strings.Builder{}
 	sb.Grow(len(code))
 	sb.WriteString("load('assert.star', 'assert')\n")
 	sb.WriteString("def __test__():\n")
-	code = strings.TrimRight(code, " \t\n")
 
 	// Unindent code
 	var baseIndent string
@@ -130,9 +135,6 @@ func (st *ST) RunString(code string) error {
 			sb.WriteString(line[len(baseIndent):])
 			sb.WriteRune('\n')
 		}
-	}
-	if code == "" {
-		sb.WriteString("\tpass\n")
 	}
 	sb.WriteString("__test__()")
 
