@@ -67,11 +67,11 @@ func estimateChan(v reflect.Value) uintptr {
 // the pointer is stored.
 func getMapK2(k, v uintptr) uintptr {
 	const maxElementSize = 128
-	if k < 128 && v < 128 {
+	if k < maxElementSize && v < maxElementSize {
 		return (k+v+1)*4 + unsafe.Sizeof(uintptr(0))
-	} else if k < 128 {
+	} else if k < maxElementSize {
 		return getMapK2(k, 8) + v
-	} else if v < 128 {
+	} else if v < maxElementSize {
 		return getMapK2(8, v) + k
 	} else {
 		return getMapK2(8, 8) + k + v
