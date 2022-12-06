@@ -43,8 +43,6 @@ var _ TestBase = &testing.T{}
 var _ TestBase = &testing.B{}
 var _ TestBase = &check.C{}
 
-const stLocalKey = "__st__"
-
 // From returns a new starTest instance with a given test base.
 func From(base TestBase) *ST {
 	return &ST{TestBase: base, maxAllocs: math.MaxUint64}
@@ -317,41 +315,6 @@ func (*ST) AttrNames() []string {
 		"n",
 	}
 }
-
-// errorBuiltin implements the error function required by starlarktest's assert
-// module
-var errorBuiltin = starlark.NewBuiltinWithSafety("error", stSafe, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	buf := &strings.Builder{}
-	if len(kwargs) > 0 {
-		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
-	}
-
-	for i, arg := range args {
-		if i > 0 {
-			buf.WriteRune(' ')
-		}
-
-		if s, ok := starlark.AsString(arg); ok {
-			buf.WriteString(s)
-		} else if b, ok := arg.(starlark.Bytes); ok {
-			buf.WriteString(string(b))
-		} else {
-			buf.WriteString(arg.String())
-		}
-	}
-
-	stLocal := thread.Local(stLocalKey)
-	if stLocal == nil {
-		panic(fmt.Sprintf("Expected local '%s' to be non-nil, this has been changed", stLocalKey))
-	}
-	st, ok := stLocal.(*ST)
-	if !ok {
-		panic(fmt.Sprintf("Expected *ST in thread local '%s', please do not change this", stLocalKey))
-	}
-	st.Error(buf.String())
-
-	return starlark.None, nil
-})
 
 // st_keep_alive causes the memory of the passed starlark objects to be
 // measured
