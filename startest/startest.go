@@ -162,20 +162,21 @@ func (st *ST) RunString(code string) error {
 		return errors.New("internal error")
 	}
 
+	var codeErr error
 	st.RunThread(func(thread *starlark.Thread) {
-		if err != nil {
+		// Continue RunThread's test loop
+		if codeErr != nil {
 			return
 		}
-		starlarktest.SetReporter(thread, st)
 		thread.Load = func(_ *starlark.Thread, module string) (starlark.StringDict, error) {
 			if module == "assert.star" {
 				return assert, nil
 			}
 			panic("impossible")
 		}
-		_, err = mod.Init(thread, st.predecls)
+		_, codeErr = mod.Init(thread, st.predecls)
 	})
-	return err
+	return codeErr
 }
 
 // RunThread tests a function which has access to a starlark thread and a global environment
