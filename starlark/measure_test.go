@@ -134,6 +134,12 @@ func TestEstimateTopLevel(t *testing.T) {
 	})
 }
 
+func TestNilInterface(t *testing.T) {
+	if starlark.EstimateSize(nil) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+}
+
 func TestEstimateMap(t *testing.T) {
 	t.Run("map[int]int", func(t *testing.T) {
 		st := startest.From(t)
