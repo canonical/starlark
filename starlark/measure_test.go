@@ -118,6 +118,13 @@ func TestEstimateBuiltinTypes(t *testing.T) {
 	t.Run("*misaligned struct", func(t *testing.T) {
 		runEstimateTest(t, func() interface{} { return &misaligned{} })
 	})
+
+	t.Run("*interface", func(t *testing.T) {
+		runEstimateTest(t, func() interface{} {
+			obj := interface{}(1)
+			return &obj
+		})
+	})
 }
 
 func TestEstimateTopLevel(t *testing.T) {
