@@ -50,12 +50,12 @@ func From(base TestBase) *ST {
 	return &ST{TestBase: base, maxAllocs: math.MaxUint64}
 }
 
-// SetMaxAllocs optionally sets the max allocations allowed per st.N
+// SetMaxAllocs optionally sets the max allocations allowed per st.N.
 func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
 }
 
-// RequireSafety optionally sets the required safety of tested code
+// RequireSafety optionally sets the required safety of tested code.
 func (st *ST) RequireSafety(safety starlark.Safety) {
 	st.requiredSafety |= safety
 	st.safetyGiven = true
@@ -71,7 +71,7 @@ func (st *ST) AddValue(name string, value starlark.Value) {
 }
 
 // AddBuiltin adds the given builtin into the starlark environment used by
-// RunString under the name specified in its Name() method.
+// RunString under the name specified in its Name method.
 func (st *ST) AddBuiltin(fn starlark.Value) {
 	builtin, ok := fn.(*starlark.Builtin)
 	if !ok {
@@ -82,7 +82,8 @@ func (st *ST) AddBuiltin(fn starlark.Value) {
 	st.AddValue(builtin.Name(), builtin)
 }
 
-// AddLocal adds the given object into the local values available to spawned threads
+// AddLocal adds the given object into the local values available to spawned
+// threads.
 func (st *ST) AddLocal(name string, value interface{}) {
 	if st.locals == nil {
 		st.locals = make(map[string]interface{})
@@ -90,7 +91,7 @@ func (st *ST) AddLocal(name string, value interface{}) {
 	st.locals[name] = value
 }
 
-// RunString tests a string of starlark code
+// RunString tests a string of starlark code.
 func (st *ST) RunString(code string) error {
 	sb := strings.Builder{}
 	sb.Grow(len(code))
