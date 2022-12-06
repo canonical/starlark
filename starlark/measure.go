@@ -176,7 +176,12 @@ func estimateSize(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	case reflect.Map:
 		result = estimateMap(v, ptrs)
 	case reflect.String:
-		result = getAllocSize(uintptr(v.Len()))
+		len := v.Len()
+		if len == 0 {
+			return 0
+		} else {
+			result = getAllocSize(uintptr(len))
+		}
 	case reflect.Slice:
 		result = estimateSlice(v)
 	default:
