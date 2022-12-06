@@ -31,7 +31,7 @@ func divRoundUp(n, a uintptr) uintptr {
 
 // Returns the size of an allocation, taking
 // into account the class sizes of the GC
-func GetAllocSize(size uintptr) uintptr {
+func getAllocSize(size uintptr) uintptr {
 	if size < tinyAllocMaxSize {
 		// Pessimistic view to take into account linked-lifetimes of
 		// transient values in tiny allocator.
@@ -50,7 +50,7 @@ func GetAllocSize(size uintptr) uintptr {
 }
 
 func estimateSlice(v reflect.Value) uintptr {
-	return GetAllocSize(v.Type().Elem().Size() * uintptr(v.Cap()))
+	return getAllocSize(v.Type().Elem().Size() * uintptr(v.Cap()))
 }
 
 func estimateChan(v reflect.Value) uintptr {
@@ -58,8 +58,8 @@ func estimateChan(v reflect.Value) uintptr {
 	// This is a pessimistic view since in case of
 	// an elementType that doesn't contain any pointer it
 	// will be allocated in a single bigger block (leading
-	// to a single GetAllocSize call).
-	return GetAllocSize(10*unsafe.Sizeof(int(0))) + GetAllocSize(uintptr(v.Cap())*elementType.Size())
+	// to a single getAllocSize call).
+	return getAllocSize(10*unsafe.Sizeof(int(0))) + getAllocSize(uintptr(v.Cap())*elementType.Size())
 }
 
 // There is a little complexity here : if the key and the
@@ -110,7 +110,7 @@ func estimateMap(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 
 	k2 := getMapK2(keySize, valueSize)
 
-	result := GetAllocSize(uintptr(v.Len())*k2) + k1
+	result := getAllocSize(uintptr(v.Len())*k2) + k1
 
 	if ptrs != nil {
 		// Now visit all key/value pairs.
@@ -174,14 +174,14 @@ func estimateSize(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 			return 0
 		}
 	case reflect.String:
-		result = GetAllocSize(uintptr(v.Len()))
+		result = getAllocSize(uintptr(v.Len()))
 	case reflect.Slice:
 		result = estimateSlice(v)
 	default:
 		result = 0
 	}
 
-	result += GetAllocSize(v.Type().Size())
+	result += getAllocSize(v.Type().Size())
 
 	if ptrs != nil {
 		switch v.Kind() {
