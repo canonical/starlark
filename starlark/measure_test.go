@@ -162,6 +162,26 @@ func TestEstimateMap(t *testing.T) {
 			st.KeepAlive(value)
 		})
 	})
+
+	t.Run("existing map[any]bool", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RunThread(func(thread *starlark.Thread) {
+			dict := make(map[interface{}]struct{})
+
+			for i := 0; i < st.N; i++ {
+				value := interface{}(i)
+				dict[value] = struct{}{}
+				// I count here directly the value, so that I
+				// can use `EstimateSize` instead of `EstimateSizeDeep`
+				thread.AddAllocs(int64(starlark.EstimateSize(value)))
+				st.KeepAlive(value)
+			}
+
+			thread.AddAllocs(int64(starlark.EstimateSize(dict)))
+			st.KeepAlive(dict)
+		})
+	})
 }
 
 func TestEstimateChan(t *testing.T) {
