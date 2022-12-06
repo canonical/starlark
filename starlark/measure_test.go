@@ -120,6 +120,20 @@ func TestEstimateBuiltinTypes(t *testing.T) {
 	})
 }
 
+func TestEstimateTopLevel(t *testing.T) {
+	st := startest.From(t)
+
+	st.RunThread(func(thread *starlark.Thread) {
+		str := "just a string"
+		obj := []string{}
+		for i := 0; i < st.N; i++ {
+			obj = append(obj, str)
+		}
+		thread.AddAllocs(int64(starlark.EstimateSize(obj)))
+		st.KeepAlive(obj)
+	})
+}
+
 func TestEstimateMap(t *testing.T) {
 	t.Run("map[int]int", func(t *testing.T) {
 		st := startest.From(t)
