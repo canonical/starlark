@@ -170,7 +170,7 @@ func (st *ST) RunString(code string) error {
 			if module == "assert.star" {
 				return assert, nil
 			}
-			panic("impossible")
+			panic("unreachable")
 		}
 		_, codeErr = mod.Init(thread, st.predecls)
 	})
