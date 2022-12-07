@@ -222,22 +222,36 @@ func TestRequireSafety(t *testing.T) {
 }
 
 func TestStringFormatting(t *testing.T) {
-	srcs := []string{
-		"",
-		"\n",
-		"\r",
-		" ",
-		"\t",
-		"\r\n\t",
-		"\nno_indent = True\n",
-	}
-	for _, src := range srcs {
-		st := startest.From(t)
-		err := st.RunString(src)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
+	t.Run("formatting=valid", func(t *testing.T) {
+		srcs := []string{
+			"",
+			"\n",
+			"\r",
+			" ",
+			"\t",
+			"\r\n\t",
+			"a = True",
+			"\nno_indent = True\n",
 		}
-	}
+		for _, src := range srcs {
+			st := startest.From(t)
+			err := st.RunString(src)
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		}
+	})
+
+	t.Run("formatting=invalid", func(t *testing.T) {
+		st := startest.From(&testing.T{})
+		if err := st.RunString("a=1\n\tb=a"); err == nil {
+			t.Error("Expected error")
+		}
+
+		if !st.Failed() {
+			t.Error("Expected failure")
+		}
+	})
 }
 
 func TestStringFail(t *testing.T) {
