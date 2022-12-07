@@ -91,7 +91,7 @@ func (st *ST) AddLocal(name string, value interface{}) {
 
 // RunString tests a string of starlark code.
 func (st *ST) RunString(code string) error {
-	code = strings.TrimRight(code, " \t\n")
+	code = strings.TrimRight(code, " \t\r\n")
 
 	if code == "" {
 		return nil
