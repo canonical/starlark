@@ -317,7 +317,7 @@ func (*ST) AttrNames() []string {
 }
 
 // st_keep_alive causes the memory of the passed starlark objects to be
-// measured
+// measured.
 func st_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(kwargs) > 0 {
 		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
