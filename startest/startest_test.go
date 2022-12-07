@@ -222,7 +222,15 @@ func TestRequireSafety(t *testing.T) {
 }
 
 func TestStringFormatting(t *testing.T) {
-	srcs := []string{"", "\n", " ", "\t", "\n\t"}
+	srcs := []string{
+		"",
+		"\n",
+		"\r",
+		" ",
+		"\t",
+		"\r\n\t",
+		"\nno_indent = True\n",
+	}
 	for _, src := range srcs {
 		st := startest.From(t)
 		err := st.RunString(src)

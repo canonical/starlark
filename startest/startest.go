@@ -102,38 +102,18 @@ func (st *ST) RunString(code string) error {
 	sb.WriteString("load('assert.star', 'assert')\n")
 	sb.WriteString("def __test__():\n")
 
-	// Unindent code
-	var baseIndent string
-	lines := strings.Split(code, "\n")
-	for lineIdx, line := range lines {
-		if lineIdx == 0 {
-			line = strings.TrimRight(line, " \t")
-			if line == "" {
-				sb.WriteRune('\n')
-				continue
-			} else if len(lines) > 1 {
-				st.Error("Multi-line snippets should start with a newline")
-				return errors.New("internal error")
-			}
-		}
+	isNewlineRune := func(r rune) bool { return r == '\r' || r == '\n' }
+	lines := strings.FieldsFunc(code, isNewlineRune)
 
-		if lineIdx == 1 {
-			for i, c := range line {
-				if c != ' ' && c != '\t' {
-					baseIndent = line[:i]
-					break
-				}
-			}
-		} else if (lineIdx > 1 && lineIdx < len(lines)-1) && len(line) != 0 && !strings.HasPrefix(line, baseIndent) {
-			st.Errorf("Expected prefix %#v in line %#v", baseIndent, line)
-			return errors.New("internal error")
-		}
+	if len(lines) > 1 && !isNewlineRune(rune(code[0])) {
+		st.Errorf(`Multi-line snippets should start with a newline: got "%s"`, lines[0])
+		return errors.New("internal error")
+	}
 
-		if len(baseIndent) <= len(line) {
-			sb.WriteString("\t")
-			sb.WriteString(line[len(baseIndent):])
-			sb.WriteRune('\n')
-		}
+	for _, line := range lines {
+		sb.WriteRune('\t')
+		sb.WriteString(line)
+		sb.WriteRune('\n')
 	}
 	sb.WriteString("__test__()")
 
