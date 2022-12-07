@@ -105,8 +105,8 @@ func (st *ST) RunString(code string) error {
 	// Unindent code
 	var baseIndent string
 	lines := strings.Split(code, "\n")
-	for i, line := range lines {
-		if i == 0 {
+	for lineIdx, line := range lines {
+		if lineIdx == 0 {
 			line = strings.TrimRight(line, " \t")
 			if line == "" {
 				sb.WriteRune('\n')
@@ -117,14 +117,14 @@ func (st *ST) RunString(code string) error {
 			}
 		}
 
-		if i == 1 {
+		if lineIdx == 1 {
 			for i, c := range line {
 				if c != ' ' && c != '\t' {
 					baseIndent = line[:i]
 					break
 				}
 			}
-		} else if (i > 1 && i < len(lines)-1) && len(line) != 0 && !strings.HasPrefix(line, baseIndent) {
+		} else if (lineIdx > 1 && lineIdx < len(lines)-1) && len(line) != 0 && !strings.HasPrefix(line, baseIndent) {
 			st.Errorf("Expected prefix %#v in line %#v", baseIndent, line)
 			return errors.New("internal error")
 		}
