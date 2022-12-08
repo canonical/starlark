@@ -523,15 +523,15 @@ func (iter *dummyRangeIterator) Done() {}
 // sufficiently safe
 var dummyRangeBuiltin = starlark.NewBuiltinWithSafety("range", startest.STSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 	if len(args) < 1 {
-		return nil, errors.New("Expected at least one arg, got 0")
+		return nil, errors.New("expected at least one arg, got 0")
 	}
 	max, ok := args[0].(starlark.Int)
 	if !ok {
-		return nil, fmt.Errorf("Expected int, got a %T: %v", args[0], args[0])
+		return nil, fmt.Errorf("expected int, got a %T: %v", args[0], args[0])
 	}
 	max64, ok := max.Int64()
 	if !ok {
-		return nil, fmt.Errorf("Too large")
+		return nil, fmt.Errorf("range too large")
 	}
 	return &dummyRange{int(max64)}, nil
 })
