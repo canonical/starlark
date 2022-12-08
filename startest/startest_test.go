@@ -243,13 +243,19 @@ func TestStringFormatting(t *testing.T) {
 	})
 
 	t.Run("formatting=invalid", func(t *testing.T) {
-		st := startest.From(&testing.T{})
-		if err := st.RunString("a=1\nb=a"); err == nil {
-			t.Error("Expected error")
+		srcs := []string{
+			"a=1\nb=2",
+			"a=1\n\tb=2",
 		}
+		for _, src := range srcs {
+			st := startest.From(&testing.T{})
+			if err := st.RunString(src); err == nil {
+				t.Error("Expected error")
+			}
 
-		if !st.Failed() {
-			t.Error("Expected failure")
+			if !st.Failed() {
+				t.Error("Expected failure")
+			}
 		}
 	})
 }
