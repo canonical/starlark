@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/startest"
 )
 
 func TestUniverseSafeties(t *testing.T) {
@@ -268,9 +269,47 @@ func TestStringPartitionAllocs(t *testing.T) {
 }
 
 func TestStringRemoveprefixAllocs(t *testing.T) {
+	string_removeprefix, _ := starlark.String("immutable").Attr("removeprefix")
+	if string_removeprefix == nil {
+		t.Errorf("No such method: string.removeprefix")
+		return
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(16)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			prefix := starlark.String("im")
+			result, err := starlark.Call(thread, string_removeprefix, starlark.Tuple{prefix}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringRemovesuffixAllocs(t *testing.T) {
+	string_removesuffix, _ := starlark.String("deadbeef").Attr("removesuffix")
+	if string_removesuffix == nil {
+		t.Errorf("No such method: string.removesuffix")
+		return
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(16)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			prefix := starlark.String("beef")
+			result, err := starlark.Call(thread, string_removesuffix, starlark.Tuple{prefix}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringReplaceAllocs(t *testing.T) {
