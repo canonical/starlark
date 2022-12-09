@@ -15,12 +15,14 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
+	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -221,7 +223,7 @@ var (
 		"isupper":        NotSafe,
 		"join":           NotSafe,
 		"lower":          NotSafe,
-		"lstrip":         NotSafe,
+		"lstrip":         MemSafe,
 		"partition":      NotSafe,
 		"removeprefix":   NotSafe,
 		"removesuffix":   NotSafe,
@@ -230,11 +232,11 @@ var (
 		"rindex":         NotSafe,
 		"rpartition":     NotSafe,
 		"rsplit":         NotSafe,
-		"rstrip":         NotSafe,
+		"rstrip":         MemSafe,
 		"split":          NotSafe,
 		"splitlines":     NotSafe,
 		"startswith":     NotSafe,
-		"strip":          NotSafe,
+		"strip":          MemSafe,
 		"title":          NotSafe,
 		"upper":          NotSafe,
 	}
@@ -2114,7 +2116,7 @@ func string_startswith(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·strip
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·lstrip
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·rstrip
-func string_strip(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var chars string
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &chars); err != nil {
 		return nil, err
@@ -2141,7 +2143,7 @@ func string_strip(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 			s = strings.TrimRightFunc(recv, unicode.IsSpace)
 		}
 	}
-	return String(s), nil
+	return String(s), thread.AddAllocs(int64(unsafe.Sizeof(reflect.StringHeader{})))
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·title
