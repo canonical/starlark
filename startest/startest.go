@@ -102,12 +102,15 @@ func (st *ST) RunString(code string) error {
 	sb.WriteString("load('assert.star', 'assert')\n")
 	sb.WriteString("def __test__():\n")
 
-	isNewlineRune := func(r rune) bool { return r == '\r' || r == '\n' }
-	lines := strings.FieldsFunc(code, isNewlineRune)
+	isNewline := func(r rune) bool { return r == '\r' || r == '\n' }
+	lines := strings.FieldsFunc(code, isNewline)
 
-	if len(lines) > 1 && !isNewlineRune(rune(code[0])) {
-		st.Errorf(`Multi-line snippets should start with a newline: got "%s"`, lines[0])
-		return errors.New("internal error")
+	if len(lines) > 1 {
+		firstNonWhitespace := rune(strings.TrimLeft(code, " \t")[0])
+		if !isNewline(firstNonWhitespace) {
+			st.Errorf(`Multi-line snippets should start with a newline: got "%#v"`, lines[0])
+			return errors.New("internal error")
+		}
 	}
 
 	for _, line := range lines {

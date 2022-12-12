@@ -232,6 +232,9 @@ func TestStringFormatting(t *testing.T) {
 			"\r\n\t",
 			"a = True",
 			"\nno_indent = True\n",
+			"\t\n\ta=1\n\tb=2",
+			"if True: a=1",
+			"\n\t\tif True:\n\t\t\ta=1",
 		}
 		for _, src := range srcs {
 			st := startest.From(t)
@@ -246,15 +249,19 @@ func TestStringFormatting(t *testing.T) {
 		srcs := []string{
 			"a=1\nb=2",
 			"a=1\n\tb=2",
+			"\t\na=1\n\tb=2",
+			"\ta=1\nb=2",
+			"\ta=1\n\tb=2",
+			"if True:\n\ta=1",
 		}
 		for _, src := range srcs {
 			st := startest.From(&testing.T{})
 			if err := st.RunString(src); err == nil {
-				t.Error("Expected error")
+				t.Errorf("Expected error testing '%#v'", src)
 			}
 
 			if !st.Failed() {
-				t.Error("Expected failure")
+				t.Errorf("Expected failure testing '%#v'", src)
 			}
 		}
 	})
