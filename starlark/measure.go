@@ -91,7 +91,7 @@ func getMapK2(k, v uintptr) uintptr {
 // For this reason, we decided to take the "experimental" route,
 // collecting data from different classes of key/value sizes
 // and finding a pessimistic allocating function.
-func estimateMap(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
+func estimateMap(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	// The approximation is just a line in the form of
 	// y = k1 + k2*x
 	// Where x is the capacity, y the size and k1, k2 are constants.
@@ -112,52 +112,52 @@ func estimateMap(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 
 	result := getAllocSize(uintptr(v.Len())*k2) + k1
 
-	if ptrs != nil {
+	if seen != nil {
 		// Now visit all key/value pairs.
 		iter := v.MapRange()
 		for iter.Next() {
-			result += estimateIndirect(iter.Key(), ptrs)
-			result += estimateIndirect(iter.Value(), ptrs)
+			result += estimateIndirect(iter.Key(), seen)
+			result += estimateIndirect(iter.Value(), seen)
 		}
 	}
 
 	return result
 }
 
-func estimateSliceValues(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
+func estimateSliceValues(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 
-	if ptrs != nil {
+	if seen != nil {
 		for i := 0; i < v.Len(); i++ {
-			result += estimateIndirect(v.Index(i), ptrs)
+			result += estimateIndirect(v.Index(i), seen)
 		}
 	}
 
 	return result
 }
 
-func estimateStructFields(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
+func estimateStructFields(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
-		result += estimateIndirect(field, ptrs)
+		result += estimateIndirect(field, seen)
 	}
 
 	return result
 }
 
-func estimateIndirect(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
+func estimateIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	switch v.Kind() {
 	case reflect.Ptr, reflect.Interface:
 		if v.IsNil() {
 			return 0
 		} else {
-			return estimateSize(v.Elem(), ptrs)
+			return estimateSize(v.Elem(), seen)
 		}
 	case reflect.Map:
-		return estimateMap(v, ptrs)
+		return estimateMap(v, seen)
 	case reflect.Slice:
-		return estimateSliceValues(v, ptrs)
+		return estimateSliceValues(v, seen)
 	case reflect.Chan:
 		return estimateChan(v)
 	default:
@@ -165,7 +165,7 @@ func estimateIndirect(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	}
 }
 
-func estimateSize(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
+func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	var result uintptr
 
 	switch v.Kind() {
@@ -173,14 +173,14 @@ func estimateSize(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 		if v.IsNil() {
 			return 0
 		} else {
-			return estimateSize(v.Elem(), ptrs)
+			return estimateSize(v.Elem(), seen)
 		}
 	case reflect.Chan, reflect.Func, reflect.UnsafePointer:
 		if v.IsNil() {
 			return 0
 		}
 	case reflect.Map:
-		result = estimateMap(v, ptrs)
+		result = estimateMap(v, seen)
 	case reflect.String:
 		len := v.Len()
 		if len == 0 {
@@ -196,21 +196,21 @@ func estimateSize(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 
 	result += getAllocSize(v.Type().Size())
 
-	if ptrs != nil {
+	if seen != nil {
 		switch v.Kind() {
 		case reflect.Ptr, reflect.Chan, reflect.Map, reflect.Slice:
 			ptr := v.Pointer()
-			if _, ok := ptrs[ptr]; !ok {
-				ptrs[ptr] = struct{}{}
-				defer delete(ptrs, ptr)
-				result += estimateIndirect(v, ptrs)
+			if _, ok := seen[ptr]; !ok {
+				seen[ptr] = struct{}{}
+				defer delete(seen, ptr)
+				result += estimateIndirect(v, seen)
 			}
 
 		case reflect.Struct:
-			result += estimateStructFields(v, ptrs)
+			result += estimateStructFields(v, seen)
 
 		case reflect.Array:
-			result += estimateSliceValues(v, ptrs)
+			result += estimateSliceValues(v, seen)
 		}
 	}
 
