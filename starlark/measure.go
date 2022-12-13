@@ -29,8 +29,8 @@ func divRoundUp(n, a uintptr) uintptr {
 	return (n + a - 1) / a
 }
 
-// Returns the size of an allocation, taking
-// into account the class sizes of the GC
+// getAllocSize returns the size of an allocation,
+// taking into account the class sizes of the GC.
 func getAllocSize(size uintptr) uintptr {
 	if size < tinyAllocMaxSize {
 		// Pessimistic view to take into account linked-lifetimes of
@@ -62,10 +62,12 @@ func estimateChan(v reflect.Value) uintptr {
 	return getAllocSize(10*unsafe.Sizeof(int(0))) + getAllocSize(uintptr(v.Cap())*elementType.Size())
 }
 
-// There is a little complexity here : if the key and the
-// value are too big they get allocated separately and only
-// the pointer is stored.
+// getMapK2 returns the estimated size a key-value pair
+// would take when used inside a go map.
 func getMapK2(k, v uintptr) uintptr {
+	// There is a little complexity here : if the key and the
+	// value are too big they get allocated separately and only
+	// the pointer is stored.
 	const maxElementSize = 128
 	if k < maxElementSize && v < maxElementSize {
 		return (k+v+1)*4 + unsafe.Sizeof(uintptr(0))
@@ -78,20 +80,22 @@ func getMapK2(k, v uintptr) uintptr {
 	}
 }
 
-// Maps are hard to measure because we don't have access
-// to the internal capacity (whatever that means). That is
-// the first problem: "capacity" is a fuzzy concept in hash
-// maps and thus Go team decided not to give a "real" meaning
-// to it (word of Ian Lance Taylor). In fact when doing a
-// `make(map[<tkey>]<tvalue>, <cap>)`, <cap> is to be considered
-// a "hint" to the map. Moreover, AFAIK go maps are grow only.
-// This makes it impossible to estimate (even pessimistically)
-// the real amount of memory used. We will need to have a
-// "usual size" kind of estimation.
-// For this reason, we decided to take the "experimental" route,
-// collecting data from different classes of key/value sizes
-// and finding a pessimistic allocating function.
+// estimateMap returns the estimated size of the memory
+// used inside a map.
 func estimateMap(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	// Maps are hard to measure because we don't have access
+	// to the internal capacity (whatever that means). That is
+	// the first problem: "capacity" is a fuzzy concept in hash
+	// maps and thus Go team decided not to give a "real" meaning
+	// to it (word of Ian Lance Taylor). In fact when doing a
+	// `make(map[<tkey>]<tvalue>, <cap>)`, <cap> is to be considered
+	// a "hint" to the map. Moreover, AFAIK go maps are grow only.
+	// This makes it impossible to estimate (even pessimistically)
+	// the real amount of memory used. We will need to have a
+	// "usual size" kind of estimation.
+	// For this reason, we decided to take the "experimental" route,
+	// collecting data from different classes of key/value sizes
+	// and finding a pessimistic allocating function.
 	// The approximation is just a line in the form of
 	// y = k1 + k2*x
 	// Where x is the capacity, y the size and k1, k2 are constants.
