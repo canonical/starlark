@@ -169,13 +169,13 @@ func estimateSize(v reflect.Value, ptrs map[uintptr]struct{}) uintptr {
 	var result uintptr
 
 	switch v.Kind() {
-	case reflect.Ptr:
+	case reflect.Ptr, reflect.Interface:
 		if v.IsNil() {
 			return 0
 		} else {
 			return estimateSize(v.Elem(), ptrs)
 		}
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.UnsafePointer:
+	case reflect.Chan, reflect.Func, reflect.UnsafePointer:
 		if v.IsNil() {
 			return 0
 		}
