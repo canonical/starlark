@@ -217,8 +217,9 @@ func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	return result
 }
 
-// Returns the size of the value pointed by obj, without
-// taking into account eventual nested members
+// EstimateSize returns the estimated size of the value
+// pointed by obj, without taking into account eventual
+// nested members.
 func EstimateSize(obj interface{}) uintptr {
 	if obj == nil {
 		return 0
@@ -227,8 +228,9 @@ func EstimateSize(obj interface{}) uintptr {
 	}
 }
 
-// Returns the size of the value pointed by obj, taking
-// into account the whole object tree
+// EstimateSizeDeep returns the estimated size of the
+// value pointed by obj, taking into account the whole
+// object tree.
 func EstimateSizeDeep(obj interface{}) uintptr {
 	if obj == nil {
 		return 0
