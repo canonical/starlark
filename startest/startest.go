@@ -281,9 +281,12 @@ func (st *ST) Truth() starlark.Bool  { return starlark.True }
 func (st *ST) Hash() (uint32, error) { return 0, errors.New("unhashable type: startest.ST") }
 
 var keepAliveMethod = starlark.NewBuiltinWithSafety("keep_alive", stSafe, st_keep_alive)
+var errorMethod = starlark.NewBuiltinWithSafety("error", stSafe, st_error)
 
 func (st *ST) Attr(name string) (starlark.Value, error) {
 	switch name {
+	case "error":
+		return errorMethod.BindReceiver(st), nil
 	case "keep_alive":
 		return keepAliveMethod.BindReceiver(st), nil
 	case "n":
@@ -294,6 +297,7 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 
 func (*ST) AttrNames() []string {
 	return []string{
+		"error",
 		"keep_alive",
 		"n",
 	}
@@ -311,5 +315,19 @@ func st_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple,
 		recv.KeepAlive(arg)
 	}
 
+	return starlark.None, nil
+}
+
+func st_error(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	if len(kwargs) != 0 {
+		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
+	}
+
+	recv := b.Receiver().(*ST)
+	errs := make([]interface{}, 0, len(args))
+	for _, arg := range args {
+		errs = append(errs, arg)
+	}
+	recv.Error(errs...)
 	return starlark.None, nil
 }

@@ -298,7 +298,7 @@ func TestStringPredecls(t *testing.T) {
 		err := st.RunString(`
 			fn()
 			if foo != 'bar':
-				fail("foo was incorrect: expected 'bar' but got '%s'" % foo)
+				st.error("foo was incorrect: expected 'bar' but got '%s'" % foo)
 		`)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
@@ -418,7 +418,7 @@ func TestRunStringFormatting(t *testing.T) {
 
 func TestRunStringError(t *testing.T) {
 	st := startest.From(&testing.T{})
-	err := st.RunString("assert.fail('hello, world')")
+	err := st.RunString("st.error('hello, world')")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
