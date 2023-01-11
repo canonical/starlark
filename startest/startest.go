@@ -323,6 +323,7 @@ func st_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple,
 	return starlark.None, nil
 }
 
+// st_error logs the passed starlark objects as errors in the current test.
 func st_error(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(kwargs) != 0 {
 		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
