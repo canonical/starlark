@@ -758,10 +758,6 @@ func TestRunStringMemSafety(t *testing.T) {
 		if err != nil {
 			st.Errorf("Unexpected error: %v", err)
 		}
-
-		if st.Failed() {
-			st.Error("Unexpected failure")
-		}
 	})
 
 	t.Run("safety=unsafe", func(t *testing.T) {
@@ -848,25 +844,54 @@ func TestAssertModuleIntegration(t *testing.T) {
 			return starlark.None, nil
 		})
 
-		failingTests := []string{
-			`assert.fail('oh no')`,
-			`assert.eq(1,2)`,
-			`assert.ne(1,1)`,
-			`assert.true('')`,
-			`assert.lt(1,1)`,
-			`assert.contains([],1)`,
-			`assert.fails(lambda: no_error(), 'some expected error')`,
-		}
+		tests := []struct {
+			name     string
+			input    string
+			expected string
+		}{{
+			name:     "fail",
+			input:    `assert.fail('oh no')`,
+			expected: "oh no",
+		}, {
+			name:     "eq",
+			input:    `assert.eq(1,2)`,
+			expected: "1 != 2",
+		}, {
+			name:     "ne",
+			input:    `assert.ne(1,1)`,
+			expected: "1 == 1",
+		}, {
+			name:     "true",
+			input:    `assert.true('')`,
+			expected: "assertion failed",
+		}, {
+			name:     "lt",
+			input:    `assert.lt(1,1)`,
+			expected: "1 is not less than 1",
+		}, {
+			name:     "contains",
+			input:    `assert.contains([],1)`,
+			expected: "[] does not contain 1",
+		}, {
+			name:     "fails",
+			input:    `assert.fails(lambda: no_error(), 'some expected error')`,
+			expected: `evaluation succeeded unexpectedly (want error matching "some expected error")`,
+		}}
 
-		for _, failingTest := range failingTests {
-			st := startest.From(&testing.T{})
+		for _, test := range tests {
+			dummy := &dummyBase{}
+			st := startest.From(dummy)
 			st.AddBuiltin(no_error)
-			if err := st.RunString(failingTest); err != nil {
-				t.Errorf("Unexpected error when running '%s': %v", failingTest, err)
+			if err := st.RunString(test.input); err != nil {
+				t.Errorf("%s: unexpected error when running '%s': %v", test.name, test.input, err)
 			}
 
 			if !st.Failed() {
-				t.Errorf("Expected failure when running '%s'", failingTest)
+				t.Errorf("%s: expected failure when running '%s'", test.name, test.input)
+			}
+
+			if errLog := dummy.Errors(); strings.HasPrefix(errLog, test.expected) {
+				t.Errorf("%s: unexpected error(s): %s", test.name, errLog)
 			}
 		}
 	})
