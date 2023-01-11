@@ -153,7 +153,7 @@ func (st *ST) RunString(code string) error {
 			if module == "assert.star" {
 				return assert, nil
 			}
-			panic("unreachable")
+			return nil, errors.New("user modules prohibited")
 		}
 		_, codeErr = mod.Init(thread, st.predecls)
 	})
