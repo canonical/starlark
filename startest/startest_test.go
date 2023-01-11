@@ -560,8 +560,51 @@ func TestRunStringError(t *testing.T) {
 	}
 }
 
-	if !st.Failed() {
-		t.Error("Expected failure")
+func TestRunStringPrint(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{{
+		name:     "empty",
+		input:    "",
+		expected: "",
+	}, {
+		name:     "string",
+		input:    "'hello, world'",
+		expected: "hello, world",
+	}, {
+		name:     "int",
+		input:    "1",
+		expected: "1",
+	}, {
+		name:     "list",
+		input:    "['a', 'b']",
+		expected: `["a", "b"]`,
+	}, {
+		name:     "multiple-strings",
+		input:    "'hello', 'world'",
+		expected: "hello world",
+	}}
+
+	for _, test := range tests {
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+		st.RequireSafety(starlark.NotSafe)
+		err := st.RunString(fmt.Sprintf("print(%s)", test.input))
+		if err != nil {
+			t.Errorf("%s: unexpected error: %v", test.name, err)
+		}
+		if st.Failed() {
+			t.Errorf("%s: unexpected failure", test.name)
+		}
+
+		if errLog := dummy.Errors(); errLog != "" {
+			t.Errorf("%s: unexpected error(s): %s", test.name, errLog)
+		}
+		if log := dummy.Logs(); !strings.Contains(log, test.expected) {
+			t.Errorf("%s: incorrect log output: must contain '%s' but got '%s'", test.name, test.expected, log)
+		}
 	}
 }
 
