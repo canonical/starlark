@@ -256,8 +256,8 @@ func TestStringFormatting(t *testing.T) {
 		}
 		for _, src := range srcs {
 			st := startest.From(&testing.T{})
-			if err := st.RunString(src); err == nil {
-				t.Errorf("Expected error testing '%#v'", src)
+			if err := st.RunString(src); err != nil {
+				t.Errorf("Unexpected error: %v", src)
 			}
 
 			if !st.Failed() {

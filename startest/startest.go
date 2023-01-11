@@ -89,6 +89,10 @@ func (st *ST) AddLocal(name string, value interface{}) {
 	st.locals[name] = value
 }
 
+type internalError struct {
+	error
+}
+
 // RunString tests a string of starlark code.
 func (st *ST) RunString(code string) error {
 	code = strings.TrimRight(code, " \t\r\n")
@@ -102,15 +106,12 @@ func (st *ST) RunString(code string) error {
 	sb.WriteString("load('assert.star', 'assert')\n")
 	sb.WriteString("def __test__():\n")
 
-	isNewline := func(r rune) bool { return r == '\r' || r == '\n' }
-	lines := strings.FieldsFunc(code, isNewline)
+	isNewlineRune := func(r rune) bool { return r == '\r' || r == '\n' }
+	lines := strings.FieldsFunc(code, isNewlineRune)
 
-	if len(lines) > 1 {
-		firstNonWhitespace := rune(strings.TrimLeft(code, " \t")[0])
-		if !isNewline(firstNonWhitespace) {
-			st.Errorf(`Multi-line snippets should start with a newline: got "%#v"`, lines[0])
-			return errors.New("internal error")
-		}
+	if len(lines) > 1 && !isNewlineRune(rune(strings.TrimLeft(code, " \t")[0])) {
+		st.Errorf(`Multi-line snippets should start with an empty line: got "%s"`, lines[0])
+		return nil
 	}
 
 	for _, line := range lines {
@@ -124,8 +125,8 @@ func (st *ST) RunString(code string) error {
 
 	assert, err := starlarktest.LoadAssertModule()
 	if err != nil {
-		st.Error(err)
-		return errors.New("internal error")
+		st.Errorf("internal error: %v", err)
+		return nil
 	}
 
 	st.AddValue("st", st)
@@ -140,7 +141,7 @@ func (st *ST) RunString(code string) error {
 	})
 	if err != nil {
 		st.Error(err)
-		return errors.New("internal error")
+		return nil
 	}
 
 	var codeErr error
@@ -153,10 +154,14 @@ func (st *ST) RunString(code string) error {
 			if module == "assert.star" {
 				return assert, nil
 			}
-			return nil, errors.New("user modules prohibited")
+			return nil, internalError{errors.New("user modules prohibited")}
 		}
 		_, codeErr = mod.Init(thread, st.predecls)
 	})
+	if codeErr, ok := codeErr.(internalError); ok {
+		st.Error(codeErr)
+		return nil
+	}
 	return codeErr
 }
 
