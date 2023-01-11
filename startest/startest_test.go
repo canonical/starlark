@@ -514,11 +514,51 @@ func TestRunStringFormatting(t *testing.T) {
 }
 
 func TestRunStringError(t *testing.T) {
-	st := startest.From(&testing.T{})
-	err := st.RunString("st.error('hello, world')")
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{{
+		name:     "empty",
+		input:    "",
+		expected: "",
+	}, {
+		name:     "string",
+		input:    "'hello, world'",
+		expected: "hello, world",
+	}, {
+		name:     "int",
+		input:    "1",
+		expected: "1",
+	}, {
+		name:     "list",
+		input:    "['a', 'b']",
+		expected: `["a", "b"]`,
+	}, {
+		name:     "multiple-strings",
+		input:    "'hello', 'world'",
+		expected: "hello world",
+	}}
+
+	for _, test := range tests {
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+		err := st.RunString(fmt.Sprintf("st.error(%s)", test.input))
+		if err != nil {
+			t.Errorf("%s: unexpected error: %v", test.name, err)
+		}
+
+		if !st.Failed() {
+			t.Errorf("%s: expected failure", test.name)
+		}
+		if errLog := dummy.Errors(); errLog != test.expected {
+			t.Errorf("%s: unexpected error(s): expected '%s' but got '%s'", test.name, test.expected, errLog)
+		}
+		if log := dummy.Logs(); log != "" {
+			t.Errorf("%s: unexpected log output: %s", test.name, log)
+		}
 	}
+}
 
 	if !st.Failed() {
 		t.Error("Expected failure")
