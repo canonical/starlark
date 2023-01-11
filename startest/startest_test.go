@@ -290,17 +290,13 @@ func TestRequireSafety(t *testing.T) {
 				return starlark.None, nil
 			})
 
-			st := startest.From(&testing.T{})
+			st := startest.From(t)
 			st.AddBuiltin(fn)
 			err := st.RunString(`fn()`)
 			if err == nil {
 				t.Error("Expected error")
 			} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
 				t.Errorf("Unexpected error: %v", err)
-			}
-
-			if st.Failed() {
-				t.Error("Unexpected failure")
 			}
 		})
 	})
@@ -353,10 +349,6 @@ func TestStringFail(t *testing.T) {
 		st.Errorf("Expected error")
 	} else if err.Error() != "fail: oh no!" {
 		st.Errorf("Unexpected error: %v", err)
-	}
-
-	if st.Failed() {
-		t.Error("Unexpected failure")
 	}
 }
 
