@@ -1,9 +1,11 @@
 package starlark_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/startest"
 )
 
 func TestUniverseSafeties(t *testing.T) {
@@ -310,4 +312,94 @@ func TestStringUpperAllocs(t *testing.T) {
 }
 
 func TestSetUnionAllocs(t *testing.T) {
+}
+
+type nonAllocatingIterable struct{}
+
+func (*nonAllocatingIterable) Freeze()                    {}
+func (*nonAllocatingIterable) Hash() (uint32, error)      { return 0, fmt.Errorf("invalid") }
+func (*nonAllocatingIterable) Iterate() starlark.Iterator { return &nonAllocatingIterator{} }
+func (*nonAllocatingIterable) String() string             { return "randomIterable" }
+func (*nonAllocatingIterable) Truth() starlark.Bool       { return starlark.False }
+func (*nonAllocatingIterable) Type() string               { return "randomIterable" }
+
+type nonAllocatingIterator struct{}
+
+func (*nonAllocatingIterator) Done()             {}
+func (*nonAllocatingIterator) Err() error        { return nil }
+func (*nonAllocatingIterator) NextAllocs() int64 { return 0 }
+
+func (*nonAllocatingIterator) Next(p *starlark.Value) bool {
+	*p = starlark.True
+	return true
+}
+
+type allocatingIterable struct {
+	size int
+}
+
+func (si *allocatingIterable) Freeze()               {}
+func (si *allocatingIterable) Hash() (uint32, error) { return 0, fmt.Errorf("invalid") }
+func (si *allocatingIterable) String() string        { return "stringifyIterable" }
+func (si *allocatingIterable) Truth() starlark.Bool  { return starlark.False }
+func (si *allocatingIterable) Type() string          { return "stringifyIterable" }
+
+func (si *allocatingIterable) Iterate() starlark.Iterator {
+	return &allocatingIterator{si.size}
+}
+
+type allocatingIterator struct {
+	size int
+}
+
+func (si *allocatingIterator) Done()      {}
+func (si *allocatingIterator) Err() error { return nil }
+
+func (si *allocatingIterator) Next(p *starlark.Value) bool {
+	*p = starlark.NewList(make([]starlark.Value, 0, si.size))
+	return true
+}
+
+func TestSafeIterateAllocs(t *testing.T) {
+	var nonAllocating starlark.Iterable = &nonAllocatingIterable{}
+
+	t.Run("non-allocating", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			it := starlark.SafeIterate(thread, nonAllocating)
+			defer it.Done()
+
+			for i := 0; i < st.N; i++ {
+				var value starlark.Value
+				if !it.Next(&value) {
+					st.Errorf("non-terminating iterator stuck at %d", st.N)
+					return
+				}
+
+				st.KeepAlive(value)
+			}
+		})
+	})
+
+	var allocating starlark.Iterable = &allocatingIterable{16}
+	t.Run("allocating", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RunThread(func(thread *starlark.Thread) {
+			it := starlark.SafeIterate(thread, allocating)
+			defer it.Done()
+
+			for i := 0; i < st.N; i++ {
+				var value starlark.Value
+				if !it.Next(&value) {
+					st.Errorf("non-terminating iterator stuck at %d", st.N)
+					return
+				}
+
+				st.KeepAlive(value)
+			}
+		})
+	})
 }

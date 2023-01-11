@@ -1435,9 +1435,9 @@ func Iterate(x Value) Iterator {
 func estimateValueSize(v Value) int64 {
 	if v, ok := v.(SizeAwareValue); ok {
 		return v.EstimateSize()
-	} else {
-		return int64(EstimateSizeDeep(v))
 	}
+
+	return int64(EstimateSize(v))
 }
 
 type defaultSafeIterator struct {
@@ -1459,6 +1459,7 @@ func (it *defaultSafeIterator) Next(p *Value) bool {
 			it.err = err
 			return false
 		}
+		*p = result
 		return true
 	} else {
 		return false
