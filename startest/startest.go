@@ -274,7 +274,7 @@ func (st *ST) measureMemory(fn func()) (memorySum, nSum uint64) {
 	return memoryUsed, nSum
 }
 
-func (st *ST) String() string        { return "startest instance" }
+func (st *ST) String() string        { return "<startest.ST>" }
 func (st *ST) Type() string          { return "startest.ST" }
 func (st *ST) Freeze()               { st.predecls.Freeze() }
 func (st *ST) Truth() starlark.Bool  { return starlark.True }
