@@ -277,9 +277,11 @@ func TestRequireSafety(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 			st.AddBuiltin(fn)
-			err := st.RunString(`assert.fails(lambda: fn(), "cannot call builtin 'fn': feature unavailable to the sandbox")`)
-			if err != nil {
-				t.Error("Unexpected error")
+			err := st.RunString(`fn()`)
+			if err == nil {
+				t.Errorf("Expected error")
+			} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
+				t.Errorf("Unexpected error: %s", err)
 			}
 		})
 
