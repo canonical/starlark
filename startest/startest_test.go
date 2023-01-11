@@ -623,8 +623,7 @@ func TestRunStringPredecls(t *testing.T) {
 		st.AddValue("foo", starlark.String("bar"))
 		st.RunString(`
 			fn()
-			if foo != 'bar':
-				st.error("foo was incorrect: expected 'bar' but got '%s'" % foo)
+			assert.eq(foo, "bar")
 		`)
 
 		if !builtinCalled {
