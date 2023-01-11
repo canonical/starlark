@@ -724,22 +724,22 @@ func (iter *dummyRangeIterator) Next(p *starlark.Value) bool {
 }
 func (iter *dummyRangeIterator) Done() {}
 
-// dummyRangeBuiltin replaces the range builtin which has not yet been declared
-// sufficiently safe
-var dummyRangeBuiltin = starlark.NewBuiltinWithSafety("range", startest.STSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-	if len(args) < 1 {
-		return nil, errors.New("expected at least one arg, got 0")
-	}
-	max, ok := args[0].(starlark.Int)
+var safeRange *starlark.Builtin
+
+func init() {
+	rangeValue, ok := starlark.Universe["range"]
 	if !ok {
-		return nil, fmt.Errorf("expected int, got a %T: %v", args[0], args[0])
+		panic("range builtin not defined")
 	}
-	max64, ok := max.Int64()
+	rangeBuiltin, ok := rangeValue.(*starlark.Builtin)
 	if !ok {
-		return nil, fmt.Errorf("range too large")
+		panic("range is not a builtin")
 	}
-	return &dummyRange{int(max64)}, nil
-})
+
+	s := *rangeBuiltin
+	safeRange = &s
+	safeRange.DeclareSafety(startest.STSafe)
+}
 
 func TestRunStringMemSafety(t *testing.T) {
 	t.Run("safety=safe", func(t *testing.T) {
@@ -750,7 +750,7 @@ func TestRunStringMemSafety(t *testing.T) {
 		st := startest.From(t)
 		st.SetMaxAllocs(128)
 		st.AddBuiltin(allocate)
-		st.AddValue("range", dummyRangeBuiltin)
+		st.AddBuiltin(safeRange)
 		err := st.RunString(`
 			for _ in range(st.n):
 				st.keep_alive(allocate())
@@ -775,7 +775,7 @@ func TestRunStringMemSafety(t *testing.T) {
 		st := startest.From(dummy)
 		st.SetMaxAllocs(128)
 		st.AddBuiltin(overallocate)
-		st.AddValue("range", dummyRangeBuiltin)
+		st.AddBuiltin(safeRange)
 		err := st.RunString(`
 			for _ in range(st.n):
 				st.keep_alive(overallocate())
@@ -801,7 +801,7 @@ func TestRunStringMemSafety(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.NotSafe)
 		st.AddBuiltin(overallocate)
-		st.AddValue("range", dummyRangeBuiltin)
+		st.AddBuiltin(safeRange)
 		err := st.RunString(`
 			for _ in range(st.n):
 				st.keep_alive(overallocate())
