@@ -632,12 +632,31 @@ func TestRunStringPredecls(t *testing.T) {
 	})
 
 	t.Run("predecls=invalid", func(t *testing.T) {
-		for _, val := range []starlark.Value{nil, starlark.String("interloper")} {
-			st := startest.From(&testing.T{})
-			st.AddBuiltin(val)
+		tests := []struct {
+			name     string
+			input    starlark.Value
+			expected string
+		}{{
+			name:     "nil",
+			input:    nil,
+			expected: "AddBuiltin expected a builtin: got <nil>",
+		}, {
+			name:     "string",
+			input:    starlark.String("interloper"),
+			expected: `AddBuiltin expected a builtin: got "interloper"`,
+		}}
+
+		for _, test := range tests {
+			dummy := &dummyBase{}
+			st := startest.From(dummy)
+			st.AddBuiltin(test.input)
 
 			if !st.Failed() {
-				t.Errorf("Expected failure with value %v", val)
+				t.Errorf("%s: expected failure with input %v", test.name, test.input)
+			}
+
+			if errLog := dummy.Errors(); errLog != test.expected {
+				t.Errorf("%s: unexpected error(s): %s", test.name, errLog)
 			}
 		}
 	})
