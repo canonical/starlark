@@ -331,7 +331,13 @@ func st_error(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwar
 	recv := b.Receiver().(*ST)
 	errs := make([]interface{}, 0, len(args))
 	for _, arg := range args {
-		errs = append(errs, arg)
+		var repr string
+		if s, ok := arg.(starlark.String); ok {
+			repr = s.GoString()
+		} else {
+			repr = arg.String()
+		}
+		errs = append(errs, repr)
 	}
 	recv.Error(errs...)
 	return starlark.None, nil

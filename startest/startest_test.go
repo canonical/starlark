@@ -3,11 +3,94 @@ package startest_test
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
 )
+
+type dummyBase struct {
+	failed bool
+	errors *strings.Builder
+	logs   *strings.Builder
+}
+
+var _ startest.TestBase = &dummyBase{}
+
+func (db *dummyBase) Error(errs ...interface{}) {
+	db.failed = true
+
+	if db.errors == nil {
+		db.errors = &strings.Builder{}
+	}
+
+	if db.errors.Len() != 0 {
+		db.errors.WriteRune('\n')
+	}
+	for i, err := range errs {
+		if i > 0 {
+			db.errors.WriteRune(' ')
+		}
+		db.errors.WriteString(fmt.Sprintf("%v", err))
+	}
+}
+
+func (db *dummyBase) Errorf(format string, args ...interface{}) {
+	db.failed = true
+
+	if db.errors == nil {
+		db.errors = &strings.Builder{}
+	}
+
+	if db.errors.Len() != 0 {
+		db.errors.WriteRune('\n')
+	}
+	db.errors.WriteString(fmt.Errorf(format, args...).Error())
+}
+
+func (db *dummyBase) Log(args ...interface{}) {
+	if db.logs == nil {
+		db.logs = &strings.Builder{}
+	}
+
+	if db.logs.Len() != 0 {
+		db.logs.WriteRune('\n')
+	}
+	for i, arg := range args {
+		if i > 0 {
+			db.logs.WriteRune(' ')
+		}
+		db.logs.WriteString(fmt.Sprintf("%v", arg))
+	}
+}
+
+func (db *dummyBase) Logf(format string, args ...interface{}) {
+	if db.logs == nil {
+		db.logs = &strings.Builder{}
+	}
+
+	if db.logs.Len() != 0 {
+		db.logs.WriteRune('\n')
+	}
+	db.logs.WriteString(fmt.Sprintf(format, args...))
+}
+
+func (db *dummyBase) Failed() bool { return db.failed }
+
+func (db *dummyBase) Errors() string {
+	if db.errors == nil {
+		return ""
+	}
+	return db.errors.String()
+}
+
+func (db *dummyBase) Logs() string {
+	if db.logs == nil {
+		return ""
+	}
+	return db.logs.String()
+}
 
 func TestKeepAlive(t *testing.T) {
 	// Check for a non-allocating routine
@@ -246,23 +329,16 @@ func TestStringFormatting(t *testing.T) {
 	})
 
 	t.Run("formatting=invalid", func(t *testing.T) {
-		srcs := []string{
-			"a=1\nb=2",
-			"a=1\n\tb=2",
-			"\t\na=1\n\tb=2",
-			"\ta=1\nb=2",
-			"\ta=1\n\tb=2",
-			"if True:\n\ta=1",
-		}
-		for _, src := range srcs {
-			st := startest.From(&testing.T{})
-			if err := st.RunString(src); err != nil {
-				t.Errorf("Unexpected error: %v", src)
-			}
+		const expected = `Multi-line snippets should start with an empty line: got "a=1"`
 
-			if !st.Failed() {
-				t.Errorf("Expected failure testing '%#v'", src)
-			}
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+		if err := st.RunString("a=1\n\tb=a"); err != nil {
+			t.Errorf("Unexpected user error: %v", err)
+		}
+
+		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("Unexpected error(s): %s", errLog)
 		}
 	})
 }
@@ -310,15 +386,23 @@ func TestStringPredecls(t *testing.T) {
 	})
 
 	t.Run("predecls=invalid", func(t *testing.T) {
-		st := startest.From(&testing.T{})
+		const expected = `AddBuiltin expected a builtin: got "spanner"`
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 		st.RequireSafety(starlark.NotSafe)
 		st.AddBuiltin(starlark.String("spanner"))
 		err := st.RunString(``)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
+
 		if !st.Failed() {
 			t.Error("Expected failure")
+		}
+
+		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("Unexpected error(s): %s", errLog)
 		}
 	})
 }
@@ -567,11 +651,14 @@ func TestRunStringMemSafety(t *testing.T) {
 	})
 
 	t.Run("safety=unsafe", func(t *testing.T) {
+		const expected = "measured memory is above declared allocations (128 > 0)"
+
 		overallocate := starlark.NewBuiltinWithSafety("overallocate", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			return starlark.String(make([]byte, 100)), nil
 		})
 
-		st := startest.From(&testing.T{})
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 		st.SetMaxAllocs(128)
 		st.AddBuiltin(overallocate)
 		st.AddValue("range", dummyRangeBuiltin)
@@ -585,6 +672,10 @@ func TestRunStringMemSafety(t *testing.T) {
 
 		if !st.Failed() {
 			t.Error("Expected failure")
+		}
+
+		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("Unexpected error(s): %s", errLog)
 		}
 	})
 
