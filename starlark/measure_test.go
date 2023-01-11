@@ -121,8 +121,14 @@ func TestEstimateBuiltinTypes(t *testing.T) {
 
 	t.Run("*interface", func(t *testing.T) {
 		runEstimateTest(t, func() interface{} {
-			obj := interface{}(1)
+			obj := interface{}(new(int))
 			return &obj
+		})
+	})
+
+	t.Run("starlark.List", func(t *testing.T) {
+		runEstimateTest(t, func() interface{} {
+			return starlark.NewList(make([]starlark.Value, 0, 16))
 		})
 	})
 }
@@ -233,7 +239,7 @@ func TestTinyAllocator(t *testing.T) {
 			anchor = new(int64)
 			*anchor = int64(i)
 
-			value := int64(i * 0xcc9e2d51)
+			value := int64(i) * 0xcc9e2d51
 
 			thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
 			st.KeepAlive(value)

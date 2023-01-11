@@ -32,7 +32,9 @@ func divRoundUp(n, a uintptr) uintptr {
 // getAllocSize returns the size of an allocation,
 // taking into account the class sizes of the GC.
 func getAllocSize(size uintptr) uintptr {
-	if size < tinyAllocMaxSize {
+	if size == 0 {
+		return 0
+	} else if size < tinyAllocMaxSize {
 		// Pessimistic view to take into account linked-lifetimes of
 		// transient values in tiny allocator.
 		return tinyAllocMaxSize
@@ -116,13 +118,16 @@ func estimateMap(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 
 	result := getAllocSize(uintptr(v.Len())*k2) + k1
 
-	if seen != nil {
-		// Now visit all key/value pairs.
-		iter := v.MapRange()
-		for iter.Next() {
-			result += estimateIndirect(iter.Key(), seen)
-			result += estimateIndirect(iter.Value(), seen)
-		}
+	return result
+}
+
+func estimateMapElements(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	var result uintptr
+
+	iter := v.MapRange()
+	for iter.Next() {
+		result += estimateSize(iter.Key(), seen)
+		result += estimateSize(iter.Value(), seen)
 	}
 
 	return result
@@ -133,7 +138,7 @@ func estimateSliceValues(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 
 	if seen != nil {
 		for i := 0; i < v.Len(); i++ {
-			result += estimateIndirect(v.Index(i), seen)
+			result += estimateSize(v.Index(i), seen)
 		}
 	}
 
@@ -144,81 +149,147 @@ func estimateStructFields(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
-		result += estimateIndirect(field, seen)
+		// I must take into account maps and structs as well
+		result += estimateSize(field, seen)
 	}
 
 	return result
-}
-
-func estimateIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
-	switch v.Kind() {
-	case reflect.Ptr, reflect.Interface:
-		if v.IsNil() {
-			return 0
-		} else {
-			return estimateSize(v.Elem(), seen)
-		}
-	case reflect.Map:
-		return estimateMap(v, seen)
-	case reflect.Slice:
-		return estimateSliceValues(v, seen)
-	case reflect.Chan:
-		return estimateChan(v)
-	default:
-		return 0
-	}
 }
 
 func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
-	var result uintptr
-
-	switch v.Kind() {
-	case reflect.Ptr, reflect.Interface:
-		if v.IsNil() {
-			return 0
-		} else {
-			return estimateSize(v.Elem(), seen)
-		}
-	case reflect.Chan, reflect.Func, reflect.UnsafePointer:
-		if v.IsNil() {
-			return 0
-		}
-	case reflect.Map:
-		result = estimateMap(v, seen)
-	case reflect.String:
-		len := v.Len()
-		if len == 0 {
-			return 0
-		} else {
-			result = getAllocSize(uintptr(len))
-		}
-	case reflect.Slice:
-		result = estimateSlice(v)
-	default:
-		result = 0
-	}
-
-	result += getAllocSize(v.Type().Size())
-
+	// FIXME strings are counted multiple times
 	if seen != nil {
 		switch v.Kind() {
-		case reflect.Ptr, reflect.Chan, reflect.Map, reflect.Slice:
+		case reflect.Interface:
+			elem := v.Elem()
+			if elem.Kind() != reflect.Ptr {
+				ptr := v.Addr().Pointer()
+
+				if _, ok := seen[ptr]; ok {
+					return 0
+				} else {
+					seen[ptr] = struct{}{}
+				}
+			}
+			return estimateInterface(elem, seen)
+
+		case reflect.Ptr:
+			elem := v.Elem()
+			if elem.Kind() != reflect.Interface {
+				ptr := v.Pointer()
+				if _, ok := seen[ptr]; ok {
+					return 0
+				} else {
+					seen[ptr] = struct{}{}
+				}
+			}
+			return estimateSize(elem, seen) + getAllocSize(elem.Type().Size())
+
+		case reflect.Map:
 			ptr := v.Pointer()
-			if _, ok := seen[ptr]; !ok {
+			if _, ok := seen[ptr]; ok {
+				return 0
+			} else {
 				seen[ptr] = struct{}{}
-				defer delete(seen, ptr)
-				result += estimateIndirect(v, seen)
+				return estimateMap(v, seen) + estimateMapElements(v, seen)
+			}
+
+		case reflect.Slice:
+			ptr := v.Pointer()
+			if _, ok := seen[ptr]; ok {
+				return 0
+			} else {
+				seen[ptr] = struct{}{}
+				return estimateSlice(v) + estimateSliceValues(v, seen)
+			}
+
+		case reflect.Chan:
+			ptr := v.Pointer()
+			if _, ok := seen[ptr]; ok {
+				return 0
+			} else {
+				seen[ptr] = struct{}{}
+				return estimateChan(v)
 			}
 
 		case reflect.Struct:
-			result += estimateStructFields(v, seen)
+			return estimateStructFields(v, seen)
 
 		case reflect.Array:
-			result += estimateSliceValues(v, seen)
+			// This doesn't cover all the cases.
+			if v.CanAddr() {
+				ptr := v.Addr().Pointer()
+
+				if _, ok := seen[ptr]; ok {
+					return 0
+				} else {
+					seen[ptr] = struct{}{}
+				}
+			}
+			return estimateSliceValues(v, seen)
+
+		case reflect.String:
+			// I need to get the pointer to the string as well
+			len := v.Len()
+			if len != 0 {
+				// Getting the pointer from a string is ugly.
+				str := v.String()
+				ptr := (*reflect.StringHeader)(unsafe.Pointer(&str)).Data
+
+				if _, ok := seen[ptr]; !ok {
+					seen[ptr] = struct{}{}
+					return getAllocSize(uintptr(len))
+				}
+			}
+
+			return 0
+		}
+	} else {
+		// In the case of slices, maps and strings we count the first level of memory
+		switch v.Kind() {
+		case reflect.Map:
+			return estimateMap(v, seen)
+
+		case reflect.Slice:
+			return estimateSlice(v)
+
+		case reflect.Chan:
+			return estimateChan(v)
+
+		case reflect.String:
+			return getAllocSize(uintptr(v.Len()))
+
+		case reflect.Ptr:
+			return getAllocSize(v.Elem().Type().Size())
 		}
 	}
 
-	return result
+	return 0
+}
+
+// estimateInterface returns the estimated size of the content of an interface
+func estimateInterface(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	if v.Kind() == reflect.String {
+		// In this case neither the memory for the string nor
+		// the memory for the header are allocated.
+		// TODO: consider other cases where a value is not allocated
+		// like empty slices and zeroed structs.
+		if v.Len() == 0 {
+			return 0
+		}
+	}
+
+	result := estimateSize(v, seen)
+
+	// In the case of a pointer, the entire value is stored as the pointer of
+	// the interface, so it shouldn't be counted. In all other cases it will
+	// take some form of address. Maps and Funcs are to be considered pointers.
+	switch v.Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Func:
+		return result
+	default:
+		return getAllocSize(v.Type().Size()) + result
+	}
 }
 
 // EstimateSize returns the estimated size of the value
@@ -228,7 +299,7 @@ func EstimateSize(obj interface{}) uintptr {
 	if obj == nil {
 		return 0
 	} else {
-		return estimateSize(reflect.ValueOf(obj), nil)
+		return estimateInterface(reflect.ValueOf(obj), nil)
 	}
 }
 
@@ -239,6 +310,6 @@ func EstimateSizeDeep(obj interface{}) uintptr {
 	if obj == nil {
 		return 0
 	} else {
-		return estimateSize(reflect.ValueOf(obj), make(map[uintptr]struct{}))
+		return estimateInterface(reflect.ValueOf(obj), make(map[uintptr]struct{}))
 	}
 }
