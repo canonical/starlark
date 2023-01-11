@@ -302,6 +302,25 @@ func TestRequireSafety(t *testing.T) {
 	})
 }
 
+func TestRunStringSyntaxError(t *testing.T) {
+	const expected = "startest.RunString:3:3: got '=', want primary expression"
+
+	dummy := &dummyBase{}
+	st := startest.From(dummy)
+	err := st.RunString("=1")
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+
+	if !st.Failed() {
+		t.Error("Expected failure")
+	}
+
+	if errLog := dummy.Errors(); errLog != expected {
+		t.Errorf("Unexpected error(s): %s", errLog)
+	}
+}
+
 func TestStringFormatting(t *testing.T) {
 	t.Run("formatting=valid", func(t *testing.T) {
 		srcs := []string{
