@@ -282,8 +282,8 @@ func (st *ST) Freeze()               { st.predecls.Freeze() }
 func (st *ST) Truth() starlark.Bool  { return starlark.True }
 func (st *ST) Hash() (uint32, error) { return 0, errors.New("unhashable type: startest.ST") }
 
-var keepAliveMethod = starlark.NewBuiltinWithSafety("keep_alive", stSafe, st_keep_alive)
 var errorMethod = starlark.NewBuiltinWithSafety("error", stSafe, st_error)
+var keepAliveMethod = starlark.NewBuiltinWithSafety("keep_alive", stSafe, st_keep_alive)
 
 func (st *ST) Attr(name string) (starlark.Value, error) {
 	switch name {
@@ -305,21 +305,6 @@ func (*ST) AttrNames() []string {
 	}
 }
 
-// st_keep_alive prevents the memory of the passed starlark objects being
-// freed. This forces the current test to measure these objects' memory.
-func st_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	if len(kwargs) > 0 {
-		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
-	}
-
-	recv := b.Receiver().(*ST)
-	for _, arg := range args {
-		recv.KeepAlive(arg)
-	}
-
-	return starlark.None, nil
-}
-
 // st_error logs the passed starlark objects as errors in the current test.
 func st_error(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(kwargs) != 0 {
@@ -338,5 +323,20 @@ func st_error(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwar
 		errs = append(errs, repr)
 	}
 	recv.Error(errs...)
+	return starlark.None, nil
+}
+
+// st_keep_alive prevents the memory of the passed starlark objects being
+// freed. This forces the current test to measure these objects' memory.
+func st_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	if len(kwargs) > 0 {
+		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
+	}
+
+	recv := b.Receiver().(*ST)
+	for _, arg := range args {
+		recv.KeepAlive(arg)
+	}
+
 	return starlark.None, nil
 }
