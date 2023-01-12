@@ -134,9 +134,6 @@ func (st *ST) RunString(code string) error {
 
 	_, mod, err := starlark.SourceProgram("startest.RunString", code, func(name string) bool {
 		_, ok := st.predecls[name]
-		if !ok {
-			_, ok = assert[name]
-		}
 		return ok
 	})
 	if err != nil {
