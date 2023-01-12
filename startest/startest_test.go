@@ -323,31 +323,28 @@ func TestRunStringSyntaxError(t *testing.T) {
 
 func TestRunStringFormatting(t *testing.T) {
 	t.Run("formatting=valid", func(t *testing.T) {
+		newlines := []string{"\n", "\r", "\r\n"}
 		srcs := []string{
 			"a=1",
 			" a=1",
 			"\ta=1",
-			"\na=1",
-			"\n a=1",
-			"\n\ta=1",
-			"\ra=1",
-			"\r a=1",
-			"\r\ta=1",
-			"\r\na=1",
-			"\r\n a=1",
-			"\r\n\ta=1",
-			"\na=1\n",
-			"\ra=1\r",
-			"\r\na=1\r\n",
-			"\n\ta=1\n",
-			"\r\ta=1\r",
-			"\r\n\ta=1\r\n",
+			"{}a=1",
+			"{} a=1",
+			"{}\ta=1",
+			"{}a=1{}",
+			"{} a=1{}",
+			"{}\ta=1{}",
+			"{}if True:{} a=1",
+			"{}if True:{}\ta=1",
 		}
-		for _, src := range srcs {
-			st := startest.From(t)
-			err := st.RunString(src)
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
+		for _, rawSrc := range srcs {
+			for _, newline := range newlines {
+				src := strings.ReplaceAll(rawSrc, "{}", newline)
+
+				st := startest.From(t)
+				if err := st.RunString(src); err != nil {
+					t.Errorf("Unexpected error running '%#v': %v", rawSrc, err)
+				}
 			}
 		}
 	})
