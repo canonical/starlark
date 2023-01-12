@@ -323,9 +323,9 @@ func TestRunStringSyntaxError(t *testing.T) {
 
 func TestRunStringFormatting(t *testing.T) {
 	type formattingTest struct {
-		name string
-		src  string
-		err  string
+		name   string
+		src    string
+		expect string
 	}
 
 	testFormatting := func(t *testing.T, tests []formattingTest) {
@@ -346,7 +346,7 @@ func TestRunStringFormatting(t *testing.T) {
 				}
 				errLog := dummy.Errors()
 
-				if errLog != test.err {
+				if errLog != test.expect {
 					if errLog == "" {
 						t.Errorf("%s: expected error", name)
 					} else {
@@ -397,34 +397,34 @@ func TestRunStringFormatting(t *testing.T) {
 
 	t.Run("formatting=invalid", func(t *testing.T) {
 		tests := []formattingTest{{
-			name: "unnecessary indent",
-			src:  "a=1{}\tb=1",
-			err:  `Multi-line snippets should start with an empty line: got "a=1"`,
+			name:   "unnecessary indent",
+			src:    "a=1{}\tb=1",
+			expect: `Multi-line snippets should start with an empty line: got "a=1"`,
 		}, {
-			name: "missing indent",
-			src:  "if True:{}a=1",
-			err:  `Multi-line snippets should start with an empty line: got "if True:"`,
+			name:   "missing indent",
+			src:    "if True:{}a=1",
+			expect: `Multi-line snippets should start with an empty line: got "if True:"`,
 		}, {
-			name: "bad indentation",
-			src:  "    a=1{}        b=2",
-			err:  `Multi-line snippets should start with an empty line: got "    a=1"`,
+			name:   "bad indentation",
+			src:    "    a=1{}        b=2",
+			expect: `Multi-line snippets should start with an empty line: got "    a=1"`,
 		}}
 		testFormatting(t, tests)
 	})
 
 	t.Run("formatting=mistake-prone", func(t *testing.T) {
 		tests := []formattingTest{{
-			name: "sequence",
-			src:  "a=1{}b=2",
-			err:  `Multi-line snippets should start with an empty line: got "a=1"`,
+			name:   "sequence",
+			src:    "a=1{}b=2",
+			expect: `Multi-line snippets should start with an empty line: got "a=1"`,
 		}, {
-			name: "branch",
-			src:  "if True:{}\ta=1",
-			err:  `Multi-line snippets should start with an empty line: got "if True:"`,
+			name:   "branch",
+			src:    "if True:{}\ta=1",
+			expect: `Multi-line snippets should start with an empty line: got "if True:"`,
 		}, {
-			name: "indented",
-			src:  "    a=1{}    b=2",
-			err:  `Multi-line snippets should start with an empty line: got "    a=1"`,
+			name:   "indented",
+			src:    "    a=1{}    b=2",
+			expect: `Multi-line snippets should start with an empty line: got "    a=1"`,
 		}}
 		testFormatting(t, tests)
 	})
@@ -575,35 +575,35 @@ func TestRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 
 func TestRunStringError(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		expected string
+		name   string
+		src    string
+		expect string
 	}{{
-		name:     "empty",
-		input:    "",
-		expected: "",
+		name:   "empty",
+		src:    "",
+		expect: "",
 	}, {
-		name:     "string",
-		input:    "'hello, world'",
-		expected: "hello, world",
+		name:   "string",
+		src:    "'hello, world'",
+		expect: "hello, world",
 	}, {
-		name:     "int",
-		input:    "1",
-		expected: "1",
+		name:   "int",
+		src:    "1",
+		expect: "1",
 	}, {
-		name:     "list",
-		input:    "['a', 'b']",
-		expected: `["a", "b"]`,
+		name:   "list",
+		src:    "['a', 'b']",
+		expect: `["a", "b"]`,
 	}, {
-		name:     "multiple-strings",
-		input:    "'hello', 'world'",
-		expected: "hello world",
+		name:   "multiple-strings",
+		src:    "'hello', 'world'",
+		expect: "hello world",
 	}}
 
 	for _, test := range tests {
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
-		err := st.RunString(fmt.Sprintf("st.error(%s)", test.input))
+		err := st.RunString(fmt.Sprintf("st.error(%s)", test.src))
 		if err != nil {
 			t.Errorf("%s: unexpected error: %v", test.name, err)
 		}
@@ -611,8 +611,8 @@ func TestRunStringError(t *testing.T) {
 		if !st.Failed() {
 			t.Errorf("%s: expected failure", test.name)
 		}
-		if errLog := dummy.Errors(); errLog != test.expected {
-			t.Errorf("%s: unexpected error(s): expected '%s' but got '%s'", test.name, test.expected, errLog)
+		if errLog := dummy.Errors(); errLog != test.expect {
+			t.Errorf("%s: unexpected error(s): expected '%s' but got '%s'", test.name, test.expect, errLog)
 		}
 		if log := dummy.Logs(); log != "" {
 			t.Errorf("%s: unexpected log output: %s", test.name, log)
@@ -622,36 +622,36 @@ func TestRunStringError(t *testing.T) {
 
 func TestRunStringPrint(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		expected string
+		name   string
+		args   string
+		expect string
 	}{{
-		name:     "empty",
-		input:    "",
-		expected: "",
+		name:   "empty",
+		args:   "",
+		expect: "",
 	}, {
-		name:     "string",
-		input:    "'hello, world'",
-		expected: "hello, world",
+		name:   "string",
+		args:   "'hello, world'",
+		expect: "hello, world",
 	}, {
-		name:     "int",
-		input:    "1",
-		expected: "1",
+		name:   "int",
+		args:   "1",
+		expect: "1",
 	}, {
-		name:     "list",
-		input:    "['a', 'b']",
-		expected: `["a", "b"]`,
+		name:   "list",
+		args:   "['a', 'b']",
+		expect: `["a", "b"]`,
 	}, {
-		name:     "multiple-strings",
-		input:    "'hello', 'world'",
-		expected: "hello world",
+		name:   "multiple-strings",
+		args:   "'hello', 'world'",
+		expect: "hello world",
 	}}
 
 	for _, test := range tests {
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
 		st.RequireSafety(starlark.NotSafe)
-		err := st.RunString(fmt.Sprintf("print(%s)", test.input))
+		err := st.RunString(fmt.Sprintf("print(%s)", test.args))
 		if err != nil {
 			t.Errorf("%s: unexpected error: %v", test.name, err)
 		}
@@ -662,8 +662,8 @@ func TestRunStringPrint(t *testing.T) {
 		if errLog := dummy.Errors(); errLog != "" {
 			t.Errorf("%s: unexpected error(s): %s", test.name, errLog)
 		}
-		if log := dummy.Logs(); !strings.Contains(log, test.expected) {
-			t.Errorf("%s: incorrect log output: must contain '%s' but got '%s'", test.name, test.expected, log)
+		if log := dummy.Logs(); !strings.Contains(log, test.expect) {
+			t.Errorf("%s: incorrect log output: must contain '%s' but got '%s'", test.name, test.expect, log)
 		}
 	}
 }
@@ -693,17 +693,17 @@ func TestRunStringPredecls(t *testing.T) {
 
 	t.Run("predecls=invalid", func(t *testing.T) {
 		tests := []struct {
-			name     string
-			input    starlark.Value
-			expected string
+			name   string
+			input  starlark.Value
+			expect string
 		}{{
-			name:     "nil",
-			input:    nil,
-			expected: "AddBuiltin expected a builtin: got <nil>",
+			name:   "nil",
+			input:  nil,
+			expect: "AddBuiltin expected a builtin: got <nil>",
 		}, {
-			name:     "string",
-			input:    starlark.String("interloper"),
-			expected: `AddBuiltin expected a builtin: got "interloper"`,
+			name:   "string",
+			input:  starlark.String("interloper"),
+			expect: `AddBuiltin expected a builtin: got "interloper"`,
 		}}
 
 		for _, test := range tests {
@@ -715,7 +715,7 @@ func TestRunStringPredecls(t *testing.T) {
 				t.Errorf("%s: expected failure with input %v", test.name, test.input)
 			}
 
-			if errLog := dummy.Errors(); errLog != test.expected {
+			if errLog := dummy.Errors(); errLog != test.expect {
 				t.Errorf("%s: unexpected error(s): %s", test.name, errLog)
 			}
 		}
@@ -905,37 +905,37 @@ func TestAssertModuleIntegration(t *testing.T) {
 		})
 
 		tests := []struct {
-			name     string
-			input    string
-			expected string
+			name   string
+			input  string
+			expect string
 		}{{
-			name:     "fail",
-			input:    `assert.fail('oh no')`,
-			expected: "oh no",
+			name:   "fail",
+			input:  `assert.fail('oh no')`,
+			expect: "oh no",
 		}, {
-			name:     "eq",
-			input:    `assert.eq(1,2)`,
-			expected: "1 != 2",
+			name:   "eq",
+			input:  `assert.eq(1,2)`,
+			expect: "1 != 2",
 		}, {
-			name:     "ne",
-			input:    `assert.ne(1,1)`,
-			expected: "1 == 1",
+			name:   "ne",
+			input:  `assert.ne(1,1)`,
+			expect: "1 == 1",
 		}, {
-			name:     "true",
-			input:    `assert.true('')`,
-			expected: "assertion failed",
+			name:   "true",
+			input:  `assert.true('')`,
+			expect: "assertion failed",
 		}, {
-			name:     "lt",
-			input:    `assert.lt(1,1)`,
-			expected: "1 is not less than 1",
+			name:   "lt",
+			input:  `assert.lt(1,1)`,
+			expect: "1 is not less than 1",
 		}, {
-			name:     "contains",
-			input:    `assert.contains([],1)`,
-			expected: "[] does not contain 1",
+			name:   "contains",
+			input:  `assert.contains([],1)`,
+			expect: "[] does not contain 1",
 		}, {
-			name:     "fails",
-			input:    `assert.fails(lambda: no_error(), 'some expected error')`,
-			expected: `evaluation succeeded unexpectedly (want error matching "some expected error")`,
+			name:   "fails",
+			input:  `assert.fails(lambda: no_error(), 'some expected error')`,
+			expect: `evaluation succeeded unexpectedly (want error matching "some expected error")`,
 		}}
 
 		for _, test := range tests {
@@ -950,7 +950,7 @@ func TestAssertModuleIntegration(t *testing.T) {
 				t.Errorf("%s: expected failure when running '%s'", test.name, test.input)
 			}
 
-			if errLog := dummy.Errors(); strings.HasPrefix(errLog, test.expected) {
+			if errLog := dummy.Errors(); strings.HasPrefix(errLog, test.expect) {
 				t.Errorf("%s: unexpected error(s): %s", test.name, errLog)
 			}
 		}
