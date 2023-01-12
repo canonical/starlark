@@ -322,45 +322,111 @@ func TestRunStringSyntaxError(t *testing.T) {
 }
 
 func TestRunStringFormatting(t *testing.T) {
-	t.Run("formatting=valid", func(t *testing.T) {
-		newlines := []string{"\n", "\r", "\r\n"}
-		srcs := []string{
-			"a=1",
-			" a=1",
-			"\ta=1",
-			"{}a=1",
-			"{} a=1",
-			"{}\ta=1",
-			"{}a=1{}",
-			"{} a=1{}",
-			"{}\ta=1{}",
-			"{}if True:{} a=1",
-			"{}if True:{}\ta=1",
-		}
-		for _, rawSrc := range srcs {
-			for _, newline := range newlines {
-				src := strings.ReplaceAll(rawSrc, "{}", newline)
+	type formattingTest struct {
+		name string
+		src  string
+		err  string
+	}
 
-				st := startest.From(t)
+	testFormatting := func(t *testing.T, tests []formattingTest) {
+		newlines := []struct {
+			name string
+			code string
+		}{{"CR", "\r"}, {"LF", "\n"}, {"CRLF", "\r\n"}}
+
+		for _, test := range tests {
+			for _, newline := range newlines {
+				name := fmt.Sprintf("%s (newline=%s)", test.name, newline.name)
+				src := strings.ReplaceAll(test.src, "{}", newline.code)
+
+				dummy := &dummyBase{}
+				st := startest.From(dummy)
 				if err := st.RunString(src); err != nil {
-					t.Errorf("Unexpected error running '%#v': %v", rawSrc, err)
+					t.Errorf("%s: unexpected user error: %v", name, err)
+				}
+				errLog := dummy.Errors()
+
+				if errLog != test.err {
+					if errLog == "" {
+						t.Errorf("%s: expected error", name)
+					} else {
+						t.Errorf("%s: unexpected error(s): %s", name, errLog)
+					}
 				}
 			}
 		}
+	}
+
+	t.Run("formatting=valid", func(t *testing.T) {
+		tests := []formattingTest{{
+			name: "trivial",
+			src:  "a=1",
+		}, {
+			name: "trivial with space indent",
+			src:  " a=1",
+		}, {
+			name: "trivial with tab indent",
+			src:  "\ta=1",
+		}, {
+			name: "preceding newline",
+			src:  "{}a=1",
+		}, {
+			name: "preceding newline with space indent",
+			src:  "{} a=1",
+		}, {
+			name: "preceding newline with tab indent",
+			src:  "{}\ta=1",
+		}, {
+			name: "surrounding newlines",
+			src:  "{}a=1{}",
+		}, {
+			name: "surrounding newlines with space indent",
+			src:  "{} a=1{}",
+		}, {
+			name: "surrounding newlines with tab indent",
+			src:  "{}\ta=1{}",
+		}, {
+			name: "if block with space indent",
+			src:  "{}if True:{} a=1",
+		}, {
+			name: "if block with tab indent",
+			src:  "{}if True:{}\ta=1",
+		}}
+		testFormatting(t, tests)
 	})
 
 	t.Run("formatting=invalid", func(t *testing.T) {
-		const expected = `Multi-line snippets should start with an empty line: got "a=1"`
+		tests := []formattingTest{{
+			name: "unnecessary indent",
+			src:  "a=1{}\tb=1",
+			err:  `Multi-line snippets should start with an empty line: got "a=1"`,
+		}, {
+			name: "missing indent",
+			src:  "if True:{}a=1",
+			err:  `Multi-line snippets should start with an empty line: got "if True:"`,
+		}, {
+			name: "bad indentation",
+			src:  "    a=1{}        b=2",
+			err:  `Multi-line snippets should start with an empty line: got "    a=1"`,
+		}}
+		testFormatting(t, tests)
+	})
 
-		dummy := &dummyBase{}
-		st := startest.From(dummy)
-		if err := st.RunString("a=1\n\tb=a"); err != nil {
-			t.Errorf("Unexpected user error: %v", err)
-		}
-
-		if errLog := dummy.Errors(); errLog != expected {
-			t.Errorf("Unexpected error(s): %s", errLog)
-		}
+	t.Run("formatting=mistake-prone", func(t *testing.T) {
+		tests := []formattingTest{{
+			name: "sequence",
+			src:  "a=1{}b=2",
+			err:  `Multi-line snippets should start with an empty line: got "a=1"`,
+		}, {
+			name: "branch",
+			src:  "if True:{}\ta=1",
+			err:  `Multi-line snippets should start with an empty line: got "if True:"`,
+		}, {
+			name: "indented",
+			src:  "    a=1{}    b=2",
+			err:  `Multi-line snippets should start with an empty line: got "    a=1"`,
+		}}
+		testFormatting(t, tests)
 	})
 }
 
