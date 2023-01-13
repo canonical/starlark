@@ -314,23 +314,43 @@ func TestStringUpperAllocs(t *testing.T) {
 func TestSetUnionAllocs(t *testing.T) {
 }
 
-type nonAllocatingIterable struct{}
+type repeatIterable struct {
+	n     int
+	value starlark.Value
+}
 
-func (*nonAllocatingIterable) Freeze()                    {}
-func (*nonAllocatingIterable) Hash() (uint32, error)      { return 0, fmt.Errorf("invalid") }
-func (*nonAllocatingIterable) Iterate() starlark.Iterator { return &nonAllocatingIterator{} }
-func (*nonAllocatingIterable) String() string             { return "randomIterable" }
-func (*nonAllocatingIterable) Truth() starlark.Bool       { return starlark.False }
-func (*nonAllocatingIterable) Type() string               { return "randomIterable" }
+func (*repeatIterable) Freeze()               {}
+func (*repeatIterable) Hash() (uint32, error) { return 0, fmt.Errorf("invalid") }
+func (r *repeatIterable) Iterate() starlark.Iterator {
+	value := r.value
+	if value == nil {
+		value = starlark.None
+	}
+	return &repeatIterator{
+		n:     r.n,
+		value: value,
+	}
+}
+func (*repeatIterable) String() string         { return "repeat" }
+func (r *repeatIterable) Truth() starlark.Bool { return r.n > 0 }
+func (*repeatIterable) Type() string           { return "repeat" }
 
-type nonAllocatingIterator struct{}
+type repeatIterator struct {
+	n     int
+	value starlark.Value
+}
 
-func (*nonAllocatingIterator) Done()             {}
-func (*nonAllocatingIterator) Err() error        { return nil }
-func (*nonAllocatingIterator) NextAllocs() int64 { return 0 }
+func (*repeatIterator) Done()             {}
+func (*repeatIterator) Err() error        { return nil }
+func (*repeatIterator) NextAllocs() int64 { return 0 }
 
-func (*nonAllocatingIterator) Next(p *starlark.Value) bool {
-	*p = starlark.True
+func (it *repeatIterator) Next(p *starlark.Value) bool {
+	if it.n <= 0 {
+		*p = nil
+		return false
+	}
+	it.n--
+	*p = it.value
 	return true
 }
 
@@ -361,13 +381,13 @@ func (si *allocatingIterator) Next(p *starlark.Value) bool {
 }
 
 func TestSafeIterateAllocs(t *testing.T) {
-	var nonAllocating starlark.Iterable = &nonAllocatingIterable{}
 
 	t.Run("non-allocating", func(t *testing.T) {
 		st := startest.From(t)
 
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
+			nonAllocating := &repeatIterable{st.N, starlark.True}
 			it := starlark.SafeIterate(thread, nonAllocating)
 			defer it.Done()
 
@@ -383,11 +403,11 @@ func TestSafeIterateAllocs(t *testing.T) {
 		})
 	})
 
-	var allocating starlark.Iterable = &allocatingIterable{16}
 	t.Run("allocating", func(t *testing.T) {
 		st := startest.From(t)
 
 		st.RunThread(func(thread *starlark.Thread) {
+			allocating := &allocatingIterable{16}
 			it := starlark.SafeIterate(thread, allocating)
 			defer it.Done()
 
