@@ -89,10 +89,6 @@ func (st *ST) AddLocal(name string, value interface{}) {
 	st.locals[name] = value
 }
 
-type internalError struct {
-	error
-}
-
 // RunString tests a string of starlark code.
 func (st *ST) RunString(code string) error {
 	code = strings.TrimRight(code, " \t\r\n")
@@ -103,7 +99,6 @@ func (st *ST) RunString(code string) error {
 
 	sb := strings.Builder{}
 	sb.Grow(len(code))
-	sb.WriteString("load('assert.star', 'assert')\n")
 	sb.WriteString("def __test__():\n")
 
 	isNewlineRune := func(r rune) bool { return r == '\r' || r == '\n' }
@@ -123,14 +118,20 @@ func (st *ST) RunString(code string) error {
 
 	code = sb.String()
 
-	assert, err := starlarktest.LoadAssertModule()
+	assertMembers, err := starlarktest.LoadAssertModule()
 	if err != nil {
 		st.Errorf("internal error: %v", err)
+		return nil
+	}
+	assert, ok := assertMembers["assert"]
+	if !ok {
+		st.Errorf("internal error: no 'assert' defined in assert module")
 		return nil
 	}
 
 	st.AddValue("st", st)
 	st.AddLocal("Reporter", st) // Set starlarktest reporter outside of RunThread
+	st.AddValue("assert", assert)
 
 	_, mod, err := starlark.SourceProgram("startest.RunString", code, func(name string) bool {
 		_, ok := st.predecls[name]
@@ -147,18 +148,8 @@ func (st *ST) RunString(code string) error {
 		if codeErr != nil {
 			return
 		}
-		thread.Load = func(_ *starlark.Thread, module string) (starlark.StringDict, error) {
-			if module == "assert.star" {
-				return assert, nil
-			}
-			return nil, internalError{errors.New("user modules prohibited")}
-		}
 		_, codeErr = mod.Init(thread, st.predecls)
 	})
-	if codeErr, ok := codeErr.(internalError); ok {
-		st.Error(codeErr)
-		return nil
-	}
 	return codeErr
 }
 

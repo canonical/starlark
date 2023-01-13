@@ -303,7 +303,7 @@ func TestRequireSafety(t *testing.T) {
 }
 
 func TestRunStringSyntaxError(t *testing.T) {
-	const expected = "startest.RunString:3:3: got '=', want primary expression"
+	const expected = "startest.RunString:2:3: got '=', want primary expression"
 
 	dummy := &dummyBase{}
 	st := startest.From(dummy)
