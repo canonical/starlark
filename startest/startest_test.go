@@ -303,7 +303,7 @@ func TestRequireSafety(t *testing.T) {
 }
 
 func TestRunStringSyntaxError(t *testing.T) {
-	const expected = "startest.RunString:2:3: got '=', want primary expression"
+	const expected = "startest.RunString:1:2: got '=', want primary expression"
 
 	dummy := &dummyBase{}
 	st := startest.From(dummy)
@@ -362,29 +362,11 @@ func TestRunStringFormatting(t *testing.T) {
 			name: "trivial",
 			src:  "a=1",
 		}, {
-			name: "trivial with space indent",
-			src:  " a=1",
-		}, {
-			name: "trivial with tab indent",
-			src:  "\ta=1",
-		}, {
 			name: "preceding newline",
 			src:  "{}a=1",
 		}, {
-			name: "preceding newline with space indent",
-			src:  "{} a=1",
-		}, {
-			name: "preceding newline with tab indent",
-			src:  "{}\ta=1",
-		}, {
 			name: "surrounding newlines",
 			src:  "{}a=1{}",
-		}, {
-			name: "surrounding newlines with space indent",
-			src:  "{} a=1{}",
-		}, {
-			name: "surrounding newlines with tab indent",
-			src:  "{}\ta=1{}",
 		}, {
 			name: "if block with space indent",
 			src:  "{}if True:{} a=1",

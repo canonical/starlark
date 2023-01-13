@@ -10,6 +10,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/canonical/starlark/resolve"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarktest"
 	"gopkg.in/check.v1"
@@ -97,24 +98,45 @@ func (st *ST) RunString(code string) error {
 		return nil
 	}
 
+	allowGlobalReassign := resolve.AllowGlobalReassign
+	defer func() {
+		resolve.AllowGlobalReassign = allowGlobalReassign
+	}()
+	resolve.AllowGlobalReassign = true
+
 	sb := strings.Builder{}
 	sb.Grow(len(code))
-	sb.WriteString("def __test__():\n")
 
 	isNewlineRune := func(r rune) bool { return r == '\r' || r == '\n' }
 	lines := strings.FieldsFunc(code, isNewlineRune)
 
-	if len(lines) > 1 && !isNewlineRune(rune(strings.TrimLeft(code, " \t")[0])) {
+	if len(lines) == 1 {
+		sb.WriteString(lines[0])
+	} else if !isNewlineRune(rune(strings.TrimLeft(code, " \t")[0])) {
 		st.Errorf(`Multi-line snippets should start with an empty line: got "%s"`, lines[0])
 		return nil
+	} else {
+		var trim string
+		var trimSet bool
+		for i, line := range lines {
+			if !trimSet {
+				trimmed := strings.TrimLeft(line, " \t")
+				if trimmed == "" {
+					sb.WriteRune('\n')
+					continue
+				}
+				trim = line[:len(line)-len(trimmed)]
+				trimSet = true
+			}
+			trimmed := strings.TrimPrefix(line, trim)
+			if len(trimmed) == len(line) && trim != "" && strings.Trim(line, " \t") != "" {
+				st.Errorf("Invalid indentation on line %d: expected line starting %#v but got %#v", i+1, trim, line)
+				return nil
+			}
+			sb.WriteString(trimmed)
+			sb.WriteRune('\n')
+		}
 	}
-
-	for _, line := range lines {
-		sb.WriteRune('\t')
-		sb.WriteString(line)
-		sb.WriteRune('\n')
-	}
-	sb.WriteString("__test__()")
 
 	code = sb.String()
 
@@ -130,6 +152,7 @@ func (st *ST) RunString(code string) error {
 	}
 
 	st.AddValue("st", st)
+	st.AddValue("assert", starlark.None)
 	st.AddLocal("Reporter", st) // Set starlarktest reporter outside of RunThread
 	st.AddValue("assert", assert)
 
