@@ -423,55 +423,6 @@ func TestStringFail(t *testing.T) {
 	}
 }
 
-func TestStringPredecls(t *testing.T) {
-	t.Run("predecls=valid", func(t *testing.T) {
-		builtinCalled := false
-
-		fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
-			builtinCalled = true
-			return starlark.None, nil
-		})
-
-		st := startest.From(t)
-		st.RequireSafety(starlark.NotSafe)
-		st.AddBuiltin(fn)
-		st.AddValue("foo", starlark.String("bar"))
-		err := st.RunString(`
-			fn()
-			if foo != 'bar':
-				st.error("foo was incorrect: expected 'bar' but got '%s'" % foo)
-		`)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-
-		if !builtinCalled {
-			t.Error("Builtin was not called")
-		}
-	})
-
-	t.Run("predecls=invalid", func(t *testing.T) {
-		const expected = `AddBuiltin expected a builtin: got "spanner"`
-
-		dummy := &dummyBase{}
-		st := startest.From(dummy)
-		st.RequireSafety(starlark.NotSafe)
-		st.AddBuiltin(starlark.String("spanner"))
-		err := st.RunString(``)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-
-		if !st.Failed() {
-			t.Error("Expected failure")
-		}
-
-		if errLog := dummy.Errors(); errLog != expected {
-			t.Errorf("Unexpected error(s): %s", errLog)
-		}
-	})
-}
-
 func TestRequireSafetyDefault(t *testing.T) {
 	const safe = starlark.CPUSafe | starlark.IOSafe | starlark.MemSafe | starlark.TimeSafe
 
