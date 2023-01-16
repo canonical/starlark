@@ -938,3 +938,66 @@ func TestAssertModuleIntegration(t *testing.T) {
 		}
 	})
 }
+
+func TestRunStringErrorPositions(t *testing.T) {
+	tests := []struct {
+		name        string
+		src         string
+		expect_line int
+	}{{
+		name:        "beginning of sole line",
+		src:         "=1",
+		expect_line: 1,
+	}, {
+		name:        "middle of sole line",
+		src:         "a=1=1",
+		expect_line: 1,
+	}, {
+		name:        "end of sole line",
+		src:         "a=",
+		expect_line: 1,
+	}, {
+		name:        "beginning of later line",
+		src:         "\na=1\nb=2\n=3\nd=4",
+		expect_line: 3,
+	}, {
+		name:        "middle of later line",
+		src:         "\na=1\nb=2=2\nc=3",
+		expect_line: 2,
+	}, {
+		name:        "end of later line",
+		src:         "\na=1\nb=\nc=3",
+		expect_line: 3,
+	}, {
+		name:        "missing indent",
+		src:         "\nif True:\na=1",
+		expect_line: 2,
+	}, {
+		name:        "in block",
+		src:         "\nif True:\n\t=2",
+		expect_line: 2,
+	}}
+
+	for _, test := range tests {
+		var overran bool
+
+		dummy := &dummyBase{}
+		err := dummy.Run(func() {
+			st := startest.From(dummy)
+			st.RunString(test.src)
+			overran = true
+		})
+		if err == nil {
+			t.Errorf("%s: expected fatal error", test.name)
+		}
+
+		if overran {
+			t.Errorf("%s: test continued after fatal error", test.name)
+		}
+
+		expectedLoc := fmt.Sprintf("startest.RunString:%d:", test.expect_line)
+		if errLog := dummy.Errors(); !strings.HasPrefix(errLog, expectedLoc) {
+			t.Errorf("%s: expected error at %s but got %#v", test.name, expectedLoc, errLog)
+		}
+	}
+}
