@@ -49,6 +49,20 @@ func (db *dummyBase) Errorf(format string, args ...interface{}) {
 	db.errors.WriteString(fmt.Errorf(format, args...).Error())
 }
 
+type dummyFatalError struct{}
+
+func (e dummyFatalError) Error() string { return "dummy fatal error" }
+
+func (db *dummyBase) Fatal(args ...interface{}) {
+	db.Error(args...)
+	panic(dummyFatalError{})
+}
+
+func (db *dummyBase) Fatalf(format string, args ...interface{}) {
+	db.Errorf(format, args...)
+	panic(dummyFatalError{})
+}
+
 func (db *dummyBase) Log(args ...interface{}) {
 	if db.logs == nil {
 		db.logs = &strings.Builder{}
@@ -90,6 +104,22 @@ func (db *dummyBase) Logs() string {
 		return ""
 	}
 	return db.logs.String()
+}
+
+func (db *dummyBase) Run(fn func()) (fatal error) {
+	defer func() {
+		if err := recover(); err != nil {
+			if err2, ok := err.(dummyFatalError); ok {
+				fatal = err2
+			} else {
+				panic(err)
+			}
+		}
+	}()
+
+	fn()
+
+	return nil
 }
 
 func TestKeepAlive(t *testing.T) {
@@ -306,14 +336,19 @@ func TestRunStringSyntaxError(t *testing.T) {
 	const expected = "startest.RunString:1:2: got '=', want primary expression"
 
 	dummy := &dummyBase{}
-	st := startest.From(dummy)
-	err := st.RunString("=1")
-	if err != nil {
-		t.Errorf("Unexpected error: %s", err)
-	}
+	err := dummy.Run(func() {
+		st := startest.From(dummy)
+		err := st.RunString("=1")
+		if err != nil {
+			t.Errorf("Unexpected error: %s", err)
+		}
 
-	if !st.Failed() {
-		t.Error("Expected failure")
+		if !st.Failed() {
+			t.Error("Expected failure")
+		}
+	})
+	if err == nil {
+		t.Errorf("Expected fatal error")
 	}
 
 	if errLog := dummy.Errors(); errLog != expected {
@@ -340,13 +375,17 @@ func TestRunStringFormatting(t *testing.T) {
 				src := strings.ReplaceAll(test.src, "{}", newline.code)
 
 				dummy := &dummyBase{}
-				st := startest.From(dummy)
-				if err := st.RunString(src); err != nil {
-					t.Errorf("%s: unexpected user error: %v", name, err)
+				err := dummy.Run(func() {
+					st := startest.From(dummy)
+					if err := st.RunString(src); err != nil {
+						t.Errorf("%s: unexpected error: %v", name, err)
+					}
+				})
+				if test.expect != "" && err == nil {
+					t.Errorf("%s: expected fatal error", test.name)
 				}
-				errLog := dummy.Errors()
 
-				if errLog != test.expect {
+				if errLog := dummy.Errors(); errLog != test.expect {
 					if errLog == "" {
 						t.Errorf("%s: expected error", name)
 					} else {
@@ -535,15 +574,21 @@ func TestRunStringError(t *testing.T) {
 
 	for _, test := range tests {
 		dummy := &dummyBase{}
-		st := startest.From(dummy)
-		err := st.RunString(fmt.Sprintf("st.error(%s)", test.src))
+		err := dummy.Run(func() {
+			st := startest.From(dummy)
+			err := st.RunString(fmt.Sprintf("st.error(%s)", test.src))
+			if err != nil {
+				t.Errorf("%s: unexpected error: %v", test.name, err)
+			}
+
+			if !st.Failed() {
+				t.Errorf("%s: expected failure", test.name)
+			}
+		})
 		if err != nil {
-			t.Errorf("%s: unexpected error: %v", test.name, err)
+			t.Errorf("%s: fatal error occurred", test.name)
 		}
 
-		if !st.Failed() {
-			t.Errorf("%s: expected failure", test.name)
-		}
 		if errLog := dummy.Errors(); errLog != test.expect {
 			t.Errorf("%s: unexpected error(s): expected '%s' but got '%s'", test.name, test.expect, errLog)
 		}
@@ -582,14 +627,19 @@ func TestRunStringPrint(t *testing.T) {
 
 	for _, test := range tests {
 		dummy := &dummyBase{}
-		st := startest.From(dummy)
-		st.RequireSafety(starlark.NotSafe)
-		err := st.RunString(fmt.Sprintf("print(%s)", test.args))
+		err := dummy.Run(func() {
+			st := startest.From(dummy)
+			st.RequireSafety(starlark.NotSafe)
+			err := st.RunString(fmt.Sprintf("print(%s)", test.args))
+			if err != nil {
+				t.Errorf("%s: unexpected error: %v", test.name, err)
+			}
+			if st.Failed() {
+				t.Errorf("%s: unexpected failure", test.name)
+			}
+		})
 		if err != nil {
-			t.Errorf("%s: unexpected error: %v", test.name, err)
-		}
-		if st.Failed() {
-			t.Errorf("%s: unexpected failure", test.name)
+			t.Errorf("%s: unexpected fatal error", test.name)
 		}
 
 		if errLog := dummy.Errors(); errLog != "" {
@@ -641,11 +691,15 @@ func TestRunStringPredecls(t *testing.T) {
 
 		for _, test := range tests {
 			dummy := &dummyBase{}
-			st := startest.From(dummy)
-			st.AddBuiltin(test.input)
-
-			if !st.Failed() {
-				t.Errorf("%s: expected failure with input %v", test.name, test.input)
+			err := dummy.Run(func() {
+				st := startest.From(dummy)
+				st.AddBuiltin(test.input)
+				if !st.Failed() {
+					t.Errorf("%s: expected failure with input %v", test.name, test.input)
+				}
+			})
+			if err == nil {
+				t.Errorf("%s: expected fatal error", test.name)
 			}
 
 			if errLog := dummy.Errors(); errLog != test.expect {
@@ -761,20 +815,25 @@ func TestRunStringMemSafety(t *testing.T) {
 		})
 
 		dummy := &dummyBase{}
-		st := startest.From(dummy)
-		st.SetMaxAllocs(128)
-		st.AddBuiltin(overallocate)
-		st.AddBuiltin(safeRange)
-		err := st.RunString(`
-			for _ in range(st.n):
-				st.keep_alive(overallocate())
-		`)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
+		err := dummy.Run(func() {
+			st := startest.From(dummy)
+			st.SetMaxAllocs(128)
+			st.AddBuiltin(overallocate)
+			st.AddBuiltin(safeRange)
+			err := st.RunString(`
+				for _ in range(st.n):
+					st.keep_alive(overallocate())
+			`)
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
 
-		if !st.Failed() {
-			t.Error("Expected failure")
+			if !st.Failed() {
+				t.Error("Expected failure")
+			}
+		})
+		if err != nil {
+			t.Error("Unexpected fatal error")
 		}
 
 		if errLog := dummy.Errors(); errLog != expected {
@@ -873,17 +932,22 @@ func TestAssertModuleIntegration(t *testing.T) {
 
 		for _, test := range tests {
 			dummy := &dummyBase{}
-			st := startest.From(dummy)
-			st.AddBuiltin(no_error)
-			if err := st.RunString(test.input); err != nil {
-				t.Errorf("%s: unexpected error when running '%s': %v", test.name, test.input, err)
+			err := dummy.Run(func() {
+				st := startest.From(dummy)
+				st.AddBuiltin(no_error)
+				if err := st.RunString(test.input); err != nil {
+					t.Errorf("%s: unexpected error when running '%s': %v", test.name, test.input, err)
+				}
+
+				if !st.Failed() {
+					t.Errorf("%s: expected failure when running '%s'", test.name, test.input)
+				}
+			})
+			if err != nil {
+				t.Error("Unexpected fatal error")
 			}
 
-			if !st.Failed() {
-				t.Errorf("%s: expected failure when running '%s'", test.name, test.input)
-			}
-
-			if errLog := dummy.Errors(); strings.HasPrefix(errLog, test.expect) {
+			if errLog := dummy.Errors(); errLog == test.expect {
 				t.Errorf("%s: unexpected error(s): %s", test.name, errLog)
 			}
 		}

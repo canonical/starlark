@@ -17,8 +17,10 @@ import (
 )
 
 type TestBase interface {
-	Error(err ...interface{})
-	Errorf(format string, err ...interface{})
+	Error(args ...interface{})
+	Errorf(format string, args ...interface{})
+	Fatal(args ...interface{})
+	Fatalf(format string, args ...interface{})
 	Failed() bool
 	Log(args ...interface{})
 	Logf(fmt string, args ...interface{})
@@ -49,6 +51,16 @@ func From(base TestBase) *ST {
 	return &ST{TestBase: base, maxAllocs: math.MaxUint64}
 }
 
+func (st *ST) Fatal(args ...interface{}) {
+	st.TestBase.Fatal(args...)
+	panic(fmt.Sprintf("did not expect %T.Fatal to return", st.TestBase))
+}
+
+func (st *ST) Fatalf(format string, args ...interface{}) {
+	st.TestBase.Fatalf(format, args...)
+	panic(fmt.Sprintf("did not expect %T.Fatalf to return", st.TestBase))
+}
+
 // SetMaxAllocs optionally sets the max allocations allowed per test.N
 func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
@@ -74,8 +86,7 @@ func (st *ST) AddValue(name string, value starlark.Value) {
 func (st *ST) AddBuiltin(fn starlark.Value) {
 	builtin, ok := fn.(*starlark.Builtin)
 	if !ok {
-		st.Errorf("AddBuiltin expected a builtin: got %v", fn)
-		return
+		st.Fatalf("AddBuiltin expected a builtin: got %v", fn)
 	}
 
 	st.AddValue(builtin.Name(), builtin)
@@ -113,8 +124,7 @@ func (st *ST) RunString(code string) error {
 	if len(lines) == 1 {
 		sb.WriteString(lines[0])
 	} else if !isNewlineRune(rune(strings.TrimLeft(code, " \t")[0])) {
-		st.Errorf(`Multi-line snippets should start with an empty line: got "%s"`, lines[0])
-		return nil
+		st.Fatalf(`Multi-line snippets should start with an empty line: got "%s"`, lines[0])
 	} else {
 		var trim string
 		var trimSet bool
@@ -130,8 +140,7 @@ func (st *ST) RunString(code string) error {
 			}
 			trimmed := strings.TrimPrefix(line, trim)
 			if len(trimmed) == len(line) && trim != "" && strings.Trim(line, " \t") != "" {
-				st.Errorf("Invalid indentation on line %d: expected line starting %#v but got %#v", i+1, trim, line)
-				return nil
+				st.Fatalf("Invalid indentation on line %d: expected line starting %#v but got %#v", i+1, trim, line)
 			}
 			sb.WriteString(trimmed)
 			sb.WriteRune('\n')
@@ -142,13 +151,11 @@ func (st *ST) RunString(code string) error {
 
 	assertMembers, err := starlarktest.LoadAssertModule()
 	if err != nil {
-		st.Errorf("internal error: %v", err)
-		return nil
+		st.Fatalf("internal error: %v", err)
 	}
 	assert, ok := assertMembers["assert"]
 	if !ok {
-		st.Errorf("internal error: no 'assert' defined in assert module")
-		return nil
+		st.Fatalf("internal error: no 'assert' defined in assert module")
 	}
 
 	st.AddValue("st", st)
@@ -161,8 +168,7 @@ func (st *ST) RunString(code string) error {
 		return ok
 	})
 	if err != nil {
-		st.Error(err)
-		return nil
+		st.Fatal(err)
 	}
 
 	var codeErr error
