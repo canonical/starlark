@@ -252,18 +252,18 @@ type StringBuilder interface {
 	Len() int
 }
 
-func (thread *Thread) CreateStringBuilder() *TrackingStringBuilder {
-	return &TrackingStringBuilder{new(strings.Builder), thread, nil}
+func (thread *Thread) CreateStringBuilder() *SafeStringBuilder {
+	return &SafeStringBuilder{new(strings.Builder), thread, nil}
 }
 
-type TrackingStringBuilder struct {
+type SafeStringBuilder struct {
 	builder *strings.Builder
 	thread  *Thread
 
 	growError error
 }
 
-func (tb *TrackingStringBuilder) grow(n int) error {
+func (tb *SafeStringBuilder) grow(n int) error {
 	if tb.Cap()-tb.Len() < n {
 		// Make sure that we can allocate more
 		if err := tb.thread.CheckAllocs(int64(tb.Cap()*2 + n)); err != nil {
@@ -274,13 +274,13 @@ func (tb *TrackingStringBuilder) grow(n int) error {
 	return nil
 }
 
-func (tb *TrackingStringBuilder) Grow(n int) {
+func (tb *SafeStringBuilder) Grow(n int) {
 	if err := tb.grow(n); err != nil {
 		tb.growError = err
 	}
 }
 
-func (tb *TrackingStringBuilder) Write(b []byte) (int, error) {
+func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
 	if tb.growError != nil {
 		return 0, tb.growError
 	}
@@ -292,7 +292,7 @@ func (tb *TrackingStringBuilder) Write(b []byte) (int, error) {
 	return tb.builder.Write(b)
 }
 
-func (tb *TrackingStringBuilder) WriteString(s string) (int, error) {
+func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
 	if tb.growError != nil {
 		return 0, tb.growError
 	}
@@ -304,7 +304,7 @@ func (tb *TrackingStringBuilder) WriteString(s string) (int, error) {
 	return tb.builder.WriteString(s)
 }
 
-func (tb *TrackingStringBuilder) WriteByte(b byte) error {
+func (tb *SafeStringBuilder) WriteByte(b byte) error {
 	if tb.growError != nil {
 		return tb.growError
 	}
@@ -316,7 +316,7 @@ func (tb *TrackingStringBuilder) WriteByte(b byte) error {
 	return tb.builder.WriteByte(b)
 }
 
-func (tb *TrackingStringBuilder) WriteRune(r rune) (int, error) {
+func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 	if tb.growError != nil {
 		return 0, tb.growError
 	}
@@ -335,9 +335,9 @@ func (tb *TrackingStringBuilder) WriteRune(r rune) (int, error) {
 	return tb.builder.WriteRune(r)
 }
 
-func (tb *TrackingStringBuilder) Cap() int       { return tb.builder.Cap() }
-func (tb *TrackingStringBuilder) Len() int       { return tb.builder.Len() }
-func (tb *TrackingStringBuilder) String() string { return tb.builder.String() }
+func (tb *SafeStringBuilder) Cap() int       { return tb.builder.Cap() }
+func (tb *SafeStringBuilder) Len() int       { return tb.builder.Len() }
+func (tb *SafeStringBuilder) String() string { return tb.builder.String() }
 
 // A StringDict is a mapping from names to values, and represents
 // an environment such as the global variables of a module.
