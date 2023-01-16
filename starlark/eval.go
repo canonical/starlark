@@ -263,10 +263,15 @@ type SafeStringBuilder struct {
 	growError error
 }
 
-func (tb *SafeStringBuilder) grow(n int) error {
+func (tb *SafeStringBuilder) checkGrow(n int) error {
+	if tb.growError != nil {
+		return tb.growError
+	}
+
 	if tb.Cap()-tb.Len() < n {
 		// Make sure that we can allocate more
 		if err := tb.thread.CheckAllocs(int64(tb.Cap()*2 + n)); err != nil {
+			tb.growError = err
 			return err
 		}
 		tb.builder.Grow(n)
@@ -275,17 +280,11 @@ func (tb *SafeStringBuilder) grow(n int) error {
 }
 
 func (tb *SafeStringBuilder) Grow(n int) {
-	if err := tb.grow(n); err != nil {
-		tb.growError = err
-	}
+	tb.checkGrow(n)
 }
 
 func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
-	if tb.growError != nil {
-		return 0, tb.growError
-	}
-
-	if err := tb.grow(len(b)); err != nil {
+	if err := tb.checkGrow(len(b)); err != nil {
 		return 0, err
 	}
 
@@ -293,11 +292,7 @@ func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
 }
 
 func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
-	if tb.growError != nil {
-		return 0, tb.growError
-	}
-
-	if err := tb.grow(len(s)); err != nil {
+	if err := tb.checkGrow(len(s)); err != nil {
 		return 0, err
 	}
 
@@ -305,11 +300,7 @@ func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
 }
 
 func (tb *SafeStringBuilder) WriteByte(b byte) error {
-	if tb.growError != nil {
-		return tb.growError
-	}
-
-	if err := tb.grow(1); err != nil {
+	if err := tb.checkGrow(1); err != nil {
 		return err
 	}
 
@@ -317,10 +308,6 @@ func (tb *SafeStringBuilder) WriteByte(b byte) error {
 }
 
 func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
-	if tb.growError != nil {
-		return 0, tb.growError
-	}
-
 	var growAmount int
 	if r < utf8.RuneSelf {
 		growAmount = 1
@@ -328,7 +315,7 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 		growAmount = utf8.UTFMax
 	}
 
-	if err := tb.grow(growAmount); err != nil {
+	if err := tb.checkGrow(growAmount); err != nil {
 		return 0, err
 	}
 
