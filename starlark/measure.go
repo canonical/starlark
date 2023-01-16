@@ -159,73 +159,73 @@ func estimateStructFields(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	// FIXME strings are counted multiple times
 	if seen != nil {
+		if v.CanAddr() {
+			ptr := v.Addr().Pointer()
+
+			if _, ok := seen[ptr]; ok {
+				return 0
+			} else {
+				seen[ptr] = struct{}{}
+			}
+		}
+
 		switch v.Kind() {
 		case reflect.Interface:
-			elem := v.Elem()
-			if elem.Kind() != reflect.Ptr {
-				ptr := v.Addr().Pointer()
-
-				if _, ok := seen[ptr]; ok {
-					return 0
-				} else {
-					seen[ptr] = struct{}{}
-				}
+			if !v.IsNil() {
+				return estimateInterface(v.Elem(), seen)
+			} else {
+				return 0
 			}
-			return estimateInterface(elem, seen)
 
 		case reflect.Ptr:
-			elem := v.Elem()
-			if elem.Kind() != reflect.Interface {
+			if !v.IsNil() {
+				elem := v.Elem()
+				return estimateSize(elem, seen) + getAllocSize(elem.Type().Size())
+			} else {
+				return 0
+			}
+
+		case reflect.Map:
+			if !v.IsNil() {
 				ptr := v.Pointer()
 				if _, ok := seen[ptr]; ok {
 					return 0
 				} else {
 					seen[ptr] = struct{}{}
+					return estimateMap(v, seen) + estimateMapElements(v, seen)
 				}
-			}
-			return estimateSize(elem, seen) + getAllocSize(elem.Type().Size())
-
-		case reflect.Map:
-			ptr := v.Pointer()
-			if _, ok := seen[ptr]; ok {
-				return 0
-			} else {
-				seen[ptr] = struct{}{}
-				return estimateMap(v, seen) + estimateMapElements(v, seen)
 			}
 
 		case reflect.Slice:
-			ptr := v.Pointer()
-			if _, ok := seen[ptr]; ok {
-				return 0
+			if !v.IsNil() {
+				ptr := v.Pointer()
+				if _, ok := seen[ptr]; ok {
+					return 0
+				} else {
+					seen[ptr] = struct{}{}
+					return estimateSlice(v) + estimateSliceValues(v, seen)
+				}
 			} else {
-				seen[ptr] = struct{}{}
-				return estimateSlice(v) + estimateSliceValues(v, seen)
+				return 0
 			}
 
 		case reflect.Chan:
-			ptr := v.Pointer()
-			if _, ok := seen[ptr]; ok {
-				return 0
+			if !v.IsNil() {
+				ptr := v.Pointer()
+				if _, ok := seen[ptr]; ok {
+					return 0
+				} else {
+					seen[ptr] = struct{}{}
+					return estimateChan(v)
+				}
 			} else {
-				seen[ptr] = struct{}{}
-				return estimateChan(v)
+				return 0
 			}
 
 		case reflect.Struct:
 			return estimateStructFields(v, seen)
 
 		case reflect.Array:
-			// This doesn't cover all the cases.
-			if v.CanAddr() {
-				ptr := v.Addr().Pointer()
-
-				if _, ok := seen[ptr]; ok {
-					return 0
-				} else {
-					seen[ptr] = struct{}{}
-				}
-			}
 			return estimateSliceValues(v, seen)
 
 		case reflect.String:
@@ -233,16 +233,8 @@ func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 			len := v.Len()
 			if len != 0 {
 				// Getting the pointer from a string is ugly.
-				str := v.String()
-				ptr := (*reflect.StringHeader)(unsafe.Pointer(&str)).Data
-
-				if _, ok := seen[ptr]; !ok {
-					seen[ptr] = struct{}{}
-					return getAllocSize(uintptr(len))
-				}
+				return getAllocSize(uintptr(len))
 			}
-
-			return 0
 		}
 	} else {
 		// In the case of slices, maps and strings we count the first level of memory
