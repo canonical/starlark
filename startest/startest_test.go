@@ -972,6 +972,10 @@ func TestRunStringErrorPositions(t *testing.T) {
 		src:         "a=",
 		expect_line: 1,
 	}, {
+		name:        "beginning of multi-line",
+		src:         "\n=1\nb=2",
+		expect_line: 1,
+	}, {
 		name:        "beginning of later line",
 		src:         "\na=1\nb=2\n=3\nd=4",
 		expect_line: 3,
