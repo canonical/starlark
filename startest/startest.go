@@ -51,11 +51,13 @@ func From(base TestBase) *ST {
 	return &ST{TestBase: base, maxAllocs: math.MaxUint64}
 }
 
+// Fatal calls the underlying st.TestBase.Fatal. It does not return.
 func (st *ST) Fatal(args ...interface{}) {
 	st.TestBase.Fatal(args...)
 	panic(fmt.Sprintf("did not expect %T.Fatal to return", st.TestBase))
 }
 
+// Fatalf calls the underlying st.TestBase.Fatalf. It does not return.
 func (st *ST) Fatalf(format string, args ...interface{}) {
 	st.TestBase.Fatalf(format, args...)
 	panic(fmt.Sprintf("did not expect %T.Fatalf to return", st.TestBase))
@@ -101,7 +103,8 @@ func (st *ST) AddLocal(name string, value interface{}) {
 	st.locals[name] = value
 }
 
-// RunString tests a string of starlark code.
+// RunString tests a string of starlark code and returns any error from its
+// execution. Errors encountered during setup are fatal.
 func (st *ST) RunString(code string) error {
 	code = strings.TrimRight(code, " \t\r\n")
 
