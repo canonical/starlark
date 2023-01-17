@@ -130,7 +130,7 @@ func (st *ST) RunString(code string) error {
 		var trimSet bool
 		for i, line := range lines[1:] {
 			if !trimSet {
-				trimmed := strings.TrimLeft(line, " \t")
+				trimmed := strings.TrimLeft(line, "\t")
 				if trimmed == "" {
 					sb.WriteRune('\n')
 					continue
