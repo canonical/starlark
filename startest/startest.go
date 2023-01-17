@@ -106,9 +106,7 @@ func (st *ST) AddLocal(name string, value interface{}) {
 // RunString tests a string of starlark code and returns any error from its
 // execution. Errors encountered during setup are fatal.
 func (st *ST) RunString(code string) error {
-	code = strings.TrimRight(code, " \t\r\n")
-
-	if code == "" {
+	if code = strings.TrimRight(code, " \t\r\n"); code == "" {
 		return nil
 	}
 
