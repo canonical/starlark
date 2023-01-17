@@ -273,12 +273,15 @@ func (st *ST) Truth() starlark.Bool  { return starlark.True }
 func (st *ST) Hash() (uint32, error) { return 0, errors.New("unhashable type: startest.ST") }
 
 var errorMethod = starlark.NewBuiltinWithSafety("error", stSafe, st_error)
+var fatalMethod = starlark.NewBuiltinWithSafety("fatal", stSafe, st_fatal)
 var keepAliveMethod = starlark.NewBuiltinWithSafety("keep_alive", stSafe, st_keep_alive)
 
 func (st *ST) Attr(name string) (starlark.Value, error) {
 	switch name {
 	case "error":
 		return errorMethod.BindReceiver(st), nil
+	case "fatal":
+		return fatalMethod.BindReceiver(st), nil
 	case "keep_alive":
 		return keepAliveMethod.BindReceiver(st), nil
 	case "n":
@@ -290,6 +293,7 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 func (*ST) AttrNames() []string {
 	return []string{
 		"error",
+		"fatal",
 		"keep_alive",
 		"n",
 	}
@@ -302,7 +306,24 @@ func st_error(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwar
 	}
 
 	recv := b.Receiver().(*ST)
-	errs := make([]interface{}, 0, len(args))
+	recv.Error(errReprs(args)...)
+	return starlark.None, nil
+}
+
+// st_fatal logs the passed starlark objects as errors in the current test
+// before aborting it.
+func st_fatal(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	if len(kwargs) != 0 {
+		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
+	}
+
+	recv := b.Receiver().(*ST)
+	recv.Fatal(errReprs(args)...)
+	panic(fmt.Sprintf("internal error: %T.Fatal returned", recv))
+}
+
+func errReprs(args []starlark.Value) []interface{} {
+	reprs := make([]interface{}, 0, len(args))
 	for _, arg := range args {
 		var repr string
 		if s, ok := arg.(starlark.String); ok {
@@ -310,10 +331,9 @@ func st_error(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwar
 		} else {
 			repr = arg.String()
 		}
-		errs = append(errs, repr)
+		reprs = append(reprs, repr)
 	}
-	recv.Error(errs...)
-	return starlark.None, nil
+	return reprs
 }
 
 // st_keep_alive prevents the memory of the passed starlark objects being
