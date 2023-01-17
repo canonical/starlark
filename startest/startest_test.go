@@ -382,7 +382,7 @@ func TestRunStringFormatting(t *testing.T) {
 					}
 				})
 				if test.expect != "" && err == nil {
-					t.Errorf("%s: expected fatal error", test.name)
+					t.Errorf("%s: expected fatal error", name)
 				}
 
 				if errLog := dummy.Errors(); errLog != test.expect {
