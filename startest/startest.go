@@ -55,13 +55,13 @@ func From(base TestBase) *ST {
 // Fatal calls the underlying st.TestBase.Fatal. It does not return.
 func (st *ST) Fatal(args ...interface{}) {
 	st.TestBase.Fatal(args...)
-	panic(fmt.Sprintf("did not expect %T.Fatal to return", st.TestBase))
+	panic(fmt.Sprintf("internal error: %T.Fatal returned", st.TestBase))
 }
 
 // Fatalf calls the underlying st.TestBase.Fatalf. It does not return.
 func (st *ST) Fatalf(format string, args ...interface{}) {
 	st.TestBase.Fatalf(format, args...)
-	panic(fmt.Sprintf("did not expect %T.Fatalf to return", st.TestBase))
+	panic(fmt.Sprintf("internal error: %T.Fatalf returned", st.TestBase))
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per test.N
