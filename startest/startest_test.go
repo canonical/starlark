@@ -416,36 +416,33 @@ func TestRunStringFormatting(t *testing.T) {
 		testFormatting(t, tests)
 	})
 
-	t.Run("formatting=invalid", func(t *testing.T) {
+	t.Run("formatting=mistake-prone", func(t *testing.T) {
 		tests := []formattingTest{{
-			name:   "unnecessary indent",
-			src:    "a=1{}\tb=1",
-			expect: `Multi-line snippets should start with an empty line: got "a=1"`,
+			name: "sequence",
+			src:  "a=1{}b=2",
 		}, {
-			name:   "missing indent",
-			src:    "if True:{}a=1",
-			expect: `Multi-line snippets should start with an empty line: got "if True:"`,
+			name: "branch",
+			src:  "if True:{}\ta=1",
 		}, {
-			name:   "bad indentation",
-			src:    "    a=1{}        b=2",
-			expect: `Multi-line snippets should start with an empty line: got "    a=1"`,
+			name: "indented",
+			src:  "\ta=1{}\tb=2",
 		}}
 		testFormatting(t, tests)
 	})
 
-	t.Run("formatting=mistake-prone", func(t *testing.T) {
+	t.Run("formatting=invalid", func(t *testing.T) {
 		tests := []formattingTest{{
-			name:   "sequence",
-			src:    "a=1{}b=2",
-			expect: `Multi-line snippets should start with an empty line: got "a=1"`,
+			name:   "unnecessary indent",
+			src:    "a=1{}\tb=1",
+			expect: `startest.RunString:2:2: got indent, want primary expression`,
 		}, {
-			name:   "branch",
-			src:    "if True:{}\ta=1",
-			expect: `Multi-line snippets should start with an empty line: got "if True:"`,
+			name:   "indented unnecessary indent",
+			src:    "\ta=1{}\t\tb=2",
+			expect: `startest.RunString:2:2: got indent, want primary expression`,
 		}, {
-			name:   "indented",
-			src:    "    a=1{}    b=2",
-			expect: `Multi-line snippets should start with an empty line: got "    a=1"`,
+			name:   "missing indent",
+			src:    "if True:{}a=1",
+			expect: `startest.RunString:2:2: got identifier, want indent`,
 		}}
 		testFormatting(t, tests)
 	})
