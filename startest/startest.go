@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -119,22 +120,23 @@ func (st *ST) RunString(code string) error {
 	sb := strings.Builder{}
 	sb.Grow(len(code))
 
-	isNewlineRune := func(r rune) bool { return r == '\r' || r == '\n' }
-	lines := strings.FieldsFunc(code, isNewlineRune)
-
+	lines := regexp.MustCompile("\r|\n|\r\n").Split(code, -1)
 	if len(lines) == 1 {
 		sb.WriteString(lines[0])
-	} else if !isNewlineRune(rune(strings.TrimLeft(code, " \t")[0])) {
+	} else if strings.Trim(lines[0], " \t") != "" {
 		st.Fatalf(`Multi-line snippets should start with an empty line: got "%s"`, lines[0])
 	} else {
 		var trim string
 		var trimSet bool
-		for i, line := range lines {
+		for i, line := range lines[1:] {
 			if !trimSet {
 				trimmed := strings.TrimLeft(line, " \t")
 				if trimmed == "" {
 					sb.WriteRune('\n')
 					continue
+				}
+				if trimmed[0] == ' ' {
+					st.Fatalf("Tabs and spaces mixed early in string: %#v" + code)
 				}
 				trim = line[:len(line)-len(trimmed)]
 				trimSet = true

@@ -972,6 +972,10 @@ func TestRunStringErrorPositions(t *testing.T) {
 		src:         "a=",
 		expect_line: 1,
 	}, {
+		name:        "beginning of sole line after blanks",
+		src:         "\n\n\n\n\n\n\n=1",
+		expect_line: 7,
+	}, {
 		name:        "beginning of multi-line",
 		src:         "\n=1\nb=2",
 		expect_line: 1,
