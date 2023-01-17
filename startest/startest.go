@@ -134,7 +134,7 @@ func (st *ST) RunString(code string) error {
 					continue
 				}
 				if trimmed[0] == ' ' {
-					st.Fatalf("Tabs and spaces mixed early in string: %#v" + code)
+					st.Fatalf("Tabs and spaces mixed early in string: %#v", code)
 				}
 				trim = line[:len(line)-len(trimmed)]
 				trimSet = true
