@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -110,47 +109,16 @@ func (st *ST) RunString(code string) error {
 	if code = strings.TrimRight(code, " \t\r\n"); code == "" {
 		return nil
 	}
+	code, err := Reindent(code)
+	if err != nil {
+		st.Fatal(err)
+	}
 
 	allowGlobalReassign := resolve.AllowGlobalReassign
 	defer func() {
 		resolve.AllowGlobalReassign = allowGlobalReassign
 	}()
 	resolve.AllowGlobalReassign = true
-
-	sb := strings.Builder{}
-	sb.Grow(len(code))
-
-	lines := regexp.MustCompile("\r\n|\r|\n").Split(code, -1)
-	if len(lines) == 1 {
-		sb.WriteString(lines[0])
-	} else {
-		var trim string
-		var trimSet bool
-		for i, line := range lines {
-			if !trimSet {
-				trimmed := strings.TrimLeft(line, "\t")
-				if trimmed == "" {
-					if i != 0 {
-						sb.WriteRune('\n')
-					}
-					continue
-				}
-				if trimmed[0] == ' ' {
-					st.Fatalf("Tabs and spaces mixed early in string: %#v", code)
-				}
-				trim = line[:len(line)-len(trimmed)]
-				trimSet = true
-			}
-			trimmed := strings.TrimPrefix(line, trim)
-			if len(trimmed) == len(line) && trim != "" && strings.Trim(line, " \t") != "" {
-				st.Fatalf("Invalid indentation on line %d: expected line starting %#v but got %#v", i+1, trim, line)
-			}
-			sb.WriteString(trimmed)
-			sb.WriteRune('\n')
-		}
-	}
-
-	code = sb.String()
 
 	assertMembers, err := starlarktest.LoadAssertModule()
 	if err != nil {
