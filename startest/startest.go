@@ -162,7 +162,6 @@ func (st *ST) RunString(code string) error {
 	}
 
 	st.AddValue("st", st)
-	st.AddValue("assert", starlark.None)
 	st.AddLocal("Reporter", st) // Set starlarktest reporter outside of RunThread
 	st.AddValue("assert", assert)
 
