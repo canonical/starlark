@@ -120,11 +120,9 @@ func (st *ST) RunString(code string) error {
 	sb := strings.Builder{}
 	sb.Grow(len(code))
 
-	lines := regexp.MustCompile("\r|\n|\r\n").Split(code, -1)
+	lines := regexp.MustCompile("\r\n|\r|\n").Split(code, -1)
 	if len(lines) == 1 {
 		sb.WriteString(lines[0])
-	} else if strings.Trim(lines[0], " \t") != "" {
-		st.Fatalf(`Multi-line snippets should start with an empty line: got "%s"`, lines[0])
 	} else {
 		var trim string
 		var trimSet bool

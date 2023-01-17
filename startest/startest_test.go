@@ -356,6 +356,11 @@ func TestRunStringSyntaxError(t *testing.T) {
 	}
 }
 
+var newlines = []struct {
+	name string
+	code string
+}{{"CR", "\r"}, {"LF", "\n"}, {"CRLF", "\r\n"}}
+
 func TestRunStringFormatting(t *testing.T) {
 	type formattingTest struct {
 		name   string
@@ -364,11 +369,6 @@ func TestRunStringFormatting(t *testing.T) {
 	}
 
 	testFormatting := func(t *testing.T, tests []formattingTest) {
-		newlines := []struct {
-			name string
-			code string
-		}{{"CR", "\r"}, {"LF", "\n"}, {"CRLF", "\r\n"}}
-
 		for _, test := range tests {
 			for _, newline := range newlines {
 				name := fmt.Sprintf("%s (newline=%s)", test.name, newline.name)
@@ -973,54 +973,58 @@ func TestRunStringErrorPositions(t *testing.T) {
 		expect_line: 1,
 	}, {
 		name:        "beginning of sole line after blanks",
-		src:         "\n\n\n\n\n\n\n=1",
+		src:         "{}{}{}{}{}{}{}=1",
 		expect_line: 7,
 	}, {
 		name:        "beginning of multi-line",
-		src:         "\n=1\nb=2",
+		src:         "{}=1{}b=2",
 		expect_line: 1,
 	}, {
 		name:        "beginning of later line",
-		src:         "\na=1\nb=2\n=3\nd=4",
+		src:         "{}a=1{}b=2{}=3{}d=4",
 		expect_line: 3,
 	}, {
 		name:        "middle of later line",
-		src:         "\na=1\nb=2=2\nc=3",
+		src:         "{}a=1{}b=2=2{}c=3",
 		expect_line: 2,
 	}, {
 		name:        "end of later line",
-		src:         "\na=1\nb=\nc=3",
+		src:         "{}a=1{}b={}c=3",
 		expect_line: 3,
 	}, {
 		name:        "missing indent",
-		src:         "\nif True:\na=1",
+		src:         "{}if True:{}a=1",
 		expect_line: 2,
 	}, {
 		name:        "in block",
-		src:         "\nif True:\n\t=2",
+		src:         "{}if True:{}\t=2",
 		expect_line: 2,
 	}}
 
 	for _, test := range tests {
-		var overran bool
+		for _, newline := range newlines {
+			name := fmt.Sprintf("%s (newline=%s)", test.name, newline.name)
+			src := strings.ReplaceAll(test.src, "{}", newline.code)
 
-		dummy := &dummyBase{}
-		err := dummy.Run(func() {
-			st := startest.From(dummy)
-			st.RunString(test.src)
-			overran = true
-		})
-		if err == nil {
-			t.Errorf("%s: expected fatal error", test.name)
-		}
+			var overran bool
+			dummy := &dummyBase{}
+			err := dummy.Run(func() {
+				st := startest.From(dummy)
+				st.RunString(src)
+				overran = true
+			})
+			if err == nil {
+				t.Errorf("%s: expected fatal error", name)
+			}
 
-		if overran {
-			t.Errorf("%s: test continued after fatal error", test.name)
-		}
+			if overran {
+				t.Errorf("%s: test continued after fatal error", name)
+			}
 
-		expectedLoc := fmt.Sprintf("startest.RunString:%d:", test.expect_line)
-		if errLog := dummy.Errors(); !strings.HasPrefix(errLog, expectedLoc) {
-			t.Errorf("%s: expected error at %s but got %#v", test.name, expectedLoc, errLog)
+			expectedLoc := fmt.Sprintf("startest.RunString:%d:", test.expect_line)
+			if errLog := dummy.Errors(); !strings.HasPrefix(errLog, expectedLoc) {
+				t.Errorf("%s: expected error at %s but got %#v", name, expectedLoc, errLog)
+			}
 		}
 	}
 }
