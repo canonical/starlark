@@ -126,11 +126,13 @@ func (st *ST) RunString(code string) error {
 	} else {
 		var trim string
 		var trimSet bool
-		for i, line := range lines[1:] {
+		for i, line := range lines {
 			if !trimSet {
 				trimmed := strings.TrimLeft(line, "\t")
 				if trimmed == "" {
-					sb.WriteRune('\n')
+					if i != 0 {
+						sb.WriteRune('\n')
+					}
 					continue
 				}
 				if trimmed[0] == ' ' {

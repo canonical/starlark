@@ -952,11 +952,13 @@ func TestAssertModuleIntegration(t *testing.T) {
 }
 
 func TestRunStringErrorPositions(t *testing.T) {
-	tests := []struct {
+	type test struct {
 		name        string
 		src         string
 		expect_line int
-	}{{
+	}
+
+	tests := []test{{
 		name:        "beginning of sole line",
 		src:         "=1",
 		expect_line: 1,
@@ -972,31 +974,42 @@ func TestRunStringErrorPositions(t *testing.T) {
 		name:        "beginning of sole line after blanks",
 		src:         "{}{}{}{}{}{}{}=1",
 		expect_line: 7,
-	}, {
+	}}
+
+	multiLineTests := []test{{
 		name:        "beginning of multi-line",
-		src:         "{}=1{}b=2",
+		src:         "=1{}b=2",
 		expect_line: 1,
 	}, {
 		name:        "beginning of later line",
-		src:         "{}a=1{}b=2{}=3{}d=4",
+		src:         "a=1{}b=2{}=3{}d=4",
 		expect_line: 3,
 	}, {
 		name:        "middle of later line",
-		src:         "{}a=1{}b=2=2{}c=3",
+		src:         "a=1{}b=2=2{}c=3",
 		expect_line: 2,
 	}, {
 		name:        "end of later line",
-		src:         "{}a=1{}b={}c=3",
+		src:         "a=1{}b={}c=3",
 		expect_line: 3,
 	}, {
 		name:        "missing indent",
-		src:         "{}if True:{}a=1",
+		src:         "if True:{}a=1",
 		expect_line: 2,
 	}, {
 		name:        "in block",
-		src:         "{}if True:{}\t=2",
+		src:         "if True:{}\t=2",
 		expect_line: 2,
 	}}
+
+	for _, test := range multiLineTests {
+		tests = append(tests, test)
+
+		prettyTest := test
+		prettyTest.name = fmt.Sprintf("%s (with pretty newline)", test.name)
+		prettyTest.src = "{}" + prettyTest.src
+		tests = append(tests, prettyTest)
+	}
 
 	for _, test := range tests {
 		for _, newline := range newlines {
