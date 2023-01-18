@@ -358,6 +358,9 @@ func TestRunStringSyntax(t *testing.T) {
 
 	t.Run("formatting=valid", func(t *testing.T) {
 		tests := []formattingTest{{
+			name: "empty",
+			src:  "",
+		}, {
 			name: "trivial",
 			src:  "a=1",
 		}, {
