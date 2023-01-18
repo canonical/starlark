@@ -106,22 +106,6 @@ func (db *dummyBase) Logs() string {
 	return db.logs.String()
 }
 
-func (db *dummyBase) Run(fn func()) (fatal error) {
-	defer func() {
-		if err := recover(); err != nil {
-			if err2, ok := err.(dummyFatalError); ok {
-				fatal = err2
-			} else {
-				panic(err)
-			}
-		}
-	}()
-
-	fn()
-
-	return nil
-}
-
 func TestKeepAlive(t *testing.T) {
 	// Check for a non-allocating routine
 	t.Run("check=non-allocating", func(t *testing.T) {
@@ -294,66 +278,46 @@ func TestRequireSafety(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.MemSafe)
 			st.AddBuiltin(fn)
-			if err := st.RunString(`fn()`); err != nil {
-				st.Error("Unexpected error")
+			if ok := st.RunString(`fn()`); !ok {
+				st.Error("RunString returned !ok")
 			}
 		})
 
 		t.Run("safety=unsafe", func(t *testing.T) {
+			const expected = "cannot call builtin 'fn': feature unavailable to the sandbox"
+
 			fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 				return starlark.None, nil
 			})
 
-			st := startest.From(t)
+			dummy := &dummyBase{}
+			st := startest.From(dummy)
 			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 			st.AddBuiltin(fn)
-			err := st.RunString(`fn()`)
-			if err == nil {
-				t.Errorf("Expected error")
-			} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
-				t.Errorf("Unexpected error: %s", err)
+
+			if ok := st.RunString(`fn()`); ok {
+				t.Errorf("RunString returned ok")
+			} else if errLog := dummy.Errors(); errLog != expected {
+				t.Errorf("Unexpected error(s): %s", errLog)
 			}
 		})
 
 		t.Run("safety=undeclared", func(t *testing.T) {
+			const expected = "cannot call builtin 'fn': feature unavailable to the sandbox"
 			fn := starlark.NewBuiltin("fn", func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 				return starlark.None, nil
 			})
 
-			st := startest.From(t)
+			dummy := &dummyBase{}
+			st := startest.From(dummy)
 			st.AddBuiltin(fn)
-			err := st.RunString(`fn()`)
-			if err == nil {
-				t.Error("Expected error")
-			} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
-				t.Errorf("Unexpected error: %v", err)
+			if ok := st.Run)
+				t.Error("RunString returned ok")
+			} else if errLog := dummy.Errors(); errLog != expected {
+				t.Errorf("Unexpected error(s): %v", errLog)
 			}
 		})
 	})
-}
-
-func TestRunStringSyntaxError(t *testing.T) {
-	const expected = "startest.RunString:1:2: got '=', want primary expression"
-
-	dummy := &dummyBase{}
-	err := dummy.Run(func() {
-		st := startest.From(dummy)
-		err := st.RunString("=1")
-		if err != nil {
-			t.Errorf("Unexpected error: %s", err)
-		}
-
-		if !st.Failed() {
-			t.Error("Expected failure")
-		}
-	})
-	if err == nil {
-		t.Errorf("Expected fatal error")
-	}
-
-	if errLog := dummy.Errors(); errLog != expected {
-		t.Errorf("Unexpected error(s): %s", errLog)
-	}
 }
 
 var newlines = []struct {
@@ -361,7 +325,7 @@ var newlines = []struct {
 	code string
 }{{"CR", "\r"}, {"LF", "\n"}, {"CRLF", "\r\n"}}
 
-func TestRunStringFormatting(t *testing.T) {
+func TestRunStringSyntax(t *testing.T) {
 	type formattingTest struct {
 		name   string
 		src    string
@@ -375,14 +339,10 @@ func TestRunStringFormatting(t *testing.T) {
 				src := strings.ReplaceAll(test.src, "{}", newline.code)
 
 				dummy := &dummyBase{}
-				err := dummy.Run(func() {
-					st := startest.From(dummy)
-					if err := st.RunString(src); err != nil {
-						t.Errorf("%s: unexpected error: %v", name, err)
-					}
-				})
-				if test.expect != "" && err == nil {
-					t.Errorf("%s: expected fatal error", name)
+				st := startest.From(dummy)
+				ok := st.RunString(src)
+				if ok != (test.expect == "") {
+					t.Errorf("%s: RunString returned %t", name, ok)
 				}
 
 				if errLog := dummy.Errors(); errLog != test.expect {
@@ -449,13 +409,16 @@ func TestRunStringFormatting(t *testing.T) {
 }
 
 func TestStringFail(t *testing.T) {
-	st := startest.From(t)
+	const expected = "fail: oh no!"
+
+	dummy := &dummyBase{}
+	st := startest.From(dummy)
 	st.RequireSafety(starlark.NotSafe)
-	err := st.RunString(`fail("oh no!")`)
-	if err == nil {
-		st.Errorf("Expected error")
-	} else if err.Error() != "fail: oh no!" {
-		st.Errorf("Unexpected error: %v", err)
+	if ok := st.RunString(`fail("oh no!")`); ok {
+		st.Errorf("RunString returned ok")
+	}
+	if errLog := dummy.Errors(); errLog != expected {
+		st.Errorf("Unexpected error: %v", ok)
 	}
 }
 
@@ -479,23 +442,23 @@ func TestRequireSafetyDefault(t *testing.T) {
 
 			st := startest.From(t)
 			st.AddBuiltin(fn)
-			err := st.RunString(`fn()`)
-			if err != nil {
-				st.Error(err)
+			ok := st.RunString(`fn()`)
+			if !ok {
+				t.Errorf("RunString returned !ok")
 			}
 		})
 	})
 
 	t.Run("safety=insufficient", func(t *testing.T) {
-		safetyTest := func(t *testing.T, toTest func(*startest.ST, starlark.Safety)) {
+		safetyTest := func(t *testing.T, toTest func(starlark.Safety)) {
 			for flag := starlark.Safety(1); flag < safe; flag <<= 1 {
-				st := startest.From(&testing.T{})
-				toTest(st, safe&^flag)
+				toTest(safe &^ flag)
 			}
 		}
 
 		t.Run("method=RunThread", func(t *testing.T) {
-			safetyTest(t, func(st *startest.ST, safety starlark.Safety) {
+			safetyTest(t, func(safety starlark.Safety) {
+				st := startest.From(t)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.CheckPermits(safety); err == nil {
 						t.Errorf("Expected safety error checking %v", safety)
@@ -505,16 +468,21 @@ func TestRequireSafetyDefault(t *testing.T) {
 		})
 
 		t.Run("method=RunString", func(t *testing.T) {
-			safetyTest(t, func(st *startest.ST, safety starlark.Safety) {
+			safetyTest(t, func(safety starlark.Safety) {
+				const expected = "cannot call builtin 'fn': feature unavailable to the sandbox"
+
 				fn := starlark.NewBuiltinWithSafety("fn", safety, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 					return starlark.None, nil
 				})
 
+				dummy := &dummyBase{}
+				st := startest.From(dummy)
 				st.AddBuiltin(fn)
-				if err := st.RunString(`fn()`); err == nil {
-					t.Errorf("Expected failure testing %v", safety)
-				} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
-					t.Errorf("Unexpected error testing %v: %v", safety, err)
+				if ok := st.RunString(`fn()`); ok {
+					t.Errorf("RunString returned ok testing %v", safety)
+				}
+				if errLog := dummy.Errors(); errLog != expected {
+					t.Errorf("Unexpected error testing %v: %v", safety, ok)
 				}
 			})
 		})
@@ -571,19 +539,13 @@ func TestRunStringError(t *testing.T) {
 
 	for _, test := range tests {
 		dummy := &dummyBase{}
-		err := dummy.Run(func() {
-			st := startest.From(dummy)
-			err := st.RunString(fmt.Sprintf("st.error(%s)", test.src))
-			if err != nil {
-				t.Errorf("%s: unexpected error: %v", test.name, err)
-			}
-
-			if !st.Failed() {
-				t.Errorf("%s: expected failure", test.name)
-			}
-		})
-		if err != nil {
-			t.Errorf("%s: fatal error occurred", test.name)
+		st := startest.From(dummy)
+		ok := st.RunString(fmt.Sprintf("st.error(%s)", test.src))
+		if !ok {
+			t.Errorf("%s: RunString returned !ok", test.name)
+		}
+		if !st.Failed() {
+			t.Errorf("%s: expected failure", test.name)
 		}
 
 		if errLog := dummy.Errors(); errLog != test.expect {
@@ -624,19 +586,14 @@ func TestRunStringPrint(t *testing.T) {
 
 	for _, test := range tests {
 		dummy := &dummyBase{}
-		err := dummy.Run(func() {
-			st := startest.From(dummy)
-			st.RequireSafety(starlark.NotSafe)
-			err := st.RunString(fmt.Sprintf("print(%s)", test.args))
-			if err != nil {
-				t.Errorf("%s: unexpected error: %v", test.name, err)
-			}
-			if st.Failed() {
-				t.Errorf("%s: unexpected failure", test.name)
-			}
-		})
-		if err != nil {
-			t.Errorf("%s: unexpected fatal error", test.name)
+		st := startest.From(dummy)
+		st.RequireSafety(starlark.NotSafe)
+		ok := st.RunString(fmt.Sprintf("print(%s)", test.args))
+		if !ok {
+			t.Errorf("%s: RunString returned !ok", test.name)
+		}
+		if st.Failed() {
+			t.Errorf("%s: unexpected failure", test.name)
 		}
 
 		if errLog := dummy.Errors(); errLog != "" {
@@ -661,10 +618,13 @@ func TestRunStringPredecls(t *testing.T) {
 		st.RequireSafety(starlark.NotSafe)
 		st.AddBuiltin(fn)
 		st.AddValue("foo", starlark.String("bar"))
-		st.RunString(`
+		ok := st.RunString(`
 			fn()
 			assert.eq(foo, "bar")
 		`)
+		if !ok {
+			t.Errorf("RunString returned !ok")
+		}
 
 		if !builtinCalled {
 			t.Error("Builtin was not called")
@@ -682,21 +642,16 @@ func TestRunStringPredecls(t *testing.T) {
 			expect: "AddBuiltin expected a builtin: got <nil>",
 		}, {
 			name:   "string",
-			input:  starlark.String("interloper"),
-			expect: `AddBuiltin expected a builtin: got "interloper"`,
+			input:  starlark.String("spanner"),
+			expect: `AddBuiltin expected a builtin: got "spanner"`,
 		}}
 
 		for _, test := range tests {
 			dummy := &dummyBase{}
-			err := dummy.Run(func() {
-				st := startest.From(dummy)
-				st.AddBuiltin(test.input)
-				if !st.Failed() {
-					t.Errorf("%s: expected failure with input %v", test.name, test.input)
-				}
-			})
-			if err == nil {
-				t.Errorf("%s: expected fatal error", test.name)
+			st := startest.From(dummy)
+			st.AddBuiltin(test.input)
+			if !st.Failed() {
+				t.Errorf("%s: expected failure with input %v", test.name, test.input)
 			}
 
 			if errLog := dummy.Errors(); errLog != test.expect {
@@ -795,12 +750,12 @@ func TestRunStringMemSafety(t *testing.T) {
 		st.SetMaxAllocs(128)
 		st.AddBuiltin(allocate)
 		st.AddBuiltin(safeRange)
-		err := st.RunString(`
+		ok := st.RunString(`
 			for _ in range(st.n):
 				st.keep_alive(allocate())
 		`)
-		if err != nil {
-			st.Errorf("Unexpected error: %v", err)
+		if !ok {
+			st.Errorf("RunString returned !ok")
 		}
 	})
 
@@ -812,25 +767,20 @@ func TestRunStringMemSafety(t *testing.T) {
 		})
 
 		dummy := &dummyBase{}
-		err := dummy.Run(func() {
-			st := startest.From(dummy)
-			st.SetMaxAllocs(128)
-			st.AddBuiltin(overallocate)
-			st.AddBuiltin(safeRange)
-			err := st.RunString(`
-				for _ in range(st.n):
-					st.keep_alive(overallocate())
-			`)
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
+		st := startest.From(dummy)
+		st.SetMaxAllocs(128)
+		st.AddBuiltin(overallocate)
+		st.AddBuiltin(safeRange)
+		ok := st.RunString(`
+			for _ in range(st.n):
+				st.keep_alive(overallocate())
+		`)
+		if !ok {
+			t.Errorf("RunString returned !ok")
+		}
 
-			if !st.Failed() {
-				t.Error("Expected failure")
-			}
-		})
-		if err != nil {
-			t.Error("Unexpected fatal error")
+		if !st.Failed() {
+			t.Error("Expected failure")
 		}
 
 		if errLog := dummy.Errors(); errLog != expected {
@@ -847,12 +797,12 @@ func TestRunStringMemSafety(t *testing.T) {
 		st.RequireSafety(starlark.NotSafe)
 		st.AddBuiltin(overallocate)
 		st.AddBuiltin(safeRange)
-		err := st.RunString(`
+		ok := st.RunString(`
 			for _ in range(st.n):
 				st.keep_alive(overallocate())
 		`)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
+		if !ok {
+			t.Errorf("RunString returned !ok")
 		}
 	})
 }
@@ -882,8 +832,8 @@ func TestAssertModuleIntegration(t *testing.T) {
 		for _, passingTest := range passingTests {
 			st := startest.From(t)
 			st.AddValue("fail", &safeFail)
-			if err := st.RunString(passingTest); err != nil {
-				t.Errorf("Unexpected error testing %v: %v", passingTest, err)
+			if ok := st.RunString(passingTest); !ok {
+				t.Errorf("RunString returned !ok")
 			}
 		}
 	})
@@ -929,19 +879,14 @@ func TestAssertModuleIntegration(t *testing.T) {
 
 		for _, test := range tests {
 			dummy := &dummyBase{}
-			err := dummy.Run(func() {
-				st := startest.From(dummy)
-				st.AddBuiltin(no_error)
-				if err := st.RunString(test.input); err != nil {
-					t.Errorf("%s: unexpected error when running '%s': %v", test.name, test.input, err)
-				}
+			st := startest.From(dummy)
+			st.AddBuiltin(no_error)
+			if ok := st.RunString(test.input); !ok {
+				t.Errorf("%s: RunString returned !ok on '%s'", test.name, test.input)
+			}
 
-				if !st.Failed() {
-					t.Errorf("%s: expected failure when running '%s'", test.name, test.input)
-				}
-			})
-			if err != nil {
-				t.Error("Unexpected fatal error")
+			if !st.Failed() {
+				t.Errorf("%s: expected failure when running '%s'", test.name, test.input)
 			}
 
 			if errLog := dummy.Errors(); errLog == test.expect {
@@ -1016,19 +961,11 @@ func TestRunStringErrorPositions(t *testing.T) {
 			name := fmt.Sprintf("%s (newline=%s)", test.name, newline.name)
 			src := strings.ReplaceAll(test.src, "{}", newline.code)
 
-			var overran bool
 			dummy := &dummyBase{}
-			err := dummy.Run(func() {
-				st := startest.From(dummy)
-				st.RunString(src)
-				overran = true
-			})
-			if err == nil {
-				t.Errorf("%s: expected fatal error", name)
-			}
-
-			if overran {
-				t.Errorf("%s: test continued after fatal error", name)
+			st := startest.From(dummy)
+			ok := st.RunString(src)
+			if ok {
+				t.Errorf("%s: RunString returned ok", name)
 			}
 
 			expectedLoc := fmt.Sprintf("startest.RunString:%d:", test.expect_line)

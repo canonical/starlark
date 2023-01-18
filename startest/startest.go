@@ -51,18 +51,6 @@ func From(base TestBase) *ST {
 	return &ST{TestBase: base, maxAllocs: math.MaxUint64}
 }
 
-// Fatal calls the underlying st.TestBase.Fatal. It does not return.
-func (st *ST) Fatal(args ...interface{}) {
-	st.TestBase.Fatal(args...)
-	panic(fmt.Sprintf("internal error: %T.Fatal returned", st.TestBase))
-}
-
-// Fatalf calls the underlying st.TestBase.Fatalf. It does not return.
-func (st *ST) Fatalf(format string, args ...interface{}) {
-	st.TestBase.Fatalf(format, args...)
-	panic(fmt.Sprintf("internal error: %T.Fatalf returned", st.TestBase))
-}
-
 // SetMaxAllocs optionally sets the max allocations allowed per test.N
 func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
@@ -88,7 +76,8 @@ func (st *ST) AddValue(name string, value starlark.Value) {
 func (st *ST) AddBuiltin(fn starlark.Value) {
 	builtin, ok := fn.(*starlark.Builtin)
 	if !ok {
-		st.Fatalf("AddBuiltin expected a builtin: got %v", fn)
+		st.Errorf("AddBuiltin expected a builtin: got %v", fn)
+		return
 	}
 
 	st.AddValue(builtin.Name(), builtin)
@@ -103,15 +92,20 @@ func (st *ST) AddLocal(name string, value interface{}) {
 	st.locals[name] = value
 }
 
-// RunString tests a string of starlark code and returns any error from its
-// execution. Errors encountered during setup are fatal.
-func (st *ST) RunString(code string) error {
+// RunString tests a string of starlark code. Errors are logged, mark the test
+// as failed and cause a !ok return. Otherwise returns ok.
+func (st *ST) RunString(code string) (ok bool) {
+	if st.Failed() {
+		return true
+	}
+
 	if code = strings.TrimRight(code, " \t\r\n"); code == "" {
-		return nil
+		return true
 	}
 	code, err := Reindent(code)
 	if err != nil {
-		st.Fatal(err)
+		st.Error(err)
+		return false
 	}
 
 	allowGlobalReassign := resolve.AllowGlobalReassign
@@ -122,11 +116,13 @@ func (st *ST) RunString(code string) error {
 
 	assertMembers, err := starlarktest.LoadAssertModule()
 	if err != nil {
-		st.Fatalf("internal error: %v", err)
+		st.Errorf("internal error: %v", err)
+		return false
 	}
 	assert, ok := assertMembers["assert"]
 	if !ok {
-		st.Fatalf("internal error: no 'assert' defined in assert module")
+		st.Errorf("internal error: no 'assert' defined in assert module")
+		return false
 	}
 
 	st.AddValue("st", st)
@@ -138,7 +134,8 @@ func (st *ST) RunString(code string) error {
 		return ok
 	})
 	if err != nil {
-		st.Fatal(err)
+		st.Error(err)
+		return false
 	}
 
 	var codeErr error
@@ -149,7 +146,10 @@ func (st *ST) RunString(code string) error {
 		}
 		_, codeErr = mod.Init(thread, st.predecls)
 	})
-	return codeErr
+	if codeErr != nil {
+		st.Error(codeErr)
+	}
+	return codeErr == nil
 }
 
 // RunThread tests a function which has access to a starlark thread and a global environment
