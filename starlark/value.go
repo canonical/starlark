@@ -268,7 +268,8 @@ type Iterator interface {
 type SafeIterator interface {
 	SafetyAware
 	// If the iterator is exhausted, Next returns (false, nil). If the iterator
-	// errored, it returns (false, err), otherwise it sets *p to the current element of the sequence, advances the iterator and returns (true, nil)
+	// errored, it returns (false, err), otherwise it sets *p to the current
+	// element of the sequence, advances the iterator and returns (true, nil)
 	SafeNext(thread *Thread, p *Value) (bool, error)
 	SafeDone(thread *Thread) error
 }
