@@ -678,6 +678,14 @@ func TestLocals(t *testing.T) {
 		}
 	}
 
+	t.Run("method=RunThread", func(t *testing.T) {
+		st := startest.From(t)
+		st.AddLocal(localName, expected)
+		st.RunThread(func(thread *starlark.Thread) {
+			testLocals(t, thread)
+		})
+	})
+
 	t.Run("method=RunString", func(t *testing.T) {
 		testlocals := starlark.NewBuiltinWithSafety("testlocals", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			testLocals(t, thread)
@@ -687,15 +695,9 @@ func TestLocals(t *testing.T) {
 		st := startest.From(t)
 		st.AddLocal(localName, expected)
 		st.AddBuiltin(testlocals)
-		st.RunString(`testlocals()`)
-	})
-
-	t.Run("method=RunThread", func(t *testing.T) {
-		st := startest.From(t)
-		st.AddLocal(localName, expected)
-		st.RunThread(func(thread *starlark.Thread) {
-			testLocals(t, thread)
-		})
+		if ok := st.RunString(`testlocals()`); !ok {
+			t.Error("RunString returned !ok")
+		}
 	})
 }
 
