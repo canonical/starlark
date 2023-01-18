@@ -297,7 +297,8 @@ func TestRequireSafety(t *testing.T) {
 
 			if ok := st.RunString(`fn()`); ok {
 				t.Errorf("RunString returned ok")
-			} else if errLog := dummy.Errors(); errLog != expected {
+			}
+			if errLog := dummy.Errors(); errLog != expected {
 				t.Errorf("Unexpected error(s): %s", errLog)
 			}
 		})
@@ -313,7 +314,8 @@ func TestRequireSafety(t *testing.T) {
 			st.AddBuiltin(fn)
 			if ok := st.Run)
 				t.Error("RunString returned ok")
-			} else if errLog := dummy.Errors(); errLog != expected {
+			}
+			if errLog := dummy.Errors(); errLog != expected {
 				t.Errorf("Unexpected error(s): %v", errLog)
 			}
 		})
