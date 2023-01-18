@@ -246,8 +246,9 @@ type Iterator interface {
 
 // A SafeIterator provides a sequence of values to the caller, where errors are
 // allowed. The caller must call Done when the safe iterator is no longer
-// needed. Operations which modify a sequence will fail if it has active
-// iterators.
+// needed. In general, implementations are supposed to use this interface in an
+// equivalent way to the Iterator interface, with the added benefit that this
+// interface can handle errors and safety.
 //
 // Example usage:
 //
