@@ -423,7 +423,7 @@ func TestStringFail(t *testing.T) {
 		st.Errorf("RunString returned ok")
 	}
 	if errLog := dummy.Errors(); errLog != expected {
-		st.Errorf("Unexpected error: %v", ok)
+		st.Errorf("Unexpected error(s): %v", errLog)
 	}
 }
 
@@ -487,7 +487,7 @@ func TestRequireSafetyDefault(t *testing.T) {
 					t.Errorf("RunString returned ok testing %v", safety)
 				}
 				if errLog := dummy.Errors(); errLog != expected {
-					t.Errorf("Unexpected error testing %v: %v", safety, ok)
+					t.Errorf("Unexpected error(s) testing %v: %v", safety, errLog)
 				}
 			})
 		})
