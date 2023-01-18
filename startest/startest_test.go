@@ -312,7 +312,7 @@ func TestRequireSafety(t *testing.T) {
 			dummy := &dummyBase{}
 			st := startest.From(dummy)
 			st.AddBuiltin(fn)
-			if ok := st.Run)
+			if ok := st.RunString(`fn()`); ok {
 				t.Error("RunString returned ok")
 			}
 			if errLog := dummy.Errors(); errLog != expected {
