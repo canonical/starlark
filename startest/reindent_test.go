@@ -1,6 +1,7 @@
 package startest_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/canonical/starlark/startest"
@@ -20,52 +21,51 @@ var reindentTests = []reindentTest{{
 	src:    "\t  a",
 	result: "\t  a",
 }, {
-	src:    "a\nb",
+	src:    "a{}b",
 	result: "a\nb",
 }, {
-	src:    "\ta\n\tb",
+	src:    "\ta{}\tb",
 	result: "a\nb",
 }, {
-	src:    "    a\n    b",
+	src:    "    a{}    b",
 	result: "a\nb",
 }, {
-	src:    "a\n\tb\nc",
+	src:    "a{}\tb{}c",
 	result: "a\n\tb\nc",
 }, {
-	src:    "a\n  b\nc",
+	src:    "a{}  b{}c",
 	result: "a\n  b\nc",
 }, {
-	src:    "\ta\n\t\tb\n\tc",
+	src:    "\ta{}\t\tb{}\tc",
 	result: "a\n\tb\nc",
 }, {
-	src:    "  a\n    b\n  c",
+	src:    "  a{}    b{}  c",
 	result: "a\n  b\nc",
 }, {
-	src:    "    a\n    \tb\n    c",
+	src:    "    a{}    \tb{}    c",
 	result: "a\n\tb\nc",
 }, {
-	src:    "\t  a\n\t    b\n\t  c",
+	src:    "\t  a{}\t    b{}\t  c",
 	result: "a\n  b\nc",
 }, {
-	src:    "\ta\nb",
+	src:    "\ta{}b",
 	expect: `Invalid indentation on line 2: expected line starting "\t" but got "b"`,
 }}
 
 func TestReindent(t *testing.T) {
 	for _, test := range reindentTests {
-		testReindent(t, test)
-	}
-}
-
-func testReindent(t *testing.T, test reindentTest) {
-	reindented, err := startest.Reindent(test.src)
-	if test.expect != "" {
-		if err == nil {
-			t.Errorf("%#v: expected error", test.src)
-		} else if msg := err.Error(); msg != test.expect {
-			t.Errorf("%#v: unexpected error: expected '%v' but got '%v'", test.src, test.expect, err)
+		for _, newline := range newlines {
+			src := strings.ReplaceAll(test.src, "{}", newline.code)
+			reindented, err := startest.Reindent(src)
+			if test.expect != "" {
+				if err == nil {
+					t.Errorf("%#v: expected error", src)
+				} else if msg := err.Error(); msg != test.expect {
+					t.Errorf("%#v: unexpected error: expected '%v' but got '%v'", src, test.expect, err)
+				}
+			} else if string(reindented) != test.result && string(reindented) != test.result+"\n" {
+				t.Errorf("%#v: incorrect output: expected %#v but got %#v", src, test.result, reindented)
+			}
 		}
-	} else if string(reindented) != test.result && string(reindented) != test.result+"\n" {
-		t.Errorf("%#v: incorrect output: expected %#v but got %#v", test.src, test.result, reindented)
 	}
 }
