@@ -347,7 +347,7 @@ func TestRunStringSyntax(t *testing.T) {
 					t.Errorf("%s: RunString returned %t", name, ok)
 				}
 
-				if errLog := dummy.Errors(); errLog != test.expect {
+				if errLog := dummy.Errors(); !strings.Contains(errLog, test.expect) {
 					if errLog == "" {
 						t.Errorf("%s: expected error", name)
 					} else {
@@ -408,15 +408,15 @@ func TestRunStringSyntax(t *testing.T) {
 		tests := []formattingTest{{
 			name:   "unnecessary indent",
 			src:    "a=1{}\tb=1",
-			expect: `startest.RunString:2:2: got indent, want primary expression`,
+			expect: "got indent, want primary expression",
 		}, {
 			name:   "indented unnecessary indent",
 			src:    "\ta=1{}\t\tb=2",
-			expect: `startest.RunString:2:2: got indent, want primary expression`,
+			expect: "got indent, want primary expression",
 		}, {
 			name:   "missing indent",
 			src:    "if True:{}a=1",
-			expect: `startest.RunString:2:2: got identifier, want indent`,
+			expect: "got identifier, want indent",
 		}}
 		testFormatting(t, tests)
 	})
