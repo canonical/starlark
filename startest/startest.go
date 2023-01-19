@@ -92,8 +92,8 @@ func (st *ST) AddLocal(name string, value interface{}) {
 	st.locals[name] = value
 }
 
-// RunString tests a string of starlark code. Errors are logged, mark the test
-// as failed and cause a !ok return. Otherwise returns ok.
+// RunString tests a string of starlark code. On unexpected error, reports it,
+// marks the test as failed and returns !ok. Otherwise returns ok.
 func (st *ST) RunString(code string) (ok bool) {
 	if st.Failed() {
 		return true
