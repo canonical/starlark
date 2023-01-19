@@ -31,7 +31,7 @@ func Reindent(in string) (string, error) {
 		}
 		trimmed := strings.TrimPrefix(line, trim)
 		if len(trimmed) == len(line) && trim != "" && strings.Trim(line, " \t") != "" {
-			return "", fmt.Errorf("Invalid indentation on line %d: expected line starting %#v but got %#v", i+1, trim, line)
+			return "", fmt.Errorf("invalid indentation on line %d: expected line starting %#v but got %#v", i+1, trim, line)
 		}
 		sb.WriteString(trimmed)
 		sb.WriteRune('\n')

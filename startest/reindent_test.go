@@ -49,7 +49,7 @@ var reindentTests = []reindentTest{{
 	result: "a\n  b\nc",
 }, {
 	src:    "\ta{}b",
-	expect: `Invalid indentation on line 2: expected line starting "\t" but got "b"`,
+	expect: `invalid indentation on line 2: expected line starting "\t" but got "b"`,
 }}
 
 func TestReindent(t *testing.T) {
