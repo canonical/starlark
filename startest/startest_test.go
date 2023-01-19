@@ -377,6 +377,15 @@ func TestRunStringSyntax(t *testing.T) {
 		}, {
 			name: "if block with tab indent",
 			src:  "{}if True:{}\ta=1",
+		}, {
+			name: "tab-indented if block with tab indent",
+			src:  "{}\tif True:{}\t\ta=1",
+		}, {
+			name: "space-indented if block with tab indent",
+			src:  "{}    if True:{}        a=1",
+		}, {
+			name: "mixed-indented if block with tab indent",
+			src:  "{}  \t  if True:{}  \t      a=1",
 		}}
 		testFormatting(t, tests)
 	})
