@@ -279,7 +279,7 @@ func TestRequireSafety(t *testing.T) {
 			st.RequireSafety(starlark.MemSafe)
 			st.AddBuiltin(fn)
 			if ok := st.RunString(`fn()`); !ok {
-				st.Error("RunString returned !ok")
+				st.Error("RunString returned false")
 			}
 		})
 
@@ -296,7 +296,7 @@ func TestRequireSafety(t *testing.T) {
 			st.AddBuiltin(fn)
 
 			if ok := st.RunString(`fn()`); ok {
-				t.Errorf("RunString returned ok")
+				t.Errorf("RunString returned true")
 			}
 			if errLog := dummy.Errors(); errLog != expected {
 				t.Errorf("Unexpected error(s): %s", errLog)
@@ -313,7 +313,7 @@ func TestRequireSafety(t *testing.T) {
 			st := startest.From(dummy)
 			st.AddBuiltin(fn)
 			if ok := st.RunString(`fn()`); ok {
-				t.Error("RunString returned ok")
+				t.Error("RunString returned true")
 			}
 			if errLog := dummy.Errors(); errLog != expected {
 				t.Errorf("Unexpected error(s): %v", errLog)
@@ -429,7 +429,7 @@ func TestStringFail(t *testing.T) {
 	st := startest.From(dummy)
 	st.RequireSafety(starlark.NotSafe)
 	if ok := st.RunString(`fail("oh no!")`); ok {
-		st.Errorf("RunString returned ok")
+		st.Errorf("RunString returned true")
 	}
 	if errLog := dummy.Errors(); errLog != expected {
 		st.Errorf("Unexpected error(s): %v", errLog)
@@ -456,9 +456,8 @@ func TestRequireSafetyDefault(t *testing.T) {
 
 			st := startest.From(t)
 			st.AddBuiltin(fn)
-			ok := st.RunString(`fn()`)
-			if !ok {
-				t.Errorf("RunString returned !ok")
+			if ok := st.RunString(`fn()`); !ok {
+				t.Errorf("RunString returned false")
 			}
 		})
 	})
@@ -493,7 +492,7 @@ func TestRequireSafetyDefault(t *testing.T) {
 				st := startest.From(dummy)
 				st.AddBuiltin(fn)
 				if ok := st.RunString(`fn()`); ok {
-					t.Errorf("RunString returned ok testing %v", safety)
+					t.Errorf("RunString returned true testing %v", safety)
 				}
 				if errLog := dummy.Errors(); errLog != expected {
 					t.Errorf("Unexpected error(s) testing %v: %v", safety, errLog)
@@ -556,7 +555,7 @@ func TestRunStringError(t *testing.T) {
 		st := startest.From(dummy)
 		ok := st.RunString(fmt.Sprintf("st.error(%s)", test.src))
 		if !ok {
-			t.Errorf("%s: RunString returned !ok", test.name)
+			t.Errorf("%s: RunString returned false", test.name)
 		}
 		if !st.Failed() {
 			t.Errorf("%s: expected failure", test.name)
@@ -604,7 +603,7 @@ func TestRunStringPrint(t *testing.T) {
 		st.RequireSafety(starlark.NotSafe)
 		ok := st.RunString(fmt.Sprintf("print(%s)", test.args))
 		if !ok {
-			t.Errorf("%s: RunString returned !ok", test.name)
+			t.Errorf("%s: RunString returned false", test.name)
 		}
 		if st.Failed() {
 			t.Errorf("%s: unexpected failure", test.name)
@@ -637,7 +636,7 @@ func TestRunStringPredecls(t *testing.T) {
 			assert.eq(foo, "bar")
 		`)
 		if !ok {
-			t.Errorf("RunString returned !ok")
+			t.Errorf("RunString returned false")
 		}
 
 		if !builtinCalled {
@@ -707,7 +706,7 @@ func TestLocals(t *testing.T) {
 		st.AddLocal(localName, expected)
 		st.AddBuiltin(testlocals)
 		if ok := st.RunString(`testlocals()`); !ok {
-			t.Error("RunString returned !ok")
+			t.Error("RunString returned false")
 		}
 	})
 }
@@ -771,7 +770,7 @@ func TestRunStringMemSafety(t *testing.T) {
 				st.keep_alive(allocate())
 		`)
 		if !ok {
-			st.Errorf("RunString returned !ok")
+			st.Errorf("RunString returned false")
 		}
 	})
 
@@ -792,7 +791,7 @@ func TestRunStringMemSafety(t *testing.T) {
 				st.keep_alive(overallocate())
 		`)
 		if !ok {
-			t.Errorf("RunString returned !ok")
+			t.Errorf("RunString returned false")
 		}
 
 		if !st.Failed() {
@@ -818,7 +817,7 @@ func TestRunStringMemSafety(t *testing.T) {
 				st.keep_alive(overallocate())
 		`)
 		if !ok {
-			t.Errorf("RunString returned !ok")
+			t.Errorf("RunString returned false")
 		}
 	})
 }
@@ -849,7 +848,7 @@ func TestAssertModuleIntegration(t *testing.T) {
 			st := startest.From(t)
 			st.AddValue("fail", &safeFail)
 			if ok := st.RunString(passingTest); !ok {
-				t.Errorf("RunString returned !ok")
+				t.Errorf("RunString returned false")
 			}
 		}
 	})
@@ -898,7 +897,7 @@ func TestAssertModuleIntegration(t *testing.T) {
 			st := startest.From(dummy)
 			st.AddBuiltin(no_error)
 			if ok := st.RunString(test.input); !ok {
-				t.Errorf("%s: RunString returned !ok on '%s'", test.name, test.input)
+				t.Errorf("%s: RunString returned false on '%s'", test.name, test.input)
 			}
 
 			if !st.Failed() {
@@ -981,7 +980,7 @@ func TestRunStringErrorPositions(t *testing.T) {
 			st := startest.From(dummy)
 			ok := st.RunString(src)
 			if ok {
-				t.Errorf("%s: RunString returned ok", name)
+				t.Errorf("%s: RunString returned true", name)
 			}
 
 			expectedLoc := fmt.Sprintf("startest.RunString:%d:", test.expect_line)
