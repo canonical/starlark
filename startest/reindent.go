@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+// Reindent strips indentation from each line of a multi-line string,
+// preserving relative indents.
 func Reindent(in string) (string, error) {
 	lines := regexp.MustCompile("\r\n|\r|\n").Split(in, -1)
 	if len(lines) <= 1 {
