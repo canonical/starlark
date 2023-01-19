@@ -19,15 +19,12 @@ func Reindent(in string) (string, error) {
 	var trimSet bool
 	for i, line := range lines {
 		if !trimSet {
-			trimmed := strings.TrimLeft(line, "\t")
+			trimmed := strings.TrimLeft(line, " \t")
 			if trimmed == "" {
 				if i != 0 {
 					sb.WriteRune('\n')
 				}
 				continue
-			}
-			if trimmed[0] == ' ' {
-				return "", fmt.Errorf("Tabs and spaces mixed early in string: %#v", in)
 			}
 			trim = line[:len(line)-len(trimmed)]
 			trimSet = true
