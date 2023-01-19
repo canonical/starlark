@@ -619,58 +619,98 @@ func TestRunStringPrint(t *testing.T) {
 }
 
 func TestRunStringPredecls(t *testing.T) {
-	t.Run("predecls=valid", func(t *testing.T) {
-		builtinCalled := false
+	t.Run("method=AddValue", func(t *testing.T) {
+		t.Run("input=valid", func(t *testing.T) {
+			tests := []struct {
+				name  string
+				value starlark.Value
+				repr  string
+			}{{
+				name:  "string",
+				value: starlark.String("foo"),
+				repr:  `"foo"`,
+			}, {
+				name: "builtin",
+				value: starlark.NewBuiltin("value", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+					return starlark.None, nil
+				}),
+				repr: "<built-in function value>",
+			}}
 
-		fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
-			builtinCalled = true
-			return starlark.None, nil
+			for _, test := range tests {
+				st := startest.From(t)
+				st.RequireSafety(starlark.NotSafe)
+				st.AddValue("value", test.value)
+				if ok := st.RunString(fmt.Sprintf("assert.eq(repr(value), %#v)", test.repr)); !ok {
+					t.Errorf("RunString returned false")
+				}
+			}
 		})
 
-		st := startest.From(t)
-		st.RequireSafety(starlark.NotSafe)
-		st.AddBuiltin(fn)
-		st.AddValue("foo", starlark.String("bar"))
-		ok := st.RunString(`
-			fn()
-			assert.eq(foo, "bar")
-		`)
-		if !ok {
-			t.Errorf("RunString returned false")
-		}
+		t.Run("input=invalid", func(t *testing.T) {
+			const expected = "AddValue expected a value: got <nil>"
 
-		if !builtinCalled {
-			t.Error("Builtin was not called")
-		}
-	})
-
-	t.Run("predecls=invalid", func(t *testing.T) {
-		tests := []struct {
-			name   string
-			input  starlark.Value
-			expect string
-		}{{
-			name:   "nil",
-			input:  nil,
-			expect: "AddBuiltin expected a builtin: got <nil>",
-		}, {
-			name:   "string",
-			input:  starlark.String("spanner"),
-			expect: `AddBuiltin expected a builtin: got "spanner"`,
-		}}
-
-		for _, test := range tests {
 			dummy := &dummyBase{}
 			st := startest.From(dummy)
-			st.AddBuiltin(test.input)
+			st.AddValue("value", nil)
 			if !st.Failed() {
-				t.Errorf("%s: expected failure with input %v", test.name, test.input)
+				t.Errorf("Expected failure adding nil value")
 			}
 
-			if errLog := dummy.Errors(); errLog != test.expect {
-				t.Errorf("%s: unexpected error(s): %#v", test.name, errLog)
+			if errLog := dummy.Errors(); errLog != expected {
+				t.Errorf("Unexpected error(s): %#v", errLog)
 			}
-		}
+		})
+	})
+	t.Run("method=AddBuiltin", func(t *testing.T) {
+		t.Run("input=valid", func(t *testing.T) {
+			builtinCalled := false
+
+			fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+				builtinCalled = true
+				return starlark.None, nil
+			})
+
+			st := startest.From(t)
+			st.RequireSafety(starlark.NotSafe)
+			st.AddBuiltin(fn)
+			if ok := st.RunString(`fn()`); !ok {
+				t.Errorf("RunString returned false")
+			}
+
+			if !builtinCalled {
+				t.Error("Builtin was not called")
+			}
+		})
+
+		t.Run("input=invalid", func(t *testing.T) {
+			tests := []struct {
+				name   string
+				input  starlark.Value
+				expect string
+			}{{
+				name:   "nil",
+				input:  nil,
+				expect: "AddBuiltin expected a builtin: got <nil>",
+			}, {
+				name:   "string",
+				input:  starlark.String("spanner"),
+				expect: `AddBuiltin expected a builtin: got "spanner"`,
+			}}
+
+			for _, test := range tests {
+				dummy := &dummyBase{}
+				st := startest.From(dummy)
+				st.AddBuiltin(test.input)
+				if !st.Failed() {
+					t.Errorf("%s: expected failure with input %v", test.name, test.input)
+				}
+
+				if errLog := dummy.Errors(); errLog != test.expect {
+					t.Errorf("%s: unexpected error(s): %#v", test.name, errLog)
+				}
+			}
+		})
 	})
 }
 

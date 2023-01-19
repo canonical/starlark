@@ -65,10 +65,12 @@ func (st *ST) RequireSafety(safety starlark.Safety) {
 // AddValue makes the given value accessible under the given name in the
 // starlark environment used by RunString.
 func (st *ST) AddValue(name string, value starlark.Value) {
-	if st.predecls == nil {
-		st.predecls = make(starlark.StringDict)
+	if value == nil {
+		st.Errorf("AddValue expected a value: got %T", value)
+		return
 	}
-	st.predecls[name] = value
+
+	st.uncheckedAddValue(name, value)
 }
 
 // AddBuiltin makes the given builtin available under the name specified in its
@@ -80,7 +82,14 @@ func (st *ST) AddBuiltin(fn starlark.Value) {
 		return
 	}
 
-	st.AddValue(builtin.Name(), builtin)
+	st.uncheckedAddValue(builtin.Name(), builtin)
+}
+
+func (st *ST) uncheckedAddValue(name string, value starlark.Value) {
+	if st.predecls == nil {
+		st.predecls = make(starlark.StringDict)
+	}
+	st.predecls[name] = value
 }
 
 // AddLocal adds the given object into the local values available to spawned
