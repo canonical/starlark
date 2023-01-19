@@ -299,7 +299,7 @@ func TestRequireSafety(t *testing.T) {
 				t.Errorf("RunString returned true")
 			}
 			if errLog := dummy.Errors(); errLog != expected {
-				t.Errorf("Unexpected error(s): %s", errLog)
+				t.Errorf("Unexpected error(s): %#v", errLog)
 			}
 		})
 
@@ -316,7 +316,7 @@ func TestRequireSafety(t *testing.T) {
 				t.Error("RunString returned true")
 			}
 			if errLog := dummy.Errors(); errLog != expected {
-				t.Errorf("Unexpected error(s): %v", errLog)
+				t.Errorf("Unexpected error(s): %#v", errLog)
 			}
 		})
 	})
@@ -351,7 +351,7 @@ func TestRunStringSyntax(t *testing.T) {
 					if errLog == "" {
 						t.Errorf("%s: expected error", name)
 					} else {
-						t.Errorf("%s: unexpected error(s): %s", name, errLog)
+						t.Errorf("%s: unexpected error(s): %#v", name, errLog)
 					}
 				}
 			}
@@ -432,7 +432,7 @@ func TestStringFail(t *testing.T) {
 		st.Errorf("RunString returned true")
 	}
 	if errLog := dummy.Errors(); errLog != expected {
-		st.Errorf("Unexpected error(s): %v", errLog)
+		st.Errorf("Unexpected error(s): %#v", errLog)
 	}
 }
 
@@ -495,7 +495,7 @@ func TestRequireSafetyDefault(t *testing.T) {
 					t.Errorf("RunString returned true testing %v", safety)
 				}
 				if errLog := dummy.Errors(); errLog != expected {
-					t.Errorf("Unexpected error(s) testing %v: %v", safety, errLog)
+					t.Errorf("Unexpected error(s) testing %v: %#v", safety, errLog)
 				}
 			})
 		})
@@ -562,7 +562,7 @@ func TestRunStringError(t *testing.T) {
 		}
 
 		if errLog := dummy.Errors(); errLog != test.expect {
-			t.Errorf("%s: unexpected error(s): expected '%s' but got '%s'", test.name, test.expect, errLog)
+			t.Errorf("%s: unexpected error(s): expected %#v but got %#v", test.name, test.expect, errLog)
 		}
 		if log := dummy.Logs(); log != "" {
 			t.Errorf("%s: unexpected log output: %s", test.name, log)
@@ -610,10 +610,10 @@ func TestRunStringPrint(t *testing.T) {
 		}
 
 		if errLog := dummy.Errors(); errLog != "" {
-			t.Errorf("%s: unexpected error(s): %s", test.name, errLog)
+			t.Errorf("%s: unexpected error(s): %#v", test.name, errLog)
 		}
 		if log := dummy.Logs(); !strings.Contains(log, test.expect) {
-			t.Errorf("%s: incorrect log output: must contain '%s' but got '%s'", test.name, test.expect, log)
+			t.Errorf("%s: incorrect log output: must contain %#v but got %#v", test.name, test.expect, log)
 		}
 	}
 }
@@ -668,7 +668,7 @@ func TestRunStringPredecls(t *testing.T) {
 			}
 
 			if errLog := dummy.Errors(); errLog != test.expect {
-				t.Errorf("%s: unexpected error(s): %s", test.name, errLog)
+				t.Errorf("%s: unexpected error(s): %#v", test.name, errLog)
 			}
 		}
 	})
@@ -799,7 +799,7 @@ func TestRunStringMemSafety(t *testing.T) {
 		}
 
 		if errLog := dummy.Errors(); errLog != expected {
-			t.Errorf("Unexpected error(s): %s", errLog)
+			t.Errorf("Unexpected error(s): %#v", errLog)
 		}
 	})
 
@@ -905,7 +905,7 @@ func TestAssertModuleIntegration(t *testing.T) {
 			}
 
 			if errLog := dummy.Errors(); errLog == test.expect {
-				t.Errorf("%s: unexpected error(s): %s", test.name, errLog)
+				t.Errorf("%s: unexpected error(s): %#v", test.name, errLog)
 			}
 		}
 	})
