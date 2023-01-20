@@ -70,7 +70,7 @@ func (st *ST) AddValue(name string, value starlark.Value) {
 		return
 	}
 
-	st.uncheckedAddValue(name, value)
+	st.addValueUnchecked(name, value)
 }
 
 // AddBuiltin makes the given builtin available under the name specified in its
@@ -82,10 +82,10 @@ func (st *ST) AddBuiltin(fn starlark.Value) {
 		return
 	}
 
-	st.uncheckedAddValue(builtin.Name(), builtin)
+	st.addValueUnchecked(builtin.Name(), builtin)
 }
 
-func (st *ST) uncheckedAddValue(name string, value starlark.Value) {
+func (st *ST) addValueUnchecked(name string, value starlark.Value) {
 	if st.predecls == nil {
 		st.predecls = make(starlark.StringDict)
 	}
