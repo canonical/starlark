@@ -66,7 +66,7 @@ func (st *ST) RequireSafety(safety starlark.Safety) {
 // starlark environment used by RunString.
 func (st *ST) AddValue(name string, value starlark.Value) {
 	if value == nil {
-		st.Errorf("AddValue expected a value: got %T", value)
+		st.Fatalf("AddValue expected a value: got %T", value)
 		return
 	}
 
@@ -78,7 +78,7 @@ func (st *ST) AddValue(name string, value starlark.Value) {
 func (st *ST) AddBuiltin(fn starlark.Value) {
 	builtin, ok := fn.(*starlark.Builtin)
 	if !ok {
-		st.Errorf("AddBuiltin expected a builtin: got %v", fn)
+		st.Fatalf("AddBuiltin expected a builtin: got %v", fn)
 		return
 	}
 
