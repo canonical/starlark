@@ -28,6 +28,14 @@ func Reindent(in string) (string, error) {
 				}
 				continue
 			}
+
+			if len(line) == len(trimmed) {
+				if len(lines) > 1 && lines[0] == "" {
+					lines = lines[1:]
+				}
+				return strings.Join(lines, "\n"), nil
+			}
+
 			trim = line[:len(line)-len(trimmed)]
 			trimSet = true
 		}
