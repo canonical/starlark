@@ -40,7 +40,7 @@ func Reindent(in string) (string, error) {
 			trimSet = true
 		}
 		trimmed := strings.TrimPrefix(line, trim)
-		if len(trimmed) == len(line) && trim != "" && strings.Trim(line, " \t") != "" {
+		if len(trimmed) == len(line) && strings.TrimLeft(line, " \t") != "" {
 			return "", fmt.Errorf("invalid indentation on line %d: expected line starting %#v but got %#v", i+1, trim, line)
 		}
 		sb.WriteString(trimmed)
