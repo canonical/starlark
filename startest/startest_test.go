@@ -106,20 +106,6 @@ func (db *dummyBase) Logs() string {
 	return db.logs.String()
 }
 
-func (db *dummyBase) ExpectFatal(fn func()) {
-	defer func() {
-		if err := recover(); err != nil {
-			if _, ok := err.(dummyFatalError); !ok {
-				panic(err)
-			}
-		} else {
-			db.Error("Expected fatal error")
-		}
-	}()
-
-	fn()
-}
-
 func TestKeepAlive(t *testing.T) {
 	// Check for a non-allocating routine
 	t.Run("check=non-allocating", func(t *testing.T) {
@@ -666,16 +652,14 @@ func TestRunStringPredecls(t *testing.T) {
 
 			dummy := &dummyBase{}
 			st := startest.From(dummy)
-			dummy.ExpectFatal(func() {
-				st.AddValue("value", nil)
-				if !st.Failed() {
-					t.Errorf("Expected failure adding nil value")
-				}
+			st.AddValue("value", nil)
+			if !st.Failed() {
+				t.Errorf("Expected failure adding nil value")
+			}
 
-				if errLog := dummy.Errors(); errLog != expected {
-					t.Errorf("Unexpected error(s): %#v", errLog)
-				}
-			})
+			if errLog := dummy.Errors(); errLog != expected {
+				t.Errorf("Unexpected error(s): %#v", errLog)
+			}
 		})
 	})
 	t.Run("method=AddBuiltin", func(t *testing.T) {
@@ -717,12 +701,10 @@ func TestRunStringPredecls(t *testing.T) {
 			for _, test := range tests {
 				dummy := &dummyBase{}
 				st := startest.From(dummy)
-				dummy.ExpectFatal(func() {
-					st.AddBuiltin(test.input)
-					if !st.Failed() {
-						t.Errorf("%s: expected failure with input %v", test.name, test.input)
-					}
-				})
+				st.AddBuiltin(test.input)
+				if !st.Failed() {
+					t.Errorf("%s: expected failure with input %v", test.name, test.input)
+				}
 
 				if errLog := dummy.Errors(); errLog != test.expect {
 					t.Errorf("%s: unexpected error(s): %#v", test.name, errLog)
