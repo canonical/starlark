@@ -84,7 +84,7 @@ func getMapK2(k, v uintptr) uintptr {
 
 // estimateMap returns the estimated size of the memory
 // used inside a map.
-func estimateMap(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+func estimateMap(v reflect.Value) uintptr {
 	// Maps are hard to measure because we don't have access
 	// to the internal capacity (whatever that means). That is
 	// the first problem: "capacity" is a fuzzy concept in hash
@@ -149,7 +149,6 @@ func estimateStructFields(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
-		// I must take into account maps and structs as well
 		result += estimateSize(field, seen)
 	}
 
@@ -192,7 +191,7 @@ func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 					return 0
 				} else {
 					seen[ptr] = struct{}{}
-					return estimateMap(v, seen) + estimateMapElements(v, seen)
+					return estimateMap(v) + estimateMapElements(v, seen)
 				}
 			}
 
@@ -240,7 +239,7 @@ func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 		// In the case of slices, maps and strings we count the first level of memory
 		switch v.Kind() {
 		case reflect.Map:
-			return estimateMap(v, seen)
+			return estimateMap(v)
 
 		case reflect.Slice:
 			return estimateSlice(v)
