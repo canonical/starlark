@@ -7,10 +7,8 @@ package time // import "github.com/canonical/starlark/lib/time"
 
 import (
 	"fmt"
-	"math"
 	"sort"
 	"time"
-	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarkstruct"
@@ -97,7 +95,7 @@ func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.T
 	var d Duration
 	err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &d)
 	if err == nil {
-		err = thread.AddAllocs(int64(math.Max(16, float64(unsafe.Sizeof(Duration(0)))))) // Due to tiny allocations
+		err = thread.AddAllocs(int64(starlark.EstimateSizeDeep(d)))
 	}
 	return d, err
 }
