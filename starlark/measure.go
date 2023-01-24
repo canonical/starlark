@@ -155,6 +155,13 @@ func estimateStructFields(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	return result
 }
 
+// estimateSize returns the estimated size of any memory pointed by v.
+// This memory can be:
+//   - the backing array of a slice
+//   - any value pointed by a pointer (also if that pointer is a struct field)
+//   - the content of an interface
+//   - the contents of a string
+//   - the elements of a slice/array/map.
 func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	// FIXME strings are counted multiple times
 	if seen != nil {
