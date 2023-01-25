@@ -51,12 +51,12 @@ func From(base TestBase) *ST {
 	return &ST{TestBase: base, maxAllocs: math.MaxUint64}
 }
 
-// SetMaxAllocs optionally sets the max allocations allowed per test.N
+// SetMaxAllocs optionally sets the max allocations allowed per st.N.
 func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
 }
 
-// RequireSafety optionally sets the required safety of tested code
+// RequireSafety optionally sets the required safety of tested code.
 func (st *ST) RequireSafety(safety starlark.Safety) {
 	st.requiredSafety |= safety
 	st.safetyGiven = true
@@ -157,7 +157,7 @@ func (st *ST) RunString(code string) (ok bool) {
 	return codeErr == nil
 }
 
-// RunThread tests a function which has access to a starlark thread and a global environment
+// RunThread tests a function which has access to a starlark thread.
 func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	if !st.safetyGiven {
 		st.requiredSafety = stSafe
@@ -198,7 +198,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	}
 }
 
-// KeepAlive causes the memory of the passed objects to be measured
+// KeepAlive causes the memory of the passed objects to be measured.
 func (st *ST) KeepAlive(values ...interface{}) {
 	st.alive = append(st.alive, values...)
 }
