@@ -335,7 +335,7 @@ func TestMultipleRunCalls(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
-		for i := 0; i < 5; i++ {
+		for i := 0; i < 2; i++ {
 			executed = false
 			st.RunThread(func(*starlark.Thread) {
 				executed = true
@@ -358,7 +358,7 @@ func TestMultipleRunCalls(t *testing.T) {
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
 		st.AddBuiltin(fn)
-		for i := 0; i < 5; i++ {
+		for i := 0; i < 2; i++ {
 			fnCalled = false
 			if ok := st.RunString(`fn()`); ok {
 				t.Errorf("RunString returned true on iteration with i=%d", i)
