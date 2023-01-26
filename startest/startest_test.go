@@ -333,14 +333,16 @@ func TestMultipleRunCalls(t *testing.T) {
 	t.Run("method=RunThread", func(t *testing.T) {
 		var executed bool
 
-		st := startest.From(t)
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 		for i := 0; i < 5; i++ {
 			executed = false
 			st.RunThread(func(*starlark.Thread) {
 				executed = true
+				st.Error("oh no!")
 			})
 			if !executed {
-				t.Errorf("func was not called on iteration with i=%d", i+1)
+				t.Errorf("test code was not executed on iteration i=%d", i)
 			}
 		}
 	})
@@ -350,17 +352,18 @@ func TestMultipleRunCalls(t *testing.T) {
 
 		fn := starlark.NewBuiltinWithSafety("fn", startest.STSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			fnCalled = true
-			return starlark.None, nil
+			return starlark.None, errors.New("oh no!")
 		})
 
-		st := startest.From(t)
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 		st.AddBuiltin(fn)
 		for i := 0; i < 5; i++ {
 			fnCalled = false
-			if ok := st.RunString(`fn("asdf")`); !ok {
-				t.Errorf("RunString returned false on iteration with i=%d", i)
+			if ok := st.RunString(`fn()`); ok {
+				t.Errorf("RunString returned true on iteration with i=%d", i)
 			} else if !fnCalled {
-				t.Errorf("fn was not called on iteration with i=%d", i)
+				t.Errorf("test code was not executed on iteration i=%d", i)
 			}
 		}
 	})
