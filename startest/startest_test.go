@@ -329,6 +329,43 @@ func TestFailed(t *testing.T) {
 	}
 }
 
+func TestMultiUse(t *testing.T) {
+	t.Run("method=RunThread", func(t *testing.T) {
+		var executed bool
+
+		st := startest.From(t)
+		for i := 0; i < 5; i++ {
+			executed = false
+			st.RunThread(func(*starlark.Thread) {
+				executed = true
+			})
+			if !executed {
+				t.Errorf("func was not called on iteration with i=%d", i+1)
+			}
+		}
+	})
+
+	t.Run("method=RunString", func(t *testing.T) {
+		var fnCalled bool
+
+		fn := starlark.NewBuiltinWithSafety("fn", startest.STSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+			fnCalled = true
+			return starlark.None, nil
+		})
+
+		st := startest.From(t)
+		st.AddBuiltin(fn)
+		for i := 0; i < 5; i++ {
+			fnCalled = false
+			if ok := st.RunString(`fn("asdf")`); !ok {
+				t.Errorf("RunString returned false on iteration with i=%d", i)
+			} else if !fnCalled {
+				t.Errorf("fn was not called on iteration with i=%d", i)
+			}
+		}
+	})
+}
+
 func TestRequireSafety(t *testing.T) {
 	t.Run("method=RunThread", func(t *testing.T) {
 		t.Run("safety=safe", func(t *testing.T) {

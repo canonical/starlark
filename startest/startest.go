@@ -62,6 +62,7 @@ type ST struct {
 	minExecutionSteps uint64
 	alive             []interface{}
 	N                 int
+	runFailed         bool
 	requiredSafety    starlark.SafetyFlags
 	safetyGiven       bool
 	predecls          starlark.StringDict
@@ -85,6 +86,20 @@ func From(base TestBase) *ST {
 		maxAllocs:         math.MaxUint64,
 		maxExecutionSteps: math.MaxUint64,
 	}
+}
+
+// Error reports an error via the test base and stops the test loop at the end
+// of the current iteration.
+func (st *ST) Error(args ...interface{}) {
+	st.TestBase.Error(args...)
+	st.runFailed = true
+}
+
+// Errorf reports a formatted error via the test base and stops the test loop
+// at the end of the current iteration.
+func (st *ST) Errorf(format string, args ...interface{}) {
+	st.TestBase.Errorf(format, args...)
+	st.runFailed = true
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per unit of st.N.
@@ -224,7 +239,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	}
 
 	stats := st.measureExecution(thread, fn)
-	if st.Failed() {
+	if st.runFailed {
 		return
 	}
 
@@ -277,6 +292,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 
 	nSum, allocSum, valueTrackerAllocs := uint64(0), uint64(0), uint64(0)
 
+	st.runFailed = false
 	startTime := time.Now()
 	prevN, elapsed := int64(0), time.Duration(0)
 	for allocSum < memoryMax+valueTrackerAllocs && prevN < nMax && elapsed < timeMax {
@@ -322,7 +338,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 
 		runtime.KeepAlive(alive)
 
-		if st.Failed() {
+		if st.runFailed {
 			return runStats{}
 		}
 
