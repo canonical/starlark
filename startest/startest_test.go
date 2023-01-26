@@ -329,7 +329,7 @@ func TestFailed(t *testing.T) {
 	}
 }
 
-func TestMultiUse(t *testing.T) {
+func TestMultipleRunCalls(t *testing.T) {
 	t.Run("method=RunThread", func(t *testing.T) {
 		var executed bool
 
