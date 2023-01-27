@@ -106,6 +106,31 @@ func TestEstimateEmptyIndirects(t *testing.T) {
 	})
 }
 
+func TestEstimateMemberPointers(t *testing.T) {
+	runEstimateTest(t, func() interface{} {
+		a := &struct {
+			l []int
+			s string
+			n int
+
+			pL *int
+			pS *string
+			pN *int
+		}{
+			s: allocString("test"),
+			n: 1,
+			l: make([]int, 32),
+		}
+
+		// Refer to existing memory
+		a.pS = &a.s
+		a.pN = &a.n
+		a.pL = &a.l[0]
+
+		return a
+	})
+}
+
 func TestEstimateDuplicateIndirects(t *testing.T) {
 	runEstimateTest(t, func() interface{} {
 		a := struct {
