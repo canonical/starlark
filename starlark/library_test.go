@@ -252,6 +252,7 @@ func TestStringIslowerAllocs(t *testing.T) {
 	}
 
 	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
 	st.SetMaxAllocs(0)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
