@@ -106,6 +106,20 @@ func TestEstimateEmptyIndirects(t *testing.T) {
 	})
 }
 
+func TestEstimateSlicePointer(t *testing.T) {
+	runEstimateTest(t, func() interface{} {
+		slice := make([]int, 16)
+
+		return struct {
+			ptr   *int
+			slice []int
+		}{
+			ptr:   &slice[0],
+			slice: slice,
+		}
+	})
+}
+
 func TestEstimateMemberPointers(t *testing.T) {
 	runEstimateTest(t, func() interface{} {
 		a := &struct {
