@@ -51,10 +51,15 @@ func getAllocSize(size uintptr) uintptr {
 	return alignUp(size, pageSize)
 }
 
+// estimateSlice returns the estimated size for the slice backing buffer.
+// It doesn't include any storage for the indirects pointed by the values.
 func estimateSlice(v reflect.Value) uintptr {
 	return getAllocSize(v.Type().Elem().Size() * uintptr(v.Cap()))
 }
 
+// estimateChan returns the estimated size for the channel buffer.
+// It doesn't include any storage for the indirects pointed by
+// the values.
 func estimateChan(v reflect.Value) uintptr {
 	elementType := v.Type().Elem()
 	// This is a pessimistic view since in case of
@@ -83,7 +88,8 @@ func getMapK2(k, v uintptr) uintptr {
 }
 
 // estimateMap returns the estimated size of the memory
-// used inside a map.
+// used inside a map. This size includes the memory for
+// the keys, but not for the indirects pointed by them.
 func estimateMap(v reflect.Value) uintptr {
 	// Maps are hard to measure because we don't have access
 	// to the internal capacity (whatever that means). That is
@@ -121,6 +127,9 @@ func estimateMap(v reflect.Value) uintptr {
 	return result
 }
 
+// estimateMapElements returns the estimated size of the indirects
+// contained by a map. The size of the Key or Values **is not** counted
+// here. This function will panic in case v is not a map.
 func estimateMapElements(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	var result uintptr
 
@@ -133,6 +142,9 @@ func estimateMapElements(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	return result
 }
 
+// estimateSliceValues returns the estimated size of the indirects
+// contained by an array or a slice. As such, this function will
+// panic in case v is not an array or slice.
 func estimateSliceValues(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 
@@ -145,6 +157,9 @@ func estimateSliceValues(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	return result
 }
 
+// estimateStructFields returns the estimated size of indirects
+// contained by a struct field. v is expected to be a struct and
+// this function will panic in case it's not.
 func estimateStructFields(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 	for i := 0; i < v.NumField(); i++ {
@@ -155,13 +170,13 @@ func estimateStructFields(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	return result
 }
 
-// estimateSize returns the estimated size of any memory pointed by v.
-// This memory can be:
-//   - the backing array of a slice
-//   - any value pointed by a pointer (also if that pointer is a struct field)
-//   - the content of an interface
-//   - the contents of a string
-//   - the elements of a slice/array/map.
+// estimateSize returns the estimated size of a Value **as if its type
+// size has already been counted**. So:
+//   - {String,Slice}Header are already counted, but not its content
+//   - Struct is already counted, but its fields could have indirects
+//     which point to more memory
+//   - Arrays are already counted, but not its element (if they contain indirects)
+//   - Interfaces are counted, but not the contents (neither as a Value nor as a Pointer)
 func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	// FIXME strings are counted multiple times
 	if seen != nil {
