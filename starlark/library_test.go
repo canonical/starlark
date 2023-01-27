@@ -202,6 +202,7 @@ func TestChrAllocs(t *testing.T) {
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
+	st.RequireSafety(starlark.MemSafe)
 	st.SetMaxAllocs(32)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
