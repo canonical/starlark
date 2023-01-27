@@ -363,6 +363,7 @@ func TestStringCodepointOrdsAllocs(t *testing.T) {
 	}
 
 	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
 	st.SetMaxAllocs(24)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
@@ -383,6 +384,7 @@ func TestStringCodepointsAllocs(t *testing.T) {
 	}
 
 	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
 	st.SetMaxAllocs(24)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
@@ -406,6 +408,7 @@ func TestStringElemOrdsAllocs(t *testing.T) {
 	}
 
 	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
 	st.SetMaxAllocs(24)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
@@ -426,6 +429,7 @@ func TestStringElemsAllocs(t *testing.T) {
 	}
 
 	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
 	st.SetMaxAllocs(24)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
