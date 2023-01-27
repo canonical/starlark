@@ -690,8 +690,8 @@ func TestRunStringError(t *testing.T) {
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
 		ok := st.RunString(fmt.Sprintf("st.error(%s)", test.src))
-		if !ok {
-			t.Errorf("%s: RunString returned false", test.name)
+		if ok {
+			t.Errorf("%s: RunString returned true", test.name)
 		}
 		if !st.Failed() {
 			t.Errorf("%s: expected failure", test.name)
@@ -957,8 +957,8 @@ func TestRunStringMemSafety(t *testing.T) {
 			for _ in st.ntimes():
 				st.keep_alive(overallocate())
 		`)
-		if !ok {
-			t.Errorf("RunString returned false")
+		if ok {
+			t.Errorf("RunString returned true")
 		}
 
 		if !st.Failed() {
@@ -1064,8 +1064,8 @@ func TestAssertModuleIntegration(t *testing.T) {
 			st := startest.From(dummy)
 			st.RequireSafety(starlark.MemSafe) // TODO: remove this once full safety reached
 			st.AddBuiltin(no_error)
-			if ok := st.RunString(test.input); !ok {
-				t.Errorf("%s: RunString returned false on '%s'", test.name, test.input)
+			if ok := st.RunString(test.input); ok {
+				t.Errorf("%s: RunString returned true on '%s'", test.name, test.input)
 			}
 
 			if !st.Failed() {

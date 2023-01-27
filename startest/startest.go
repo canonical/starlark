@@ -219,7 +219,7 @@ func (st *ST) RunString(code string) (ok bool) {
 	if codeErr != nil {
 		st.Error(codeErr)
 	}
-	return codeErr == nil
+	return !st.abortLoop && codeErr == nil
 }
 
 // RunThread tests a function which has access to a Starlark thread.
