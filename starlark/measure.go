@@ -51,16 +51,24 @@ func getAllocSize(size uintptr) uintptr {
 	return alignUp(size, pageSize)
 }
 
-// estimateSlice returns the estimated size for the slice backing buffer.
-// It doesn't include any storage for the indirects pointed by the values.
-func estimateSlice(v reflect.Value) uintptr {
-	return getAllocSize(v.Type().Elem().Size() * uintptr(v.Cap()))
+// estimateChan returns the estimated size for the channel buffer, if
+// not already visited.
+func estimateChan(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	if !v.IsNil() {
+		ptr := v.Pointer()
+		if _, ok := seen[ptr]; !ok {
+			seen[ptr] = struct{}{}
+			return estimateChanStorage(v)
+		}
+	}
+
+	return 0
 }
 
-// estimateChan returns the estimated size for the channel buffer.
+// estimateChanStorage returns the estimated size for the channel buffer.
 // It doesn't include any storage for the indirects pointed by
 // the values.
-func estimateChan(v reflect.Value) uintptr {
+func estimateChanStorage(v reflect.Value) uintptr {
 	elementType := v.Type().Elem()
 	// This is a pessimistic view since in case of
 	// an elementType that doesn't contain any pointer it
@@ -87,10 +95,23 @@ func getMapK2(k, v uintptr) uintptr {
 	}
 }
 
-// estimateMap returns the estimated size of the memory
+// estimateMap retutns the estimated size of both the memory
+// used inside of a map and all the indirects stored in its
+// keys and values.
+func estimateMap(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	ptr := v.Pointer()
+	if _, ok := seen[ptr]; ok {
+		return 0
+	} else {
+		seen[ptr] = struct{}{}
+		return estimateMapStorage(v) + estimateMapElements(v, seen)
+	}
+}
+
+// estimateMapStorage returns the estimated size of the memory
 // used inside a map. This size includes the memory for
 // the keys, but not for the indirects pointed by them.
-func estimateMap(v reflect.Value) uintptr {
+func estimateMapStorage(v reflect.Value) uintptr {
 	// Maps are hard to measure because we don't have access
 	// to the internal capacity (whatever that means). That is
 	// the first problem: "capacity" is a fuzzy concept in hash
@@ -142,16 +163,40 @@ func estimateMapElements(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	return result
 }
 
+// estimateSlice returns the estimated size for the slice's backing array
+// and for all the indirects it contains.
+func estimateSlice(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	if !v.IsNil() {
+		// FIXME slices are counted multiple times.
+		// This function doesn't check if the backing array has already been
+		// counted to avoid missing parts of the memory. For example:
+		//  a := [16]int{}
+		//  b := [][]int { a[0:1:1], a[:] }
+		//
+		// Both b[0] and b[1] point to the same backing array, but marking that
+		// as "seen" while visiting b[0] will make the function miss all the
+		// memory pointed by b. It is better in this case to just be pessimistic
+		// and estimate more memory than it actually is allocated.
+		return estimateSliceStorage(v) + estimateSliceValues(v, seen)
+	} else {
+		return 0
+	}
+}
+
+// estimateSliceStorage returns the estimated size for the slice backing buffer.
+// It doesn't include any storage for the indirects pointed by the values.
+func estimateSliceStorage(v reflect.Value) uintptr {
+	return getAllocSize(v.Type().Elem().Size() * uintptr(v.Cap()))
+}
+
 // estimateSliceValues returns the estimated size of the indirects
 // contained by an array or a slice. As such, this function will
 // panic in case v is not an array or slice.
 func estimateSliceValues(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 
-	if seen != nil {
-		for i := 0; i < v.Len(); i++ {
-			result += estimateSize(v.Index(i), seen)
-		}
+	for i := 0; i < v.Len(); i++ {
+		result += estimateSize(v.Index(i), seen)
 	}
 
 	return result
@@ -180,14 +225,13 @@ func estimateStructFields(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	// FIXME strings are counted multiple times
 	if seen != nil {
+		// This adds the address of the value or the field to the `seen`
+		// list. It is important to still consider the memory **pointed
+		// by** this memory, so that we don't miss anything (e.g. pointers
+		// to the members of an array or members of a struct)
 		if v.CanAddr() {
 			ptr := v.Addr().Pointer()
-
-			if _, ok := seen[ptr]; ok {
-				return 0
-			} else {
-				seen[ptr] = struct{}{}
-			}
+			seen[ptr] = struct{}{}
 		}
 
 		switch v.Kind() {
@@ -200,48 +244,22 @@ func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 
 		case reflect.Ptr:
 			if !v.IsNil() {
-				elem := v.Elem()
-				return estimateSize(elem, seen) + getAllocSize(elem.Type().Size())
-			} else {
-				return 0
+				if _, ok := seen[v.Pointer()]; !ok {
+					elem := v.Elem()
+					return estimateSize(elem, seen) + getAllocSize(elem.Type().Size())
+				}
 			}
+
+			return 0
 
 		case reflect.Map:
-			if !v.IsNil() {
-				ptr := v.Pointer()
-				if _, ok := seen[ptr]; ok {
-					return 0
-				} else {
-					seen[ptr] = struct{}{}
-					return estimateMap(v) + estimateMapElements(v, seen)
-				}
-			}
+			return estimateMap(v, seen)
 
 		case reflect.Slice:
-			if !v.IsNil() {
-				ptr := v.Pointer()
-				if _, ok := seen[ptr]; ok {
-					return 0
-				} else {
-					seen[ptr] = struct{}{}
-					return estimateSlice(v) + estimateSliceValues(v, seen)
-				}
-			} else {
-				return 0
-			}
+			return estimateSlice(v, seen)
 
 		case reflect.Chan:
-			if !v.IsNil() {
-				ptr := v.Pointer()
-				if _, ok := seen[ptr]; ok {
-					return 0
-				} else {
-					seen[ptr] = struct{}{}
-					return estimateChan(v)
-				}
-			} else {
-				return 0
-			}
+			return estimateChan(v, seen)
 
 		case reflect.Struct:
 			return estimateStructFields(v, seen)
@@ -250,24 +268,19 @@ func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 			return estimateSliceValues(v, seen)
 
 		case reflect.String:
-			// I need to get the pointer to the string as well
-			len := v.Len()
-			if len != 0 {
-				// Getting the pointer from a string is ugly.
-				return getAllocSize(uintptr(len))
-			}
+			return getAllocSize(uintptr(v.Len()))
 		}
 	} else {
 		// In the case of slices, maps and strings we count the first level of memory
 		switch v.Kind() {
 		case reflect.Map:
-			return estimateMap(v)
+			return estimateMapStorage(v)
 
 		case reflect.Slice:
-			return estimateSlice(v)
+			return estimateSliceStorage(v)
 
 		case reflect.Chan:
-			return estimateChan(v)
+			return estimateChanStorage(v)
 
 		case reflect.String:
 			return getAllocSize(uintptr(v.Len()))
