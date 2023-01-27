@@ -348,24 +348,45 @@ func TestMultipleRunCalls(t *testing.T) {
 	})
 
 	t.Run("method=RunString", func(t *testing.T) {
-		var fnCalled bool
+		t.Run("errorCall=explicit", func(t *testing.T) {
+			const expected = "oh no!\nanyway"
 
-		fn := starlark.NewBuiltinWithSafety("fn", startest.STSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-			fnCalled = true
-			return starlark.None, errors.New("oh no!")
+			dummy := &dummyBase{}
+			st := startest.From(dummy)
+
+			msgs := []string{"oh no!", "anyway"}
+			for i, msg := range msgs {
+				if ok := st.RunString(fmt.Sprintf("st.error(%q)", msg)); ok {
+					t.Errorf("RunString returned true on iteration with i=%d", i)
+				}
+			}
+
+			if errLog := dummy.Errors(); errLog != expected {
+				t.Errorf("Unexpected error(s): %s", errLog)
+			}
 		})
 
-		dummy := &dummyBase{}
-		st := startest.From(dummy)
-		st.AddBuiltin(fn)
-		for i := 0; i < 2; i++ {
-			fnCalled = false
-			if ok := st.RunString(`fn()`); ok {
-				t.Errorf("RunString returned true on iteration with i=%d", i)
-			} else if !fnCalled {
-				t.Errorf("test code was not executed on iteration i=%d", i)
+		t.Run("errorCall=implicit", func(t *testing.T) {
+			const expected = "oh no!\nanyway"
+
+			fn := starlark.NewBuiltinWithSafety("fn", startest.STSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+				return starlark.None, errors.New(string(args[0].(starlark.String)))
+			})
+
+			dummy := &dummyBase{}
+			st := startest.From(dummy)
+			st.AddBuiltin(fn)
+			msgs := []string{"oh no!", "anyway"}
+			for i, msg := range msgs {
+				if ok := st.RunString(fmt.Sprintf("fn(%q)", msg)); ok {
+					t.Errorf("RunString returned true on iteration with i=%d", i)
+				}
 			}
-		}
+
+			if errLog := dummy.Errors(); errLog != expected {
+				t.Errorf("Unexpected error(s): %s", errLog)
+			}
+		})
 	})
 }
 
