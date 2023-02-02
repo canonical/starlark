@@ -642,7 +642,7 @@ func TestRunStringPredecls(t *testing.T) {
 				st.RequireSafety(starlark.NotSafe)
 				st.AddValue("value", test.value)
 				if ok := st.RunString(fmt.Sprintf("assert.eq(repr(value), %#v)", test.repr)); !ok {
-					t.Errorf("RunString returned false")
+					t.Errorf("%s: RunString returned false", test.name)
 				}
 			}
 		})
