@@ -144,7 +144,7 @@ func TestKeepAlive(t *testing.T) {
 			}
 		})
 		if errLog := dummy.Errors(); errLog != expected {
-			t.Errorf("unexpcted error(s): %s", errLog)
+			t.Errorf("unexpected error(s): %s", errLog)
 		}
 	})
 
@@ -212,7 +212,7 @@ func TestKeepAlive(t *testing.T) {
 			t.Error("expected failure")
 		}
 		if errLog := dummy.Errors(); errLog != expected {
-			t.Errorf("Unexpected error(s): %s", errLog)
+			t.Errorf("unexpected error(s): %s", errLog)
 		}
 	})
 }
@@ -240,10 +240,10 @@ func TestFailed(t *testing.T) {
 		t.Error("startest reported that it failed prematurely")
 	}
 	if log := dummy.Logs(); log != "foobar" {
-		t.Errorf("Unexpected log output: %s", log)
+		t.Errorf("unexpected log output: %s", log)
 	}
 	if errLog := dummy.Errors(); errLog != "" {
-		t.Errorf("Unexpected error logged: %s", errLog)
+		t.Errorf("unexpected error logged: %s", errLog)
 	}
 
 	st.Error("snafu")
@@ -252,10 +252,10 @@ func TestFailed(t *testing.T) {
 		t.Error("startest did not report that it had failed")
 	}
 	if log := dummy.Logs(); log != "foobar" {
-		t.Errorf("Unexpected log output: %s", log)
+		t.Errorf("unexpected log output: %s", log)
 	}
 	if errLog := dummy.Errors(); errLog != "snafu" {
-		t.Errorf("Unexpected error logged: %s", errLog)
+		t.Errorf("unexpected error logged: %s", errLog)
 	}
 }
 
