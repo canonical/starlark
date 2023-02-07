@@ -272,7 +272,7 @@ func TestEstimateMap(t *testing.T) {
 }
 
 func TestEstimateChan(t *testing.T) {
-	t.Run("deep", func(t *testing.T) {
+	t.Run("all", func(t *testing.T) {
 		st := startest.From(t)
 		st.RunThread(func(thread *starlark.Thread) {
 			value := make(chan int, st.N)
@@ -286,7 +286,7 @@ func TestEstimateChan(t *testing.T) {
 		})
 	})
 
-	t.Run("shallow", func(t *testing.T) {
+	t.Run("direct-only", func(t *testing.T) {
 		st := startest.From(t)
 		st.RunThread(func(thread *starlark.Thread) {
 			value := make(chan int, st.N)

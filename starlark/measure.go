@@ -46,8 +46,8 @@ func divRoundUp(n, a uintptr) uintptr {
 	return (n + a - 1) / a
 }
 
-// getAllocSize returns the size of an allocation,
-// taking into account the class sizes of the GC.
+// getAllocSize rounds an intended allocation amount to an allocation
+// amount which can be made by Go.
 func getAllocSize(size uintptr) uintptr {
 	if size == 0 {
 		return 0
@@ -114,7 +114,7 @@ func getMapK2(k, v uintptr) uintptr {
 	}
 }
 
-// estimateMapAll retutns the estimated size of both the memory
+// estimateMapAll returns the estimated size of both the memory
 // used inside of a map and all the indirects stored in its
 // keys and values.
 func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -169,7 +169,7 @@ func estimateMapDirect(v reflect.Value) uintptr {
 
 // estimateMapIndirect returns the estimated size of the indirects
 // contained by a map. The size of the Key or Values **is not** counted
-// here. This function will panic in case v is not a map.
+// here.
 func estimateMapIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	var result uintptr
 
@@ -188,7 +188,7 @@ func estimateSliceAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	if !v.IsNil() {
 		// FIXME slices are counted multiple times.
 		// This function doesn't check if the backing array has already been
-		// counted to avoid missing parts of the memory. For example:
+		// counted. For example:
 		//  a := [16]int{}
 		//  b := [][]int { a[0:1:1], a[:] }
 		//
@@ -234,13 +234,8 @@ func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr 
 	return result
 }
 
-// estimateSize returns the estimated size of a Value **as if its type
-// size has already been counted**. So:
-//   - {String,Slice}Header are already counted, but not its content
-//   - Struct is already counted, but its fields could have indirects
-//     which point to more memory
-//   - Arrays are already counted, but not its element (if they contain indirects)
-//   - Interfaces are counted, but not the contents (neither as a Value nor as a Pointer)
+// estimateSize estimates the size of the given value. If map of seen
+// addresses is nil, it will exclude indirectly-related memory.
 func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	// FIXME strings are counted multiple times
 	if seen != nil {
