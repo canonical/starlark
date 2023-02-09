@@ -1,3 +1,5 @@
+// Package startest provides a framework to test starlark code, environments
+// and their safety.
 package startest
 
 import (
