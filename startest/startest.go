@@ -25,8 +25,8 @@
 // If starlark.MemSafe is required, startest will check that the change in
 // memory-usage caused by running the test falls within acceptable bounds. To
 // test the memory cost of a particular value, use the KeepAlive method to
-// force the given value to be included in the memory measurement taken after
-// each test iteration.
+// force that value to be included in the memory measurement taken after the
+// test iteration.
 package startest
 
 import (
