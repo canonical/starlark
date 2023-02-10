@@ -16,6 +16,17 @@
 // will check that no more than 100 allocation units are made per N. Tests are
 // repeated with different values of N to reduce the effect of noise on
 // measurements.
+//
+// The RequireSafety method is used to both specify the expected
+// safety-declarations of all builtins run as part of the test and to affect
+// the checks which are performed. If unspecified, by default all safety flags
+// are required.
+//
+// If starlark.MemSafe is required, startest will check that the change in
+// memory-usage caused by running the test falls within acceptable bounds. To
+// test the memory cost of a particular value, use the KeepAlive method to
+// force the given value to be included in the memory measurement taken after
+// each test iteration.
 package startest
 
 import (
