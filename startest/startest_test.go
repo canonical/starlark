@@ -10,6 +10,79 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+// func ExampleST_RunString() {
+// 	// func TestFoo(t *testing.T) {
+// 	TestFoo := func(t *testing.T) {
+// 		d := &dummyBase{}
+// 		st := startest.From(d)
+
+// 		st.SetMaxAllocs(32)
+
+// 		st.AddBuiltin(starlark.NewBuiltinWithSafety("fn", starlark.MemSafe|starlark.CPUSafe|starlark.IOSafe|starlark.TimeSafe, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+// 			var repetitions int
+// 			if err := starlark.UnpackPositionalArgs(b.Name(), args, kwargs, 1, &repetitions); err != nil {
+// 				return nil, err
+// 			}
+
+// 			// if err := thread.AddAllocs(int64(24 + repetitions*starlark.EstimateSize(starlark.True))); err != nil {
+// 			// 	return nil, err
+// 			// }
+
+// 			// Make some allocations
+// 			elems := make([]starlark.Value, 0, repetitions)
+// 			for i := 0; i < repetitions; i++ {
+// 				elems = append(elems, starlark.True)
+// 			}
+
+// 			return starlark.NewList(elems), nil
+// 		}))
+
+// 		st.RunString(`
+// 		assert.eq(type(st.n), "int")
+// 		assert.eq(type(st.keep_alive), "builtin_function_or_method")
+// 		st.keep_alive(fn(st.n))
+// 	`)
+// 		fmt.Println(d.Errors())
+// 		fmt.Println(d.Logs())
+// 	}
+// 	// }
+
+// 	// Ignore this.
+// 	t := &testing.T{}
+// 	TestFoo(t)
+// 	if !t.Failed() {
+// 		fmt.Println("ok")
+// 	}
+// 	// Output:
+// 	// ok
+// }
+
+func ExampleST_RunThread() {
+	// func TestFoo(t *testing.T) {
+	TestFoo := func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.NotSafe)
+
+		// Allow at most 4 bytes allocated per st.N.
+		st.SetMaxAllocs(4)
+
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				st.KeepAlive(new(int32))
+			}
+		})
+	}
+	// }
+
+	// Ignore this.
+	t := &testing.T{}
+	TestFoo(t)
+	if !t.Failed() {
+		fmt.Println("ok")
+	}
+	// Output: ok
+}
+
 type dummyBase struct {
 	failed bool
 	errors *strings.Builder

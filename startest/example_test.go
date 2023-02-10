@@ -1,6 +1,7 @@
 package startest_test
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -11,14 +12,31 @@ import (
 func Example() {
 	// func TestFoo(t *testing.T) {
 	TestFoo := func(t *testing.T) {
-		st := startest.From(t)
+		d := &dummyBase{}
+		st := startest.From(d)
+		st.RequireSafety(starlark.IOSafe)
 
-		st.AddValue("foo", starlark.String("bar"))
+		st.AddValue("foo", &Foo{bar: "bar"})
+		st.AddLocal("my_local", 100)
 
 		st.RunString(`
-		assert.eq(type(st.N), "int")
-		assert.eq(type(st.keep_alive), "builtin_function_or_method")
-	`)
+			assert.eq(type(foo), 'foo')
+			assert.eq(str(foo), '<foo>')
+			assert.true(foo)
+
+			assert.eq(foo.bar, "bar")
+			assert.eq(foo.baz(), 103)
+
+			assert.fails(lambda: foo.baz('asdf'), "got 1 arguments?, want 0")
+
+			foo.bar = "baz"
+			assert.eq(foo.bar, "baz")
+
+			foo.bar = "bar"
+			assert.eq(foo.bar, "bar")
+		`)
+		fmt.Println(d.Errors())
+		fmt.Println(d.Logs())
 	}
 	// }
 
@@ -32,106 +50,61 @@ func Example() {
 	// ok
 }
 
-func ExampleST_RunString() {
-	// func TestFoo(t *testing.T) {
-	TestFoo := func(t *testing.T) {
-		st := startest.From(t)
-
-		st.AddValue("foo", starlark.String("bar"))
-
-		st.RunString(`
-		assert.eq(foo, "bar")
-	`)
-	}
-	// }
-
-	// Ignore this.
-	t := &testing.T{}
-	TestFoo(t)
-	if !t.Failed() {
-		fmt.Println("ok")
-	}
-	// Output:
-	// ok
+type Foo struct {
+	bar    string
+	frozen bool
 }
 
-func ExampleST_RunThread() {
-	// func TestFoo(t *testing.T) {
-	TestFoo := func(t *testing.T) {
-		st := startest.From(t)
-		st.RequireSafety(starlark.NotSafe)
+var _ starlark.Value = &Foo{}
+var _ starlark.HasAttrs = &Foo{}
+var _ starlark.HasSetField = &Foo{}
 
-		// Allow at most 4 bytes allocated per st.N.
-		st.SetMaxAllocs(4)
+// Implement starlark.Value
+func (f *Foo) Type() string          { return "foo" }
+func (f *Foo) String() string        { return "<foo>" }
+func (f *Foo) Freeze()               { f.frozen = true }
+func (f *Foo) Truth() starlark.Bool  { return starlark.Bool(f.bar != "") }
+func (f *Foo) Hash() (uint32, error) { return starlark.String(f.bar).Hash() }
 
-		st.RunThread(func(thread *starlark.Thread) {
-			for i := 0; i < st.N; i++ {
-				st.KeepAlive(new(int32))
-			}
-		})
+// Implement starlark.HasAttrs
+func (f *Foo) AttrNames() []string { return []string{"bar", "baz"} }
+func (f *Foo) Attr(name string) (starlark.Value, error) {
+	switch name {
+	case "bar":
+		return starlark.String(f.bar), nil
+	case "baz":
+		return fooBaz.BindReceiver(f), nil
 	}
-	// }
 
-	// Ignore this.
-	t := &testing.T{}
-	TestFoo(t)
-	if !t.Failed() {
-		fmt.Println("ok")
-	}
-	// Output: ok
+	return nil, nil
 }
 
-func ExampleST_SetMaxAllocs() {
-	// func TestFoo(t *testing.T) {
-	TestFoo := func(t *testing.T) {
-		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe)
-
-		// Declare max allowed allocations per st.N
-		st.SetMaxAllocs(100)
-
-		st.RunString(`
-		for i in range(st.N):
-			st.keep_alive(i)
-	`)
+// Implement starlark.HasSetField
+func (f *Foo) SetField(name string, val starlark.Value) error {
+	if f.frozen {
+		errors.New("Foo is frozen")
 	}
-	// }
 
-	// Ignore this.
-	t := &testing.T{}
-	TestFoo(t)
-	if !t.Failed() {
-		fmt.Println("ok")
+	if name == "bar" {
+		if s, ok := val.(starlark.String); ok {
+			f.bar = string(s)
+			return nil
+		}
+		return fmt.Errorf("foo.bar expected a string")
 	}
-	// Output: ok
+
+	return errors.New("No such field .bar")
 }
 
-func ExampleST_AddLocal() {
-	var local interface{}
-
-	// func TestFoo(t *testing.T) {
-	TestFoo := func(t *testing.T) {
-
-		st := startest.From(t)
-		st.RequireSafety(starlark.NotSafe)
-
-		st.AddLocal("my_local", "foo")
-		st.AddBuiltin(starlark.NewBuiltin("builtin", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-			local = thread.Local("my_local")
-			return starlark.None, nil
-		}))
-
-		st.RunString(`
-		builtin()
-	`)
+// Example implementation of a foo.baz starlark method
+var fooBaz = starlark.NewBuiltinWithSafety("baz", starlark.IOSafe, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	if err := starlark.UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
+		return nil, err
 	}
-	// }
 
-	// Ignore this.
-	t := &testing.T{}
-	TestFoo(t)
-	if !t.Failed() && local == "foo" {
-		fmt.Println("ok")
-	}
-	// Output: ok
-}
+	local := thread.Local("my_local").(int)
+
+	recv := b.Receiver().(*Foo)
+
+	return starlark.MakeInt(local + len(recv.bar)), nil
+})
