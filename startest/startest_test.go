@@ -53,8 +53,7 @@ import (
 // 	if !t.Failed() {
 // 		fmt.Println("ok")
 // 	}
-// 	// Output:
-// 	// ok
+// 	// Output: ok
 // }
 
 func ExampleST_RunThread() {

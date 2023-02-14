@@ -46,8 +46,7 @@ func Example() {
 	if !t.Failed() {
 		fmt.Println("ok")
 	}
-	// Output:
-	// ok
+	// Output: ok
 }
 
 type Foo struct {
