@@ -12,8 +12,7 @@ import (
 func Example() {
 	// func TestFoo(t *testing.T) {
 	TestFoo := func(t *testing.T) {
-		d := &dummyBase{}
-		st := startest.From(d)
+		st := startest.From(t)
 		st.RequireSafety(starlark.IOSafe)
 
 		st.AddValue("foo", &Foo{bar: "bar"})
@@ -35,8 +34,6 @@ func Example() {
 			foo.bar = "bar"
 			assert.eq(foo.bar, "bar")
 		`)
-		fmt.Println(d.Errors())
-		fmt.Println(d.Logs())
 	}
 	// }
 

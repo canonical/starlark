@@ -13,8 +13,7 @@ import (
 func ExampleST_RunString() {
 	// func TestFoo(t *testing.T) {
 	TestFoo := func(t *testing.T) {
-		d := &dummyBase{}
-		st := startest.From(d)
+		st := startest.From(t)
 
 		st.SetMaxAllocs(32)
 
@@ -41,8 +40,6 @@ func ExampleST_RunString() {
 		st.RunString(`
 		st.keep_alive(fn(st.n))
 	`)
-		fmt.Println(d.Errors())
-		fmt.Println(d.Logs())
 	}
 	// }
 
