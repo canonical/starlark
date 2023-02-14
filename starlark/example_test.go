@@ -76,58 +76,6 @@ squares = [x*x for x in range(10)]
 	// squares (list) = [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]
 }
 
-// ExampleExecFile_safe demonstrates an embedding of the Starlark interpreter
-// into a Go program, using safety flags to stop the program from misbehaving.
-func ExampleExecFile_safe() {
-	const data = `print(repeat("lol", 100000000000))`
-	// repeat(str, n=1) is a Go function called from Starlark. It behaves like
-	// the `string * int` operation. Before making any significant allocations,
-	// it checkes whether the Starlark thread it is executing upon has enough
-	// remaining memory-budget.
-	repeat := starlark.NewBuiltinWithSafety("repeat", starlark.MemSafe, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-		var s string
-		var n int = 1
-		if err := starlark.UnpackArgs(b.Name(), args, kwargs, "s", &s, "n?", &n); err != nil {
-			return nil, err
-		}
-		if n < 0 {
-			return nil, fmt.Errorf("repetitions are negative: got %d", n)
-		}
-		if err := thread.AddAllocs(int64(unsafe.Sizeof(reflect.StringHeader{})) + int64(n*len(s))); err != nil {
-			return nil, err
-		}
-		return starlark.String(strings.Repeat(s, n)), nil
-	})
-
-	// The Thread defines an execution context for the program, with a builtin
-	// 'print' function.
-	thread := &starlark.Thread{
-		Name:  "example",
-		Print: func(_ *starlark.Thread, msg string) { fmt.Println(msg) },
-	}
-	thread.SetMaxAllocs(1000)
-
-	// This dictionary defines the pre-declared environment.
-	predeclared := starlark.StringDict{
-		"repeat": repeat,
-	}
-
-	// Execute the program.
-	_, err := starlark.ExecFile(thread, "apparent/filename.star", data, predeclared)
-	if err != nil {
-		// Print eval error
-		if evalErr, ok := err.(*starlark.EvalError); ok {
-			fmt.Println(evalErr.Backtrace())
-		} else {
-			log.Fatal(err)
-		}
-	}
-	// Output:
-	// Traceback (most recent call last):
-	//   apparent/filename.star:1:13: in <toplevel>
-	// Error in repeat: exceeded memory allocation limits
-}
-
 // ExampleThread_Load_sequential demonstrates a simple caching
 // implementation of 'load' that works sequentially.
 func ExampleThread_Load_sequential() {
