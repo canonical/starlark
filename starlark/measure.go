@@ -29,7 +29,7 @@ func EstimateSize(obj interface{}) uintptr {
 	if obj == nil {
 		return 0
 	} else {
-		return estimateInterface(reflect.ValueOf(obj), nil)
+		return estimateInterfaceAll(reflect.ValueOf(obj), nil)
 	}
 }
 
@@ -40,12 +40,11 @@ func EstimateSizeDeep(obj interface{}) uintptr {
 	if obj == nil {
 		return 0
 	} else {
-		return estimateInterface(reflect.ValueOf(obj), make(map[uintptr]struct{}))
+		return estimateInterfaceAll(reflect.ValueOf(obj), make(map[uintptr]struct{}))
 	}
 }
 
-// estimateInterface returns the estimated size of the content of an interface
-func estimateInterface(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+func estimateInterfaceAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	if v.Kind() == reflect.String {
 		// In this case neither the memory for the string nor
 		// the memory for the header are allocated.
@@ -56,7 +55,7 @@ func estimateInterface(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 		}
 	}
 
-	result := estimateSize(v, seen)
+	result := estimateSizeAll(v, seen)
 
 	// In the case of a pointer, the entire value is stored as the pointer of
 	// the interface, so it shouldn't be counted. In all other cases it will
@@ -69,9 +68,7 @@ func estimateInterface(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	}
 }
 
-// estimateSize estimates the size of the given value. If map of seen
-// addresses is nil, it will exclude indirectly-related memory.
-func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	// FIXME strings are counted multiple times
 	if seen != nil {
 		// This adds the address of the value or the field to the `seen`
@@ -86,7 +83,7 @@ func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 		switch v.Kind() {
 		case reflect.Interface:
 			if !v.IsNil() {
-				return estimateInterface(v.Elem(), seen)
+				return estimateInterfaceAll(v.Elem(), seen)
 			} else {
 				return 0
 			}
@@ -95,7 +92,7 @@ func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 			if !v.IsNil() {
 				if _, ok := seen[v.Pointer()]; !ok {
 					elem := v.Elem()
-					return estimateSize(elem, seen) + getAllocSize(elem.Type().Size())
+					return estimateSizeAll(elem, seen) + getAllocSize(elem.Type().Size())
 				}
 			}
 
@@ -142,8 +139,6 @@ func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	return 0
 }
 
-// estimateChanAll returns the estimated size for the channel buffer, if
-// not already visited.
 func estimateChanAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	if !v.IsNil() {
 		ptr := v.Pointer()
@@ -156,9 +151,6 @@ func estimateChanAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	return 0
 }
 
-// estimateChanDirect returns the estimated size for the channel buffer.
-// It doesn't include any storage for the indirects pointed by
-// the values.
 func estimateChanDirect(v reflect.Value) uintptr {
 	const chanStructSize = 10 * unsafe.Sizeof(int(0))
 
@@ -170,9 +162,6 @@ func estimateChanDirect(v reflect.Value) uintptr {
 	return getAllocSize(chanStructSize) + getAllocSize(uintptr(v.Cap())*elementType.Size())
 }
 
-// estimateMapAll returns the estimated size of both the memory
-// used inside of a map and all the indirects stored in its
-// keys and values.
 func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	ptr := v.Pointer()
 	if _, ok := seen[ptr]; ok {
@@ -183,9 +172,6 @@ func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	}
 }
 
-// estimateMapDirect returns the estimated size of the memory
-// used inside a map. This size includes the memory for
-// the keys, but not for the indirects pointed by them.
 func estimateMapDirect(v reflect.Value) uintptr {
 	// Maps are hard to measure because we don't have access
 	// to the internal capacity (whatever that means). That is
@@ -241,23 +227,18 @@ func getMapK2(k, v uintptr) uintptr {
 	}
 }
 
-// estimateMapIndirect returns the estimated size of the indirects
-// contained by a map. The size of the Key or Values **is not** counted
-// here.
 func estimateMapIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	var result uintptr
 
 	iter := v.MapRange()
 	for iter.Next() {
-		result += estimateSize(iter.Key(), seen)
-		result += estimateSize(iter.Value(), seen)
+		result += estimateSizeAll(iter.Key(), seen)
+		result += estimateSizeAll(iter.Value(), seen)
 	}
 
 	return result
 }
 
-// estimateSliceAll returns the estimated size for the slice's backing array
-// and for all the indirects it contains.
 func estimateSliceAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	if !v.IsNil() {
 		// FIXME slices are counted multiple times.
@@ -276,33 +257,25 @@ func estimateSliceAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	}
 }
 
-// estimateSliceDirect returns the estimated size for the slice backing buffer.
-// It doesn't include any storage for the indirects pointed by the values.
 func estimateSliceDirect(v reflect.Value) uintptr {
 	return getAllocSize(v.Type().Elem().Size() * uintptr(v.Cap()))
 }
 
-// estimateSliceIndirect returns the estimated size of the indirects
-// contained by an array or a slice. As such, this function will
-// panic in case v is not an array or slice.
 func estimateSliceIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 
 	for i := 0; i < v.Len(); i++ {
-		result += estimateSize(v.Index(i), seen)
+		result += estimateSizeAll(v.Index(i), seen)
 	}
 
 	return result
 }
 
-// estimateStructIndirect returns the estimated size of indirects
-// contained by a struct field. v is expected to be a struct and
-// this function will panic in case it's not.
 func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
-		result += estimateSize(field, seen)
+		result += estimateSizeAll(field, seen)
 	}
 
 	return result
