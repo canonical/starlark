@@ -78,7 +78,7 @@ func (f *Foo) Attr(name string) (starlark.Value, error) {
 // Implement starlark.HasSetField
 func (f *Foo) SetField(name string, val starlark.Value) error {
 	if f.frozen {
-		errors.New("Foo is frozen")
+		return errors.New("Foo is frozen")
 	}
 
 	if name == "bar" {
