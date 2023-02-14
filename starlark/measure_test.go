@@ -157,7 +157,7 @@ func TestEstimateNotDeep(t *testing.T) {
 
 func TestNilInterface(t *testing.T) {
 	if starlark.EstimateSize(nil) != 0 {
-		t.Errorf("EstimateSize for nil must be 0")
+		t.Errorf("estimateSize for nil must be 0")
 	}
 }
 
