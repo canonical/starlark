@@ -132,8 +132,10 @@ func TestKeepAlive(t *testing.T) {
 
 	// Check for over estimations
 	t.Run("check=over-estimation", func(t *testing.T) {
-		dummyT := testing.T{}
-		st := startest.From(&dummyT)
+		const expected = "declared allocations are above maximum (20 > 4)"
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -141,15 +143,17 @@ func TestKeepAlive(t *testing.T) {
 				thread.AddAllocs(20)
 			}
 		})
-		if !dummyT.Failed() {
-			t.Error("expected allocation test failure")
+		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("unexpected error(s): %s", errLog)
 		}
 	})
 
 	// Check for too many allocs
 	t.Run("check=over-allocation", func(t *testing.T) {
-		dummyT := testing.T{}
-		st := startest.From(&dummyT)
+		const expected = "measured memory is above maximum"
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -160,14 +164,16 @@ func TestKeepAlive(t *testing.T) {
 				}
 			}
 		})
-		if !dummyT.Failed() {
-			t.Error("expected allocation test failure")
+		if errLog := dummy.Errors(); !strings.HasPrefix(errLog, expected) {
+			t.Errorf("unexpected error(s): %s", errLog)
 		}
 	})
 
 	t.Run("check=means-compared", func(t *testing.T) {
-		dummyT := testing.T{}
-		st := startest.From(&dummyT)
+		const expected = "measured memory is above declared allocations (4 > 1)"
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -175,8 +181,8 @@ func TestKeepAlive(t *testing.T) {
 				thread.AddAllocs(1)
 			}
 		})
-		if !dummyT.Failed() {
-			t.Error("expected failure")
+		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("unexpected error(s): %s", errLog)
 		}
 	})
 
@@ -191,7 +197,10 @@ func TestKeepAlive(t *testing.T) {
 	})
 
 	t.Run("check=not-safe-capped-allocs", func(t *testing.T) {
-		st := startest.From(&testing.T{})
+		const expected = "measured memory is above maximum (4 > 0)\nmeasured memory is above declared allocations (4 > 0)"
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -201,6 +210,9 @@ func TestKeepAlive(t *testing.T) {
 
 		if !st.Failed() {
 			t.Error("expected failure")
+		}
+		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("unexpected error(s): %s", errLog)
 		}
 	})
 }
@@ -215,9 +227,8 @@ func TestThread(t *testing.T) {
 }
 
 func TestFailed(t *testing.T) {
-	dummyT := &testing.T{}
-
-	st := startest.From(dummyT)
+	dummy := &dummyBase{}
+	st := startest.From(dummy)
 
 	if st.Failed() {
 		t.Error("startest reported that it failed prematurely")
@@ -228,11 +239,23 @@ func TestFailed(t *testing.T) {
 	if st.Failed() {
 		t.Error("startest reported that it failed prematurely")
 	}
+	if log := dummy.Logs(); log != "foobar" {
+		t.Errorf("unexpected log output: %s", log)
+	}
+	if errLog := dummy.Errors(); errLog != "" {
+		t.Errorf("unexpected error logged: %s", errLog)
+	}
 
 	st.Error("snafu")
 
 	if !st.Failed() {
 		t.Error("startest did not report that it had failed")
+	}
+	if log := dummy.Logs(); log != "foobar" {
+		t.Errorf("unexpected log output: %s", log)
+	}
+	if errLog := dummy.Errors(); errLog != "snafu" {
+		t.Errorf("unexpected error logged: %s", errLog)
 	}
 }
 
