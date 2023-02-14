@@ -68,7 +68,9 @@ func ExampleST_RunThread() {
 
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				st.KeepAlive(new(int32))
+				v := new(int32)
+				thread.AddAllocs(starlark.EstimateSize(v))
+				st.KeepAlive(v)
 			}
 		})
 	}
