@@ -22,21 +22,13 @@ import (
 // Where appropriate, functions named estimateXXXAll are provided to improve
 // readability. They return the sum of estimateXXXDirect and estimateXXXIndirect.
 
-// EstimateSize returns the estimated size of the value
-// pointed by obj, without taking into account eventual
-// nested members.
-func EstimateSize(obj interface{}) uintptr {
-	if obj == nil {
-		return 0
-	} else {
-		return estimateInterfaceAll(reflect.ValueOf(obj), nil)
-	}
-}
+// EstimateSizeShallow has been removed for now since
+// there was no agreement of how to make it consistent.
 
-// EstimateSizeDeep returns the estimated size of the
+// EstimateSize returns the estimated size of the
 // value pointed by obj, taking into account the whole
 // object tree.
-func EstimateSizeDeep(obj interface{}) uintptr {
+func EstimateSize(obj interface{}) uintptr {
 	if obj == nil {
 		return 0
 	} else {
@@ -69,71 +61,50 @@ func estimateInterfaceAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 }
 
 func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
-	// FIXME strings are counted multiple times
-	if seen != nil {
-		// This adds the address of the value or the field to the `seen`
-		// list. It is important to still consider the memory **pointed
-		// by** this memory, so that we don't miss anything (e.g. pointers
-		// to the members of an array or members of a struct)
-		if v.CanAddr() {
-			ptr := v.Addr().Pointer()
-			seen[ptr] = struct{}{}
-		}
+	// This adds the address of the value or the field to the `seen`
+	// list. It is important to still consider the memory **pointed
+	// by** this memory, so that we don't miss anything (e.g. pointers
+	// to the members of an array or members of a struct)
+	if v.CanAddr() {
+		ptr := v.Addr().Pointer()
+		seen[ptr] = struct{}{}
+	}
 
-		switch v.Kind() {
-		case reflect.Interface:
-			if !v.IsNil() {
-				return estimateInterfaceAll(v.Elem(), seen)
-			} else {
-				return 0
-			}
-
-		case reflect.Ptr:
-			if !v.IsNil() {
-				if _, ok := seen[v.Pointer()]; !ok {
-					elem := v.Elem()
-					return estimateSizeAll(elem, seen) + getAllocSize(elem.Type().Size())
-				}
-			}
-
+	switch v.Kind() {
+	case reflect.Interface:
+		if !v.IsNil() {
+			return estimateInterfaceAll(v.Elem(), seen)
+		} else {
 			return 0
-
-		case reflect.Map:
-			return estimateMapAll(v, seen)
-
-		case reflect.Slice:
-			return estimateSliceAll(v, seen)
-
-		case reflect.Chan:
-			return estimateChanAll(v, seen)
-
-		case reflect.Struct:
-			return estimateStructIndirect(v, seen)
-
-		case reflect.Array:
-			return estimateSliceIndirect(v, seen)
-
-		case reflect.String:
-			return getAllocSize(uintptr(v.Len()))
 		}
-	} else {
-		// In the case of slices, maps and strings we count the first level of memory
-		switch v.Kind() {
-		case reflect.Map:
-			return estimateMapDirect(v)
 
-		case reflect.Slice:
-			return estimateSliceDirect(v)
-
-		case reflect.Chan:
-			return estimateChanDirect(v)
-
-		case reflect.String:
-			return getAllocSize(uintptr(v.Len()))
-
-		case reflect.Ptr:
-			return getAllocSize(v.Elem().Type().Size())
+	case reflect.Ptr:
+		if !v.IsNil() {
+			if _, ok := seen[v.Pointer()]; !ok {
+				elem := v.Elem()
+				return estimateSizeAll(elem, seen) + getAllocSize(elem.Type().Size())
+			}
 		}
+
+		return 0
+
+	case reflect.Map:
+		return estimateMapAll(v, seen)
+
+	case reflect.Slice:
+		return estimateSliceAll(v, seen)
+
+	case reflect.Chan:
+		return estimateChanAll(v, seen)
+
+	case reflect.Struct:
+		return estimateStructIndirect(v, seen)
+
+	case reflect.Array:
+		return estimateSliceIndirect(v, seen)
+
+	case reflect.String:
+		return getAllocSize(uintptr(v.Len()))
 	}
 
 	return 0
