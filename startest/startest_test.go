@@ -10,12 +10,15 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+// The following is an example of memory-safety testing using the RunString
+// method.
 func ExampleST_RunString() {
 	// func TestFoo(t *testing.T) {
 	TestFoo := func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 
+		// Allow at most 100 bytes allocated per st.n
 		st.SetMaxAllocs(100)
 
 		// mybuiltin does something which makes some allocations
@@ -41,6 +44,8 @@ func ExampleST_RunString() {
 	// Output: ok
 }
 
+// The following is an example of memory-safety testing using the RunThread
+// method.
 func ExampleST_RunThread() {
 	// func TestFoo(t *testing.T) {
 	TestFoo := func(t *testing.T) {

@@ -9,12 +9,16 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+// The following example shows how to use startest within a go unit test and
+// how to pass in custom types and test them using the pre-loaded assert
+// module.
 func Example() {
 	// func TestFoo(t *testing.T) {
 	TestFoo := func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe | starlark.IOSafe)
 
+		// Pass some values into the starlark environment
 		st.AddValue("foo", &Foo{bar: "bar"})
 		st.AddLocal("my_local", 100)
 
