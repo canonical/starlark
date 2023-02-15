@@ -45,25 +45,27 @@ func estimateInterfaceAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 			}
 		}
 		return 0
-	case reflect.Map:
-		return estimateMapAll(v, seen)
-	case reflect.Chan:
-		return estimateChanAll(v, seen)
 	default:
 		return estimateSizeAll(v, seen)
 	}
 }
 
 func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
-	if v.Kind() == reflect.String {
+	switch v.Kind() {
+	case reflect.String:
 		// In this case neither the memory for the string nor
 		// the memory for the header are allocated.
 		if v.Len() == 0 {
 			return 0
 		}
+		return getAllocSize(v.Type().Size()) + estimateSizeIndirect(v, seen)
+	case reflect.Chan:
+		return estimateChanAll(v, seen)
+	case reflect.Map:
+		return estimateMapAll(v, seen)
+	default:
+		return getAllocSize(v.Type().Size()) + estimateSizeIndirect(v, seen)
 	}
-
-	return getAllocSize(v.Type().Size()) + estimateSizeIndirect(v, seen)
 }
 
 func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -277,7 +279,8 @@ func divRoundUp(n, a uintptr) uintptr {
 }
 
 // getAllocSize rounds an intended allocation amount to an allocation
-// amount which can be made by Go.
+// amount which can be made by Go. This function returns at least 16
+// bytes due to how small allocations are grouped.
 func getAllocSize(size uintptr) uintptr {
 	if size == 0 {
 		return 0
