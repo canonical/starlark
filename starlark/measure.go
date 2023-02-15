@@ -66,8 +66,12 @@ func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	case reflect.Map:
 		return estimateMapAll(v, seen)
 	default:
-		return roundAllocSize(v.Type().Size()) + estimateSizeIndirect(v, seen)
+		return estimateSizeDirect(v) + estimateSizeIndirect(v, seen)
 	}
+}
+
+func estimateSizeDirect(v reflect.Value) uintptr {
+	return roundAllocSize(v.Type().Size())
 }
 
 func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -81,8 +85,8 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	}
 
 	switch v.Kind() {
-	// The following are pointer-like, so their memory lives outside of
-	// this already counted structure. We must therefore estimate the
+	// The following kinds are pointer-like, so their memory lives outside
+	// of this already-counted structure. We must therefore estimate the
 	// direct and indirect memory of the pointed-to value.
 	case reflect.Interface:
 		if v.IsNil() {
@@ -104,7 +108,7 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	case reflect.Chan:
 		return estimateChanAll(v, seen)
 
-	// The following are embedded, so backing storage
+	// The following kinds are embedded, so backing storage
 	// has already been accounted for.
 	case reflect.Struct:
 		return estimateStructIndirect(v, seen)
@@ -132,7 +136,7 @@ func estimateStringAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 		// for the string nor the memory for the header are allocated.
 		return 0
 	}
-	return roundAllocSize(v.Type().Size()) + estimateStringIndirect(v, seen)
+	return estimateSizeDirect(v) + estimateStringIndirect(v, seen)
 }
 
 func estimateStringIndirect(v reflect.Value, _ map[uintptr]struct{}) uintptr {
