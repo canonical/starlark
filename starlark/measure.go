@@ -33,22 +33,24 @@ func EstimateSize(obj interface{}) uintptr {
 		return 0
 	}
 
-	return estimateSizeIndirect(reflect.ValueOf(obj), make(map[uintptr]struct{}))
+	return estimateInterfaceAll(reflect.ValueOf(obj), make(map[uintptr]struct{}))
 }
 
 func estimateInterfaceAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	switch v.Kind() {
 	case reflect.Ptr:
 		if !v.IsNil() {
-			return estimateSizeAll(v.Elem(), make(map[uintptr]struct{}))
+			if _, ok := seen[v.Pointer()]; !ok {
+				return estimateSizeAll(v.Elem(), seen)
+			}
 		}
 		return 0
 	case reflect.Map:
-		return estimateMapAll(v, make(map[uintptr]struct{}))
+		return estimateMapAll(v, seen)
 	case reflect.Chan:
-		return estimateChanAll(v, make(map[uintptr]struct{}))
+		return estimateChanAll(v, seen)
 	default:
-		return estimateSizeAll(v, make(map[uintptr]struct{}))
+		return estimateSizeAll(v, seen)
 	}
 }
 
