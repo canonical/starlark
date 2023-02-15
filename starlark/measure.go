@@ -21,9 +21,9 @@ import (
 //
 // Where appropriate, functions named estimateXXXAll are provided to improve
 // readability. They return the sum of estimateXXXDirect and estimateXXXIndirect.
-
-// EstimateSizeShallow has been removed for now since
-// there was no agreement of how to make it consistent.
+//
+// EstimateSizeShallow has been removed for now since there was no agreement of how
+// to make it consistent.
 
 // EstimateSize returns the estimated size of the
 // value pointed by obj, taking into account the whole
