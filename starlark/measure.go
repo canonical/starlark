@@ -58,13 +58,13 @@ func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 		if v.Len() == 0 {
 			return 0
 		}
-		return getAllocSize(v.Type().Size()) + estimateSizeIndirect(v, seen)
+		return roundAllocSize(v.Type().Size()) + estimateSizeIndirect(v, seen)
 	case reflect.Chan:
 		return estimateChanAll(v, seen)
 	case reflect.Map:
 		return estimateMapAll(v, seen)
 	default:
-		return getAllocSize(v.Type().Size()) + estimateSizeIndirect(v, seen)
+		return roundAllocSize(v.Type().Size()) + estimateSizeIndirect(v, seen)
 	}
 }
 
@@ -106,7 +106,7 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	case reflect.Array:
 		return estimateSliceIndirect(v, seen)
 	case reflect.String:
-		return getAllocSize(uintptr(v.Len()))
+		return roundAllocSize(uintptr(v.Len()))
 	}
 
 	return 0
@@ -132,7 +132,7 @@ func estimateChanDirect(v reflect.Value) uintptr {
 	// an elementType that doesn't contain any pointer it
 	// will be allocated in a single bigger block (leading
 	// to a single getAllocSize call).
-	return getAllocSize(chanStructSize) + getAllocSize(uintptr(v.Cap())*elementType.Size())
+	return roundAllocSize(chanStructSize) + roundAllocSize(uintptr(v.Cap())*elementType.Size())
 }
 
 func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -177,7 +177,7 @@ func estimateMapDirect(v reflect.Value) uintptr {
 
 	k2 := getMapK2(keySize, valueSize)
 
-	result := getAllocSize(uintptr(v.Len())*k2) + k1
+	result := roundAllocSize(uintptr(v.Len())*k2) + k1
 
 	return result
 }
@@ -231,7 +231,7 @@ func estimateSliceAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 }
 
 func estimateSliceDirect(v reflect.Value) uintptr {
-	return getAllocSize(v.Type().Elem().Size() * uintptr(v.Cap()))
+	return roundAllocSize(v.Type().Elem().Size() * uintptr(v.Cap()))
 }
 
 func estimateSliceIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -278,10 +278,11 @@ func divRoundUp(n, a uintptr) uintptr {
 	return (n + a - 1) / a
 }
 
-// getAllocSize rounds an intended allocation amount to an allocation
+// roundAllocSize rounds an intended allocation amount to an allocation
 // amount which can be made by Go. This function returns at least 16
 // bytes due to how small allocations are grouped.
-func getAllocSize(size uintptr) uintptr {
+func roundAllocSize(size uintptr) uintptr {
+	// This is the same as `runtime.roundupsize`
 	if size == 0 {
 		return 0
 	} else if size < tinyAllocMaxSize {
