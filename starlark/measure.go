@@ -79,7 +79,9 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	}
 
 	switch v.Kind() {
-	// Pointers
+	// The following are pointer-like, so their memory lives outside of
+	// this already counted structure. We must therefore estimate the
+	// direct and indirect memory of the pointed-to value.
 	case reflect.Interface:
 		if !v.IsNil() {
 			return estimateInterfaceAll(v.Elem(), seen)
@@ -100,7 +102,8 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	case reflect.Chan:
 		return estimateChanAll(v, seen)
 
-	// Values
+	// The following are embedded, so backing storage
+	// has already been accounted for.
 	case reflect.Struct:
 		return estimateStructIndirect(v, seen)
 	case reflect.Array:
