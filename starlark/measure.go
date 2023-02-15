@@ -22,6 +22,13 @@ import (
 // Where appropriate, functions named estimateXXXAll are provided to improve
 // readability. They return the sum of estimateXXXDirect and estimateXXXIndirect.
 //
+// As a result we maintain the following convention:
+//  - estimateXXXDirect functions only calls other estimateXXXDirect functions;
+//  - estimateXXXIndirect functions call:
+//    - estimateXXXAll functions for pointer-like values and
+//    - estimateXXXDirect functions for embedded ones;
+//  - estimateXXXAll functions only calls estimateXXXAll functions.
+//
 // EstimateSizeShallow has been removed for now since there was no agreement of how
 // to make it consistent.
 
