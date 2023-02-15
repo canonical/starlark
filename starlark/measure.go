@@ -106,10 +106,14 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	case reflect.Array:
 		return estimateSliceIndirect(v, seen)
 	case reflect.String:
-		return roundAllocSize(uintptr(v.Len()))
+		return estimateStringIndirect(v, seen)
 	}
 
 	return 0
+}
+
+func estimateStringIndirect(v reflect.Value, _ map[uintptr]struct{}) uintptr {
+	return roundAllocSize(uintptr(v.Len()))
 }
 
 func estimateChanAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
