@@ -131,6 +131,8 @@ func estimateChanAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 		ptr := v.Pointer()
 		if _, ok := seen[ptr]; !ok {
 			seen[ptr] = struct{}{}
+			// There is no chan indirect call as the contents of a
+			// channel cannot be safely read without flushing them.
 			return estimateChanDirect(v)
 		}
 	}
@@ -174,31 +176,26 @@ func estimateMapDirect(v reflect.Value) uintptr {
 	// collecting data from different classes of key/value sizes
 	// and finding a pessimistic allocating function.
 	// The approximation is just a line in the form of
-	// y = k1 + k2*x
+	// y = k1*x + k2
 	// Where x is the capacity, y the size and k1, k2 are constants.
 	//
 	// In detail:
-	// - k1 = 1912 when x64, 1096 when x86
-	// - k2 = (size_k + size_v + 1) * 4 + sizeof(ptr)
-	const (
-		k1             = 204*unsafe.Sizeof(uintptr(0)) + 280
-		maxElementSize = 128
-	)
+	// - k1 = (size_k + size_v + 1) * 4 + sizeof(ptr)
+	// - k2 = 1912 when x64, 1096 when x86
 
 	mapType := v.Type()
 	keySize := mapType.Key().Size()
 	valueSize := mapType.Elem().Size()
+	k1 := getMapKVPairSize(keySize, valueSize)
 
-	k2 := getMapK2(keySize, valueSize)
+	const k2 = 204*unsafe.Sizeof(uintptr(0)) + 280
 
-	result := roundAllocSize(uintptr(v.Len())*k2) + k1
-
-	return result
+	return roundAllocSize(uintptr(v.Len())*k1) + k2
 }
 
-// getMapK2 returns the estimated size a key-value pair
+// getMapKVPairSize returns the estimated size a key-value pair
 // would take when used inside a go map.
-func getMapK2(k, v uintptr) uintptr {
+func getMapKVPairSize(k, v uintptr) uintptr {
 	// There is a little complexity here : if the key and the
 	// value are too big they get allocated separately and only
 	// the pointer is stored.
@@ -206,11 +203,11 @@ func getMapK2(k, v uintptr) uintptr {
 	if k < maxElementSize && v < maxElementSize {
 		return (k+v+1)*4 + unsafe.Sizeof(uintptr(0))
 	} else if k < maxElementSize {
-		return getMapK2(k, 8) + v
+		return getMapKVPairSize(k, 8) + v
 	} else if v < maxElementSize {
-		return getMapK2(8, v) + k
+		return getMapKVPairSize(8, v) + k
 	} else {
-		return getMapK2(8, 8) + k + v
+		return getMapKVPairSize(8, 8) + k + v
 	}
 }
 
