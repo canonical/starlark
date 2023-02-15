@@ -114,7 +114,7 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	case reflect.Struct:
 		return estimateStructIndirect(v, seen)
 	case reflect.Array:
-		return estimateSliceIndirect(v, seen)
+		return estimateArrayIndirect(v, seen)
 	case reflect.String:
 		return estimateStringIndirect(v, seen)
 	default:
@@ -249,6 +249,16 @@ func estimateSliceDirect(v reflect.Value) uintptr {
 }
 
 func estimateSliceIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	result := uintptr(0)
+
+	for i := 0; i < v.Len(); i++ {
+		result += estimateSizeIndirect(v.Index(i), seen)
+	}
+
+	return result
+}
+
+func estimateArrayIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 
 	for i := 0; i < v.Len(); i++ {
