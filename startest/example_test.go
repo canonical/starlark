@@ -13,7 +13,7 @@ func Example() {
 	// func TestFoo(t *testing.T) {
 	TestFoo := func(t *testing.T) {
 		st := startest.From(t)
-		st.RequireSafety(starlark.IOSafe)
+		st.RequireSafety(starlark.CPUSafe | starlark.IOSafe)
 
 		st.AddValue("foo", &Foo{bar: "bar"})
 		st.AddLocal("my_local", 100)
@@ -93,7 +93,7 @@ func (f *Foo) SetField(name string, val starlark.Value) error {
 }
 
 // Example implementation of a foo.baz starlark method
-var fooBaz = starlark.NewBuiltinWithSafety("baz", starlark.IOSafe, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+var fooBaz = starlark.NewBuiltinWithSafety("baz", starlark.CPUSafe|starlark.IOSafe, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if err := starlark.UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
