@@ -14,31 +14,20 @@ func ExampleST_RunString() {
 	// func TestFoo(t *testing.T) {
 	TestFoo := func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 
-		st.SetMaxAllocs(32)
+		st.SetMaxAllocs(100)
 
-		st.AddBuiltin(starlark.NewBuiltinWithSafety("fn", starlark.MemSafe|starlark.CPUSafe|starlark.IOSafe|starlark.TimeSafe, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-			var repetitions int
-			if err := starlark.UnpackPositionalArgs(b.Name(), args, kwargs, 1, &repetitions); err != nil {
-				return nil, err
-			}
+		// mybuiltin does something which makes some allocations
+		st.AddBuiltin(starlark.NewBuiltinWithSafety("make_allocations", starlark.MemSafe, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			newList := starlark.NewList([]starlark.Value{starlark.MakeInt(1), starlark.MakeInt(2)})
 
-			// if err := thread.AddAllocs(int64(24 + repetitions*starlark.EstimateSize(starlark.True))); err != nil {
-			// 	return nil, err
-			// }
-
-			// Make some allocations
-			elems := make([]starlark.Value, 0, repetitions)
-			for i := 0; i < repetitions; i++ {
-				elems = append(elems, starlark.True)
-			}
-
-			ret := starlark.NewList(elems)
-			return ret, thread.AddAllocs(int64(starlark.EstimateSizeDeep(ret)))
+			return newList, thread.AddAllocs(int64(starlark.EstimateSizeDeep(newList)))
 		}))
 
 		st.RunString(`
-		st.keep_alive(fn(st.n))
+		for _ in range(st.n):
+			st.keep_alive(make_allocations())
 	`)
 	}
 	// }
@@ -56,10 +45,10 @@ func ExampleST_RunThread() {
 	// func TestFoo(t *testing.T) {
 	TestFoo := func(t *testing.T) {
 		st := startest.From(t)
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 
 		// Allow at most 4 bytes allocated per st.N.
-		st.SetMaxAllocs(4)
+		st.SetMaxAllocs(16)
 
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
