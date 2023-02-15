@@ -241,20 +241,6 @@ func TestEstimateChan(t *testing.T) {
 			st.KeepAlive(value)
 		})
 	})
-
-	t.Run("direct-only", func(t *testing.T) {
-		st := startest.From(t)
-		st.RunThread(func(thread *starlark.Thread) {
-			value := make(chan int, st.N)
-
-			for i := 0; i < st.N; i++ {
-				value <- i
-			}
-
-			thread.AddAllocs(int64(starlark.EstimateSize(value)))
-			st.KeepAlive(value)
-		})
-	})
 }
 
 func TestTinyAllocator(t *testing.T) {

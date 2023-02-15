@@ -141,14 +141,16 @@ func estimateChanAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 }
 
 func estimateChanDirect(v reflect.Value) uintptr {
-	const chanStructSize = 10 * unsafe.Sizeof(int(0))
+	// This is a very rough approximation of the size of
+	// the chan header.
+	const chanHeaderSize = 10 * unsafe.Sizeof(int(0))
 
 	elementType := v.Type().Elem()
 	// This is a pessimistic view since in case of
 	// an elementType that doesn't contain any pointer it
 	// will be allocated in a single bigger block (leading
 	// to a single getAllocSize call).
-	return roundAllocSize(chanStructSize) + roundAllocSize(uintptr(v.Cap())*elementType.Size())
+	return roundAllocSize(chanHeaderSize) + roundAllocSize(uintptr(v.Cap())*elementType.Size())
 }
 
 func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -196,7 +198,7 @@ func estimateMapDirect(v reflect.Value) uintptr {
 // getMapKVPairSize returns the estimated size a key-value pair
 // would take when used inside a go map.
 func getMapKVPairSize(k, v uintptr) uintptr {
-	// There is a little complexity here : if the key and the
+	// There is a little complexity here: if the key and the
 	// value are too big they get allocated separately and only
 	// the pointer is stored.
 	const maxElementSize = 128
