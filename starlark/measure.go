@@ -23,7 +23,7 @@ import (
 // readability. They return the sum of estimateXXXDirect and estimateXXXIndirect.
 //
 // As a result we maintain the following convention:
-//  - estimateXXXDirect functions only calls other estimateXXXDirect functions;
+//  - estimateXXXDirect functions only call other estimateXXXDirect functions;
 //  - estimateXXXIndirect functions call:
 //    - estimateXXXAll functions for pointer-like values and
 //    - estimateXXXDirect functions for embedded ones;
