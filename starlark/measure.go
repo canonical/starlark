@@ -90,11 +90,11 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	// this already counted structure. We must therefore estimate the
 	// direct and indirect memory of the pointed-to value.
 	case reflect.Interface:
-		if !v.IsNil() {
-			return estimateInterfaceAll(v.Elem(), seen)
-		} else {
+		if v.IsNil() {
 			return 0
 		}
+
+		return estimateInterfaceAll(v.Elem(), seen)
 	case reflect.Ptr:
 		if !v.IsNil() {
 			if _, ok := seen[v.Pointer()]; !ok {
@@ -117,9 +117,9 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 		return estimateSliceIndirect(v, seen)
 	case reflect.String:
 		return estimateStringIndirect(v, seen)
+	default:
+		return 0
 	}
-
-	return 0
 }
 
 func estimateStringIndirect(v reflect.Value, _ map[uintptr]struct{}) uintptr {
@@ -153,10 +153,10 @@ func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	ptr := v.Pointer()
 	if _, ok := seen[ptr]; ok {
 		return 0
-	} else {
-		seen[ptr] = struct{}{}
-		return estimateMapDirect(v) + estimateMapIndirect(v, seen)
 	}
+
+	seen[ptr] = struct{}{}
+	return estimateMapDirect(v) + estimateMapIndirect(v, seen)
 }
 
 func estimateMapDirect(v reflect.Value) uintptr {
@@ -227,21 +227,21 @@ func estimateMapIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 }
 
 func estimateSliceAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
-	if !v.IsNil() {
-		// FIXME slices are counted multiple times.
-		// This function doesn't check if the backing array has already been
-		// counted. For example:
-		//  a := [16]int{}
-		//  b := [][]int { a[0:1:1], a[:] }
-		//
-		// Both b[0] and b[1] point to the same backing array, but marking that
-		// as "seen" while visiting b[0] will make the function miss all the
-		// memory pointed by b. It is better in this case to just be pessimistic
-		// and estimate more memory than it actually is allocated.
-		return estimateSliceDirect(v) + estimateSliceIndirect(v, seen)
-	} else {
+	if v.IsNil() {
 		return 0
 	}
+
+	// FIXME slices are counted multiple times.
+	// This function doesn't check if the backing array has already been
+	// counted. For example:
+	//  a := [16]int{}
+	//  b := [][]int { a[0:1:1], a[:] }
+	//
+	// Both b[0] and b[1] point to the same backing array, but marking that
+	// as "seen" while visiting b[0] will make the function miss all the
+	// memory pointed by b. It is better in this case to just be pessimistic
+	// and estimate more memory than it actually is allocated.
+	return estimateSliceDirect(v) + estimateSliceIndirect(v, seen)
 }
 
 func estimateSliceDirect(v reflect.Value) uintptr {
