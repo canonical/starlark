@@ -60,12 +60,7 @@ func estimateInterfaceAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	switch v.Kind() {
 	case reflect.String:
-		// In this case neither the memory for the string nor
-		// the memory for the header are allocated.
-		if v.Len() == 0 {
-			return 0
-		}
-		return roundAllocSize(v.Type().Size()) + estimateSizeIndirect(v, seen)
+		return estimateStringAll(v, seen)
 	case reflect.Chan:
 		return estimateChanAll(v, seen)
 	case reflect.Map:
@@ -122,6 +117,15 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	}
 }
 
+func estimateStringAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	// In this case neither the memory for the string nor
+	// the memory for the header are allocated.
+	if v.Len() == 0 {
+		return 0
+	}
+	return roundAllocSize(v.Type().Size()) + estimateStringIndirect(v, seen)
+}
+
 func estimateStringIndirect(v reflect.Value, _ map[uintptr]struct{}) uintptr {
 	return roundAllocSize(uintptr(v.Len()))
 }
@@ -146,7 +150,8 @@ func estimateChanDirect(v reflect.Value) uintptr {
 	const chanHeaderSize = 10 * unsafe.Sizeof(int(0))
 
 	elementType := v.Type().Elem()
-	// This is a pessimistic view since in case of
+
+	// The two calls provide a pessimistic view since in case of
 	// an elementType that doesn't contain any pointer it
 	// will be allocated in a single bigger block (leading
 	// to a single getAllocSize call).
