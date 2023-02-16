@@ -5,6 +5,300 @@ import (
 	"unsafe"
 )
 
+// Functions in this file each handle a single case for estimating the size of an
+// object. As a general rule, each function assumes that the memory of the topmost
+// structure has already been counted. These functions fall into three categories.
+//
+// Those named estimateXXXDirect estimate the memory relating to how type XXX is
+// represented. This is more "extended" than simply unsafe.SizeOf, for example, a
+// map would include the backing memory for the entries and a slice would include
+// the backing array.
+//
+// Those named estimateXXXIndirect estimate the memory of what's contained by an
+// XXX, rather than that used to represent XXX itself. For example, these
+// functions measure elements (and their children) in a slice rather than the
+// slice's backing array.
+//
+// Where appropriate, functions named estimateXXXAll are provided to improve
+// readability. They return the sum of estimateXXXDirect and estimateXXXIndirect.
+//
+// As a result we maintain the following convention:
+//  - estimateXXXDirect functions only call other estimateXXXDirect functions;
+//  - estimateXXXIndirect functions call:
+//    - estimateXXXAll functions for pointer-like values and
+//    - estimateXXXDirect functions for embedded ones;
+//  - estimateXXXAll functions will for a given kind only call:
+//    - estimateXXXAll functions OR
+//    - estimateXXXDirect and estimateXXXIndirect functions to take their sum.
+//
+// EstimateSizeShallow has been removed for now since there was no agreement of how
+// to make it consistent.
+
+// EstimateSize returns the estimated size of the
+// value pointed by obj, taking into account the whole
+// object tree.
+func EstimateSize(obj interface{}) uintptr {
+	if obj == nil {
+		return 0
+	}
+
+	v := reflect.ValueOf(obj)
+
+	if v.Kind() == reflect.Ptr {
+		return estimateSizeIndirect(v, make(map[uintptr]struct{}))
+	}
+
+	return estimateSizeAll(v, make(map[uintptr]struct{}))
+}
+
+func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	switch v.Kind() {
+	case reflect.String:
+		return estimateStringAll(v, seen)
+	case reflect.Chan:
+		return estimateChanAll(v, seen)
+	case reflect.Map:
+		return estimateMapAll(v, seen)
+	default:
+		return estimateSizeDirect(v) + estimateSizeIndirect(v, seen)
+	}
+}
+
+func estimateSizeDirect(v reflect.Value) uintptr {
+	return roundAllocSize(v.Type().Size())
+}
+
+func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	// This adds the address of the value or the field to the `seen`
+	// list. It is important to still consider the memory **pointed
+	// by** this memory, so that we don't miss anything (e.g. pointers
+	// to the members of an array or members of a struct)
+	if v.CanAddr() {
+		ptr := v.Addr().Pointer()
+		seen[ptr] = struct{}{}
+	}
+
+	switch v.Kind() {
+	// The following kinds are pointer-like, so their memory lives outside
+	// of this already-counted structure. We must therefore estimate the
+	// direct and indirect memory of the pointed-to value.
+	case reflect.Interface:
+		if v.IsNil() {
+			return 0
+		}
+
+		elem := v.Elem()
+		if elem.Kind() == reflect.Ptr {
+			return estimateSizeIndirect(elem, seen)
+		}
+
+		return estimateSizeAll(elem, seen)
+	case reflect.Ptr:
+		if !v.IsNil() {
+			if _, ok := seen[v.Pointer()]; !ok {
+				return estimateSizeAll(v.Elem(), seen)
+			}
+		}
+		return 0
+	case reflect.Map:
+		return estimateMapAll(v, seen)
+	case reflect.Slice:
+		return estimateSliceAll(v, seen)
+	case reflect.Chan:
+		return estimateChanAll(v, seen)
+
+	// The following kinds are embedded, so backing storage
+	// has already been accounted for.
+	case reflect.Struct:
+		return estimateStructIndirect(v, seen)
+	case reflect.Array:
+		return estimateArrayIndirect(v, seen)
+	case reflect.String:
+		return estimateStringIndirect(v, seen)
+	default:
+		return 0
+	}
+}
+
+func estimateStringAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	// There are misuses of strings.Builder that may lead
+	// to some assumptions in this functions being false, for example:
+	//
+	//   b := &strings.Builder{}
+	//   b.Grow(100)
+	//   s := b.String()
+	//
+	// it is not possible to get the capacity of the buffer
+	// holding the string.
+
+	if v.Len() == 0 {
+		// In this case (excluding the above) neither the memory
+		// for the string nor the memory for the header are allocated.
+		return 0
+	}
+	return estimateSizeDirect(v) + estimateStringIndirect(v, seen)
+}
+
+func estimateStringIndirect(v reflect.Value, _ map[uintptr]struct{}) uintptr {
+	return roundAllocSize(uintptr(v.Len()))
+}
+
+func estimateChanAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	if !v.IsNil() {
+		ptr := v.Pointer()
+		if _, ok := seen[ptr]; !ok {
+			seen[ptr] = struct{}{}
+			// There is no chan indirect call as the contents of a
+			// channel cannot be safely read without flushing them.
+			return estimateChanDirect(v)
+		}
+	}
+
+	return 0
+}
+
+func estimateChanDirect(v reflect.Value) uintptr {
+	// This is a very rough approximation of the size of
+	// the chan header.
+	const chanHeaderSize = 10 * unsafe.Sizeof(int(0))
+
+	elementType := v.Type().Elem()
+
+	// The two calls provide a pessimistic view since in case of
+	// an elementType that doesn't contain any pointer it
+	// will be allocated in a single bigger block (leading
+	// to a single getAllocSize call).
+	return roundAllocSize(chanHeaderSize) + roundAllocSize(uintptr(v.Cap())*elementType.Size())
+}
+
+func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	if v.IsNil() {
+		return 0
+	}
+
+	ptr := v.Pointer()
+	if _, ok := seen[ptr]; ok {
+		return 0
+	}
+
+	seen[ptr] = struct{}{}
+	return estimateMapDirect(v) + estimateMapIndirect(v, seen)
+}
+
+func estimateMapDirect(v reflect.Value) uintptr {
+	// Maps are hard to measure because we don't have access
+	// to the internal capacity (whatever that means). That is
+	// the first problem: "capacity" is a fuzzy concept in hash
+	// maps and thus Go team decided not to give a "real" meaning
+	// to it (word of Ian Lance Taylor). In fact when doing a
+	// `make(map[<tkey>]<tvalue>, <cap>)`, <cap> is to be considered
+	// a "hint" to the map. Moreover, AFAIK go maps are grow only.
+	// This makes it impossible to estimate (even pessimistically)
+	// the real amount of memory used. We will need to have a
+	// "usual size" kind of estimation.
+	// For this reason, we decided to take the "experimental" route,
+	// collecting data from different classes of key/value sizes
+	// and finding a pessimistic allocating function.
+	// The approximation is just a line in the form of
+	// y = k1*x + k2
+	// Where x is the capacity, y the size and k1, k2 are constants.
+	//
+	// In detail:
+	// - k1 = (size_k + size_v + 1) * 4 + sizeof(ptr)
+	// - k2 = 1912 when x64, 1096 when x86
+
+	mapType := v.Type()
+	keySize := mapType.Key().Size()
+	valueSize := mapType.Elem().Size()
+	k1 := getMapKVPairSize(keySize, valueSize)
+
+	const k2 = 204*unsafe.Sizeof(uintptr(0)) + 280
+
+	return roundAllocSize(uintptr(v.Len())*k1) + k2
+}
+
+// getMapKVPairSize returns the estimated size a key-value pair
+// would take when used inside a go map.
+func getMapKVPairSize(k, v uintptr) uintptr {
+	// There is a little complexity here: if the key and the
+	// value are too big they get allocated separately and only
+	// the pointer is stored.
+	const maxElementSize = 128
+	if k < maxElementSize && v < maxElementSize {
+		return (k+v+1)*4 + unsafe.Sizeof(uintptr(0))
+	} else if k < maxElementSize {
+		return getMapKVPairSize(k, 8) + v
+	} else if v < maxElementSize {
+		return getMapKVPairSize(8, v) + k
+	} else {
+		return getMapKVPairSize(8, 8) + k + v
+	}
+}
+
+func estimateMapIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	var result uintptr
+
+	iter := v.MapRange()
+	for iter.Next() {
+		result += estimateSizeIndirect(iter.Key(), seen)
+		result += estimateSizeIndirect(iter.Value(), seen)
+	}
+
+	return result
+}
+
+func estimateSliceAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	if v.IsNil() {
+		return 0
+	}
+
+	// FIXME slices are counted multiple times.
+	// This function doesn't check if the backing array has already been
+	// counted. For example:
+	//  a := [16]int{}
+	//  b := [][]int { a[0:1:1], a[:] }
+	//
+	// Both b[0] and b[1] point to the same backing array, but marking that
+	// as "seen" while visiting b[0] will make the function miss all the
+	// memory pointed by b. It is better in this case to just be pessimistic
+	// and estimate more memory than it actually is allocated.
+	return estimateSliceDirect(v) + estimateSliceIndirect(v, seen)
+}
+
+func estimateSliceDirect(v reflect.Value) uintptr {
+	return roundAllocSize(v.Type().Elem().Size() * uintptr(v.Cap()))
+}
+
+func estimateSliceIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	result := uintptr(0)
+
+	for i := 0; i < v.Len(); i++ {
+		result += estimateSizeIndirect(v.Index(i), seen)
+	}
+
+	return result
+}
+
+func estimateArrayIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	result := uintptr(0)
+
+	for i := 0; i < v.Len(); i++ {
+		result += estimateSizeIndirect(v.Index(i), seen)
+	}
+
+	return result
+}
+
+func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	result := uintptr(0)
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		result += estimateSizeIndirect(field, seen)
+	}
+
+	return result
+}
+
 const (
 	tinyAllocMaxSize = 16
 	maxSmallSize     = 32768
@@ -29,10 +323,14 @@ func divRoundUp(n, a uintptr) uintptr {
 	return (n + a - 1) / a
 }
 
-// getAllocSize returns the size of an allocation,
-// taking into account the class sizes of the GC.
-func getAllocSize(size uintptr) uintptr {
-	if size < tinyAllocMaxSize {
+// roundAllocSize rounds an intended allocation amount to an allocation
+// amount which can be made by Go. This function returns at least 16
+// bytes due to how small allocations are grouped.
+func roundAllocSize(size uintptr) uintptr {
+	// This is the same as `runtime.roundupsize`
+	if size == 0 {
+		return 0
+	} else if size < tinyAllocMaxSize {
 		// Pessimistic view to take into account linked-lifetimes of
 		// transient values in tiny allocator.
 		return tinyAllocMaxSize
@@ -47,198 +345,4 @@ func getAllocSize(size uintptr) uintptr {
 		return size
 	}
 	return alignUp(size, pageSize)
-}
-
-func estimateSlice(v reflect.Value) uintptr {
-	return getAllocSize(v.Type().Elem().Size() * uintptr(v.Cap()))
-}
-
-func estimateChan(v reflect.Value) uintptr {
-	elementType := v.Type().Elem()
-	// This is a pessimistic view since in case of
-	// an elementType that doesn't contain any pointer it
-	// will be allocated in a single bigger block (leading
-	// to a single getAllocSize call).
-	return getAllocSize(10*unsafe.Sizeof(int(0))) + getAllocSize(uintptr(v.Cap())*elementType.Size())
-}
-
-// getMapK2 returns the estimated size a key-value pair
-// would take when used inside a go map.
-func getMapK2(k, v uintptr) uintptr {
-	// There is a little complexity here : if the key and the
-	// value are too big they get allocated separately and only
-	// the pointer is stored.
-	const maxElementSize = 128
-	if k < maxElementSize && v < maxElementSize {
-		return (k+v+1)*4 + unsafe.Sizeof(uintptr(0))
-	} else if k < maxElementSize {
-		return getMapK2(k, 8) + v
-	} else if v < maxElementSize {
-		return getMapK2(8, v) + k
-	} else {
-		return getMapK2(8, 8) + k + v
-	}
-}
-
-// estimateMap returns the estimated size of the memory
-// used inside a map.
-func estimateMap(v reflect.Value, seen map[uintptr]struct{}) uintptr {
-	// Maps are hard to measure because we don't have access
-	// to the internal capacity (whatever that means). That is
-	// the first problem: "capacity" is a fuzzy concept in hash
-	// maps and thus Go team decided not to give a "real" meaning
-	// to it (word of Ian Lance Taylor). In fact when doing a
-	// `make(map[<tkey>]<tvalue>, <cap>)`, <cap> is to be considered
-	// a "hint" to the map. Moreover, AFAIK go maps are grow only.
-	// This makes it impossible to estimate (even pessimistically)
-	// the real amount of memory used. We will need to have a
-	// "usual size" kind of estimation.
-	// For this reason, we decided to take the "experimental" route,
-	// collecting data from different classes of key/value sizes
-	// and finding a pessimistic allocating function.
-	// The approximation is just a line in the form of
-	// y = k1 + k2*x
-	// Where x is the capacity, y the size and k1, k2 are constants.
-	//
-	// In detail:
-	// - k1 = 1912 when x64, 1096 when x86
-	// - k2 = (size_k + size_v + 1) * 4 + sizeof(ptr)
-	const (
-		k1             = 204*unsafe.Sizeof(uintptr(0)) + 280
-		maxElementSize = 128
-	)
-
-	mapType := v.Type()
-	keySize := mapType.Key().Size()
-	valueSize := mapType.Elem().Size()
-
-	k2 := getMapK2(keySize, valueSize)
-
-	result := getAllocSize(uintptr(v.Len())*k2) + k1
-
-	if seen != nil {
-		// Now visit all key/value pairs.
-		iter := v.MapRange()
-		for iter.Next() {
-			result += estimateIndirect(iter.Key(), seen)
-			result += estimateIndirect(iter.Value(), seen)
-		}
-	}
-
-	return result
-}
-
-func estimateSliceValues(v reflect.Value, seen map[uintptr]struct{}) uintptr {
-	result := uintptr(0)
-
-	if seen != nil {
-		for i := 0; i < v.Len(); i++ {
-			result += estimateIndirect(v.Index(i), seen)
-		}
-	}
-
-	return result
-}
-
-func estimateStructFields(v reflect.Value, seen map[uintptr]struct{}) uintptr {
-	result := uintptr(0)
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		result += estimateIndirect(field, seen)
-	}
-
-	return result
-}
-
-func estimateIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
-	switch v.Kind() {
-	case reflect.Ptr, reflect.Interface:
-		if v.IsNil() {
-			return 0
-		} else {
-			return estimateSize(v.Elem(), seen)
-		}
-	case reflect.Map:
-		return estimateMap(v, seen)
-	case reflect.Slice:
-		return estimateSliceValues(v, seen)
-	case reflect.Chan:
-		return estimateChan(v)
-	default:
-		return 0
-	}
-}
-
-func estimateSize(v reflect.Value, seen map[uintptr]struct{}) uintptr {
-	var result uintptr
-
-	switch v.Kind() {
-	case reflect.Ptr, reflect.Interface:
-		if v.IsNil() {
-			return 0
-		} else {
-			return estimateSize(v.Elem(), seen)
-		}
-	case reflect.Chan, reflect.Func, reflect.UnsafePointer:
-		if v.IsNil() {
-			return 0
-		}
-	case reflect.Map:
-		result = estimateMap(v, seen)
-	case reflect.String:
-		len := v.Len()
-		if len == 0 {
-			return 0
-		} else {
-			result = getAllocSize(uintptr(len))
-		}
-	case reflect.Slice:
-		result = estimateSlice(v)
-	default:
-		result = 0
-	}
-
-	result += getAllocSize(v.Type().Size())
-
-	if seen != nil {
-		switch v.Kind() {
-		case reflect.Ptr, reflect.Chan, reflect.Map, reflect.Slice:
-			ptr := v.Pointer()
-			if _, ok := seen[ptr]; !ok {
-				seen[ptr] = struct{}{}
-				defer delete(seen, ptr)
-				result += estimateIndirect(v, seen)
-			}
-
-		case reflect.Struct:
-			result += estimateStructFields(v, seen)
-
-		case reflect.Array:
-			result += estimateSliceValues(v, seen)
-		}
-	}
-
-	return result
-}
-
-// EstimateSize returns the estimated size of the value
-// pointed by obj, without taking into account eventual
-// nested members.
-func EstimateSize(obj interface{}) uintptr {
-	if obj == nil {
-		return 0
-	} else {
-		return estimateSize(reflect.ValueOf(obj), nil)
-	}
-}
-
-// EstimateSizeDeep returns the estimated size of the
-// value pointed by obj, taking into account the whole
-// object tree.
-func EstimateSizeDeep(obj interface{}) uintptr {
-	if obj == nil {
-		return 0
-	} else {
-		return estimateSize(reflect.ValueOf(obj), make(map[uintptr]struct{}))
-	}
 }

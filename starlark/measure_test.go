@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
+	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -20,14 +21,20 @@ func runEstimateTest(t *testing.T, createObj func() interface{}) {
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			obj := createObj()
-			thread.AddAllocs(int64(starlark.EstimateSizeDeep(obj)))
+			thread.AddAllocs(int64(starlark.EstimateSize(obj)))
 			st.KeepAlive(obj)
 		}
 	})
 }
 
+// allocString returns a heap-allocated copy of s.
+func allocString(s string) string {
+	return string([]byte(s))
+}
+
 func TestEstimateBuiltinTypes(t *testing.T) {
 	t.Run("int8", func(t *testing.T) {
+		// In theory, this shold not allocate
 		runEstimateTest(t, func() interface{} { return int8(rand.Int()) })
 	})
 
@@ -35,16 +42,8 @@ func TestEstimateBuiltinTypes(t *testing.T) {
 		runEstimateTest(t, func() interface{} { return new(int8) })
 	})
 
-	t.Run("*int8", func(t *testing.T) {
+	t.Run("nil ptr", func(t *testing.T) {
 		runEstimateTest(t, func() interface{} { return nil })
-	})
-
-	t.Run("uint8", func(t *testing.T) {
-		runEstimateTest(t, func() interface{} { return uint8(rand.Int()) })
-	})
-
-	t.Run("*uint8", func(t *testing.T) {
-		runEstimateTest(t, func() interface{} { return new(uint8) })
 	})
 
 	t.Run("int16", func(t *testing.T) {
@@ -55,14 +54,6 @@ func TestEstimateBuiltinTypes(t *testing.T) {
 		runEstimateTest(t, func() interface{} { return new(int16) })
 	})
 
-	t.Run("uint16", func(t *testing.T) {
-		runEstimateTest(t, func() interface{} { return uint16(rand.Int()) })
-	})
-
-	t.Run("*uint16", func(t *testing.T) {
-		runEstimateTest(t, func() interface{} { return new(uint16) })
-	})
-
 	t.Run("int32", func(t *testing.T) {
 		runEstimateTest(t, func() interface{} { return int32(rand.Int()) })
 	})
@@ -71,44 +62,12 @@ func TestEstimateBuiltinTypes(t *testing.T) {
 		runEstimateTest(t, func() interface{} { return new(int32) })
 	})
 
-	t.Run("uint32", func(t *testing.T) {
-		runEstimateTest(t, func() interface{} { return uint32(rand.Int()) })
-	})
-
-	t.Run("*uint32", func(t *testing.T) {
-		runEstimateTest(t, func() interface{} { return new(uint32) })
-	})
-
 	t.Run("int64", func(t *testing.T) {
 		runEstimateTest(t, func() interface{} { return int64(rand.Int()) })
 	})
 
 	t.Run("*int64", func(t *testing.T) {
 		runEstimateTest(t, func() interface{} { return new(int64) })
-	})
-
-	t.Run("uint64", func(t *testing.T) {
-		runEstimateTest(t, func() interface{} { return uint64(rand.Int()) })
-	})
-
-	t.Run("*uint64", func(t *testing.T) {
-		runEstimateTest(t, func() interface{} { return new(uint64) })
-	})
-
-	t.Run("int", func(t *testing.T) {
-		runEstimateTest(t, func() interface{} { return int(rand.Int()) })
-	})
-
-	t.Run("*int", func(t *testing.T) {
-		runEstimateTest(t, func() interface{} { return new(int) })
-	})
-
-	t.Run("uint", func(t *testing.T) {
-		runEstimateTest(t, func() interface{} { return uint(rand.Int()) })
-	})
-
-	t.Run("*uint", func(t *testing.T) {
-		runEstimateTest(t, func() interface{} { return new(uint) })
 	})
 
 	t.Run("misaligned struct", func(t *testing.T) {
@@ -121,43 +80,149 @@ func TestEstimateBuiltinTypes(t *testing.T) {
 
 	t.Run("*interface", func(t *testing.T) {
 		runEstimateTest(t, func() interface{} {
-			obj := interface{}(1)
+			obj := interface{}(new(int))
 			return &obj
 		})
 	})
-}
 
-func TestEstimateNotDeep(t *testing.T) {
-	t.Run("const string", func(t *testing.T) {
-		st := startest.From(t)
-
-		st.RunThread(func(thread *starlark.Thread) {
-			str := "just a string"
-			obj := []string{}
-			for i := 0; i < st.N; i++ {
-				obj = append(obj, str)
-			}
-			thread.AddAllocs(int64(starlark.EstimateSize(obj)))
-			st.KeepAlive(obj)
-		})
+	t.Run("empty string", func(t *testing.T) {
+		runEstimateTest(t, func() interface{} { return allocString("") })
 	})
 
-	t.Run("pointer", func(t *testing.T) {
-		st := startest.From(t)
-
-		st.RunThread(func(thread *starlark.Thread) {
-			for i := 0; i < st.N; i++ {
-				obj := interface{}(new(struct{ _ [64]int }))
-				thread.AddAllocs(int64(starlark.EstimateSize(obj)))
-				st.KeepAlive(obj)
-			}
-		})
+	t.Run("string", func(t *testing.T) {
+		runEstimateTest(t, func() interface{} { return allocString("test") })
 	})
 }
 
-func TestNilInterface(t *testing.T) {
+func TestEstimateEmptyIndirects(t *testing.T) {
+	runEstimateTest(t, func() interface{} {
+		return struct {
+			i interface{}
+			s string
+			n *int
+			m map[int]bool
+			l []struct{}
+			c chan int
+		}{}
+	})
+}
+
+func TestEstimateSlicePointer(t *testing.T) {
+	runEstimateTest(t, func() interface{} {
+		slice := make([]int, 16)
+
+		return struct {
+			ptr   *int
+			slice []int
+		}{
+			ptr:   &slice[0],
+			slice: slice,
+		}
+	})
+}
+
+func TestEstimateMemberPointers(t *testing.T) {
+	runEstimateTest(t, func() interface{} {
+		a := &struct {
+			l []int
+			s string
+			n int
+
+			pL *int
+			pS *string
+			pN *int
+		}{
+			s: allocString("test"),
+			n: 1,
+			l: make([]int, 32),
+		}
+
+		// Refer to existing memory
+		a.pS = &a.s
+		a.pN = &a.n
+		a.pL = &a.l[0]
+
+		return a
+	})
+}
+
+func TestEstimateDuplicateIndirects(t *testing.T) {
+	runEstimateTest(t, func() interface{} {
+		a := struct {
+			vi interface{}
+			pi interface{}
+			s  string
+			n  *int
+			m  map[int]bool
+			l  []struct{}
+			c  chan int
+		}{
+			s: allocString("test"),
+			n: new(int),
+			m: make(map[int]bool, 16),
+			l: make([]struct{}, 0, 16),
+			c: make(chan int, 16),
+		}
+
+		// Make a loop for the interface
+		a.vi = a
+		a.pi = &a
+
+		return []interface{}{a, a}
+	})
+}
+
+func TestNil(t *testing.T) {
 	if starlark.EstimateSize(nil) != 0 {
 		t.Errorf("estimateSize for nil must be 0")
+	}
+
+	var nilMap map[int]int
+	if starlark.EstimateSize(nilMap) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var nilPtrMap *map[int]int
+	if starlark.EstimateSize(nilPtrMap) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var nilChan chan int
+	if starlark.EstimateSize(nilChan) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var nilPtrChan *chan int
+	if starlark.EstimateSize(nilPtrChan) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var nilString string
+	if starlark.EstimateSize(nilString) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var nilSlice *[]int
+	if starlark.EstimateSize(nilSlice) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var nilPtr *int
+	if starlark.EstimateSize(nilPtr) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var emptyStruct struct {
+		a map[int]int
+		b *map[int]int
+		c chan int
+		d *chan int
+		e *int
+		s *[]int
+	}
+
+	if s := starlark.EstimateSize(emptyStruct); s != unsafe.Sizeof(emptyStruct) {
+		t.Errorf("expected size %d got %d", unsafe.Sizeof(emptyStruct), s)
 	}
 }
 
@@ -171,7 +236,7 @@ func TestEstimateMap(t *testing.T) {
 				value[i] = i
 			}
 
-			thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
+			thread.AddAllocs(int64(starlark.EstimateSize(value)))
 			st.KeepAlive(value)
 		})
 	})
@@ -185,7 +250,7 @@ func TestEstimateMap(t *testing.T) {
 				value[i] = [64]int{}
 			}
 
-			thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
+			thread.AddAllocs(int64(starlark.EstimateSize(value)))
 			st.KeepAlive(value)
 		})
 	})
@@ -212,16 +277,18 @@ func TestEstimateMap(t *testing.T) {
 }
 
 func TestEstimateChan(t *testing.T) {
-	st := startest.From(t)
-	st.RunThread(func(thread *starlark.Thread) {
-		value := make(chan int, st.N)
+	t.Run("all", func(t *testing.T) {
+		st := startest.From(t)
+		st.RunThread(func(thread *starlark.Thread) {
+			value := make(chan int, st.N)
 
-		for i := 0; i < st.N; i++ {
-			value <- i
-		}
+			for i := 0; i < st.N; i++ {
+				value <- i
+			}
 
-		thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
-		st.KeepAlive(value)
+			thread.AddAllocs(int64(starlark.EstimateSize(value)))
+			st.KeepAlive(value)
+		})
 	})
 }
 
@@ -233,9 +300,9 @@ func TestTinyAllocator(t *testing.T) {
 			anchor = new(int64)
 			*anchor = int64(i)
 
-			value := int64(i * 0xcc9e2d51)
+			value := int64(i) * 0xcc9e2d51
 
-			thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
+			thread.AddAllocs(int64(starlark.EstimateSize(value)))
 			st.KeepAlive(value)
 		}
 	})
@@ -248,7 +315,7 @@ func TestEstimateString(t *testing.T) {
 			for i := 0; i < st.N; i++ {
 				value := string([]byte("Hello World!"))
 
-				thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
+				thread.AddAllocs(int64(starlark.EstimateSize(value)))
 				st.KeepAlive(value)
 			}
 		})
@@ -259,7 +326,7 @@ func TestEstimateString(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			value := strings.Repeat("Hello World!", st.N)
 
-			thread.AddAllocs(int64(starlark.EstimateSizeDeep(value)))
+			thread.AddAllocs(int64(starlark.EstimateSize(value)))
 			st.KeepAlive(value)
 		})
 	})
