@@ -27,7 +27,9 @@ import (
 //  - estimateXXXIndirect functions call:
 //    - estimateXXXAll functions for pointer-like values and
 //    - estimateXXXDirect functions for embedded ones;
-//  - estimateXXXAll functions only call estimateXXXAll functions.
+//  - estimateXXXAll functions will for a given kind only call:
+//    - estimateXXXAll functions OR
+//    - estimateXXXDirect and estimateXXXIndirect functions to take their sum.
 //
 // EstimateSizeShallow has been removed for now since there was no agreement of how
 // to make it consistent.
