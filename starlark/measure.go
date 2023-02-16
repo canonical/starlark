@@ -40,21 +40,13 @@ func EstimateSize(obj interface{}) uintptr {
 		return 0
 	}
 
-	return estimateInterfaceAll(reflect.ValueOf(obj), make(map[uintptr]struct{}))
-}
+	v := reflect.ValueOf(obj)
 
-func estimateInterfaceAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
-	switch v.Kind() {
-	case reflect.Ptr:
-		if !v.IsNil() {
-			if _, ok := seen[v.Pointer()]; !ok {
-				return estimateSizeAll(v.Elem(), seen)
-			}
-		}
-		return 0
-	default:
-		return estimateSizeAll(v, seen)
+	if v.Kind() == reflect.Ptr {
+		return estimateSizeIndirect(v, make(map[uintptr]struct{}))
 	}
+
+	return estimateSizeAll(v, make(map[uintptr]struct{}))
 }
 
 func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -93,7 +85,12 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 			return 0
 		}
 
-		return estimateInterfaceAll(v.Elem(), seen)
+		elem := v.Elem()
+		if elem.Kind() == reflect.Ptr {
+			return estimateSizeIndirect(elem, seen)
+		}
+
+		return estimateSizeAll(elem, seen)
 	case reflect.Ptr:
 		if !v.IsNil() {
 			if _, ok := seen[v.Pointer()]; !ok {
@@ -172,6 +169,10 @@ func estimateChanDirect(v reflect.Value) uintptr {
 }
 
 func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
+	if v.IsNil() {
+		return 0
+	}
+
 	ptr := v.Pointer()
 	if _, ok := seen[ptr]; ok {
 		return 0

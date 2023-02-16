@@ -171,8 +171,43 @@ func TestEstimateDuplicateIndirects(t *testing.T) {
 	})
 }
 
-func TestNilInterface(t *testing.T) {
+func TestNil(t *testing.T) {
 	if starlark.EstimateSize(nil) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var nilMap map[int]int
+	if starlark.EstimateSize(nilMap) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var nilPtrMap *map[int]int
+	if starlark.EstimateSize(nilPtrMap) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var nilChan chan int
+	if starlark.EstimateSize(nilChan) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var nilPtrChan *chan int
+	if starlark.EstimateSize(nilPtrChan) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var nilString string
+	if starlark.EstimateSize(nilString) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var nilSlice *[]int
+	if starlark.EstimateSize(nilSlice) != 0 {
+		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var nilPtr *int
+	if starlark.EstimateSize(nilPtr) != 0 {
 		t.Errorf("EstimateSize for nil must be 0")
 	}
 }
