@@ -1,14 +1,15 @@
 // Package startest provides a framework to test starlark code, environments
 // and their safety.
 //
-// The framework is designed to hook into existing test frameworks such as
-// testing and go-check, so it can be used to write starlark unit tests.
+// This framework is designed to hook into existing test frameworks such as
+// testing and go-check, so it can be used to write unit tests for starlark
+// usage.
 //
 // To create a new startest instance, use From. To test a string of starlark
-// code, use the instances's RunString method. To test a starlark (or something
-// more expressible in Go), use the instance's RunThread method. To simulate
-// the running environment of a starlark script, use the AddValue, AddBuiltin
-// and AddLocal methods.
+// code, use the instances's RunString method. To directly test starlark (or
+// something more expressible in Go), use the instance's RunThread method. To
+// simulate the running environment of a starlark script, use the AddValue,
+// AddBuiltin and AddLocal methods.
 //
 // Each test run is given access to some integer N. Depending on the required
 // safety, measurements of a test's resource usage may be taken and related
