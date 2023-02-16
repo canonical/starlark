@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
+	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -209,6 +210,19 @@ func TestNil(t *testing.T) {
 	var nilPtr *int
 	if starlark.EstimateSize(nilPtr) != 0 {
 		t.Errorf("EstimateSize for nil must be 0")
+	}
+
+	var emptyStruct struct {
+		a map[int]int
+		b *map[int]int
+		c chan int
+		d *chan int
+		e *int
+		s *[]int
+	}
+
+	if s := starlark.EstimateSize(emptyStruct); s != unsafe.Sizeof(emptyStruct) {
+		t.Errorf("expected size %d got %d", unsafe.Sizeof(emptyStruct), s)
 	}
 }
 
