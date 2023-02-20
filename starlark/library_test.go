@@ -399,7 +399,7 @@ func TestStringEndswithAllocs(t *testing.T) {
 	suffix := starlark.String("cake")
 
 	if string_endswith == nil {
-		t.Errorf("No such method: string.endswith")
+		t.Errorf("no such method: string.endswith")
 		return
 	}
 
@@ -495,7 +495,7 @@ func TestStringStartswithAllocs(t *testing.T) {
 	prefix := starlark.String("a journey of a thousand miles")
 
 	if string_startswith == nil {
-		t.Errorf("No such method: string.startswith")
+		t.Errorf("no such method: string.startswith")
 		return
 	}
 
