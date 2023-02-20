@@ -358,7 +358,7 @@ func TestStringCapitalizeAllocs(t *testing.T) {
 func TestStringCodepointOrdsAllocs(t *testing.T) {
 	codepoint_ords, _ := starlark.String("pancakes").Attr("codepoint_ords")
 	if codepoint_ords == nil {
-		t.Error("No such method: string.codepoint_ords")
+		t.Error("no such method: string.codepoint_ords")
 		return
 	}
 
@@ -379,7 +379,7 @@ func TestStringCodepointOrdsAllocs(t *testing.T) {
 func TestStringCodepointsAllocs(t *testing.T) {
 	codepoints, _ := starlark.String("pancakes").Attr("codepoints")
 	if codepoints == nil {
-		t.Error("No such method: string.codepoints")
+		t.Error("no such method: string.codepoints")
 		return
 	}
 
@@ -403,7 +403,7 @@ func TestStringCountAllocs(t *testing.T) {
 func TestStringElemOrdsAllocs(t *testing.T) {
 	elem_ords, _ := starlark.String("pancakes").Attr("elem_ords")
 	if elem_ords == nil {
-		t.Error("No such method: string.elem_ords")
+		t.Error("no such method: string.elem_ords")
 		return
 	}
 
@@ -424,7 +424,7 @@ func TestStringElemOrdsAllocs(t *testing.T) {
 func TestStringElemsAllocs(t *testing.T) {
 	elems, _ := starlark.String("pancakes").Attr("elems")
 	if elems == nil {
-		t.Error("No such method: string.elems")
+		t.Error("no such method: string.elems")
 		return
 	}
 
