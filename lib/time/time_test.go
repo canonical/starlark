@@ -50,7 +50,7 @@ func TestTimeIsValidTimezoneAllocs(t *testing.T) {
 func TestTimeNowAllocs(t *testing.T) {
 	now, ok := time.Module.Members["now"]
 	if !ok {
-		t.Errorf("No such builtin: now")
+		t.Errorf("no such builtin: now")
 		return
 	}
 
