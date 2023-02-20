@@ -265,7 +265,7 @@ func TestStringLowerAllocs(t *testing.T) {
 func TestStringLstripAllocs(t *testing.T) {
 	string_lstrip, _ := starlark.String("    library").Attr("lstrip")
 	if string_lstrip == nil {
-		t.Errorf("No such method: string.lstrip")
+		t.Errorf("no such method: string.lstrip")
 		return
 	}
 
@@ -328,7 +328,7 @@ func TestStringRsplitAllocs(t *testing.T) {
 func TestStringRstripAllocs(t *testing.T) {
 	string_lstrip, _ := starlark.String("bamboo   ").Attr("rstrip")
 	if string_lstrip == nil {
-		t.Errorf("No such method: string.rstrip")
+		t.Errorf("no such method: string.rstrip")
 		return
 	}
 
@@ -376,7 +376,7 @@ func TestStringStartswithAllocs(t *testing.T) {
 func TestStringStripAllocs(t *testing.T) {
 	string_strip, _ := starlark.String("    airship    ").Attr("strip")
 	if string_strip == nil {
-		t.Errorf("No such method: string.strip")
+		t.Errorf("no such method: string.strip")
 		return
 	}
 
