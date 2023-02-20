@@ -22,7 +22,6 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -2143,7 +2142,7 @@ func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 			s = strings.TrimRightFunc(recv, unicode.IsSpace)
 		}
 	}
-	return String(s), thread.AddAllocs(int64(unsafe.Sizeof(reflect.StringHeader{})))
+	return String(s), thread.AddAllocs(int64(EstimateSize(reflect.StringHeader{})))
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·title
