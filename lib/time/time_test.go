@@ -53,7 +53,7 @@ func TestTimeNowAllocs(t *testing.T) {
 func TestTimeParseDurationAllocs(t *testing.T) {
 	parse_duration, ok := time.Module.Members["parse_duration"]
 	if !ok {
-		t.Errorf("No such builtin: parse_duration")
+		t.Errorf("no such builtin: parse_duration")
 		return
 	}
 
