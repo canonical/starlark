@@ -271,7 +271,7 @@ func TestStringPartitionAllocs(t *testing.T) {
 func TestStringRemoveprefixAllocs(t *testing.T) {
 	string_removeprefix, _ := starlark.String("immutable").Attr("removeprefix")
 	if string_removeprefix == nil {
-		t.Errorf("No such method: string.removeprefix")
+		t.Errorf("no such method: string.removeprefix")
 		return
 	}
 
@@ -293,7 +293,7 @@ func TestStringRemoveprefixAllocs(t *testing.T) {
 func TestStringRemovesuffixAllocs(t *testing.T) {
 	string_removesuffix, _ := starlark.String("deadbeef").Attr("removesuffix")
 	if string_removesuffix == nil {
-		t.Errorf("No such method: string.removesuffix")
+		t.Errorf("no such method: string.removesuffix")
 		return
 	}
 
