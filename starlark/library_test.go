@@ -106,7 +106,7 @@ func TestHasattrAllocs(t *testing.T) {
 func TestHashAllocs(t *testing.T) {
 	hash, ok := starlark.Universe["hash"]
 	if !ok {
-		t.Errorf("No such builtin: hash")
+		t.Errorf("no such builtin: hash")
 		return
 	}
 
