@@ -244,7 +244,7 @@ func TestStringIsalphaAllocs(t *testing.T) {
 func TestStringIsdigitAllocs(t *testing.T) {
 	string_isdigit, _ := starlark.String("1234567890").Attr("isdigit")
 	if string_isdigit == nil {
-		t.Errorf("No such method: string.isdigit")
+		t.Errorf("no such method: string.isdigit")
 		return
 	}
 
