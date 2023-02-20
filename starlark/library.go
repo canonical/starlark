@@ -21,7 +21,6 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -1655,9 +1654,9 @@ func string_iterable(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Va
 	ords := b.Name()[len(b.Name())-2] == 'd'
 	codepoints := b.Name()[0] == 'c'
 	if codepoints {
-		return stringCodepoints{s, ords}, thread.AddAllocs(int64(unsafe.Sizeof(stringCodepoints{})))
+		return stringCodepoints{s, ords}, thread.AddAllocs(int64(EstimateSize(stringCodepoints{})))
 	} else {
-		return stringElems{s, ords}, thread.AddAllocs(int64(unsafe.Sizeof(stringCodepoints{})))
+		return stringElems{s, ords}, thread.AddAllocs(int64(EstimateSize(stringCodepoints{})))
 	}
 }
 
