@@ -51,17 +51,34 @@ func TestTimeIsValidTimezoneAllocs(t *testing.T) {
 		return
 	}
 
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.SetMaxAllocs(0)
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, is_valid_timestamp, starlark.Tuple{starlark.String("Middle_Earth/Minas_Tirith")}, nil)
-			if err != nil {
-				st.Error(err)
+	t.Run("timezone=valid", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, is_valid_timestamp, starlark.Tuple{starlark.String("Europe/Prague")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
 			}
-			st.KeepAlive(result)
-		}
+		})
+	})
+
+	t.Run("timezone=invalid", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, is_valid_timestamp, starlark.Tuple{starlark.String("Middle_Earth/Minas_Tirith")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
 	})
 }
 
