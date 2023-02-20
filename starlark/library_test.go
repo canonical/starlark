@@ -196,7 +196,7 @@ func TestBytesAllocs(t *testing.T) {
 func TestChrAllocs(t *testing.T) {
 	chr, ok := starlark.Universe["chr"]
 	if !ok {
-		t.Errorf("No such builtin: chr")
+		t.Errorf("no such builtin: chr")
 		return
 	}
 
