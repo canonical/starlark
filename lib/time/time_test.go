@@ -44,7 +44,7 @@ func TestMethodSafetiesExist(t *testing.T) {
 func TestTimeFromTimestampAllocs(t *testing.T) {
 	from_timestamp, ok := time.Module.Members["from_timestamp"]
 	if !ok {
-		t.Errorf("No such method: from_timestamp")
+		t.Errorf("no such method: from_timestamp")
 		return
 	}
 
