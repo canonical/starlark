@@ -241,7 +241,7 @@ func TestStringIsalnumAllocs(t *testing.T) {
 func TestStringIsalphaAllocs(t *testing.T) {
 	string_isalpha, _ := starlark.String("hello, world!").Attr("isalpha")
 	if string_isalpha == nil {
-		t.Errorf("No such method: string.isalpha")
+		t.Errorf("no such method: string.isalpha")
 		return
 	}
 
