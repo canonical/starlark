@@ -95,7 +95,7 @@ func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.T
 	var d Duration
 	err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &d)
 	if err == nil {
-		err = thread.AddAllocs(int64(starlark.EstimateSizeDeep(d)))
+		err = thread.AddAllocs(int64(starlark.EstimateSize(d)))
 	}
 	return d, err
 }
