@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"sort"
 	"time"
-	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarkstruct"
@@ -148,7 +147,7 @@ func fromTimestamp(thread *starlark.Thread, _ *starlark.Builtin, args starlark.T
 }
 
 func now(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	return Time(NowFunc()), thread.AddAllocs(int64(unsafe.Sizeof(Time{})))
+	return Time(NowFunc()), thread.AddAllocs(int64(starlark.EstimateSize(Time{})))
 }
 
 // Duration is a Starlark representation of a duration.
