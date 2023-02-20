@@ -253,7 +253,7 @@ func TestStringIsspaceAllocs(t *testing.T) {
 func TestStringIstitleAllocs(t *testing.T) {
 	string_istitle, _ := starlark.String("Hello, world!").Attr("istitle")
 	if string_istitle == nil {
-		t.Errorf("No such method: string.istitle")
+		t.Errorf("no such method: string.istitle")
 		return
 	}
 
