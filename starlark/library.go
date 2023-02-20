@@ -21,7 +21,6 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -652,7 +651,8 @@ func hash(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	default:
 		return nil, fmt.Errorf("hash: got %s, want string or bytes", x.Type())
 	}
-	return MakeInt64(h), thread.AddAllocs(int64(unsafe.Sizeof(Int{})))
+	ret := MakeInt64(h)
+	return ret, thread.AddAllocs(int64(EstimateSize(ret)))
 }
 
 // javaStringHash returns the same hash as would be produced by
