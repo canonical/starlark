@@ -381,7 +381,6 @@ func (si *allocatingIterator) Next(p *starlark.Value) bool {
 }
 
 func TestSafeIterateAllocs(t *testing.T) {
-
 	t.Run("non-allocating", func(t *testing.T) {
 		st := startest.From(t)
 
