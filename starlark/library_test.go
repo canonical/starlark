@@ -340,9 +340,14 @@ type repeatIterator struct {
 	value starlark.Value
 }
 
-func (*repeatIterator) Done()             {}
-func (*repeatIterator) Err() error        { return nil }
-func (*repeatIterator) NextAllocs() int64 { return 0 }
+func (*repeatIterator) Done()                              {}
+func (*repeatIterator) Err() error                         { return nil }
+func (*repeatIterator) NextAllocs() int64                  { return 0 }
+func (*repeatIterator) BindThread(thread *starlark.Thread) {}
+
+func (*repeatIterator) Safety() starlark.Safety {
+	return starlark.MemSafe
+}
 
 func (it *repeatIterator) Next(p *starlark.Value) bool {
 	if it.n <= 0 {
@@ -365,18 +370,33 @@ func (si *allocatingIterable) Truth() starlark.Bool  { return starlark.False }
 func (si *allocatingIterable) Type() string          { return "stringifyIterable" }
 
 func (si *allocatingIterable) Iterate() starlark.Iterator {
-	return &allocatingIterator{si.size}
+	return &allocatingIterator{size: si.size}
 }
 
 type allocatingIterator struct {
-	size int
+	size   int
+	thread *starlark.Thread
+	err    error
 }
 
-func (si *allocatingIterator) Done()      {}
-func (si *allocatingIterator) Err() error { return nil }
+var _ starlark.SafeIterator = &allocatingIterator{}
 
-func (si *allocatingIterator) Next(p *starlark.Value) bool {
-	*p = starlark.NewList(make([]starlark.Value, 0, si.size))
+func (*allocatingIterator) Done()                                 {}
+func (it *allocatingIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
+func (it *allocatingIterator) Err() error                         { return it.err }
+func (it *allocatingIterator) Safety() starlark.Safety            { return starlark.MemSafe }
+
+func (it *allocatingIterator) Next(p *starlark.Value) bool {
+	list := starlark.NewList(make([]starlark.Value, 0, it.size))
+
+	if it.thread != nil {
+		if err := it.thread.AddAllocs(int64(starlark.EstimateSize(list))); err != nil {
+			it.err = err
+			return false
+		}
+	}
+
+	*p = list
 	return true
 }
 
@@ -385,9 +405,14 @@ func TestSafeIterateAllocs(t *testing.T) {
 		st := startest.From(t)
 
 		st.SetMaxAllocs(0)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			nonAllocating := &repeatIterable{st.N, starlark.True}
-			it := starlark.SafeIterate(thread, nonAllocating)
+			it, err := starlark.SafeIterate(thread, nonAllocating)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			defer it.Done()
 
 			for i := 0; i < st.N; i++ {
@@ -405,9 +430,14 @@ func TestSafeIterateAllocs(t *testing.T) {
 	t.Run("allocating", func(t *testing.T) {
 		st := startest.From(t)
 
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			allocating := &allocatingIterable{16}
-			it := starlark.SafeIterate(thread, allocating)
+			it, err := starlark.SafeIterate(thread, allocating)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			defer it.Done()
 
 			for i := 0; i < st.N; i++ {

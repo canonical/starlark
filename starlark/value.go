@@ -252,10 +252,11 @@ type Iterator interface {
 	Err() error
 }
 
-type MemSafeIterator interface {
+type SafeIterator interface {
 	Iterator
 
-	NextAllocs() int64
+	BindThread(thread *Thread)
+	Safety() Safety
 }
 
 // A Mapping is a mapping from keys to values, such as a dictionary.
@@ -1440,89 +1441,28 @@ func estimateValueSize(v Value) int64 {
 	return int64(EstimateSize(v))
 }
 
-type defaultSafeIterator struct {
-	iter   Iterator
-	thread *Thread
-	err    error
-}
-
-var _ Iterator = &defaultSafeIterator{}
-
-func (it *defaultSafeIterator) Next(p *Value) bool {
-	if it.err != nil {
-		return false
-	}
-
-	var result Value
-	if it.iter.Next(&result) {
-		if err := it.thread.AddAllocs(estimateValueSize(result)); err != nil {
-			it.err = err
-			return false
-		}
-		*p = result
-		return true
-	} else {
-		return false
-	}
-}
-
-func (it *defaultSafeIterator) Done() {
-	it.iter.Done()
-	it.thread = nil
-}
-
-func (it *defaultSafeIterator) Err() error {
-	return it.err
-}
-
-type memSafeIterator struct {
-	iter   MemSafeIterator
-	thread *Thread
-	err    error
-}
-
-var _ Iterator = &memSafeIterator{}
-
-func (it *memSafeIterator) Next(p *Value) bool {
-	if it.err != nil {
-		return false
-	}
-
-	if err := it.thread.AddAllocs(it.iter.NextAllocs()); err != nil {
-		it.err = err
-		return false
-	}
-
-	return it.iter.Next(p)
-}
-
-func (it *memSafeIterator) Done() {
-	it.iter.Done()
-	it.thread = nil
-}
-
-func (it *memSafeIterator) Err() error {
-	return it.err
-}
-
-func SafeIterate(thread *Thread, x Value) Iterator {
+func SafeIterate(thread *Thread, x Value) (Iterator, error) {
 	if x, ok := x.(Iterable); ok {
 		iter := x.Iterate()
 
 		if thread != nil {
-			if memSafeIter, ok := iter.(MemSafeIterator); ok {
-				result := &memSafeIterator{iter: memSafeIter, thread: thread}
-				return result
-			} else {
-				result := &defaultSafeIterator{iter: iter, thread: thread}
-				return result
+			if safeIter, ok := iter.(SafeIterator); ok {
+				if err := thread.CheckPermits(safeIter); err != nil {
+					return nil, err
+				}
+
+				safeIter.BindThread(thread)
+
+				return safeIter, nil
+			} else if err := thread.CheckPermits(NotSafe); err != nil {
+				return nil, err
 			}
-		} else {
-			return iter
 		}
+
+		return iter, nil
 	}
 
-	return nil
+	return nil, nil
 }
 
 // Bytes is the type of a Starlark binary string.
