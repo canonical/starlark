@@ -252,6 +252,10 @@ type Iterator interface {
 	Err() error
 }
 
+// A SafeIterator is an Iterator which abides by safety constraints.
+//
+// When a thread is available and safety is required, `BindThread`
+// will be called before iteration.
 type SafeIterator interface {
 	Iterator
 
@@ -1441,6 +1445,9 @@ func estimateValueSize(v Value) int64 {
 	return int64(EstimateSize(v))
 }
 
+// SafeIterate creates an iterator which is bound then to the given
+// thread. This iterator will check safety and respect sandboxing
+// bounds as required.
 func SafeIterate(thread *Thread, x Value) (Iterator, error) {
 	if x, ok := x.(Iterable); ok {
 		iter := x.Iterate()
