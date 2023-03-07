@@ -258,9 +258,9 @@ type Iterator interface {
 // will be called before iteration.
 type SafeIterator interface {
 	Iterator
+	SafetyAware
 
 	BindThread(thread *Thread)
-	Safety() Safety
 }
 
 // A Mapping is a mapping from keys to values, such as a dictionary.
