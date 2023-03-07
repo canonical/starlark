@@ -1447,7 +1447,9 @@ func estimateValueSize(v Value) int64 {
 
 // SafeIterate creates an iterator which is bound then to the given
 // thread. This iterator will check safety and respect sandboxing
-// bounds as required.
+// bounds as required. As a convenience for functions that may have
+// a thread or not depending on external logic, if thread is nil
+// the iterator is still returned without its safety being checked.
 func SafeIterate(thread *Thread, x Value) (Iterator, error) {
 	if x, ok := x.(Iterable); ok {
 		iter := x.Iterate()
