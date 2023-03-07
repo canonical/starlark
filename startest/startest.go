@@ -295,7 +295,7 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 	return nil, nil
 }
 
-func (*ST) AttrNames() []string {
+func (st *ST) AttrNames() []string {
 	return []string{
 		"error",
 		"fatal",
