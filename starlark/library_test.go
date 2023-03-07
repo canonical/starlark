@@ -319,8 +319,8 @@ type repeatIterable struct {
 	value starlark.Value
 }
 
-func (*repeatIterable) Freeze()               {}
-func (*repeatIterable) Hash() (uint32, error) { return 0, fmt.Errorf("invalid") }
+func (r *repeatIterable) Freeze()               {}
+func (r *repeatIterable) Hash() (uint32, error) { return 0, fmt.Errorf("invalid") }
 func (r *repeatIterable) Iterate() starlark.Iterator {
 	value := r.value
 	if value == nil {
@@ -331,21 +331,21 @@ func (r *repeatIterable) Iterate() starlark.Iterator {
 		value: value,
 	}
 }
-func (*repeatIterable) String() string         { return "repeat" }
+func (r *repeatIterable) String() string       { return "repeat" }
 func (r *repeatIterable) Truth() starlark.Bool { return r.n > 0 }
-func (*repeatIterable) Type() string           { return "repeat" }
+func (r *repeatIterable) Type() string         { return "repeat" }
 
 type repeatIterator struct {
 	n     int
 	value starlark.Value
 }
 
-func (*repeatIterator) Done()                              {}
-func (*repeatIterator) Err() error                         { return nil }
-func (*repeatIterator) NextAllocs() int64                  { return 0 }
-func (*repeatIterator) BindThread(thread *starlark.Thread) {}
+func (it *repeatIterator) Done()                              {}
+func (it *repeatIterator) Err() error                         { return nil }
+func (it *repeatIterator) NextAllocs() int64                  { return 0 }
+func (it *repeatIterator) BindThread(thread *starlark.Thread) {}
 
-func (*repeatIterator) Safety() starlark.Safety {
+func (it *repeatIterator) Safety() starlark.Safety {
 	return starlark.MemSafe
 }
 
@@ -381,7 +381,7 @@ type allocatingIterator struct {
 
 var _ starlark.SafeIterator = &allocatingIterator{}
 
-func (*allocatingIterator) Done()                                 {}
+func (it *allocatingIterator) Done()                              {}
 func (it *allocatingIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
 func (it *allocatingIterator) Err() error                         { return it.err }
 func (it *allocatingIterator) Safety() starlark.Safety            { return starlark.MemSafe }
