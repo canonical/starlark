@@ -108,6 +108,13 @@ type Value interface {
 	Hash() (uint32, error)
 }
 
+// SizeAwareValue allows a value to declare its own size
+type SizeAwareValue interface {
+	Value
+
+	EstimateSize() int64
+}
+
 // A Comparable is a value that defines its own equivalence relation and
 // perhaps ordered comparisons.
 type Comparable interface {
@@ -242,6 +249,18 @@ type Iterator interface {
 	// advances the iterator, and returns true.
 	Next(p *Value) bool
 	Done()
+	Err() error
+}
+
+// A SafeIterator is an Iterator which abides by safety constraints.
+//
+// When a thread is available and safety is required, `BindThread`
+// will be called before iteration.
+type SafeIterator interface {
+	Iterator
+	SafetyAware
+
+	BindThread(thread *Thread)
 }
 
 // A Mapping is a mapping from keys to values, such as a dictionary.
@@ -605,6 +624,7 @@ func (it *stringElemsIterator) Next(p *Value) bool {
 
 func (*stringElemsIterator) Done() {}
 
+func (it *stringElemsIterator) Err() error     { return nil }
 func (it *stringElemsIterator) Safety() Safety { return NotSafe }
 
 // A stringCodepoints is an iterable whose iterator yields a sequence of
@@ -656,6 +676,7 @@ func (it *stringCodepointsIterator) Next(p *Value) bool {
 
 func (*stringCodepointsIterator) Done() {}
 
+func (it *stringCodepointsIterator) Err() error     { return nil }
 func (it *stringCodepointsIterator) Safety() Safety { return NotSafe }
 
 // A Function is a function defined by a Starlark def statement or lambda expression.
@@ -954,6 +975,8 @@ type listIterator struct {
 	i int
 }
 
+func (it *listIterator) NextAllocs() int64 { return 0 }
+
 func (it *listIterator) Next(p *Value) bool {
 	if it.i < it.l.Len() {
 		*p = it.l.elems[it.i]
@@ -969,6 +992,7 @@ func (it *listIterator) Done() {
 	}
 }
 
+func (it *listIterator) Err() error     { return nil }
 func (it *listIterator) Safety() Safety { return NotSafe }
 
 func (l *List) SetIndex(i int, v Value) error {
@@ -1048,6 +1072,8 @@ func (t Tuple) Hash() (uint32, error) {
 
 type tupleIterator struct{ elems Tuple }
 
+func (it *tupleIterator) NextAllocs() int64 { return 0 }
+
 func (it *tupleIterator) Next(p *Value) bool {
 	if len(it.elems) > 0 {
 		*p = it.elems[0]
@@ -1059,6 +1085,7 @@ func (it *tupleIterator) Next(p *Value) bool {
 
 func (it *tupleIterator) Done() {}
 
+func (it *tupleIterator) Err() error     { return nil }
 func (it *tupleIterator) Safety() Safety { return NotSafe }
 
 // A Set represents a Starlark set value.
@@ -1408,6 +1435,43 @@ func Iterate(x Value) Iterator {
 		return x.Iterate()
 	}
 	return nil
+}
+
+func estimateValueSize(v Value) int64 {
+	if v, ok := v.(SizeAwareValue); ok {
+		return v.EstimateSize()
+	}
+
+	return int64(EstimateSize(v))
+}
+
+// SafeIterate creates an iterator which is bound then to the given
+// thread. This iterator will check safety and respect sandboxing
+// bounds as required. As a convenience for functions that may have
+// a thread or not depending on external logic, if thread is nil
+// the iterator is still returned without its safety being checked.
+func SafeIterate(thread *Thread, x Value) (Iterator, error) {
+	if x, ok := x.(Iterable); ok {
+		iter := x.Iterate()
+
+		if thread != nil {
+			if safeIter, ok := iter.(SafeIterator); ok {
+				if err := thread.CheckPermits(safeIter); err != nil {
+					return nil, err
+				}
+
+				safeIter.BindThread(thread)
+
+				return safeIter, nil
+			} else if err := thread.CheckPermits(NotSafe); err != nil {
+				return nil, err
+			}
+		}
+
+		return iter, nil
+	}
+
+	return nil, ErrUnsupported
 }
 
 // Bytes is the type of a Starlark binary string.

@@ -799,7 +799,9 @@ func (iter *dummyRangeIterator) Next(p *starlark.Value) bool {
 	}
 	return false
 }
-func (iter *dummyRangeIterator) Done() {}
+
+func (iter *dummyRangeIterator) Done()      {}
+func (iter *dummyRangeIterator) Err() error { return nil }
 
 var safeRange *starlark.Builtin
 

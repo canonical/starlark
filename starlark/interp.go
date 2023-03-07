@@ -172,6 +172,7 @@ loop:
 			y := stack[sp-1]
 			x := stack[sp-2]
 			sp -= 2
+			// TODO: use SafeIterate (SafeBinary?)
 			z, err2 := Binary(binop, x, y)
 			if err2 != nil {
 				err = err2
@@ -209,11 +210,13 @@ loop:
 					if err = xlist.checkMutable("apply += to"); err != nil {
 						break loop
 					}
+					// TODO: use SafeIterate
 					listExtend(xlist, yiter)
 					z = xlist
 				}
 			}
 			if z == nil {
+				// TODO: use SafeIterate (SafeBinary?)
 				z, err = Binary(syntax.PLUS, x, y)
 				if err != nil {
 					break loop
@@ -305,6 +308,7 @@ loop:
 			}
 			if args != nil {
 				// Add elements from *args sequence.
+				// TODO: use SafeIterate
 				iter := Iterate(args)
 				if iter == nil {
 					err = fmt.Errorf("argument after * must be iterable, not %s", args.Type())
@@ -339,6 +343,7 @@ loop:
 		case compile.ITERPUSH:
 			x := stack[sp-1]
 			sp--
+			// TODO: use SafeIterate
 			iter := Iterate(x)
 			if iter == nil {
 				err = fmt.Errorf("%s value is not iterable", x.Type())
@@ -355,6 +360,7 @@ loop:
 			}
 
 		case compile.ITERPOP:
+			// TODO: use SafeIterate (Error checking)
 			n := len(iterstack) - 1
 			iterstack[n].Done()
 			iterstack = iterstack[:n]
@@ -451,6 +457,7 @@ loop:
 			n := int(arg)
 			iterable := stack[sp-1]
 			sp--
+			// TODO: use SafeIterate
 			iter := Iterate(iterable)
 			if iter == nil {
 				err = fmt.Errorf("got %s in sequence assignment", iterable.Type())

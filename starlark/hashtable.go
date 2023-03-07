@@ -349,6 +349,7 @@ func (it *keyIterator) Done() {
 	}
 }
 
+func (ki *keyIterator) Err() error     { return nil }
 func (ki *keyIterator) Safety() Safety { return NotSafe }
 
 // hashString computes the hash of s.

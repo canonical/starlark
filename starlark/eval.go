@@ -677,6 +677,7 @@ func listExtend(x *List, y Iterable) {
 		// fast path: list += list
 		x.elems = append(x.elems, ylist.elems...)
 	} else {
+		// TODO: use SafeIterate
 		iter := y.Iterate()
 		defer iter.Done()
 		var z Value
@@ -1141,6 +1142,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *Set: // union
 			if y, ok := y.(*Set); ok {
+				// TODO: use SafeIterate
 				iter := Iterate(y)
 				defer iter.Done()
 				return x.Union(iter)
@@ -1218,6 +1220,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 
 	// user-defined types
 	// (nil, nil) => unhandled
+	// TODO: use SafeIterate (SafeBinary?)
 	if x, ok := x.(HasBinary); ok {
 		z, err := x.Binary(op, y, Left)
 		if z != nil || err != nil {

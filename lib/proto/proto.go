@@ -952,6 +952,7 @@ func (it *repeatedFieldIterator) Done() {
 	}
 }
 
+func (it *repeatedFieldIterator) Err() error              { return nil }
 func (it *repeatedFieldIterator) Safety() starlark.Safety { return starlark.NotSafe }
 
 func writeString(buf *bytes.Buffer, fdesc protoreflect.FieldDescriptor, v protoreflect.Value) {
