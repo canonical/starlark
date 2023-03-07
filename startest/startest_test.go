@@ -784,11 +784,11 @@ var _ starlark.Value = &dummyRange{}
 var _ starlark.Iterable = &dummyRange{}
 var _ starlark.Iterator = &dummyRangeIterator{}
 
-func (*dummyRange) String() string                { return "dummyRange" }
-func (*dummyRange) Type() string                  { return "dummyRange" }
-func (*dummyRange) Freeze()                       {}
-func (*dummyRange) Truth() starlark.Bool          { return starlark.True }
-func (*dummyRange) Hash() (uint32, error)         { return 0, errors.New("unhashable type: dummyRange") }
+func (dr *dummyRange) String() string             { return "dummyRange" }
+func (dr *dummyRange) Type() string               { return "dummyRange" }
+func (dr *dummyRange) Freeze()                    {}
+func (dr *dummyRange) Truth() starlark.Bool       { return starlark.True }
+func (dr *dummyRange) Hash() (uint32, error)      { return 0, errors.New("unhashable type: dummyRange") }
 func (dr *dummyRange) Iterate() starlark.Iterator { return &dummyRangeIterator{0, *dr} }
 
 func (iter *dummyRangeIterator) Next(p *starlark.Value) bool {

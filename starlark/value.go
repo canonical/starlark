@@ -605,7 +605,7 @@ func (it *stringElemsIterator) Next(p *Value) bool {
 
 func (*stringElemsIterator) Done() {}
 
-func (*stringElemsIterator) Safety() Safety { return NotSafe }
+func (it *stringElemsIterator) Safety() Safety { return NotSafe }
 
 // A stringCodepoints is an iterable whose iterator yields a sequence of
 // Unicode code points, either numerically or as successive substrings.
@@ -656,7 +656,7 @@ func (it *stringCodepointsIterator) Next(p *Value) bool {
 
 func (*stringCodepointsIterator) Done() {}
 
-func (*stringCodepointsIterator) Safety() Safety { return NotSafe }
+func (it *stringCodepointsIterator) Safety() Safety { return NotSafe }
 
 // A Function is a function defined by a Starlark def statement or lambda expression.
 // The initialization behavior of a Starlark module is also represented by a Function.
@@ -969,7 +969,7 @@ func (it *listIterator) Done() {
 	}
 }
 
-func (*listIterator) Safety() Safety { return NotSafe }
+func (it *listIterator) Safety() Safety { return NotSafe }
 
 func (l *List) SetIndex(i int, v Value) error {
 	if err := l.checkMutable("assign to element of"); err != nil {
@@ -1059,7 +1059,7 @@ func (it *tupleIterator) Next(p *Value) bool {
 
 func (it *tupleIterator) Done() {}
 
-func (*tupleIterator) Safety() Safety { return NotSafe }
+func (it *tupleIterator) Safety() Safety { return NotSafe }
 
 // A Set represents a Starlark set value.
 // The zero value of Set is a valid empty set.
