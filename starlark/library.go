@@ -34,6 +34,8 @@ import (
 var Universe StringDict
 var universeSafeties map[string]Safety
 
+var ErrUnsupported = errors.New("unsupported operation")
+
 func init() {
 	// https://github.com/google/starlark-go/blob/master/doc/spec.md#built-in-constants-and-functions
 	Universe = StringDict{

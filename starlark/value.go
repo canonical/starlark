@@ -1469,7 +1469,7 @@ func SafeIterate(thread *Thread, x Value) (Iterator, error) {
 		return iter, nil
 	}
 
-	return nil, nil
+	return nil, ErrUnsupported
 }
 
 // Bytes is the type of a Starlark binary string.
