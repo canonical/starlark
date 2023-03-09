@@ -57,7 +57,7 @@ func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
 }
 
-// SetMaxExecutionSteps optionally sets the max execution steps allowed per st.N
+// SetMaxExecutionSteps optionally sets the max execution steps allowed per st.N.
 func (st *ST) SetMaxExecutionSteps(maxSteps uint64) {
 	st.maxExecutionSteps = maxSteps
 }
