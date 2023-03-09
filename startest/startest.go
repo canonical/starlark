@@ -5,6 +5,13 @@
 // testing and go-check so it can be used to write unit tests for starlark
 // usage.
 //
+// When a test is run, the startest instance exposes an integer N which must be
+// used to scale the total resources used by the test. All checks are done in
+// terms of this N, so for example, calling SetMaxAllocs(100) on a startest
+// instance will cause it to check that no more than 100 allocations are made
+// per N. Tests are repeated with different values of N to reduce the effect of
+// noise on measurements.
+//
 // To create a new startest instance, use From. To test a string of starlark
 // code, use the instances's RunString method. To directly test starlark (or
 // something more expressible in Go), use the RunThread method. To simulate the
@@ -14,13 +21,6 @@
 // To test resource usage, use the SetMaxAllocs method. To count the memory
 // cost of a value in a test, use the KeepAlive method. The Error, Errorf,
 // Fatal, Fatalf, Log and Logf methods are inherited from the test's base.
-//
-// When a test is run, the startest instance exposes an integer N which must be
-// used to scale the total resources used by the test. All checks are done in
-// terms of this N, so for example, calling SetMaxAllocs(100) on a startest
-// instance will cause it to check that no more than 100 allocations are made
-// per N. Tests are repeated with different values of N to reduce the effect of
-// noise on measurements.
 //
 // When RunString is used, testing functionality from the test is exposed to
 // the starlark code. To access the exposed N, use st.n. To count the memory
