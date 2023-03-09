@@ -27,13 +27,14 @@ type TestBase interface {
 }
 
 type ST struct {
-	maxAllocs      uint64
-	alive          []interface{}
-	N              int
-	requiredSafety starlark.Safety
-	safetyGiven    bool
-	predecls       starlark.StringDict
-	locals         map[string]interface{}
+	maxAllocs         uint64
+	maxExecutionSteps uint64
+	alive             []interface{}
+	N                 int
+	requiredSafety    starlark.Safety
+	safetyGiven       bool
+	predecls          starlark.StringDict
+	locals            map[string]interface{}
 	TestBase
 }
 
@@ -54,6 +55,11 @@ func From(base TestBase) *ST {
 // SetMaxAllocs optionally sets the max allocations allowed per st.N.
 func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
+}
+
+// SetMaxExecutionSteps optionally sets the max execution steps allowed per st.N
+func (st *ST) SetMaxExecutionSteps(maxSteps uint64) {
+	st.maxExecutionSteps = maxSteps
 }
 
 // RequireSafety optionally sets the required safety of tested code.
@@ -180,21 +186,26 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		return
 	}
 
-	meanMeasured := memorySum / nSum
-	meanDeclared := thread.Allocs() / nSum
+	meanMeasuredAllocs := memorySum / nSum
+	meanDeclaredAllocs := thread.Allocs() / nSum
+	meanExecutionSteps := thread.ExecutionSteps() / nSum
 
-	if st.maxAllocs != math.MaxUint64 && meanMeasured > st.maxAllocs {
-		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasured, st.maxAllocs)
+	if st.maxAllocs != math.MaxUint64 && meanMeasuredAllocs > st.maxAllocs {
+		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
 	}
 
 	if st.requiredSafety.Contains(starlark.MemSafe) {
-		if meanDeclared > st.maxAllocs {
-			st.Errorf("declared allocations are above maximum (%d > %d)", meanDeclared, st.maxAllocs)
+		if meanDeclaredAllocs > st.maxAllocs {
+			st.Errorf("declared allocations are above maximum (%d > %d)", meanDeclaredAllocs, st.maxAllocs)
 		}
 
-		if meanMeasured > meanDeclared {
-			st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasured, meanDeclared)
+		if meanMeasuredAllocs > meanDeclaredAllocs {
+			st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasuredAllocs, meanDeclaredAllocs)
 		}
+	}
+
+	if st.maxExecutionSteps != 0 && meanExecutionSteps > st.maxExecutionSteps {
+		st.Errorf("execution steps are above maximum (%d > %d)", meanExecutionSteps, st.maxExecutionSteps)
 	}
 }
 

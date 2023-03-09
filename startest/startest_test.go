@@ -217,6 +217,41 @@ func TestKeepAlive(t *testing.T) {
 	})
 }
 
+func TestStepBounding(t *testing.T) {
+	t.Run("steps=safe", func(t *testing.T) {
+		st := startest.From(t)
+		st.SetMaxExecutionSteps(1000)
+
+		st.AddBuiltin(safeRange)
+
+		st.RunString(`
+			for _ in range(st.n):
+				pass
+		`)
+	})
+
+	t.Run("steps=not-safe", func(t *testing.T) {
+		const expected = "execution steps are above maximum ("
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+		st.SetMaxExecutionSteps(1)
+		st.AddBuiltin(safeRange)
+		st.RunString(`
+			for _ in range(st.n):
+				for _ in range(2):
+					pass
+		`)
+
+		if !st.Failed() {
+			t.Error("expected failure")
+		}
+		if errLog := dummy.Errors(); !strings.HasPrefix(errLog, expected) {
+			t.Errorf("unexpected error(s): %s", errLog)
+		}
+	})
+}
+
 func TestThread(t *testing.T) {
 	st := startest.From(t)
 	st.RunThread(func(thread *starlark.Thread) {
