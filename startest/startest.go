@@ -178,7 +178,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		thread.SetLocal(k, v)
 	}
 
-	memorySum, nSum := st.measureMemory(func() {
+	allocSum, nSum := st.measureMemory(func() {
 		fn(thread)
 	})
 
@@ -186,7 +186,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		return
 	}
 
-	meanMeasuredAllocs := memorySum / nSum
+	meanMeasuredAllocs := allocSum / nSum
 	meanDeclaredAllocs := thread.Allocs() / nSum
 	meanExecutionSteps := thread.ExecutionSteps() / nSum
 
@@ -214,7 +214,7 @@ func (st *ST) KeepAlive(values ...interface{}) {
 	st.alive = append(st.alive, values...)
 }
 
-func (st *ST) measureMemory(fn func()) (memorySum, nSum uint64) {
+func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 	startNano := time.Now().Nanosecond()
 
 	const nMax = 100_000
