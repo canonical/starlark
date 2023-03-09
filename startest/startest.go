@@ -26,8 +26,8 @@
 // the starlark code. To access the exposed N, use st.n. To count the memory
 // cost of a particular value, use st.keep_alive. To report errors, use
 // st.error or st.fatal. To write to the log, use the print builtin.
-// Assertions should be made by calling assert.* functions such as assert.eq or
-// assert.contains.
+// Assertions should be made by calling assert.* functions such as assert.eq
+// and assert.contains.
 package startest
 
 import (
