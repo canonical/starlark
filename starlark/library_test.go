@@ -864,6 +864,37 @@ func TestListExtendAllocs(t *testing.T) {
 }
 
 func TestListIndexAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	list := starlark.NewList([]starlark.Value{
+		starlark.None,
+		starlark.False,
+		starlark.True,
+	})
+
+	fn, err := list.Attr("index")
+
+	if err != nil {
+		st.Fatal(err)
+	}
+
+	if fn == nil {
+		st.Fatalf("`list.index` builtin doesn't exists")
+	}
+
+	st.RequireSafety(starlark.NotSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			index, err := starlark.Call(thread, fn, starlark.Tuple{starlark.False, starlark.None}, nil)
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			st.KeepAlive(index)
+		}
+	})
 }
 
 func TestListInsertAllocs(t *testing.T) {
