@@ -745,7 +745,7 @@ func TestListExtendAllocs(t *testing.T) {
 		}
 		chunk := starlark.NewList(chunkElements)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			list := starlark.NewList([]starlark.Value{})
 			fn, err := list.Attr("extend")
@@ -787,7 +787,7 @@ func TestListExtendAllocs(t *testing.T) {
 			st.Fatalf("`list.extend` builtin doesn't exists")
 		}
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			l := make([]starlark.Value, st.N)
 			for i := 0; i < st.N; i++ {
@@ -808,7 +808,7 @@ func TestListExtendAllocs(t *testing.T) {
 	t.Run("small-iterable", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			list := starlark.NewList([]starlark.Value{})
 			fn, err := list.Attr("extend")
@@ -849,7 +849,7 @@ func TestListExtendAllocs(t *testing.T) {
 			st.Fatalf("`list.extend` builtin doesn't exists")
 		}
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			_, err := starlark.Call(thread, fn, starlark.Tuple{&allocatingIterable{size: 16, n: st.N}}, nil)
 
