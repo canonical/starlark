@@ -58,8 +58,8 @@ func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 }
 
 // SetMaxExecutionSteps optionally sets the max execution steps allowed per st.N.
-func (st *ST) SetMaxExecutionSteps(maxSteps uint64) {
-	st.maxExecutionSteps = maxSteps
+func (st *ST) SetMaxExecutionSteps(maxExecutionSteps uint64) {
+	st.maxExecutionSteps = maxExecutionSteps
 }
 
 // RequireSafety optionally sets the required safety of tested code.
