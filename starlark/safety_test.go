@@ -132,7 +132,7 @@ func TestBuiltinClosuresInteractSafely(t *testing.T) {
 }
 
 func TestFunctionSafeExecution(t *testing.T) {
-	// Ensure that starlark-defined functions can always be run
+	// Ensure that Starlark-defined functions can always be run
 	const prog = `
 def func():
 	pass

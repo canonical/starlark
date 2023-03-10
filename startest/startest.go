@@ -63,7 +63,7 @@ func (st *ST) RequireSafety(safety starlark.Safety) {
 }
 
 // AddValue makes the given value accessible under the given name in the
-// starlark environment used by RunString.
+// Starlark environment used by RunString.
 func (st *ST) AddValue(name string, value starlark.Value) {
 	if value == nil {
 		st.Errorf("AddValue expected a value: got %T", value)
@@ -74,7 +74,7 @@ func (st *ST) AddValue(name string, value starlark.Value) {
 }
 
 // AddBuiltin makes the given builtin available under the name specified in its
-// Name method in the starlark environment used by RunString.
+// Name method in the Starlark environment used by RunString.
 func (st *ST) AddBuiltin(fn starlark.Value) {
 	builtin, ok := fn.(*starlark.Builtin)
 	if !ok {
@@ -101,7 +101,7 @@ func (st *ST) AddLocal(name string, value interface{}) {
 	st.locals[name] = value
 }
 
-// RunString tests a string of starlark code. On unexpected error, reports it,
+// RunString tests a string of Starlark code. On unexpected error, reports it,
 // marks the test as failed and returns !ok. Otherwise returns ok.
 func (st *ST) RunString(code string) (ok bool) {
 	if code = strings.TrimRight(code, " \t\r\n"); code == "" {
@@ -157,7 +157,7 @@ func (st *ST) RunString(code string) (ok bool) {
 	return codeErr == nil
 }
 
-// RunThread tests a function which has access to a starlark thread.
+// RunThread tests a function which has access to a Starlark thread.
 func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	if !st.safetyGiven {
 		st.requiredSafety = stSafe
@@ -304,7 +304,7 @@ func (*ST) AttrNames() []string {
 	}
 }
 
-// st_error logs the passed starlark objects as errors in the current test.
+// st_error logs the passed Starlark objects as errors in the current test.
 func st_error(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(kwargs) != 0 {
 		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
@@ -315,7 +315,7 @@ func st_error(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwar
 	return starlark.None, nil
 }
 
-// st_fatal logs the passed starlark objects as errors in the current test
+// st_fatal logs the passed Starlark objects as errors in the current test
 // before aborting it.
 func st_fatal(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(kwargs) != 0 {
@@ -341,7 +341,7 @@ func errReprs(args []starlark.Value) []interface{} {
 	return reprs
 }
 
-// st_keep_alive prevents the memory of the passed starlark objects being
+// st_keep_alive prevents the memory of the passed Starlark objects being
 // freed. This forces the current test to measure these objects' memory.
 func st_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(kwargs) > 0 {
