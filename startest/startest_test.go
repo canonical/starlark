@@ -3,6 +3,7 @@ package startest_test
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -231,7 +232,7 @@ func TestStepBounding(t *testing.T) {
 	})
 
 	t.Run("steps=not-safe", func(t *testing.T) {
-		const expected = "execution steps are above maximum ("
+		expected := regexp.MustCompile(`execution steps are above maximum \(\d+ > 1\)`)
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
@@ -246,7 +247,7 @@ func TestStepBounding(t *testing.T) {
 		if !st.Failed() {
 			t.Error("expected failure")
 		}
-		if errLog := dummy.Errors(); !strings.HasPrefix(errLog, expected) {
+		if errLog := dummy.Errors(); !expected.Match([]byte(errLog)) {
 			t.Errorf("unexpected error(s): %s", errLog)
 		}
 	})
