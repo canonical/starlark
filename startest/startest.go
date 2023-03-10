@@ -49,7 +49,11 @@ var _ TestBase = &check.C{}
 
 // From returns a new starTest instance with a given test base.
 func From(base TestBase) *ST {
-	return &ST{TestBase: base, maxAllocs: math.MaxUint64}
+	return &ST{
+		TestBase:          base,
+		maxAllocs:         math.MaxUint64,
+		maxExecutionSteps: math.MaxUint64,
+	}
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per st.N.
@@ -204,7 +208,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		}
 	}
 
-	if st.maxExecutionSteps != 0 && meanExecutionSteps > st.maxExecutionSteps {
+	if st.maxExecutionSteps != math.MaxUint64 && meanExecutionSteps > st.maxExecutionSteps {
 		st.Errorf("execution steps are above maximum (%d > %d)", meanExecutionSteps, st.maxExecutionSteps)
 	}
 }
