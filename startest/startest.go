@@ -9,8 +9,8 @@
 // used to scale the total resources used by the test. All checks are done in
 // terms of this N, so for example, calling SetMaxAllocs(100) on a startest
 // instance will cause it to check that no more than 100 allocations are made
-// per N. Tests are repeated with different values of N to reduce the effect of
-// noise on measurements.
+// per given N. Tests are repeated with different values of N to reduce the
+// effect of noise on measurements.
 //
 // To create a new startest instance, use From. To test a string of Starlark
 // code, use the instances's RunString method. To directly test Starlark (or
@@ -22,12 +22,12 @@
 // cost of a value in a test, use the KeepAlive method. The Error, Errorf,
 // Fatal, Fatalf, Log and Logf methods are inherited from the test's base.
 //
-// When RunString is used, testing functionality from the test is exposed to
-// the Starlark code. To access the exposed N, use st.n. To count the memory
-// cost of a particular value, use st.keep_alive. To report errors, use
-// st.error or st.fatal. To write to the log, use the print builtin. To make
-// assertions use the provided assert.* functions such as assert.eq and
-// assert.contains.
+// When executing Starlark code, the startest instance can be accessed through
+// the global st. To access the exposed N, use st.n. To count the memory cost
+// of a particular value, use st.keep_alive. To report errors, use st.error or
+// st.fatal. To write to the log, use the print builtin. To ergonomically make
+// assertions, use the provided assert global which provides functions such as
+// assert.eq, assert.true and assert.fails.
 package startest
 
 import (
