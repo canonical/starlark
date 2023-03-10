@@ -1524,13 +1524,14 @@ func dict_values(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 }
 
 func safe_append(thread *Thread, elements []Value, element Value) ([]Value, error) {
-
 	originalCap := cap(elements)
 	elems := append(elements, element)
 	finalCap := cap(elems)
 
-	if err := thread.AddAllocs(int64(uintptr(finalCap-originalCap) * unsafe.Sizeof(Value(nil)))); err != nil {
-		return nil, err
+	if originalCap != finalCap {
+		if err := thread.AddAllocs(int64(uintptr(finalCap-originalCap) * unsafe.Sizeof(Value(nil)))); err != nil {
+			return nil, err
+		}
 	}
 
 	return elems, nil
