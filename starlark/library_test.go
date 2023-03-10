@@ -10,6 +10,100 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+type repeatIterable struct {
+	n     int
+	value starlark.Value
+}
+
+func (r *repeatIterable) Freeze()               {}
+func (r *repeatIterable) Hash() (uint32, error) { return 0, fmt.Errorf("invalid") }
+func (r *repeatIterable) Iterate() starlark.Iterator {
+	value := r.value
+	if value == nil {
+		value = starlark.None
+	}
+	return &repeatIterator{
+		n:     r.n,
+		value: value,
+	}
+}
+func (r *repeatIterable) String() string       { return "repeat" }
+func (r *repeatIterable) Truth() starlark.Bool { return r.n > 0 }
+func (r *repeatIterable) Type() string         { return "repeat" }
+
+type repeatIterator struct {
+	n     int
+	value starlark.Value
+}
+
+func (it *repeatIterator) Done()                              {}
+func (it *repeatIterator) Err() error                         { return nil }
+func (it *repeatIterator) NextAllocs() int64                  { return 0 }
+func (it *repeatIterator) BindThread(thread *starlark.Thread) {}
+
+func (it *repeatIterator) Safety() starlark.Safety {
+	return starlark.MemSafe
+}
+
+func (it *repeatIterator) Next(p *starlark.Value) bool {
+	if it.n <= 0 {
+		*p = nil
+		return false
+	}
+	it.n--
+	*p = it.value
+	return true
+}
+
+type repeatSequence struct {
+	repeatIterable
+}
+
+var _ starlark.Sequence = &repeatSequence{}
+
+func (r *repeatSequence) Len() int { return r.n }
+
+type allocatingIterable struct {
+	size int
+}
+
+func (si *allocatingIterable) Freeze()               {}
+func (si *allocatingIterable) Hash() (uint32, error) { return 0, fmt.Errorf("invalid") }
+func (si *allocatingIterable) String() string        { return "stringifyIterable" }
+func (si *allocatingIterable) Truth() starlark.Bool  { return starlark.False }
+func (si *allocatingIterable) Type() string          { return "stringifyIterable" }
+
+func (si *allocatingIterable) Iterate() starlark.Iterator {
+	return &allocatingIterator{size: si.size}
+}
+
+type allocatingIterator struct {
+	size   int
+	thread *starlark.Thread
+	err    error
+}
+
+var _ starlark.SafeIterator = &allocatingIterator{}
+
+func (it *allocatingIterator) Done()                              {}
+func (it *allocatingIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
+func (it *allocatingIterator) Err() error                         { return it.err }
+func (it *allocatingIterator) Safety() starlark.Safety            { return starlark.MemSafe }
+
+func (it *allocatingIterator) Next(p *starlark.Value) bool {
+	list := starlark.NewList(make([]starlark.Value, 0, it.size))
+
+	if it.thread != nil {
+		if err := it.thread.AddAllocs(int64(starlark.EstimateSize(list))); err != nil {
+			it.err = err
+			return false
+		}
+	}
+
+	*p = list
+	return true
+}
+
 func TestUniverseSafeties(t *testing.T) {
 	for name, value := range starlark.Universe {
 		builtin, ok := value.(*starlark.Builtin)
@@ -901,92 +995,6 @@ func TestStringUpperAllocs(t *testing.T) {
 }
 
 func TestSetUnionAllocs(t *testing.T) {
-}
-
-type repeatIterable struct {
-	n     int
-	value starlark.Value
-}
-
-func (r *repeatIterable) Freeze()               {}
-func (r *repeatIterable) Hash() (uint32, error) { return 0, fmt.Errorf("invalid") }
-func (r *repeatIterable) Iterate() starlark.Iterator {
-	value := r.value
-	if value == nil {
-		value = starlark.None
-	}
-	return &repeatIterator{
-		n:     r.n,
-		value: value,
-	}
-}
-func (r *repeatIterable) String() string       { return "repeat" }
-func (r *repeatIterable) Truth() starlark.Bool { return r.n > 0 }
-func (r *repeatIterable) Type() string         { return "repeat" }
-
-type repeatIterator struct {
-	n     int
-	value starlark.Value
-}
-
-func (it *repeatIterator) Done()                              {}
-func (it *repeatIterator) Err() error                         { return nil }
-func (it *repeatIterator) NextAllocs() int64                  { return 0 }
-func (it *repeatIterator) BindThread(thread *starlark.Thread) {}
-
-func (it *repeatIterator) Safety() starlark.Safety {
-	return starlark.MemSafe
-}
-
-func (it *repeatIterator) Next(p *starlark.Value) bool {
-	if it.n <= 0 {
-		*p = nil
-		return false
-	}
-	it.n--
-	*p = it.value
-	return true
-}
-
-type allocatingIterable struct {
-	size int
-}
-
-func (si *allocatingIterable) Freeze()               {}
-func (si *allocatingIterable) Hash() (uint32, error) { return 0, fmt.Errorf("invalid") }
-func (si *allocatingIterable) String() string        { return "stringifyIterable" }
-func (si *allocatingIterable) Truth() starlark.Bool  { return starlark.False }
-func (si *allocatingIterable) Type() string          { return "stringifyIterable" }
-
-func (si *allocatingIterable) Iterate() starlark.Iterator {
-	return &allocatingIterator{size: si.size}
-}
-
-type allocatingIterator struct {
-	size   int
-	thread *starlark.Thread
-	err    error
-}
-
-var _ starlark.SafeIterator = &allocatingIterator{}
-
-func (it *allocatingIterator) Done()                              {}
-func (it *allocatingIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
-func (it *allocatingIterator) Err() error                         { return it.err }
-func (it *allocatingIterator) Safety() starlark.Safety            { return starlark.MemSafe }
-
-func (it *allocatingIterator) Next(p *starlark.Value) bool {
-	list := starlark.NewList(make([]starlark.Value, 0, it.size))
-
-	if it.thread != nil {
-		if err := it.thread.AddAllocs(starlark.EstimateSize(list)); err != nil {
-			it.err = err
-			return false
-		}
-	}
-
-	*p = list
-	return true
 }
 
 func TestSafeIterateAllocs(t *testing.T) {
