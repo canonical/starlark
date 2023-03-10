@@ -773,19 +773,31 @@ func makeExprFunc(expr syntax.Expr, env StringDict) (*Function, error) {
 // The following functions are primitive operations of the byte code interpreter.
 
 // list += iterable
-func listExtend(x *List, y Iterable) {
+func safeListExtend(thread *Thread, x *List, y Iterable) error {
 	if ylist, ok := y.(*List); ok {
 		// fast path: list += list
-		x.elems = append(x.elems, ylist.elems...)
+		if elems, err := safe_append(thread, x.elems, ylist.elems...); err != nil {
+			return err
+		} else {
+			x.elems = elems
+		}
 	} else {
-		// TODO: use SafeIterate
-		iter := y.Iterate()
+		iter, err := SafeIterate(thread, y)
+		if err != nil {
+			return err
+		}
 		defer iter.Done()
 		var z Value
 		for iter.Next(&z) {
 			x.elems = append(x.elems, z)
 		}
+
+		if err := iter.Err(); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 // getAttr implements x.dot.

@@ -1523,13 +1523,14 @@ func dict_values(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	return NewList(res), nil
 }
 
-func safe_append(thread *Thread, elements []Value, element Value) ([]Value, error) {
-	originalCap := cap(elements)
-	elems := append(elements, element)
+func safe_append(thread *Thread, slice []Value, elements ...Value) ([]Value, error) {
+	originalCap := cap(slice)
+	elems := append(slice, elements...)
 	finalCap := cap(elems)
 
-	if originalCap != finalCap {
-		if err := thread.AddAllocs(int64(uintptr(finalCap-originalCap) * unsafe.Sizeof(Value(nil)))); err != nil {
+	if finalCap > originalCap {
+		growth := uintptr(finalCap - originalCap)
+		if err := thread.AddAllocs(int64(growth * unsafe.Sizeof(Value(nil)))); err != nil {
 			return nil, err
 		}
 	}
@@ -1569,7 +1570,7 @@ func list_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·extend
-func list_extend(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_extend(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := b.Receiver().(*List)
 	var iterable Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &iterable); err != nil {
@@ -1578,8 +1579,11 @@ func list_extend(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := recv.checkMutable("extend"); err != nil {
 		return nil, nameErr(b, err)
 	}
-	// TODO: use SafeIterate
-	listExtend(recv, iterable)
+
+	if err := safeListExtend(thread, recv, iterable); err != nil {
+		return nil, err
+	}
+
 	return None, nil
 }
 
