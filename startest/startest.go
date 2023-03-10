@@ -1,8 +1,8 @@
 // Package startest provides a framework to test Starlark code, environments
 // and their safety.
 //
-// This framework is designed to hook into existing test frameworks such as
-// testing and go-check so it can be used to write unit tests for Starlark
+// This framework is designed to hook into existing test frameworks, such as
+// testing and go-check, so it can be used to write unit tests for Starlark
 // usage.
 //
 // When a test is run, the startest instance exposes an integer N which must be
