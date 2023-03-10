@@ -736,6 +736,131 @@ func TestListClearAllocs(t *testing.T) {
 }
 
 func TestListExtendAllocs(t *testing.T) {
+	t.Run("small-list", func(t *testing.T) {
+		st := startest.From(t)
+
+		chunkElements := make([]starlark.Value, 10)
+		for i := 0; i < 10; i++ {
+			chunkElements[i] = starlark.None
+		}
+		chunk := starlark.NewList(chunkElements)
+
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			list := starlark.NewList([]starlark.Value{})
+			fn, err := list.Attr("extend")
+
+			if err != nil {
+				st.Fatal(err)
+				return
+			}
+
+			if fn == nil {
+				st.Fatalf("`list.extend` builtin doesn't exists")
+			}
+
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, fn, starlark.Tuple{chunk}, nil)
+
+				if err != nil {
+					st.Error(err)
+					return
+				}
+			}
+
+			st.KeepAlive(list)
+		})
+	})
+
+	t.Run("big-list", func(t *testing.T) {
+		st := startest.From(t)
+
+		list := starlark.NewList([]starlark.Value{})
+		fn, err := list.Attr("extend")
+
+		if err != nil {
+			st.Fatal(err)
+			return
+		}
+
+		if fn == nil {
+			st.Fatalf("`list.extend` builtin doesn't exists")
+		}
+
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			l := make([]starlark.Value, st.N)
+			for i := 0; i < st.N; i++ {
+				l = append(l, starlark.None)
+			}
+
+			_, err := starlark.Call(thread, fn, starlark.Tuple{starlark.NewList(l)}, nil)
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			st.KeepAlive(list)
+		})
+	})
+
+	t.Run("small-iterable", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			list := starlark.NewList([]starlark.Value{})
+			fn, err := list.Attr("extend")
+
+			if err != nil {
+				st.Fatal(err)
+				return
+			}
+
+			if fn == nil {
+				st.Fatalf("`list.extend` builtin doesn't exists")
+			}
+
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, fn, starlark.Tuple{&allocatingIterable{size: 16, n: 10}}, nil)
+
+				if err != nil {
+					st.Error(err)
+					return
+				}
+			}
+
+			st.KeepAlive(list)
+		})
+	})
+
+	t.Run("big-iterable", func(t *testing.T) {
+		st := startest.From(t)
+
+		list := starlark.NewList([]starlark.Value{})
+		fn, err := list.Attr("extend")
+		if err != nil {
+			st.Fatal(err)
+			return
+		}
+
+		if fn == nil {
+			st.Fatalf("`list.extend` builtin doesn't exists")
+		}
+
+		st.RequireSafety(starlark.NotSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			_, err := starlark.Call(thread, fn, starlark.Tuple{&allocatingIterable{size: 16, n: st.N}}, nil)
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			st.KeepAlive(list)
+		})
+	})
 }
 
 func TestListIndexAllocs(t *testing.T) {

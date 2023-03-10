@@ -789,7 +789,11 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 		defer iter.Done()
 		var z Value
 		for iter.Next(&z) {
-			x.elems = append(x.elems, z)
+			if elems, err := safe_append(thread, x.elems, z); err != nil {
+				return err
+			} else {
+				x.elems = elems
+			}
 		}
 
 		if err := iter.Err(); err != nil {
