@@ -10,6 +10,11 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+// math.MaxInt was added in go1.17. Since we are supporting
+// go1.16, I need to define that constant myself. The code
+// below comes from an example of the book `effective go`.
+const maxInt = int(^uint(0) >> 1)
+
 type repeatIterable struct {
 	n     int
 	value starlark.Value
@@ -64,7 +69,7 @@ var _ starlark.Sequence = &repeatSequence{}
 func (r *repeatSequence) Len() int { return r.n }
 
 type allocatingIterable struct {
-	size int
+	size, n int
 }
 
 func (si *allocatingIterable) Freeze()               {}
@@ -74,13 +79,13 @@ func (si *allocatingIterable) Truth() starlark.Bool  { return starlark.False }
 func (si *allocatingIterable) Type() string          { return "stringifyIterable" }
 
 func (si *allocatingIterable) Iterate() starlark.Iterator {
-	return &allocatingIterator{size: si.size}
+	return &allocatingIterator{size: si.size, n: si.n}
 }
 
 type allocatingIterator struct {
-	size   int
-	thread *starlark.Thread
-	err    error
+	size, n int
+	thread  *starlark.Thread
+	err     error
 }
 
 var _ starlark.SafeIterator = &allocatingIterator{}
@@ -91,6 +96,12 @@ func (it *allocatingIterator) Err() error                         { return it.er
 func (it *allocatingIterator) Safety() starlark.Safety            { return starlark.MemSafe }
 
 func (it *allocatingIterator) Next(p *starlark.Value) bool {
+	if it.n <= 0 {
+		*p = nil
+		return false
+	}
+	it.n--
+
 	list := starlark.NewList(make([]starlark.Value, 0, it.size))
 
 	if it.thread != nil {
@@ -1029,7 +1040,7 @@ func TestSafeIterateAllocs(t *testing.T) {
 
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
-			allocating := &allocatingIterable{16}
+			allocating := &allocatingIterable{16, maxInt}
 			it, err := starlark.SafeIterate(thread, allocating)
 			if err != nil {
 				t.Fatal(err)
