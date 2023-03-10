@@ -882,7 +882,7 @@ func TestListIndexAllocs(t *testing.T) {
 		st.Fatalf("`list.index` builtin doesn't exists")
 	}
 
-	st.RequireSafety(starlark.NotSafe)
+	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			index, err := starlark.Call(thread, fn, starlark.Tuple{starlark.False, starlark.None}, nil)

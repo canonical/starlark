@@ -161,7 +161,7 @@ var (
 		"append": MemSafe,
 		"clear":  MemSafe,
 		"extend": MemSafe,
-		"index":  NotSafe,
+		"index":  MemSafe,
 		"insert": MemSafe,
 		"pop":    MemSafe,
 		"remove": MemSafe,
