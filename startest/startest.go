@@ -1,3 +1,33 @@
+// Package startest provides a framework to test Starlark code, environments
+// and their safety.
+//
+// This framework is designed to hook into existing test frameworks, such as
+// testing and go-check, so it can be used to write unit tests for Starlark
+// usage.
+//
+// When a test is run, the startest instance exposes an integer N which must be
+// used to scale the total resources used by the test. All checks are done in
+// terms of this N, so for example, calling SetMaxAllocs(100) on a startest
+// instance will cause it to check that no more than 100 allocations are made
+// per given N. Tests are repeated with different values of N to reduce the
+// effect of noise on measurements.
+//
+// To create a new startest instance, use From. To test a string of Starlark
+// code, use the instances's RunString method. To directly test Starlark (or
+// something more expressible in Go), use the RunThread method. To simulate the
+// running environment of a Starlark script, use the AddValue, AddBuiltin and
+// AddLocal methods. All safety conditions are required by default; to instead
+// test a specific subset of safety conditions, use the RequireSafety method.
+// To test resource usage, use the SetMaxAllocs method. To count the memory
+// cost of a value in a test, use the KeepAlive method. The Error, Errorf,
+// Fatal, Fatalf, Log and Logf methods are inherited from the test's base.
+//
+// When executing Starlark code, the startest instance can be accessed through
+// the global st. To access the exposed N, use st.n. To count the memory cost
+// of a particular value, use st.keep_alive. To report errors, use st.error or
+// st.fatal. To write to the log, use the print builtin. To ergonomically make
+// assertions, use the provided assert global which provides functions such as
+// assert.eq, assert.true and assert.fails.
 package startest
 
 import (
