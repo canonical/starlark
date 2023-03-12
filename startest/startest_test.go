@@ -3,6 +3,7 @@ package startest_test
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -212,6 +213,41 @@ func TestKeepAlive(t *testing.T) {
 			t.Error("expected failure")
 		}
 		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("unexpected error(s): %s", errLog)
+		}
+	})
+}
+
+func TestStepBounding(t *testing.T) {
+	t.Run("steps=safe", func(t *testing.T) {
+		st := startest.From(t)
+		st.SetMaxExecutionSteps(1000)
+
+		st.AddBuiltin(safeRange)
+
+		st.RunString(`
+			for _ in range(st.n):
+				pass
+		`)
+	})
+
+	t.Run("steps=not-safe", func(t *testing.T) {
+		expected := regexp.MustCompile(`execution steps are above maximum \(\d+ > 1\)`)
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+		st.SetMaxExecutionSteps(1)
+		st.AddBuiltin(safeRange)
+		st.RunString(`
+			for _ in range(st.n):
+				for _ in range(2):
+					pass
+		`)
+
+		if !st.Failed() {
+			t.Error("expected failure")
+		}
+		if errLog := dummy.Errors(); !expected.Match([]byte(errLog)) {
 			t.Errorf("unexpected error(s): %s", errLog)
 		}
 	})

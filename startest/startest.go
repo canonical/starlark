@@ -57,13 +57,14 @@ type TestBase interface {
 }
 
 type ST struct {
-	maxAllocs      uint64
-	alive          []interface{}
-	N              int
-	requiredSafety starlark.Safety
-	safetyGiven    bool
-	predecls       starlark.StringDict
-	locals         map[string]interface{}
+	maxAllocs         uint64
+	maxExecutionSteps uint64
+	alive             []interface{}
+	N                 int
+	requiredSafety    starlark.Safety
+	safetyGiven       bool
+	predecls          starlark.StringDict
+	locals            map[string]interface{}
 	TestBase
 }
 
@@ -78,12 +79,21 @@ var _ TestBase = &check.C{}
 
 // From returns a new starTest instance with a given test base.
 func From(base TestBase) *ST {
-	return &ST{TestBase: base, maxAllocs: math.MaxUint64}
+	return &ST{
+		TestBase:          base,
+		maxAllocs:         math.MaxUint64,
+		maxExecutionSteps: math.MaxUint64,
+	}
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per st.N.
 func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
+}
+
+// SetMaxExecutionSteps optionally sets the max execution steps allowed per st.N.
+func (st *ST) SetMaxExecutionSteps(maxExecutionSteps uint64) {
+	st.maxExecutionSteps = maxExecutionSteps
 }
 
 // RequireSafety optionally sets the required safety of tested code.
@@ -212,6 +222,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 
 	meanMeasured := memorySum / nSum
 	meanDeclared := thread.Allocs() / nSum
+	meanExecutionSteps := thread.ExecutionSteps() / nSum
 
 	if st.maxAllocs != math.MaxUint64 && meanMeasured > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasured, st.maxAllocs)
@@ -225,6 +236,10 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		if meanMeasured > meanDeclared {
 			st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasured, meanDeclared)
 		}
+	}
+
+	if st.maxExecutionSteps != math.MaxUint64 && meanExecutionSteps > st.maxExecutionSteps {
+		st.Errorf("execution steps are above maximum (%d > %d)", meanExecutionSteps, st.maxExecutionSteps)
 	}
 }
 
