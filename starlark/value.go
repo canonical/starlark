@@ -108,10 +108,8 @@ type Value interface {
 	Hash() (uint32, error)
 }
 
-// SizeAwareValue allows a value to declare its own size
-type SizeAwareValue interface {
-	Value
-
+// SizeAware allows an object to declare its own size
+type SizeAware interface {
 	EstimateSize() int64
 }
 
@@ -1438,7 +1436,7 @@ func Iterate(x Value) Iterator {
 }
 
 func estimateValueSize(v Value) int64 {
-	if v, ok := v.(SizeAwareValue); ok {
+	if v, ok := v.(SizeAware); ok {
 		return v.EstimateSize()
 	}
 
