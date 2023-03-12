@@ -213,17 +213,17 @@ var (
 	_ starlark.SafetyAware = &dummyCallable{}
 )
 
-func (dummyCallable) String() string        { return "" }
-func (dummyCallable) Type() string          { return "dummyCallable" }
-func (dummyCallable) Freeze()               {}
-func (dummyCallable) Truth() starlark.Bool  { return false }
-func (dummyCallable) Hash() (uint32, error) { return 0, nil }
-func (dummyCallable) Name() string          { return "dummyCallable" }
-func (dummyCallable) CallInternal(*starlark.Thread, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+func (dc dummyCallable) String() string        { return "" }
+func (dc dummyCallable) Type() string          { return "dummyCallable" }
+func (dc dummyCallable) Freeze()               {}
+func (dc dummyCallable) Truth() starlark.Bool  { return false }
+func (dc dummyCallable) Hash() (uint32, error) { return 0, nil }
+func (dc dummyCallable) Name() string          { return "dummyCallable" }
+func (dc dummyCallable) CallInternal(*starlark.Thread, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 	return starlark.None, nil
 }
-func (d *dummyCallable) Safety() starlark.Safety              { return d.safety }
-func (d *dummyCallable) DeclareSafety(safety starlark.Safety) { d.safety = safety }
+func (dc *dummyCallable) Safety() starlark.Safety              { return dc.safety }
+func (dc *dummyCallable) DeclareSafety(safety starlark.Safety) { dc.safety = safety }
 
 func TestCallableSafeExecution(t *testing.T) {
 	thread := &starlark.Thread{}

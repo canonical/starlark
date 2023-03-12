@@ -1,3 +1,33 @@
+// Package startest provides a framework to test Starlark code, environments
+// and their safety.
+//
+// This framework is designed to hook into existing test frameworks, such as
+// testing and go-check, so it can be used to write unit tests for Starlark
+// usage.
+//
+// When a test is run, the startest instance exposes an integer N which must be
+// used to scale the total resources used by the test. All checks are done in
+// terms of this N, so for example, calling SetMaxAllocs(100) on a startest
+// instance will cause it to check that no more than 100 allocations are made
+// per given N. Tests are repeated with different values of N to reduce the
+// effect of noise on measurements.
+//
+// To create a new startest instance, use From. To test a string of Starlark
+// code, use the instances's RunString method. To directly test Starlark (or
+// something more expressible in Go), use the RunThread method. To simulate the
+// running environment of a Starlark script, use the AddValue, AddBuiltin and
+// AddLocal methods. All safety conditions are required by default; to instead
+// test a specific subset of safety conditions, use the RequireSafety method.
+// To test resource usage, use the SetMaxAllocs method. To count the memory
+// cost of a value in a test, use the KeepAlive method. The Error, Errorf,
+// Fatal, Fatalf, Log and Logf methods are inherited from the test's base.
+//
+// When executing Starlark code, the startest instance can be accessed through
+// the global st. To access the exposed N, use st.n. To count the memory cost
+// of a particular value, use st.keep_alive. To report errors, use st.error or
+// st.fatal. To write to the log, use the print builtin. To ergonomically make
+// assertions, use the provided assert global which provides functions such as
+// assert.eq, assert.true and assert.fails.
 package startest
 
 import (
@@ -27,13 +57,14 @@ type TestBase interface {
 }
 
 type ST struct {
-	maxAllocs      uint64
-	alive          []interface{}
-	N              int
-	requiredSafety starlark.Safety
-	safetyGiven    bool
-	predecls       starlark.StringDict
-	locals         map[string]interface{}
+	maxAllocs         uint64
+	maxExecutionSteps uint64
+	alive             []interface{}
+	N                 int
+	requiredSafety    starlark.Safety
+	safetyGiven       bool
+	predecls          starlark.StringDict
+	locals            map[string]interface{}
 	TestBase
 }
 
@@ -48,12 +79,21 @@ var _ TestBase = &check.C{}
 
 // From returns a new starTest instance with a given test base.
 func From(base TestBase) *ST {
-	return &ST{TestBase: base, maxAllocs: math.MaxUint64}
+	return &ST{
+		TestBase:          base,
+		maxAllocs:         math.MaxUint64,
+		maxExecutionSteps: math.MaxUint64,
+	}
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per st.N.
 func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
+}
+
+// SetMaxExecutionSteps optionally sets the max execution steps allowed per st.N.
+func (st *ST) SetMaxExecutionSteps(maxExecutionSteps uint64) {
+	st.maxExecutionSteps = maxExecutionSteps
 }
 
 // RequireSafety optionally sets the required safety of tested code.
@@ -182,6 +222,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 
 	meanMeasuredAllocs := allocSum / nSum
 	meanDeclaredAllocs := thread.Allocs() / nSum
+	meanExecutionSteps := thread.ExecutionSteps() / nSum
 
 	if st.maxAllocs != math.MaxUint64 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
@@ -195,6 +236,10 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		if meanMeasuredAllocs > meanDeclaredAllocs {
 			st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasuredAllocs, meanDeclaredAllocs)
 		}
+	}
+
+	if st.maxExecutionSteps != math.MaxUint64 && meanExecutionSteps > st.maxExecutionSteps {
+		st.Errorf("execution steps are above maximum (%d > %d)", meanExecutionSteps, st.maxExecutionSteps)
 	}
 }
 
@@ -295,7 +340,7 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 	return nil, nil
 }
 
-func (*ST) AttrNames() []string {
+func (st *ST) AttrNames() []string {
 	return []string{
 		"error",
 		"fatal",
