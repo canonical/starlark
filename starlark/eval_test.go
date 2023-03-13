@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.evaltego
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -6,6 +6,7 @@ package starlark_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -1059,6 +1060,31 @@ main()
 				t.Fatalf("ExecFile returned %v, expected panic", v)
 			}
 		}()
+	}
+}
+
+func TestContext(t *testing.T) {
+	background := context.Background()
+	child, _ := context.WithCancel(background)
+	for i, expected := range []context.Context{nil, background, child} {
+		t.Run(fmt.Sprintf("context=%d", i), func(t *testing.T) {
+			thread := &starlark.Thread{}
+			if expected == nil {
+				expected = context.Background()
+			} else {
+				thread.SetContext(expected)
+			}
+
+			predecls := starlark.StringDict{
+				"fn": starlark.NewBuiltin("fn", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+					if ctx := thread.Context(); ctx != expected {
+						t.Errorf("Got incorrect thread context: expected %v but got %v", expected, ctx)
+					}
+					return starlark.None, nil
+				}),
+			}
+			starlark.ExecFile(thread, "context.star", "fn()", predecls)
+		})
 	}
 }
 

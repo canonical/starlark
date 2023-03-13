@@ -5,6 +5,7 @@
 package starlark
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -33,6 +34,9 @@ import (
 type Thread struct {
 	// Name is an optional name that describes the thread, for debugging.
 	Name string
+
+	// context holds the execution context used by this thread.
+	context context.Context
 
 	// stack is the stack of (internal) call frames.
 	stack []*frame
@@ -67,7 +71,7 @@ type Thread struct {
 	allocs, maxAllocs uint64
 	allocsLock        sync.Mutex
 
-	// cancelReason records the reason from the first call to Cancel.
+	// cancelReason records the reason from the first call to Cancel.eval.go
 	cancelReason *error
 
 	// locals holds arbitrary "thread-local" Go values belonging to the client.
@@ -80,6 +84,17 @@ type Thread struct {
 	// requiredSafety holds the set of safety conditions which must be
 	// satisfied by any builtin which is called when running this thread.
 	requiredSafety SafetyFlags
+}
+
+// Context returns the context for the current thread.
+func (thread *Thread) Context() context.Context {
+	return thread.context
+}
+
+// SetContext sets the context for the current thread. If unspecified,
+// context.Background() is used.
+func (thread *Thread) SetContext(ctx context.Context) {
+	thread.context = ctx
 }
 
 // Steps returns the current value of Steps.
@@ -2100,6 +2115,10 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	// one-time initialization of thread
 	if thread.maxSteps == 0 {
 		thread.maxSteps-- // (MaxUint64)
+	}
+
+	if thread.context == nil {
+		thread.context = context.Background()
 	}
 
 	stackAppender := NewSafeAppender(thread, &thread.stack)
