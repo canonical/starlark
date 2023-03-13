@@ -252,7 +252,7 @@ type StringBuilder interface {
 	Len() int
 }
 
-func (thread *Thread) CreateStringBuilder() *SafeStringBuilder {
+func (thread *Thread) NewStringBuilder() *SafeStringBuilder {
 	return &SafeStringBuilder{new(strings.Builder), thread, nil}
 }
 
