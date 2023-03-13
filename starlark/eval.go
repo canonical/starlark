@@ -252,6 +252,9 @@ type StringBuilder interface {
 	Len() int
 }
 
+// SafeStringBuilder is a StringBuilder which is bound to a thread
+// and which abides by sandboxing limits. Errors prevent subsequent
+// operations.
 type SafeStringBuilder struct {
 	builder strings.Builder
 	thread  *Thread
