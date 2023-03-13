@@ -699,7 +699,7 @@ func int_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (res Value, er
 		// Max result size is going to be base36, where each char is going to have 36 values
 		// To make things easy we will just consider each character to be max 6 bits.
 		// It's pessimistic, but easy.
-		if err := thread.CheckAllocs(int64(len(s) * 6)); err != nil {
+		if err := thread.CheckAllocs((int64(len(s)*6) + 7) / 8); err != nil {
 			return nil, err
 		}
 
