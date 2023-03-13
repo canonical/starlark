@@ -261,6 +261,11 @@ type SafeStringBuilder struct {
 
 var _ StringBuilder = &SafeStringBuilder{}
 
+// NewStringBuilder returns a `StringBuilder` which checks
+// for safety in each write operation. In case any VM bound
+// is exceeded, all the operations will fail, returning an
+// error when the API surface allows it (e.g. everywhere
+// except Grow).
 func (thread *Thread) NewStringBuilder() *SafeStringBuilder {
 	return &SafeStringBuilder{thread: thread}
 }
