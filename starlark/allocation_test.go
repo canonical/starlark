@@ -288,7 +288,7 @@ func TestAddAllocsCancelledRejection(t *testing.T) {
 	}
 }
 
-func TestTrackingStringBuilter(t *testing.T) {
+func TestSafeStringBuilter(t *testing.T) {
 	st := startest.From(t)
 	st.RunThread(func(thread *starlark.Thread) {
 		thread.SetMaxAllocs(1)
