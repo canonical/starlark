@@ -256,7 +256,7 @@ type SafeStringBuilder struct {
 	builder strings.Builder
 	thread  *Thread
 
-	growError error
+	err error
 }
 
 var _ StringBuilder = &SafeStringBuilder{}
@@ -266,14 +266,14 @@ func (thread *Thread) NewStringBuilder() *SafeStringBuilder {
 }
 
 func (tb *SafeStringBuilder) checkGrow(n int) error {
-	if tb.growError != nil {
-		return tb.growError
+	if tb.err != nil {
+		return tb.err
 	}
 
 	if tb.Cap()-tb.Len() < n {
 		// Make sure that we can allocate more
 		if err := tb.thread.CheckAllocs(int64(tb.Cap()*2 + n)); err != nil {
-			tb.growError = err
+			tb.err = err
 			return err
 		}
 		tb.builder.Grow(n)
@@ -327,6 +327,7 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 func (tb *SafeStringBuilder) Cap() int       { return tb.builder.Cap() }
 func (tb *SafeStringBuilder) Len() int       { return tb.builder.Len() }
 func (tb *SafeStringBuilder) String() string { return tb.builder.String() }
+func (tb *SafeStringBuilder) Err() error     { return tb.err }
 
 // A StringDict is a mapping from names to values, and represents
 // an environment such as the global variables of a module.
