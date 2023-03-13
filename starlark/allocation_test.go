@@ -293,7 +293,7 @@ func TestSafeStringBuilter(t *testing.T) {
 	st.RunThread(func(thread *starlark.Thread) {
 		thread.SetMaxAllocs(1)
 
-		builder := thread.NewStringBuilder()
+		builder := thread.NewSafeStringBuilder()
 
 		if _, err := builder.WriteString("Test"); err == nil {
 			st.Errorf("WriteString shouldn't be able to over allocate")
