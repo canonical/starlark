@@ -252,15 +252,17 @@ type StringBuilder interface {
 	Len() int
 }
 
-func (thread *Thread) NewStringBuilder() *SafeStringBuilder {
-	return &SafeStringBuilder{thread: thread}
-}
-
 type SafeStringBuilder struct {
 	builder strings.Builder
 	thread  *Thread
 
 	growError error
+}
+
+var _ StringBuilder = &SafeStringBuilder{}
+
+func (thread *Thread) NewStringBuilder() *SafeStringBuilder {
+	return &SafeStringBuilder{thread: thread}
 }
 
 func (tb *SafeStringBuilder) checkGrow(n int) error {
