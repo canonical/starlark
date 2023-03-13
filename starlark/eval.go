@@ -253,11 +253,11 @@ type StringBuilder interface {
 }
 
 func (thread *Thread) NewStringBuilder() *SafeStringBuilder {
-	return &SafeStringBuilder{new(strings.Builder), thread, nil}
+	return &SafeStringBuilder{thread: thread}
 }
 
 type SafeStringBuilder struct {
-	builder *strings.Builder
+	builder strings.Builder
 	thread  *Thread
 
 	growError error
