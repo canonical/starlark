@@ -1063,17 +1063,32 @@ main()
 	}
 }
 
-func TestContext(t *testing.T) {
+func TestDefaultContext(t *testing.T) {
+	expected := context.Background()
+
+	thread := &starlark.Thread{}
+	predecls := starlark.StringDict{
+		"fn": starlark.NewBuiltin("fn", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+			if ctx := thread.Context(); ctx != expected {
+				t.Errorf("got incorrect thread context: expected %v but got %v", expected, ctx)
+			}
+			return starlark.None, nil
+		}),
+	}
+	_, err := starlark.ExecFile(thread, "context", "fn()", predecls)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestSpecifiedContext(t *testing.T) {
 	background := context.Background()
 	child, _ := context.WithCancel(background)
-	for i, expected := range []context.Context{nil, background, child} {
+
+	for i, expected := range []context.Context{background, child} {
 		t.Run(fmt.Sprintf("context=%d", i), func(t *testing.T) {
 			thread := &starlark.Thread{}
-			if expected != nil {
-				thread.SetContext(expected)
-			} else {
-				expected = context.Background()
-			}
+			thread.SetContext(expected)
 
 			predecls := starlark.StringDict{
 				"fn": starlark.NewBuiltin("fn", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
@@ -1083,7 +1098,10 @@ func TestContext(t *testing.T) {
 					return starlark.None, nil
 				}),
 			}
-			starlark.ExecFile(thread, "context.star", "fn()", predecls)
+			_, err := starlark.ExecFile(thread, "context", "fn()", predecls)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
 		})
 	}
 }
