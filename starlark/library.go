@@ -140,7 +140,7 @@ var (
 		"clear":      MemSafe,
 		"get":        MemSafe,
 		"items":      NotSafe,
-		"keys":       NotSafe,
+		"keys":       MemSafe,
 		"pop":        MemSafe,
 		"popitem":    MemSafe,
 		"setdefault": MemSafe,
@@ -1600,11 +1600,11 @@ func dict_keys(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	dict := b.Receiver().(*Dict)
 
 	const (
-		tupleSize = unsafe.Sizeof(List{})
-		valueSize = unsafe.Sizeof(Value(nil))
+		headerSize  = unsafe.Sizeof(List{})
+		elementSize = unsafe.Sizeof(Value(nil))
 	)
 
-	listSize := tupleSize + roundAllocSize(valueSize*uintptr(dict.Len()))
+	listSize := roundAllocSize(headerSize) + roundAllocSize(elementSize*uintptr(dict.Len()))
 	if err := thread.AddAllocs(int64(listSize)); err != nil {
 		return nil, err
 	}

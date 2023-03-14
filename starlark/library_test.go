@@ -972,25 +972,26 @@ func TestDictItemsAllocs(t *testing.T) {
 func TestDictKeysAllocs(t *testing.T) {
 	st := startest.From(t)
 
-	st.RequireSafety(starlark.NotSafe)
+	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		dict := starlark.NewDict(st.N)
 
 		for i := 0; i < st.N; i++ {
 			key := starlark.MakeInt(i)
 			dict.SetKey(key, starlark.None)
+			if err := thread.AddAllocs(starlark.EstimateSize(key)); err != nil {
+				st.Fatal(err)
+			}
 		}
 
 		fn, err := dict.Attr("keys")
 		if err != nil {
 			st.Fatal(err)
-			return
 		}
 
 		keys, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
 		if err != nil {
 			st.Fatal(err)
-			return
 		}
 
 		st.KeepAlive(keys)
