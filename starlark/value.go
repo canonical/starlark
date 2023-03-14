@@ -1435,14 +1435,6 @@ func Iterate(x Value) Iterator {
 	return nil
 }
 
-func estimateValueSize(v Value) int64 {
-	if v, ok := v.(SizeAware); ok {
-		return v.EstimateSize()
-	}
-
-	return int64(EstimateSize(v))
-}
-
 // SafeIterate creates an iterator which is bound then to the given
 // thread. This iterator will check safety and respect sandboxing
 // bounds as required. As a convenience for functions that may have

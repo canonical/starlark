@@ -682,7 +682,7 @@ func javaStringHash(s string) (h int32) {
 func int_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (res Value, err error) {
 	defer func() {
 		if res != nil {
-			if e := thread.AddAllocs(res.(Int).EstimateSize()); e != nil {
+			if e := thread.AddAllocs(int64(EstimateSize(res))); e != nil {
 				res = nil
 				err = e
 			}

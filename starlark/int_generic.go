@@ -22,10 +22,6 @@ func (i Int) get() (small int64, big *big.Int) {
 	return i.impl.small_, i.impl.big_
 }
 
-func (i Int) EstimateSize() int64 {
-	return int64(EstimateSize(i))
-}
-
 // Precondition: math.MinInt32 <= x && x <= math.MaxInt32
 func makeSmallInt(x int64) Int {
 	return Int{intImpl{small_: x}}
