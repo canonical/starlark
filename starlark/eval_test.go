@@ -1078,7 +1078,7 @@ func TestContext(t *testing.T) {
 			predecls := starlark.StringDict{
 				"fn": starlark.NewBuiltin("fn", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 					if ctx := thread.Context(); ctx != expected {
-						t.Errorf("Got incorrect thread context: expected %v but got %v", expected, ctx)
+						t.Errorf("got incorrect thread context: expected %v but got %v", expected, ctx)
 					}
 					return starlark.None, nil
 				}),
