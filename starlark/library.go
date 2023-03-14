@@ -1597,10 +1597,15 @@ func dict_keys(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 
-	dict := b.Receiver().(*Dict) // FIXME should this be checked?
+	dict := b.Receiver().(*Dict)
 
-	// FIXME: size classes after #15
-	if err := thread.AddAllocs(int64(unsafe.Sizeof(Tuple{})+unsafe.Sizeof(Value(nil))*2) * int64(dict.Len()) * 110 / 100); err != nil {
+	const (
+		tupleSize = unsafe.Sizeof(List{})
+		valueSize = unsafe.Sizeof(Value(nil))
+	)
+
+	listSize := tupleSize + roundAllocSize(valueSize*uintptr(dict.Len()))
+	if err := thread.AddAllocs(int64(listSize)); err != nil {
 		return nil, err
 	}
 
