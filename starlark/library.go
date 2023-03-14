@@ -1137,7 +1137,7 @@ func (it *rangeIterator) Next(p *Value) bool {
 func (*rangeIterator) Done() {}
 
 func (it *rangeIterator) Err() error     { return it.err }
-func (it *rangeIterator) Safety() Safety { return NotSafe }
+func (it *rangeIterator) Safety() Safety { return MemSafe }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#repr
 func repr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {

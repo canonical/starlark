@@ -300,7 +300,7 @@ func TestRangeAllocs(t *testing.T) {
 	t.Run("enumerating", func(t *testing.T) {
 		st := startest.From(t)
 
-		st.RequireSafety(starlark.NotSafe)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			args := starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(st.N), starlark.MakeInt(1)}
 			result, err := starlark.Call(thread, range_, args, nil)
