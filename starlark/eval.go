@@ -91,7 +91,7 @@ func (thread *Thread) Context() context.Context {
 	return thread.context
 }
 
-// SetContext sets the context for the current thread. If unspecified,
+// SetContext sets the context for the current thread. If not called,
 // context.Background() is used.
 func (thread *Thread) SetContext(ctx context.Context) {
 	thread.context = ctx
