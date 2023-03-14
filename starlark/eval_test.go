@@ -1069,10 +1069,10 @@ func TestContext(t *testing.T) {
 	for i, expected := range []context.Context{nil, background, child} {
 		t.Run(fmt.Sprintf("context=%d", i), func(t *testing.T) {
 			thread := &starlark.Thread{}
-			if expected == nil {
-				expected = context.Background()
-			} else {
+			if expected != nil {
 				thread.SetContext(expected)
+			} else {
+				expected = context.Background()
 			}
 
 			predecls := starlark.StringDict{
