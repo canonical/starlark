@@ -56,7 +56,7 @@ func (i Int) get() (int64, *big.Int) {
 }
 
 func (i Int) EstimateSize() int64 {
-	size := unsafe.Sizeof(Int{})
+	size := int64(unsafe.Sizeof(Int{}))
 	if _, iBig := i.get(); iBig != nil {
 		size += EstimateSize(iBig)
 	}

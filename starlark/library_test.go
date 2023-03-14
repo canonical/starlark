@@ -424,7 +424,7 @@ func (it *allocatingIterator) Next(p *starlark.Value) bool {
 	list := starlark.NewList(make([]starlark.Value, 0, it.size))
 
 	if it.thread != nil {
-		if err := it.thread.AddAllocs(int64(starlark.EstimateSize(list))); err != nil {
+		if err := it.thread.AddAllocs(starlark.EstimateSize(list)); err != nil {
 			it.err = err
 			return false
 		}

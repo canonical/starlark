@@ -37,22 +37,22 @@ import (
 // EstimateSize returns the estimated size of the
 // value pointed by obj, taking into account the whole
 // object tree.
-func EstimateSize(obj interface{}) uintptr {
+func EstimateSize(obj interface{}) int64 {
 	if obj == nil {
 		return 0
 	}
 
 	if sizeAware, ok := obj.(SizeAware); ok {
-		return uintptr(sizeAware.EstimateSize())
+		return sizeAware.EstimateSize()
 	}
 
 	v := reflect.ValueOf(obj)
 
 	if v.Kind() == reflect.Ptr {
-		return estimateSizeIndirect(v, make(map[uintptr]struct{}))
+		return int64(estimateSizeIndirect(v, make(map[uintptr]struct{})))
 	}
 
-	return estimateSizeAll(v, make(map[uintptr]struct{}))
+	return int64(estimateSizeAll(v, make(map[uintptr]struct{})))
 }
 
 func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
