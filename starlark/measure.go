@@ -42,6 +42,10 @@ func EstimateSize(obj interface{}) uintptr {
 		return 0
 	}
 
+	if sizeAware, ok := obj.(SizeAware); ok {
+		return uintptr(sizeAware.EstimateSize())
+	}
+
 	v := reflect.ValueOf(obj)
 
 	if v.Kind() == reflect.Ptr {
