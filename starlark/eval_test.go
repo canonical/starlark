@@ -1085,8 +1085,8 @@ func TestSpecifiedContext(t *testing.T) {
 	background := context.Background()
 	child, _ := context.WithCancel(background)
 
-	for i, expected := range []context.Context{background, child} {
-		t.Run(fmt.Sprintf("context=%d", i), func(t *testing.T) {
+	for _, expected := range []context.Context{background, child} {
+		t.Run(fmt.Sprintf("context=%v", expected), func(t *testing.T) {
 			thread := &starlark.Thread{}
 			thread.SetContext(expected)
 
