@@ -66,41 +66,41 @@ func testBuiltinSafeties(t *testing.T, recvName string, builtins map[string]*sta
 	}
 }
 
-// dummyIterable iterates
+// testIterable iterates
 // If maxN is negative, iteration is unbounded
-type dummyIterable struct {
+type testIterable struct {
 	maxN int
 	nth  func(n int) starlark.Value
 }
 
-var _ starlark.Iterable = &dummyIterable{}
+var _ starlark.Iterable = &testIterable{}
 
 var unlimited = -1
 
-func (d *dummyIterable) Freeze()               {}
-func (d *dummyIterable) Hash() (uint32, error) { return 0, fmt.Errorf("invalid") }
-func (d *dummyIterable) String() string        { return "dummyIterable" }
-func (d *dummyIterable) Truth() starlark.Bool  { return d.maxN != 0 }
-func (d *dummyIterable) Type() string          { return "dummyIterable" }
-func (d *dummyIterable) Iterate() starlark.Iterator {
-	return &dummyIterator{
+func (d *testIterable) Freeze()               {}
+func (d *testIterable) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable type: %s", d.Type()) }
+func (d *testIterable) String() string        { return "testIterable" }
+func (d *testIterable) Truth() starlark.Bool  { return d.maxN != 0 }
+func (d *testIterable) Type() string          { return "testIterable" }
+func (d *testIterable) Iterate() starlark.Iterator {
+	return &testIterator{
 		maxN: d.maxN,
 		nth:  d.nth,
 	}
 }
 
-type dummyIterator struct {
+type testIterator struct {
 	n, maxN int
 	nth     func(n int) starlark.Value
 	thread  *starlark.Thread
 	err     error
 }
 
-var _ starlark.SafeIterator = &dummyIterator{}
+var _ starlark.SafeIterator = &testIterator{}
 
-func (it *dummyIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
-func (it *dummyIterator) Safety() starlark.Safety            { return starlark.MemSafe }
-func (it *dummyIterator) Next(p *starlark.Value) bool {
+func (it *testIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
+func (it *testIterator) Safety() starlark.Safety            { return starlark.MemSafe }
+func (it *testIterator) Next(p *starlark.Value) bool {
 	if it.n >= it.maxN {
 		return false
 	}
@@ -115,8 +115,8 @@ func (it *dummyIterator) Next(p *starlark.Value) bool {
 	*p = ret
 	return true
 }
-func (it *dummyIterator) Done()      {}
-func (it *dummyIterator) Err() error { return it.err }
+func (it *testIterator) Done()      {}
+func (it *testIterator) Err() error { return it.err }
 
 func TestAbsAllocs(t *testing.T) {
 }
@@ -139,7 +139,7 @@ func TestAllAllocs(t *testing.T) {
 
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				args := starlark.Tuple{&dummyIterable{
+				args := starlark.Tuple{&testIterable{
 					maxN: 10,
 					nth: func(_ int) starlark.Value {
 						return starlark.False
@@ -162,7 +162,7 @@ func TestAllAllocs(t *testing.T) {
 		st.SetMaxAllocs(8)
 
 		st.RunThread(func(thread *starlark.Thread) {
-			args := starlark.Tuple{&dummyIterable{
+			args := starlark.Tuple{&testIterable{
 				maxN: st.N,
 				nth: func(n int) starlark.Value {
 					ret := starlark.String(strings.Repeat("a", 8))
