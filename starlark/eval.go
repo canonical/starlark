@@ -86,12 +86,12 @@ type Thread struct {
 	requiredSafety SafetyFlags
 }
 
-// Context returns the context for the current thread.
+// Context returns the context for this thread.
 func (thread *Thread) Context() context.Context {
 	return thread.context
 }
 
-// SetContext sets the context for the current thread. If not called,
+// SetContext sets the context for this thread. If not called,
 // context.Background() is used.
 func (thread *Thread) SetContext(ctx context.Context) {
 	thread.context = ctx
