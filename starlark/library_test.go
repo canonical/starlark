@@ -1,6 +1,7 @@
 package starlark_test
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -69,22 +70,20 @@ func testBuiltinSafeties(t *testing.T, recvName string, builtins map[string]*sta
 // testIterable iterates
 // If maxN is negative, iteration is unbounded
 type testIterable struct {
-	maxN int
-	nth  func(n int) starlark.Value
+	iters int
+	nth   func(n int) starlark.Value
 }
 
 var _ starlark.Iterable = &testIterable{}
 
-var unlimited = -1
-
 func (d *testIterable) Freeze()               {}
 func (d *testIterable) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable type: %s", d.Type()) }
 func (d *testIterable) String() string        { return "testIterable" }
-func (d *testIterable) Truth() starlark.Bool  { return d.maxN != 0 }
+func (d *testIterable) Truth() starlark.Bool  { return d.iters != 0 }
 func (d *testIterable) Type() string          { return "testIterable" }
 func (d *testIterable) Iterate() starlark.Iterator {
 	return &testIterator{
-		maxN: d.maxN,
+		maxN: d.iters,
 		nth:  d.nth,
 	}
 }
@@ -101,7 +100,14 @@ var _ starlark.SafeIterator = &testIterator{}
 func (it *testIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
 func (it *testIterator) Safety() starlark.Safety            { return starlark.MemSafe }
 func (it *testIterator) Next(p *starlark.Value) bool {
-	if it.n >= it.maxN {
+	if it.nth == nil {
+		it.err = errors.New("testIterator called with nil nth function")
+	}
+	if it.err != nil {
+		return false
+	}
+
+	if 0 < it.maxN && it.maxN <= it.n {
 		return false
 	}
 	ret := it.nth(it.n)
@@ -140,11 +146,11 @@ func TestAllAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{&testIterable{
-					maxN: 10,
+					iters: 10,
 					nth: func(_ int) starlark.Value {
 						return starlark.False
-					}},
-				}
+					},
+				}}
 
 				result, err := starlark.Call(thread, all, args, nil)
 				if err != nil {
@@ -163,7 +169,7 @@ func TestAllAllocs(t *testing.T) {
 
 		st.RunThread(func(thread *starlark.Thread) {
 			args := starlark.Tuple{&testIterable{
-				maxN: st.N,
+				iters: st.N,
 				nth: func(n int) starlark.Value {
 					ret := starlark.String(strings.Repeat("a", 8))
 					st.KeepAlive(ret)
