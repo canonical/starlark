@@ -142,6 +142,23 @@ func TestAllAllocs(t *testing.T) {
 	} else if msg := err.Error(); msg != expected {
 		t.Errorf("unexpected error: %s", msg)
 	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			args := starlark.Tuple{
+				starlark.NewList([]starlark.Value{
+					starlark.True, starlark.True, starlark.False,
+				}),
+			}
+			result, err := starlark.Call(thread, starlark.Universe["all"], args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestBoolAllocs(t *testing.T) {
