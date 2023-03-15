@@ -69,23 +69,23 @@ func testBuiltinSafeties(t *testing.T, recvName string, builtins map[string]*sta
 func TestAbsAllocs(t *testing.T) {
 }
 
-type finiteAllocatingIterable struct {
-	max int
-	nth func(n int) starlark.Value
+type dummyIterable struct {
+	limit int
+	nth   func(n int) starlark.Value
 }
 
-var _ starlark.Iterable = &finiteAllocatingIterable{}
+var _ starlark.Iterable = &dummyIterable{}
 
-func (f *finiteAllocatingIterable) Freeze()               {}
-func (f *finiteAllocatingIterable) Hash() (uint32, error) { return 0, fmt.Errorf("invalid") }
-func (f *finiteAllocatingIterable) String() string        { return "finiteAllocatingIterable" }
-func (f *finiteAllocatingIterable) Truth() starlark.Bool  { return starlark.True }
-func (f *finiteAllocatingIterable) Type() string          { return "finiteAllocatingIterable" }
-func (f *finiteAllocatingIterable) Iterate() starlark.Iterator {
+func (d *dummyIterable) Freeze()               {}
+func (d *dummyIterable) Hash() (uint32, error) { return 0, fmt.Errorf("invalid") }
+func (d *dummyIterable) String() string        { return "finiteAllocatingIterable" }
+func (d *dummyIterable) Truth() starlark.Bool  { return starlark.True }
+func (d *dummyIterable) Type() string          { return "finiteAllocatingIterable" }
+func (d *dummyIterable) Iterate() starlark.Iterator {
 	return &finiteAllocatingIterator{
 		current: 0,
-		max:     f.max,
-		nth:     f.nth,
+		max:     d.limit,
+		nth:     d.nth,
 	}
 }
 
@@ -106,7 +106,6 @@ func (it *finiteAllocatingIterator) Next(p *starlark.Value) bool {
 	}
 	ret := it.nth(it.current)
 	it.current++
-	panic(fmt.Sprintf("%s: %d", ret, starlark.EstimateSize(ret)))
 
 	if it.thread != nil {
 		if err := it.thread.AddAllocs(int64(starlark.EstimateSize(ret))); err != nil {
@@ -130,34 +129,52 @@ func TestAllAllocs(t *testing.T) {
 		return
 	}
 
-	const expected = "exceeded memory allocation limits"
+	t.Run("test=result", func(t *testing.T) {
+		st := startest.From(t)
 
-	thread := &starlark.Thread{}
-	thread.SetMaxAllocs(10)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(16)
 
-	args := starlark.Tuple{&allocatingIterable{5}}
-	_, err := starlark.Call(thread, all, args, nil)
-	if err == nil {
-		t.Errorf("expected error")
-	} else if msg := err.Error(); msg != expected {
-		t.Errorf("unexpected error: %s", msg)
-	}
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{&dummyIterable{
+					limit: 10,
+					nth: func(_ int) starlark.Value {
+						return starlark.False
+					}},
+				}
 
-	st := startest.From(t)
-	st.SetMaxAllocs(0)
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			args := starlark.Tuple{
-				starlark.NewList([]starlark.Value{
-					starlark.True, starlark.True, starlark.False,
-				}),
+				result, err := starlark.Call(thread, all, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
 			}
-			result, err := starlark.Call(thread, starlark.Universe["all"], args, nil)
+		})
+	})
+
+	t.Run("test=iteration", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(8)
+
+		st.RunThread(func(thread *starlark.Thread) {
+			args := starlark.Tuple{&dummyIterable{
+				limit: st.N / 8,
+				nth: func(n int) starlark.Value {
+					ret := starlark.String(strings.Repeat("a", 8))
+					st.KeepAlive(ret)
+					return ret
+				}},
+			}
+
+			result, err := starlark.Call(thread, all, args, nil)
 			if err != nil {
-				st.Error(err)
+				t.Errorf("unexpected error: %s", err.Error())
 			}
 			st.KeepAlive(result)
-		}
+		})
 	})
 }
 
