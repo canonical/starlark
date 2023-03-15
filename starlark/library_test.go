@@ -76,15 +76,17 @@ type testIterable struct {
 
 var _ starlark.Iterable = &testIterable{}
 
-func (d *testIterable) Freeze()               {}
-func (d *testIterable) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable type: %s", d.Type()) }
-func (d *testIterable) String() string        { return "testIterable" }
-func (d *testIterable) Truth() starlark.Bool  { return d.iters != 0 }
-func (d *testIterable) Type() string          { return "testIterable" }
-func (d *testIterable) Iterate() starlark.Iterator {
+func (ti *testIterable) Freeze() {}
+func (ti *testIterable) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", ti.Type())
+}
+func (ti *testIterable) String() string       { return "testIterable" }
+func (ti *testIterable) Truth() starlark.Bool { return ti.iters != 0 }
+func (ti *testIterable) Type() string         { return "testIterable" }
+func (ti *testIterable) Iterate() starlark.Iterator {
 	return &testIterator{
-		maxN: d.iters,
-		nth:  d.nth,
+		maxN: ti.iters,
+		nth:  ti.nth,
 	}
 }
 
