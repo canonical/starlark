@@ -165,13 +165,14 @@ func TestAllAllocs(t *testing.T) {
 		st := startest.From(t)
 
 		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(8)
+		st.SetMaxAllocs(64)
 
 		st.RunThread(func(thread *starlark.Thread) {
 			args := starlark.Tuple{&testIterable{
 				iters: st.N,
 				nth: func(n int) starlark.Value {
-					ret := starlark.String(strings.Repeat("a", 8))
+					ret := starlark.Bytes(make([]byte, 8))
+					thread.AddAllocs(int64(starlark.EstimateSize(ret)))
 					st.KeepAlive(ret)
 					return ret
 				}},
