@@ -67,8 +67,8 @@ func testBuiltinSafeties(t *testing.T, recvName string, builtins map[string]*sta
 	}
 }
 
-// testIterable iterates
-// If maxN is negative, iteration is unbounded
+// testIterable iterates for n from 0 to maxN - 1 returning nth(n) at each
+// iteration. If maxN is zero or negative, iteration is unbounded.
 type testIterable struct {
 	iters int
 	nth   func(n int) starlark.Value
