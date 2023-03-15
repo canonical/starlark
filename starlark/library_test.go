@@ -69,10 +69,79 @@ func testBuiltinSafeties(t *testing.T, recvName string, builtins map[string]*sta
 func TestAbsAllocs(t *testing.T) {
 }
 
+type finiteAllocatingIterable struct {
+	max int
+	nth func(n int) starlark.Value
+}
+
+var _ starlark.Iterable = &finiteAllocatingIterable{}
+
+func (f *finiteAllocatingIterable) Freeze()               {}
+func (f *finiteAllocatingIterable) Hash() (uint32, error) { return 0, fmt.Errorf("invalid") }
+func (f *finiteAllocatingIterable) String() string        { return "finiteAllocatingIterable" }
+func (f *finiteAllocatingIterable) Truth() starlark.Bool  { return starlark.True }
+func (f *finiteAllocatingIterable) Type() string          { return "finiteAllocatingIterable" }
+func (f *finiteAllocatingIterable) Iterate() starlark.Iterator {
+	return &finiteAllocatingIterator{
+		current: 0,
+		max:     f.max,
+		nth:     f.nth,
+	}
+}
+
+type finiteAllocatingIterator struct {
+	current, max int
+	nth          func(n int) starlark.Value
+	thread       *starlark.Thread
+	err          error
+}
+
+var _ starlark.SafeIterator = &finiteAllocatingIterator{}
+
+func (it *finiteAllocatingIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
+func (it *finiteAllocatingIterator) Safety() starlark.Safety            { return starlark.MemSafe }
+func (it *finiteAllocatingIterator) Next(p *starlark.Value) bool {
+	if it.current >= it.max {
+		return false
+	}
+	ret := it.nth(it.current)
+	it.current++
+	panic(fmt.Sprintf("%s: %d", ret, starlark.EstimateSize(ret)))
+
+	if it.thread != nil {
+		if err := it.thread.AddAllocs(int64(starlark.EstimateSize(ret))); err != nil {
+			it.err = err
+			return false
+		}
+	}
+	*p = ret
+	return true
+}
+func (it *finiteAllocatingIterator) Done()      {}
+func (it *finiteAllocatingIterator) Err() error { return it.err }
+
 func TestAnyAllocs(t *testing.T) {
 }
 
 func TestAllAllocs(t *testing.T) {
+	all, ok := starlark.Universe["all"]
+	if !ok {
+		t.Error("no such builtin: all")
+		return
+	}
+
+	const expected = "exceeded memory allocation limits"
+
+	thread := &starlark.Thread{}
+	thread.SetMaxAllocs(10)
+
+	args := starlark.Tuple{&allocatingIterable{5}}
+	_, err := starlark.Call(thread, all, args, nil)
+	if err == nil {
+		t.Errorf("expected error")
+	} else if msg := err.Error(); msg != expected {
+		t.Errorf("unexpected error: %s", msg)
+	}
 }
 
 func TestBoolAllocs(t *testing.T) {

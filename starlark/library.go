@@ -77,7 +77,7 @@ func init() {
 	universeSafeties = map[string]Safety{
 		"abs":       NotSafe,
 		"any":       NotSafe,
-		"all":       NotSafe,
+		"all":       MemSafe,
 		"bool":      NotSafe,
 		"bytes":     NotSafe,
 		"chr":       NotSafe,
@@ -325,14 +325,20 @@ func all(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if err := UnpackPositionalArgs("all", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
-	// TODO: use SafeIterate
-	iter := iterable.Iterate()
+
+	iter, err := SafeIterate(thread, iterable)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 	var x Value
 	for iter.Next(&x) {
 		if !x.Truth() {
 			return False, nil
 		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	return True, nil
 }
