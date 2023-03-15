@@ -138,7 +138,7 @@ func TestAllAllocs(t *testing.T) {
 		return
 	}
 
-	t.Run("test=result", func(t *testing.T) {
+	t.Run("result", func(t *testing.T) {
 		st := startest.From(t)
 
 		st.RequireSafety(starlark.MemSafe)
@@ -162,7 +162,7 @@ func TestAllAllocs(t *testing.T) {
 		})
 	})
 
-	t.Run("test=iteration", func(t *testing.T) {
+	t.Run("iteration", func(t *testing.T) {
 		st := startest.From(t)
 
 		st.RequireSafety(starlark.MemSafe)
