@@ -148,7 +148,7 @@ func TestAllAllocs(t *testing.T) {
 				args := starlark.Tuple{&testIterable{
 					maxN: 10,
 					nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
-						return starlark.False, nil
+						return starlark.True, nil
 					},
 				}}
 
