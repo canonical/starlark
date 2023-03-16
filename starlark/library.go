@@ -1605,7 +1605,7 @@ func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 			return nil, nameErr(b, err)
 		} else if eq {
 			result := MakeInt(i)
-			if err := thread.AddAllocs(result.EstimateSize()); err != nil {
+			if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 				return nil, err
 			}
 			return MakeInt(i), nil
