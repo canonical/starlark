@@ -70,7 +70,7 @@ func testBuiltinSafeties(t *testing.T, recvName string, builtins map[string]*sta
 // testIterable iterates for n from 0 to maxN - 1 returning nth(n) at each
 // iteration. If maxN is zero or negative, iteration is unbounded.
 type testIterable struct {
-	iters int
+	maxN int
 	nth   func(n int) (starlark.Value, error)
 }
 
@@ -81,11 +81,11 @@ func (ti *testIterable) Hash() (uint32, error) {
 	return 0, fmt.Errorf("unhashable type: %s", ti.Type())
 }
 func (ti *testIterable) String() string       { return "testIterable" }
-func (ti *testIterable) Truth() starlark.Bool { return ti.iters != 0 }
+func (ti *testIterable) Truth() starlark.Bool { return ti.maxN != 0 }
 func (ti *testIterable) Type() string         { return "testIterable" }
 func (ti *testIterable) Iterate() starlark.Iterator {
 	return &testIterator{
-		maxN: ti.iters,
+		maxN: ti.maxN,
 		nth:  ti.nth,
 	}
 }
@@ -147,7 +147,7 @@ func TestAllAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{&testIterable{
-					iters: 10,
+					maxN: 10,
 					nth: func(_ int) (starlark.Value, error) {
 						return starlark.False, nil
 					},
@@ -169,7 +169,7 @@ func TestAllAllocs(t *testing.T) {
 
 		st.RunThread(func(thread *starlark.Thread) {
 			args := starlark.Tuple{&testIterable{
-				iters: st.N,
+				maxN: st.N,
 				nth: func(n int) (starlark.Value, error) {
 					ret := starlark.Bytes(make([]byte, 16))
 					st.KeepAlive(ret)
