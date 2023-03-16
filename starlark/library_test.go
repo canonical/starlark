@@ -221,7 +221,7 @@ func TestAnyAllocs(t *testing.T) {
 			args := starlark.Tuple{&testIterable{
 				maxN: st.N,
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					ret := starlark.Bytes(make([]byte, 0, 16))
+					ret := starlark.NewList(make([]starlark.Value, 0, 16))
 					st.KeepAlive(ret)
 					return ret, thread.AddAllocs(starlark.EstimateSize(ret))
 				}},
