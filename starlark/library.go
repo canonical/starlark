@@ -1122,7 +1122,7 @@ func (it *rangeIterator) Next(p *Value) bool {
 		value := it.r.Index(it.i).(Int)
 
 		if it.thread != nil {
-			if err := it.thread.AddAllocs(value.EstimateSize()); err != nil {
+			if err := it.thread.AddAllocs(EstimateSize(value)); err != nil {
 				it.err = err
 				return false
 			}
