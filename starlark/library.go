@@ -310,7 +310,7 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	case Float:
 		result := Float(math.Abs(float64(x)))
 
-		if err := thread.AddAllocs(result.EstimateSize()); err != nil {
+		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
 		}
 
@@ -322,7 +322,7 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 
 		result := zero.Sub(x)
 
-		if err := thread.AddAllocs(result.EstimateSize()); err != nil {
+		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
 		}
 
