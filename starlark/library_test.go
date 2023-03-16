@@ -67,10 +67,13 @@ func testBuiltinSafeties(t *testing.T, recvName string, builtins map[string]*sta
 	}
 }
 
-// testIterable iterates for n from 0 to maxN - 1 returning nth(n) at each
-// iteration. If maxN is zero or negative, iteration is unbounded.
+// testIterable is an iterable with customisable yield behaviour.
 type testIterable struct {
+	// If positive, maxN sets an upper bound on the number of iterations
+	// performed. Otherwise, iteration is unbounded.
 	maxN int
+
+	// nth returns a value to be yielded by the nth Next call.
 	nth func(thread *starlark.Thread, n int) (starlark.Value, error)
 }
 
