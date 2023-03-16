@@ -112,7 +112,7 @@ func (it *testIterator) Next(p *starlark.Value) bool {
 		return false
 	}
 
-	if 0 < it.maxN && it.maxN <= it.n {
+	if it.maxN > 0 && it.n >= it.maxN {
 		return false
 	}
 	ret, err := it.nth(it.thread, it.n)
