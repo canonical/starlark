@@ -103,7 +103,7 @@ type testIterator struct {
 var _ starlark.SafeIterator = &testIterator{}
 
 func (it *testIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
-func (it *testIterator) Safety() starlark.Safety            { return starlark.MemSafe }
+func (it *testIterator) Safety() starlark.Safety            { return starlark.Safe }
 func (it *testIterator) Next(p *starlark.Value) bool {
 	if it.nth == nil {
 		it.err = errors.New("testIterator called with nil nth function")
