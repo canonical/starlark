@@ -329,8 +329,8 @@ func TestAnyAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{&testIterable{
-					iters: 10,
-					nth: func(_ int) (starlark.Value, error) {
+					maxN: 10,
+					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
 						return starlark.False, nil
 					},
 				}}
@@ -351,8 +351,8 @@ func TestAnyAllocs(t *testing.T) {
 
 		st.RunThread(func(thread *starlark.Thread) {
 			args := starlark.Tuple{&testIterable{
-				iters: st.N,
-				nth: func(n int) (starlark.Value, error) {
+				maxN: st.N,
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 					ret := starlark.Bytes(make([]byte, 0, 16))
 					st.KeepAlive(ret)
 					return ret, thread.AddAllocs(starlark.EstimateSize(ret))
