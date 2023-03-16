@@ -134,8 +134,7 @@ func TestAnyAllocs(t *testing.T) {
 func TestAllAllocs(t *testing.T) {
 	all, ok := starlark.Universe["all"]
 	if !ok {
-		t.Error("no such builtin: all")
-		return
+		t.Fatal("no such builtin: all")
 	}
 
 	t.Run("result", func(t *testing.T) {
