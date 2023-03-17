@@ -128,6 +128,41 @@ func (it *testIterator) Next(p *starlark.Value) bool {
 func (it *testIterator) Done()      {}
 func (it *testIterator) Err() error { return it.err }
 
+// testSequence is a sequence with customisable yield behaviour.
+type testSequence struct {
+	// maxN sets the upper bound on the number of iterations performed.
+	maxN int
+
+	// nth returns a value to be yielded by the nth Next call.
+	nth func(thread *starlark.Thread, n int) (starlark.Value, error)
+}
+
+var _ starlark.Sequence = &testSequence{}
+
+func (ts *testSequence) Freeze() {}
+func (ts *testSequence) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", ts.Type())
+}
+func (ts *testSequence) String() string       { return "testSequence" }
+func (ts *testSequence) Truth() starlark.Bool { return ts.maxN != 0 }
+func (ts *testSequence) Type() string         { return "testSequence" }
+func (ts *testSequence) Iterate() starlark.Iterator {
+	if ts.maxN <= 0 {
+		panic(fmt.Sprintf("testSequence is unbounded: got upper bound %v", ts.maxN))
+	}
+	return &testIterator{
+		maxN: ts.maxN,
+		nth:  ts.nth,
+	}
+}
+func (ts *testSequence) Len() int {
+	ret := ts.maxN
+	if ret <= 0 {
+		panic(fmt.Sprintf("testSequence is unbounded: got upper bound %v", ret))
+	}
+	return ret
+}
+
 func TestAbsAllocs(t *testing.T) {
 }
 
