@@ -140,15 +140,17 @@ func TestAbsAllocs(t *testing.T) {
 	t.Run("positive-ints", func(t *testing.T) {
 		st := startest.From(t)
 
+		one := starlark.Value(starlark.MakeInt(1))
+
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(th *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				one, err := starlark.Call(th, fn, starlark.Tuple{starlark.MakeInt(1)}, nil)
+				stillOne, err := starlark.Call(th, fn, starlark.Tuple{one}, nil)
 				if err != nil {
 					st.Error(err)
 				}
 
-				st.KeepAlive(one)
+				st.KeepAlive(stillOne)
 			}
 		})
 	})

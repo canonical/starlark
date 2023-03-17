@@ -306,9 +306,9 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if err := UnpackPositionalArgs("abs", args, kwargs, 1, &x); err != nil {
 		return nil, err
 	}
-	switch x := x.(type) {
+	switch tx := x.(type) {
 	case Float:
-		result := Float(math.Abs(float64(x)))
+		result := Float(math.Abs(float64(tx)))
 
 		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
@@ -316,11 +316,11 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 
 		return result, nil
 	case Int:
-		if x.Sign() >= 0 {
+		if tx.Sign() >= 0 {
 			return x, nil
 		}
 
-		result := zero.Sub(x)
+		result := zero.Sub(tx)
 
 		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
