@@ -145,7 +145,7 @@ var (
 		"popitem":    MemSafe,
 		"setdefault": MemSafe,
 		"update":     NotSafe,
-		"values":     NotSafe,
+		"values":     MemSafe,
 	}
 
 	listMethods = map[string]*Builtin{
@@ -1566,7 +1566,7 @@ func dict_items(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 	// Then it will convert this list in a list of `Values` (allocating each `Tuple`)
 	// So it can take rought twice the size it's returning. For this case it is worth
 	// it to check if there is enough transient memory left.
-	receiver := b.Receiver().(*Dict) // FIXME should this be checked? It wasn't in the upstream...
+	receiver := b.Receiver().(*Dict)
 	len := uintptr(receiver.Len())
 
 	// Rough estimation, just to check not to go too over the bound
@@ -1697,10 +1697,15 @@ func dict_values(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		return nil, err
 	}
 
-	dict := b.Receiver().(*Dict) // FIXME should this be checked?
+	dict := b.Receiver().(*Dict)
 
-	// FIXME: size classes after #15
-	if err := thread.AddAllocs(int64(unsafe.Sizeof(Tuple{})+unsafe.Sizeof(Value(nil))*2) * int64(dict.Len()) * 110 / 100); err != nil {
+	const (
+		headerSize  = unsafe.Sizeof(List{})
+		elementSize = unsafe.Sizeof(Value(nil))
+	)
+
+	listSize := roundAllocSize(headerSize) + roundAllocSize(elementSize*uintptr(dict.Len()))
+	if err := thread.AddAllocs(int64(listSize)); err != nil {
 		return nil, err
 	}
 
