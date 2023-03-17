@@ -139,7 +139,7 @@ var (
 	dictMethodSafeties = map[string]Safety{
 		"clear":      MemSafe,
 		"get":        MemSafe,
-		"items":      NotSafe,
+		"items":      MemSafe,
 		"keys":       MemSafe,
 		"pop":        MemSafe,
 		"popitem":    MemSafe,
@@ -1569,26 +1569,27 @@ func dict_items(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 	receiver := b.Receiver().(*Dict) // FIXME should this be checked? It wasn't in the upstream...
 	len := uintptr(receiver.Len())
 
+	// Rough estimation, just to check not to go too over the bound
 	transientMemory := unsafe.Sizeof(Tuple{}) * len
-	returnedMemory := (unsafe.Sizeof(Value(nil))*2+unsafe.Sizeof(Value(nil))+unsafe.Sizeof(Tuple{}))*len + unsafe.Sizeof(List{})
-
+	returnedMemory := (unsafe.Sizeof(Value(nil))*3 + unsafe.Sizeof(Tuple{})) * len
 	if err := thread.CheckAllocs(int64(transientMemory + returnedMemory)); err != nil {
 		return nil, err
 	}
 
 	items := receiver.Items()
 	res := make([]Value, len)
+	result := NewList(res)
+	listMemory := EstimateSize(result)
 	for i, item := range items {
-		res[i] = item // convert [2]Value to Value, this will allocate
+		res[i] = item
 	}
+	itemsMemory := EstimateSize(Tuple{nil, nil}) * int64(len)
 
-	// FIXME: I'm adding 10% to take into account size classes. This should be improved after #15 gets merged
-	returnedMemory += returnedMemory / 10
-	if err := thread.AddAllocs(int64(returnedMemory)); err != nil {
+	if err := thread.AddAllocs(listMemory + itemsMemory); err != nil {
 		return nil, err
 	}
 
-	return NewList(res), nil
+	return result, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·keys
