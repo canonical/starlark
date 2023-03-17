@@ -1,6 +1,7 @@
 package starlark_test
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -66,6 +67,67 @@ func testBuiltinSafeties(t *testing.T, recvName string, builtins map[string]*sta
 	}
 }
 
+// testIterable is an iterable with customisable yield behaviour.
+type testIterable struct {
+	// If positive, maxN sets an upper bound on the number of iterations
+	// performed. Otherwise, iteration is unbounded.
+	maxN int
+
+	// nth returns a value to be yielded by the nth Next call.
+	nth func(thread *starlark.Thread, n int) (starlark.Value, error)
+}
+
+var _ starlark.Iterable = &testIterable{}
+
+func (ti *testIterable) Freeze() {}
+func (ti *testIterable) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", ti.Type())
+}
+func (ti *testIterable) String() string       { return "testIterable" }
+func (ti *testIterable) Truth() starlark.Bool { return ti.maxN != 0 }
+func (ti *testIterable) Type() string         { return "testIterable" }
+func (ti *testIterable) Iterate() starlark.Iterator {
+	return &testIterator{
+		maxN: ti.maxN,
+		nth:  ti.nth,
+	}
+}
+
+type testIterator struct {
+	n, maxN int
+	nth     func(thread *starlark.Thread, n int) (starlark.Value, error)
+	thread  *starlark.Thread
+	err     error
+}
+
+var _ starlark.SafeIterator = &testIterator{}
+
+func (it *testIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
+func (it *testIterator) Safety() starlark.Safety            { return starlark.Safe }
+func (it *testIterator) Next(p *starlark.Value) bool {
+	if it.nth == nil {
+		it.err = errors.New("testIterator called with nil nth function")
+	}
+	if it.err != nil {
+		return false
+	}
+
+	if it.maxN > 0 && it.n >= it.maxN {
+		return false
+	}
+	ret, err := it.nth(it.thread, it.n)
+	if err != nil {
+		it.err = err
+		return false
+	}
+
+	*p = ret
+	it.n++
+	return true
+}
+func (it *testIterator) Done()      {}
+func (it *testIterator) Err() error { return it.err }
+
 func TestAbsAllocs(t *testing.T) {
 }
 
@@ -73,6 +135,56 @@ func TestAnyAllocs(t *testing.T) {
 }
 
 func TestAllAllocs(t *testing.T) {
+	all, ok := starlark.Universe["all"]
+	if !ok {
+		t.Fatal("no such builtin: all")
+	}
+
+	t.Run("result", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{&testIterable{
+					maxN: 10,
+					nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
+						return starlark.True, nil
+					},
+				}}
+
+				result, err := starlark.Call(thread, all, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("iteration", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+
+		st.RunThread(func(thread *starlark.Thread) {
+			args := starlark.Tuple{&testIterable{
+				maxN: st.N,
+				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+					ret := starlark.Bytes(make([]byte, 16))
+					st.KeepAlive(ret)
+					return ret, thread.AddAllocs(starlark.EstimateSize(ret))
+				}},
+			}
+
+			result, err := starlark.Call(thread, all, args, nil)
+			if err != nil {
+				t.Errorf("unexpected error: %s", err.Error())
+			}
+			st.KeepAlive(result)
+		})
+	})
 }
 
 func TestBoolAllocs(t *testing.T) {
