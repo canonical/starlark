@@ -68,12 +68,12 @@ var Module = &starlarkstruct.Module{
 	},
 }
 var safeties = map[string]starlark.Safety{
-	"from_timestamp":    starlark.NotSafe,
-	"is_valid_timezone": starlark.NotSafe,
-	"now":               starlark.NotSafe,
-	"parse_duration":    starlark.NotSafe,
-	"parse_time":        starlark.NotSafe,
-	"time":              starlark.NotSafe,
+	"from_timestamp":    starlark.IOSafe,
+	"is_valid_timezone": starlark.NotSafe, // Calls LoadLocation which can load TZ info from disk
+	"now":               starlark.IOSafe,  // Depends on the runtime's now() function
+	"parse_duration":    starlark.IOSafe,
+	"parse_time":        starlark.NotSafe, // Calls LoadLocation which can load TZ info from disk
+	"time":              starlark.NotSafe, // Calls LoadLocation which can load TZ info from disk
 }
 
 func init() {
