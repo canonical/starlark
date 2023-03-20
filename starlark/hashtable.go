@@ -57,7 +57,7 @@ func (ht *hashtable) estimateSize() int64 {
 	size := unsafe.Sizeof(*ht)
 
 	if ht.table != nil && &ht.bucket0[0] != &ht.table[0] {
-		size += unsafe.Sizeof(bucket{}) * uintptr(cap(ht.table))
+		size += roundAllocSize(unsafe.Sizeof(bucket{}) * uintptr(cap(ht.table)))
 	}
 
 	return int64(size)

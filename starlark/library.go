@@ -82,7 +82,7 @@ func init() {
 		"bool":      MemSafe,
 		"bytes":     NotSafe,
 		"chr":       MemSafe,
-		"dict":      NotSafe,
+		"dict":      MemSafe,
 		"dir":       NotSafe,
 		"enumerate": MemSafe,
 		"fail":      MemSafe,
@@ -144,7 +144,7 @@ var (
 		"pop":        MemSafe,
 		"popitem":    MemSafe,
 		"setdefault": MemSafe,
-		"update":     NotSafe,
+		"update":     MemSafe,
 		"values":     MemSafe,
 	}
 
@@ -442,8 +442,11 @@ func dict(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		return nil, fmt.Errorf("dict: got %d arguments, want at most 1", len(args))
 	}
 	dict := new(Dict)
-	// TODO: use SafeIterate
-	if err := updateDict(dict, args, kwargs); err != nil {
+	if err := thread.AddAllocs(EstimateSize(dict)); err != nil {
+		return nil, err
+	}
+
+	if err := updateDict(thread, dict, args, kwargs); err != nil {
 		return nil, fmt.Errorf("dict: %v", err)
 	}
 	return dict, nil
@@ -1680,12 +1683,11 @@ func dict_setdefault(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Va
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·update
-func dict_update(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_update(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if len(args) > 1 {
 		return nil, fmt.Errorf("update: got %d arguments, want at most 1", len(args))
 	}
-	// TODO: use SafeIterate
-	if err := updateDict(b.Receiver().(*Dict), args, kwargs); err != nil {
+	if err := updateDict(thread, b.Receiver().(*Dict), args, kwargs); err != nil {
 		return nil, fmt.Errorf("update: %v", err)
 	}
 	return None, nil
@@ -2681,7 +2683,9 @@ func string_find_impl(b *Builtin, args Tuple, kwargs []Tuple, allowError, last b
 
 // Common implementation of builtin dict function and dict.update method.
 // Precondition: len(updates) == 0 or 1.
-func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
+func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error {
+	sizeBefore := EstimateSize(dict)
+
 	if len(updates) == 1 {
 		switch updates := updates[0].(type) {
 		case IterableMapping:
@@ -2693,7 +2697,7 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 			}
 		default:
 			// all other sequences
-			// TODO: use SafeIterate
+			// FIXME how to count for steps and time without counting transient memory?
 			iter := Iterate(updates)
 			if iter == nil {
 				return fmt.Errorf("got %s, want iterable", updates.Type())
@@ -2702,10 +2706,12 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 			var pair Value
 			for i := 0; iter.Next(&pair); i++ {
 				// TODO: use SafeIterate
-				iter2 := Iterate(pair)
-				if iter2 == nil {
-					return fmt.Errorf("dictionary update sequence element #%d is not iterable (%s)", i, pair.Type())
-
+				iter2, err := SafeIterate(thread, pair)
+				if err != nil {
+					if err == ErrUnsupported {
+						return fmt.Errorf("dictionary update sequence element #%d is not iterable (%s)", i, pair.Type())
+					}
+					return err
 				}
 				defer iter2.Done()
 				len := Len(pair)
@@ -2715,8 +2721,11 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 					return fmt.Errorf("dictionary update sequence element #%d has length %d, want 2", i, len)
 				}
 				var k, v Value
-				iter2.Next(&k)
-				iter2.Next(&v)
+				if !iter2.Next(&k) || !iter2.Next(&v) {
+					if err := iter2.Err(); err != nil {
+						return err
+					}
+				}
 				if err := dict.SetKey(k, v); err != nil {
 					return err
 				}
@@ -2741,6 +2750,13 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 				return fmt.Errorf("duplicate keyword arg: %v", k)
 			}
 			keys[k] = true
+		}
+	}
+
+	sizeAfter := EstimateSize(dict)
+	if sizeAfter > sizeBefore {
+		if err := thread.AddAllocs(sizeAfter - sizeBefore); err != nil {
+			return err
 		}
 	}
 

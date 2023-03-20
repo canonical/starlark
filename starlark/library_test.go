@@ -297,6 +297,25 @@ func TestChrAllocs(t *testing.T) {
 }
 
 func TestDictAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	listValues := make([]starlark.Value, 100)
+	for i := 0; i < len(listValues); i++ {
+		listValues[i] = starlark.Tuple{starlark.MakeInt(i), starlark.None}
+	}
+	list := starlark.NewList(listValues)
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, starlark.Universe["dict"], starlark.Tuple{list}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestDirAllocs(t *testing.T) {
@@ -1200,6 +1219,34 @@ func TestDictSetdefaultAllocs(t *testing.T) {
 }
 
 func TestDictUpdateAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	dict := starlark.NewDict(0)
+
+	fn, err := dict.Attr("update")
+	if err != nil {
+		st.Fatal(err)
+	}
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			kv := starlark.MakeInt(i)
+			if err := thread.AddAllocs(starlark.EstimateSize(kv)); err != nil {
+				st.Fatal(err)
+			}
+
+			_, err := starlark.Call(thread, fn, starlark.Tuple{starlark.Tuple{
+				starlark.Tuple{kv, kv},
+				starlark.Tuple{kv, kv},
+			}}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		}
+
+		st.KeepAlive(dict)
+	})
 }
 
 func TestDictValuesAllocs(t *testing.T) {
