@@ -92,8 +92,8 @@ func init() {
 		"int":       MemSafe,
 		"len":       MemSafe,
 		"list":      NotSafe,
-		"max":       NotSafe,
-		"min":       NotSafe,
+		"max":       MemSafe,
+		"min":       MemSafe,
 		"ord":       NotSafe,
 		"print":     MemSafe,
 		"range":     MemSafe,
@@ -943,14 +943,19 @@ func minmax(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	} else {
 		iterable = args
 	}
-	// No need for SafeIterate since only one will be returned.
-	iter := Iterate(iterable)
-	if iter == nil {
-		return nil, fmt.Errorf("%s: %s value is not iterable", b.Name(), iterable.Type())
+	iter, err := SafeIterate(thread, iterable)
+	if err != nil {
+		if err == ErrUnsupported {
+			return nil, fmt.Errorf("%s: %s value is not iterable", b.Name(), iterable.Type())
+		}
+		return nil, err
 	}
 	defer iter.Done()
 	var extremum Value
 	if !iter.Next(&extremum) {
+		if err := iter.Err(); err != nil {
+			return nil, err
+		}
 		return nil, nameErr(b, "argument is an empty sequence")
 	}
 
@@ -988,6 +993,11 @@ func minmax(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 			extremeKey = key
 		}
 	}
+
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+
 	return extremum, nil
 }
 
