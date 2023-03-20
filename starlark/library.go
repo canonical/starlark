@@ -15,6 +15,7 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -83,7 +84,7 @@ func init() {
 		"chr":       NotSafe,
 		"dict":      NotSafe,
 		"dir":       NotSafe,
-		"enumerate": NotSafe,
+		"enumerate": MemSafe,
 		"fail":      NotSafe,
 		"float":     NotSafe,
 		"getattr":   NotSafe,
@@ -473,8 +474,10 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 
-	// TODO: use SafeIterate
-	iter := iterable.Iterate()
+	iter, err := SafeIterate(thread, iterable)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 
 	var pairs []Value
@@ -484,6 +487,11 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		// common case: known length
 		pairs = make([]Value, 0, n)
 		array := make(Tuple, 2*n) // allocate a single backing array
+
+		if err := thread.AddAllocs(EstimateSize(pairs) + EstimateSize(array)); err != nil {
+			return nil, err
+		}
+
 		for i := 0; iter.Next(&x); i++ {
 			pair := array[:2:2]
 			array = array[2:]
@@ -497,8 +505,23 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 			pair := Tuple{MakeInt(start + i), x}
 			pairs = append(pairs, pair)
 		}
+
+		if err := thread.AddAllocs(int64(estimateSliceDirect(reflect.ValueOf(pairs)))); err != nil {
+			return nil, err
+		}
 	}
 
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+
+	resultSize := EstimateSize(List{})
+	for _, pair := range pairs {
+		resultSize += EstimateSize(pair.(Tuple)[0])
+	}
+	if err := thread.AddAllocs(resultSize); err != nil {
+		return nil, err
+	}
 	return NewList(pairs), nil
 }
 

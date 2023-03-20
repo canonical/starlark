@@ -238,6 +238,136 @@ func TestDirAllocs(t *testing.T) {
 }
 
 func TestEnumerateAllocs(t *testing.T) {
+	enumerate, ok := starlark.Universe["enumerate"]
+	if !ok {
+		t.Fatal("no such builtin: enumerate")
+	}
+
+	t.Run("empty result", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{&testIterable{
+					maxN: 10,
+					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+						return starlark.None, nil
+					},
+				}}
+
+				result, err := starlark.Call(thread, enumerate, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("iteration", func(t *testing.T) {
+		t.Run("iterable", func(t *testing.T) {
+			st := startest.From(t)
+
+			st.RequireSafety(starlark.MemSafe)
+			st.SetMaxAllocs(0)
+
+			st.RunThread(func(thread *starlark.Thread) {
+				args := starlark.Tuple{&testIterable{
+					maxN: int(math.Max(1, float64(st.N))),
+					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+						return starlark.None, nil
+					},
+				}}
+
+				result, err := starlark.Call(thread, enumerate, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			})
+		})
+
+		t.Run("sequence", func(t *testing.T) {
+			st := startest.From(t)
+
+			st.RequireSafety(starlark.MemSafe)
+			st.SetMaxAllocs(0)
+
+			st.RunThread(func(thread *starlark.Thread) {
+				args := starlark.Tuple{&testSequence{
+					maxN: int(math.Max(1, float64(st.N))),
+					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+						return starlark.None, nil
+					},
+				}}
+
+				result, err := starlark.Call(thread, enumerate, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			})
+		})
+	})
+
+	t.Run("early-termination", func(t *testing.T) {
+		t.Run("iterable", func(t *testing.T) {
+			st := startest.From(t)
+
+			st.RequireSafety(starlark.MemSafe)
+			st.SetMaxAllocs(0)
+
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.SetMaxAllocs(1)
+
+				// expect early termination? what's the use of this?
+				args := starlark.Tuple{&testIterable{
+					maxN: int(math.Max(1, float64(st.N))),
+					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+						overhead := make([]byte, 0, 16)
+						st.KeepAlive(overhead)
+						return starlark.None, thread.AddAllocs(starlark.EstimateSize(overhead))
+					},
+				}}
+
+				result, err := starlark.Call(thread, enumerate, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			})
+		})
+
+		t.Run("sequence", func(t *testing.T) {
+			st := startest.From(t)
+
+			st.RequireSafety(starlark.MemSafe)
+			st.SetMaxAllocs(0)
+
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.SetMaxAllocs(1)
+
+				// expect early termination? what's the use of this?
+				args := starlark.Tuple{&testSequence{
+					maxN: int(math.Max(1, float64(st.N))),
+					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+						overhead := make([]byte, 0, 16)
+						st.KeepAlive(overhead)
+						return starlark.None, thread.AddAllocs(starlark.EstimateSize(overhead))
+					},
+				}}
+
+				result, err := starlark.Call(thread, enumerate, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			})
+		})
+	})
 }
 
 func TestFailAllocs(t *testing.T) {
