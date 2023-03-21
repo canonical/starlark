@@ -266,7 +266,7 @@ var _ StringBuilder = &SafeStringBuilder{}
 
 // NewSafeStringBuilder returns a StringBuilder which abides by
 // the sandbox limits of this thread.
-func (thread *Thread) NewSafeStringBuilder() *SafeStringBuilder {
+func NewSafeStringBuilder(thread *Thread) *SafeStringBuilder {
 	return &SafeStringBuilder{thread: thread}
 }
 

@@ -294,23 +294,23 @@ func TestSafeStringBuilder(t *testing.T) {
 		var builder starlark.StringBuilder
 		thread.SetMaxAllocs(1)
 
-		builder = thread.NewSafeStringBuilder()
+		builder = starlark.NewSafeStringBuilder(thread)
 		if _, err := builder.Write([]byte{1, 2, 3, 4}); err == nil {
 			st.Errorf("Write shouldn't be able to over allocate")
 		}
 
-		builder = thread.NewSafeStringBuilder()
+		builder = starlark.NewSafeStringBuilder(thread)
 		if _, err := builder.WriteString("Test"); err == nil {
 			st.Errorf("WriteString shouldn't be able to over allocate")
 		}
 
-		builder = thread.NewSafeStringBuilder()
+		builder = starlark.NewSafeStringBuilder(thread)
 		builder.Grow(4)
 		if err := builder.WriteByte(1); err == nil {
 			st.Errorf("WriteByte shouldn't be able to write after an over allocation attempt")
 		}
 
-		builder = thread.NewSafeStringBuilder()
+		builder = starlark.NewSafeStringBuilder(thread)
 		if _, err := builder.WriteRune(utf8.MaxRune); err == nil {
 			st.Errorf("WriteRune shouldn't be able to over allocate")
 		}
