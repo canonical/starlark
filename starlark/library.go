@@ -121,7 +121,7 @@ var (
 		"elems": NewBuiltin("elems", bytes_elems),
 	}
 	bytesMethodSafeties = map[string]Safety{
-		"elems": NotSafe,
+		"elems": IOSafe,
 	}
 
 	dictMethods = map[string]*Builtin{
@@ -136,15 +136,15 @@ var (
 		"values":     NewBuiltin("values", dict_values),
 	}
 	dictMethodSafeties = map[string]Safety{
-		"clear":      NotSafe,
-		"get":        NotSafe,
-		"items":      NotSafe,
-		"keys":       NotSafe,
-		"pop":        NotSafe,
-		"popitem":    NotSafe,
-		"setdefault": NotSafe,
-		"update":     NotSafe,
-		"values":     NotSafe,
+		"clear":      IOSafe,
+		"get":        IOSafe,
+		"items":      IOSafe,
+		"keys":       IOSafe,
+		"pop":        IOSafe,
+		"popitem":    IOSafe,
+		"setdefault": IOSafe,
+		"update":     IOSafe,
+		"values":     IOSafe,
 	}
 
 	listMethods = map[string]*Builtin{
@@ -157,13 +157,13 @@ var (
 		"remove": NewBuiltin("remove", list_remove),
 	}
 	listMethodSafeties = map[string]Safety{
-		"append": NotSafe,
-		"clear":  NotSafe,
-		"extend": NotSafe,
-		"index":  NotSafe,
-		"insert": NotSafe,
-		"pop":    NotSafe,
-		"remove": NotSafe,
+		"append": IOSafe,
+		"clear":  IOSafe,
+		"extend": IOSafe,
+		"index":  IOSafe,
+		"insert": IOSafe,
+		"pop":    IOSafe,
+		"remove": IOSafe,
 	}
 
 	stringMethods = map[string]*Builtin{
@@ -204,48 +204,48 @@ var (
 		"upper":          NewBuiltin("upper", string_upper),
 	}
 	stringMethodSafeties = map[string]Safety{
-		"capitalize":     NotSafe,
-		"codepoint_ords": NotSafe,
-		"codepoints":     NotSafe,
-		"count":          NotSafe,
-		"elem_ords":      NotSafe,
-		"elems":          NotSafe,
-		"endswith":       NotSafe,
-		"find":           NotSafe,
-		"format":         NotSafe,
-		"index":          NotSafe,
-		"isalnum":        NotSafe,
-		"isalpha":        NotSafe,
-		"isdigit":        NotSafe,
-		"islower":        NotSafe,
-		"isspace":        NotSafe,
-		"istitle":        NotSafe,
-		"isupper":        NotSafe,
-		"join":           NotSafe,
-		"lower":          NotSafe,
-		"lstrip":         NotSafe,
-		"partition":      NotSafe,
-		"removeprefix":   NotSafe,
-		"removesuffix":   NotSafe,
-		"replace":        NotSafe,
-		"rfind":          NotSafe,
-		"rindex":         NotSafe,
-		"rpartition":     NotSafe,
-		"rsplit":         NotSafe,
-		"rstrip":         NotSafe,
-		"split":          NotSafe,
-		"splitlines":     NotSafe,
-		"startswith":     NotSafe,
-		"strip":          NotSafe,
-		"title":          NotSafe,
-		"upper":          NotSafe,
+		"capitalize":     IOSafe,
+		"codepoint_ords": IOSafe,
+		"codepoints":     IOSafe,
+		"count":          IOSafe,
+		"elem_ords":      IOSafe,
+		"elems":          IOSafe,
+		"endswith":       IOSafe,
+		"find":           IOSafe,
+		"format":         IOSafe,
+		"index":          IOSafe,
+		"isalnum":        IOSafe,
+		"isalpha":        IOSafe,
+		"isdigit":        IOSafe,
+		"islower":        IOSafe,
+		"isspace":        IOSafe,
+		"istitle":        IOSafe,
+		"isupper":        IOSafe,
+		"join":           IOSafe,
+		"lower":          IOSafe,
+		"lstrip":         IOSafe,
+		"partition":      IOSafe,
+		"removeprefix":   IOSafe,
+		"removesuffix":   IOSafe,
+		"replace":        IOSafe,
+		"rfind":          IOSafe,
+		"rindex":         IOSafe,
+		"rpartition":     IOSafe,
+		"rsplit":         IOSafe,
+		"rstrip":         IOSafe,
+		"split":          IOSafe,
+		"splitlines":     IOSafe,
+		"startswith":     IOSafe,
+		"strip":          IOSafe,
+		"title":          IOSafe,
+		"upper":          IOSafe,
 	}
 
 	setMethods = map[string]*Builtin{
 		"union": NewBuiltin("union", set_union),
 	}
 	setMethodSafeties = map[string]Safety{
-		"union": NotSafe,
+		"union": IOSafe,
 	}
 )
 
