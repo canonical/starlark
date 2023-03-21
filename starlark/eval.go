@@ -270,7 +270,7 @@ func (thread *Thread) NewSafeStringBuilder() *SafeStringBuilder {
 	return &SafeStringBuilder{thread: thread}
 }
 
-func (tb *SafeStringBuilder) checkGrow(n int) error {
+func (tb *SafeStringBuilder) safeGrow(n int) error {
 	if tb.err != nil {
 		return tb.err
 	}
@@ -287,11 +287,11 @@ func (tb *SafeStringBuilder) checkGrow(n int) error {
 }
 
 func (tb *SafeStringBuilder) Grow(n int) {
-	tb.checkGrow(n)
+	tb.safeGrow(n)
 }
 
 func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
-	if err := tb.checkGrow(len(b)); err != nil {
+	if err := tb.safeGrow(len(b)); err != nil {
 		return 0, err
 	}
 
@@ -299,7 +299,7 @@ func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
 }
 
 func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
-	if err := tb.checkGrow(len(s)); err != nil {
+	if err := tb.safeGrow(len(s)); err != nil {
 		return 0, err
 	}
 
@@ -307,7 +307,7 @@ func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
 }
 
 func (tb *SafeStringBuilder) WriteByte(b byte) error {
-	if err := tb.checkGrow(1); err != nil {
+	if err := tb.safeGrow(1); err != nil {
 		return err
 	}
 
@@ -322,7 +322,7 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 		growAmount = utf8.UTFMax
 	}
 
-	if err := tb.checkGrow(growAmount); err != nil {
+	if err := tb.safeGrow(growAmount); err != nil {
 		return 0, err
 	}
 
