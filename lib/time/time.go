@@ -457,8 +457,8 @@ var timeMethods = map[string]builtinMethod{
 }
 
 var timeMethodSafeties = map[string]starlark.Safety{
-	"in_location": starlark.NotSafe,
-	"format":      starlark.NotSafe,
+	"in_location": starlark.NotSafe, // Calls LoadLocation which can load TZ info from disk
+	"format":      starlark.IOSafe,
 }
 
 func timeFormat(fnname string, recV starlark.Value, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
