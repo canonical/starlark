@@ -147,20 +147,35 @@ func (ts *testSequence) String() string       { return "testSequence" }
 func (ts *testSequence) Truth() starlark.Bool { return ts.maxN != 0 }
 func (ts *testSequence) Type() string         { return "testSequence" }
 func (ts *testSequence) Iterate() starlark.Iterator {
-	if ts.maxN <= 0 {
+	if ts.maxN < 0 {
 		panic(fmt.Sprintf("testSequence is unbounded: got upper bound %v", ts.maxN))
 	}
-	return &testIterator{
-		maxN: ts.maxN,
-		nth:  ts.nth,
+	return &testSequenceIterator{
+		testIterator{
+			maxN: ts.maxN,
+			nth:  ts.nth,
+		},
 	}
 }
 func (ts *testSequence) Len() int {
 	ret := ts.maxN
-	if ret <= 0 {
+	if ret < 0 {
 		panic(fmt.Sprintf("testSequence is unbounded: got upper bound %v", ret))
 	}
 	return ret
+}
+
+type testSequenceIterator struct {
+	testIterator
+}
+
+var _ starlark.SafeIterator = &testSequenceIterator{}
+
+func (iter *testSequenceIterator) Next(p *starlark.Value) bool {
+	if iter.maxN == 0 {
+		return false
+	}
+	return iter.testIterator.Next(p)
 }
 
 func TestAbsAllocs(t *testing.T) {
