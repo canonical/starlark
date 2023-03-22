@@ -331,3 +331,30 @@ func TestEstimateString(t *testing.T) {
 		})
 	})
 }
+
+func TestEstimateTaggedStruct(t *testing.T) {
+	st := startest.From(t)
+	st.RunThread(func(thread *starlark.Thread) {
+		value := struct {
+			counted string
+			ignored string `starlark:"ignore-indirect-size"`
+		}{
+			counted: strings.Repeat("Hello, World!", st.N),
+			ignored: strings.Repeat("Hello, World!", st.N),
+		}
+
+		equivalentSizeValue := struct {
+			a, b string
+		}{
+			a: "",
+			b: strings.Repeat("Hello, World!", st.N),
+		}
+
+		valueSize := starlark.EstimateSize(value)
+		expectedSize := starlark.EstimateSize(equivalentSizeValue)
+
+		if valueSize != expectedSize {
+			t.Errorf("struct field not ignored: estimated %d but expected %d", valueSize, expectedSize)
+		}
+	})
+}
