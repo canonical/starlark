@@ -1542,6 +1542,27 @@ func TestStringEndswithAllocs(t *testing.T) {
 }
 
 func TestStringFindAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	haystack := starlark.String("Better safe than sorry")
+	needle := starlark.String("safe")
+
+	fn, err := haystack.Attr("find")
+	if err != nil {
+		st.Fatal(err)
+	}
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			idx, err := starlark.Call(thread, fn, starlark.Tuple{needle}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(idx)
+		}
+	})
 }
 
 func TestStringFormatAllocs(t *testing.T) {
@@ -1609,6 +1630,27 @@ func TestStringFormatAllocs(t *testing.T) {
 }
 
 func TestStringIndexAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	haystack := starlark.String("Better safe than sorry")
+	needle := starlark.String("safe")
+
+	fn, err := haystack.Attr("index")
+	if err != nil {
+		st.Fatal(err)
+	}
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			idx, err := starlark.Call(thread, fn, starlark.Tuple{needle}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(idx)
+		}
+	})
 }
 
 func TestStringIsalnumAllocs(t *testing.T) {
@@ -1925,9 +1967,51 @@ func TestStringReplaceAllocs(t *testing.T) {
 }
 
 func TestStringRfindAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	haystack := starlark.String("Better safe than sorry")
+	needle := starlark.String("safe")
+
+	fn, err := haystack.Attr("rfind")
+	if err != nil {
+		st.Fatal(err)
+	}
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			idx, err := starlark.Call(thread, fn, starlark.Tuple{needle}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(idx)
+		}
+	})
 }
 
 func TestStringRindexAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	haystack := starlark.String("Better safe than sorry")
+	needle := starlark.String("safe")
+
+	fn, err := haystack.Attr("rindex")
+	if err != nil {
+		st.Fatal(err)
+	}
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			idx, err := starlark.Call(thread, fn, starlark.Tuple{needle}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(idx)
+		}
+	})
 }
 
 func TestStringRpartitionAllocs(t *testing.T) {

@@ -211,9 +211,9 @@ var (
 		"elem_ords":      MemSafe,
 		"elems":          MemSafe,
 		"endswith":       MemSafe,
-		"find":           NotSafe,
+		"find":           MemSafe,
 		"format":         MemSafe,
-		"index":          NotSafe,
+		"index":          MemSafe,
 		"isalnum":        MemSafe,
 		"isalpha":        MemSafe,
 		"isdigit":        MemSafe,
@@ -228,8 +228,8 @@ var (
 		"removeprefix":   NotSafe,
 		"removesuffix":   NotSafe,
 		"replace":        MemSafe,
-		"rfind":          NotSafe,
-		"rindex":         NotSafe,
+		"rfind":          MemSafe,
+		"rindex":         MemSafe,
 		"rpartition":     NotSafe,
 		"rsplit":         MemSafe,
 		"rstrip":         MemSafe,
@@ -2072,8 +2072,8 @@ func string_isupper(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·find
-func string_find(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
-	return string_find_impl(b, args, kwargs, true, false)
+func string_find(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	return string_find_impl(thread, b, args, kwargs, true, false)
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·format
@@ -2249,8 +2249,8 @@ func decimal(s string) (x int, ok bool) {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·index
-func string_index(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
-	return string_find_impl(b, args, kwargs, false, false)
+func string_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	return string_find_impl(thread, b, args, kwargs, false, false)
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·join
@@ -2363,13 +2363,13 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·rfind
-func string_rfind(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
-	return string_find_impl(b, args, kwargs, true, true)
+func string_rfind(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	return string_find_impl(thread, b, args, kwargs, true, true)
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·rindex
-func string_rindex(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
-	return string_find_impl(b, args, kwargs, false, true)
+func string_rindex(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	return string_find_impl(thread, b, args, kwargs, false, true)
 }
 
 // https://github.com/google/starlark-go/starlark/blob/master/doc/spec.md#string·startswith
@@ -2662,7 +2662,7 @@ func set_union(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 }
 
 // Common implementation of string_{r}{find,index}.
-func string_find_impl(b *Builtin, args Tuple, kwargs []Tuple, allowError, last bool) (Value, error) {
+func string_find_impl(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple, allowError, last bool) (Value, error) {
 	var sub string
 	var start_, end_ Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &sub, &start_, &end_); err != nil {
@@ -2685,13 +2685,21 @@ func string_find_impl(b *Builtin, args Tuple, kwargs []Tuple, allowError, last b
 	} else {
 		i = strings.Index(slice, sub)
 	}
+	var result Value
 	if i < 0 {
 		if !allowError {
 			return nil, nameErr(b, "substring not found")
 		}
-		return MakeInt(-1), nil
+		result = MakeInt(-1)
+	} else {
+		result = MakeInt(i + start)
 	}
-	return MakeInt(i + start), nil
+
+	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // Common implementation of builtin dict function and dict.update method.
