@@ -2,6 +2,7 @@ package starlark
 
 import (
 	"reflect"
+	"strings"
 	"unsafe"
 )
 
@@ -297,7 +298,7 @@ func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr 
 	result := uintptr(0)
 	t := v.Type()
 	for i := 0; i < v.NumField(); i++ {
-		if tag, ok := t.Field(i).Tag.Lookup("starlark"); ok && tag == "ignore-indirect-size" {
+		if hasTag(t.Field(i), "starlark", "ignore-indirect-size") {
 			continue
 		}
 
@@ -306,6 +307,20 @@ func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr 
 	}
 
 	return result
+}
+
+func hasTag(field reflect.StructField, name, value string) bool {
+	namedTag, ok := field.Tag.Lookup(name)
+	if !ok {
+		return false
+	}
+
+	for _, part := range strings.Split(namedTag, ",") {
+		if part == value {
+			return true
+		}
+	}
+	return false
 }
 
 const (
