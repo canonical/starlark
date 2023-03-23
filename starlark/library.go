@@ -483,12 +483,14 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	var pairs []Value
 	var x Value
 
+	pairSize := EstimateSize(Tuple{nil, nil})
 	if n := Len(iterable); n >= 0 {
 		// common case: known length
 		pairs = make([]Value, 0, n)
 		array := make(Tuple, 2*n) // allocate a single backing array
 
-		if err := thread.AddAllocs(EstimateSize(pairs) + EstimateSize(array)); err != nil {
+		overhead := EstimateSize(pairs) + EstimateSize(array) + int64(n)*pairSize
+		if err := thread.AddAllocs(overhead); err != nil {
 			return nil, err
 		}
 
@@ -502,6 +504,10 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	} else {
 		// non-sequence (unknown length)
 		for i := 0; iter.Next(&x); i++ {
+			if err := thread.AddAllocs(pairSize); err != nil {
+				return nil, err
+			}
+
 			pair := Tuple{MakeInt(start + i), x}
 			pairs = append(pairs, pair)
 		}
