@@ -105,6 +105,7 @@ var _ starlark.SafeIterator = &testIterator{}
 func (it *testIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
 func (it *testIterator) Safety() starlark.Safety            { return starlark.Safe }
 func (it *testIterator) Next(p *starlark.Value) bool {
+	it.n++
 	if it.nth == nil {
 		it.err = errors.New("testIterator called with nil nth function")
 	}
@@ -112,7 +113,7 @@ func (it *testIterator) Next(p *starlark.Value) bool {
 		return false
 	}
 
-	if it.maxN > 0 && it.n >= it.maxN {
+	if it.maxN > 0 && it.n > it.maxN {
 		return false
 	}
 	ret, err := it.nth(it.thread, it.n)
@@ -122,7 +123,6 @@ func (it *testIterator) Next(p *starlark.Value) bool {
 	}
 
 	*p = ret
-	it.n++
 	return true
 }
 func (it *testIterator) Done()      {}
