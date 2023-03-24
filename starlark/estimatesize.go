@@ -303,6 +303,12 @@ func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr 
 	return result
 }
 
+// RoundAllocSize rounds the size of an intended allocation up to the nearest
+// allocation size which can be made by the Go runtime.
+func RoundAllocSize(size int64) int64 {
+	return int64(roundAllocSize(uintptr(size)))
+}
+
 const (
 	tinyAllocMaxSize = 16
 	maxSmallSize     = 32768
