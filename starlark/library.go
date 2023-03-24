@@ -527,7 +527,11 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 
-	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
+	resultSize := EstimateSize(List{})
+	for _, pair := range pairs {
+		resultSize += EstimateSize(pair.(Tuple)[0]) // Count the new integers.
+	}
+	if err := thread.AddAllocs(resultSize); err != nil {
 		return nil, err
 	}
 	return NewList(pairs), nil
