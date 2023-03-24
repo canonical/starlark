@@ -302,8 +302,7 @@ func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr 
 			continue
 		}
 
-		field := v.Field(i)
-		result += estimateSizeIndirect(field, seen)
+		result += estimateSizeIndirect(v.Field(i), seen)
 	}
 
 	return result
