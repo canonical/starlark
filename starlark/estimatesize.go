@@ -314,10 +314,17 @@ func hasTag(field reflect.StructField, name, value string) bool {
 		return false
 	}
 
-	for _, part := range strings.Split(namedTag, ",") {
-		if part == value {
+	for namedTag != "" {
+		currPartEnd := strings.Index(namedTag, ",")
+		if currPartEnd == -1 {
+			currPartEnd = len(namedTag) - 1
+		}
+
+		if namedTag[:currPartEnd] == value {
 			return true
 		}
+
+		namedTag = namedTag[1+currPartEnd:]
 	}
 	return false
 }
