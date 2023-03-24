@@ -346,8 +346,8 @@ func TestEstimateTaggedStruct(t *testing.T) {
 		equivalentSizeValue := struct {
 			a, b string
 		}{
-			a: "",
-			b: strings.Repeat("Hello, World!", st.N),
+			a: strings.Repeat("Hello, World!", st.N),
+			b: "",
 		}
 
 		valueSize := starlark.EstimateSize(value)
