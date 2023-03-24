@@ -81,12 +81,12 @@ func init() {
 		"all":       MemSafe,
 		"bool":      NotSafe,
 		"bytes":     NotSafe,
-		"chr":       NotSafe,
+		"chr":       MemSafe,
 		"dict":      NotSafe,
 		"dir":       NotSafe,
 		"enumerate": MemSafe,
 		"fail":      NotSafe,
-		"float":     NotSafe,
+		"float":     MemSafe,
 		"getattr":   NotSafe,
 		"hasattr":   NotSafe,
 		"hash":      NotSafe,
@@ -215,12 +215,12 @@ var (
 		"find":           NotSafe,
 		"format":         NotSafe,
 		"index":          NotSafe,
-		"isalnum":        NotSafe,
-		"isalpha":        NotSafe,
-		"isdigit":        NotSafe,
-		"islower":        NotSafe,
-		"isspace":        NotSafe,
-		"istitle":        NotSafe,
+		"isalnum":        MemSafe,
+		"isalpha":        MemSafe,
+		"isdigit":        MemSafe,
+		"islower":        MemSafe,
+		"isspace":        MemSafe,
+		"istitle":        MemSafe,
 		"isupper":        NotSafe,
 		"join":           NotSafe,
 		"lower":          NotSafe,
@@ -429,7 +429,11 @@ func chr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if i > unicode.MaxRune {
 		return nil, fmt.Errorf("chr: Unicode code point U+%X out of range (>0x10FFFF)", i)
 	}
-	return String(string(rune(i))), nil
+	ret := Value(String(string(rune(i))))
+	if err := thread.AddAllocs(EstimateSize(ret)); err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict
@@ -486,14 +490,14 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	pairSize := EstimateSize(Tuple{nil, nil})
 	if n := Len(iterable); n >= 0 {
 		// common case: known length
-		pairs = make([]Value, 0, n)
-		array := make(Tuple, 2*n) // allocate a single backing array
-
-		overhead := EstimateSize(pairs) + EstimateSize(array) + int64(n)*pairSize
+		overhead := EstimateMakeSize([]Value{Tuple{}}, n) +
+			EstimateMakeSize([][2]Value{{MakeInt(0), nil}}, n)
 		if err := thread.AddAllocs(overhead); err != nil {
 			return nil, err
 		}
 
+		pairs = make([]Value, 0, n)
+		array := make(Tuple, 2*n) // allocate a single backing array
 		for i := 0; iter.Next(&x); i++ {
 			pair := array[:2:2]
 			array = array[2:]
@@ -503,29 +507,27 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		}
 	} else {
 		// non-sequence (unknown length)
+		pairCost := EstimateSize(Tuple{MakeInt(0), nil})
+		pairsAppender := NewSafeAppender(thread, &pairs)
 		for i := 0; iter.Next(&x); i++ {
-			if err := thread.AddAllocs(pairSize); err != nil {
+			if err := thread.AddAllocs(pairCost); err != nil {
 				return nil, err
 			}
-
 			pair := Tuple{MakeInt(start + i), x}
-			pairs = append(pairs, pair)
+			if err := pairsAppender.Append(pair); err != nil {
+				return nil, err
+			}
 		}
 
 		if err := thread.AddAllocs(int64(estimateSliceDirect(reflect.ValueOf(pairs)))); err != nil {
 			return nil, err
 		}
 	}
-
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
 
-	resultSize := EstimateSize(List{})
-	for _, pair := range pairs {
-		resultSize += EstimateSize(pair.(Tuple)[0])
-	}
-	if err := thread.AddAllocs(resultSize); err != nil {
+	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
 		return nil, err
 	}
 	return NewList(pairs), nil
@@ -565,15 +567,28 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	}
 	switch x := args[0].(type) {
 	case Bool:
+		// thread.AddAllocs is not called as memory is
+		// never allocated for constants.
 		if x {
 			return Float(1.0), nil
 		} else {
 			return Float(0.0), nil
 		}
 	case Int:
-		return x.finiteFloat()
+		var err error
+		var result Value
+		result, err = x.finiteFloat()
+		if err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+			return nil, err
+		}
+		return result, nil
 	case Float:
-		return x, nil
+		// Converting args[0] to x and then returning x as Value
+		// casues an additional allocation, so return args[0] directly.
+		return args[0], nil
 	case String:
 		if x == "" {
 			return nil, fmt.Errorf("float: empty string")
@@ -605,7 +620,11 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		if err != nil {
 			return nil, fmt.Errorf("invalid float literal: %s", s)
 		}
-		return Float(f), nil
+		var result Value = Float(f)
+		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+			return nil, err
+		}
+		return result, nil
 	default:
 		return nil, fmt.Errorf("float got %s, want number or string", x.Type())
 	}
