@@ -457,7 +457,7 @@ var timeMethods = map[string]builtinMethod{
 }
 
 var timeMethodSafeties = map[string]starlark.Safety{
-	"in_location": starlark.NotSafe, // Calls LoadLocation which can load TZ info from disk
+	"in_location": starlark.NotSafe,
 	"format":      starlark.IOSafe,
 }
 
