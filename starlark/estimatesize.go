@@ -296,9 +296,9 @@ func estimateArrayIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 
 func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
-	t := v.Type()
-	for i := 0; i < v.NumField(); i++ {
-		if hasTag(t.Field(i), "starlark", "ignore-indirect-size") {
+	typ := v.Type()
+	for i := 0; i < typ.NumField(); i++ {
+		if hasTag(typ.Field(i), "starlark", "ignore-indirect-size") {
 			continue
 		}
 
