@@ -95,7 +95,7 @@ func init() {
 		"max":       IOSafe,
 		"min":       IOSafe,
 		"ord":       IOSafe,
-		"print":     NotSafe, // IOSafe if thread.Print is IOSafe, otherwise, defers to fmt.Fprintln(os.Stderr, ...)
+		"print":     NotSafe,
 		"range":     IOSafe,
 		"repr":      IOSafe,
 		"reversed":  IOSafe,
