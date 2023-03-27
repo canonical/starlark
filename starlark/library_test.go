@@ -697,6 +697,7 @@ func TestReversedAllocs(t *testing.T) {
 			st := startest.From(t)
 
 			st.RequireSafety(starlark.MemSafe)
+			st.SetMaxAllocs(maxAllocs)
 
 			st.RunThread(func(thread *starlark.Thread) {
 				thread.SetMaxAllocs(maxAllocs)
