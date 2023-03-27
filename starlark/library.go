@@ -224,13 +224,13 @@ var (
 		"join":           NotSafe,
 		"lower":          MemSafe,
 		"lstrip":         MemSafe,
-		"partition":      NotSafe,
+		"partition":      MemSafe,
 		"removeprefix":   NotSafe,
 		"removesuffix":   NotSafe,
 		"replace":        MemSafe,
 		"rfind":          NotSafe,
 		"rindex":         NotSafe,
-		"rpartition":     NotSafe,
+		"rpartition":     MemSafe,
 		"rsplit":         MemSafe,
 		"rstrip":         MemSafe,
 		"split":          MemSafe,
@@ -2299,7 +2299,7 @@ func string_lower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·partition
-func string_partition(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_partition(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := string(b.Receiver().(String))
 	var sep string
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &sep); err != nil {
@@ -2314,7 +2314,15 @@ func string_partition(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	} else {
 		i = strings.LastIndex(recv, sep) // rpartition
 	}
+
+	tupleSize := EstimateMakeSize(Tuple{String("")}, 3)
+	resultSize := EstimateSize(Tuple{})
+	if err := thread.AddAllocs(tupleSize + resultSize); err != nil {
+		return nil, err
+	}
+
 	tuple := make(Tuple, 0, 3)
+
 	if i < 0 {
 		if b.Name()[0] == 'p' {
 			tuple = append(tuple, String(recv), String(""), String(""))
@@ -2322,8 +2330,9 @@ func string_partition(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 			tuple = append(tuple, String(""), String(""), String(recv))
 		}
 	} else {
-		tuple = append(tuple, String(recv[:i]), String(sep), String(recv[i+len(sep):]))
+		tuple = append(tuple, String(recv[:i]), String(recv[i:i+len(sep)]), String(recv[i+len(sep):]))
 	}
+
 	return tuple, nil
 }
 
