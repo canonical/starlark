@@ -209,7 +209,7 @@ func (st *ST) RunString(code string) (ok bool) {
 	}
 
 	var codeErr error
-	st.RunThread(func(thread *starlark.Thread) {
+	ok = st.RunThread(func(thread *starlark.Thread) {
 		// Continue RunThread's test loop
 		if codeErr != nil {
 			return
@@ -218,12 +218,13 @@ func (st *ST) RunString(code string) (ok bool) {
 	})
 	if codeErr != nil {
 		st.Error(codeErr)
+		return false
 	}
-	return !st.abortLoop && codeErr == nil
+	return ok
 }
 
 // RunThread tests a function which has access to a Starlark thread.
-func (st *ST) RunThread(fn func(*starlark.Thread)) {
+func (st *ST) RunThread(fn func(*starlark.Thread)) (ok bool) {
 	if !st.safetyGiven {
 		st.requiredSafety = stSafe
 	}
@@ -238,8 +239,8 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		thread.SetLocal(k, v)
 	}
 
-	stats := st.measureExecution(thread, fn)
-	if st.runFailed {
+	stats, ok := st.measureExecution(thread, fn)
+	if !ok {
 		return
 	}
 
@@ -250,20 +251,24 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 
 	if st.maxAllocs != math.MaxUint64 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
+		ok = false
 	}
 	if st.requiredSafety.Contains(starlark.MemSafe) {
 		if meanDeclaredAllocs > st.maxAllocs {
 			st.Errorf("declared allocations are above maximum (%d > %d)", meanDeclaredAllocs, st.maxAllocs)
+			ok = false
 		}
 
 		// Check memory usage is safe, within mean rounding error (i.e. round(alloc error per N) == 0)
 		if stats.allocSum > thread.Allocs() && (stats.allocSum-thread.Allocs())*2 >= stats.nSum {
 			st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasuredAllocs, meanDeclaredAllocs)
+			ok = false
 		}
 	}
 
 	if st.maxExecutionSteps != math.MaxUint64 && meanExecutionSteps > st.maxExecutionSteps {
 		st.Errorf("execution steps are above maximum (%d > %d)", meanExecutionSteps, st.maxExecutionSteps)
+		ok = false
 	}
 	if meanExecutionSteps < st.minExecutionSteps {
 		st.Errorf("execution steps are below minimum (%d < %d)", meanExecutionSteps, st.minExecutionSteps)
@@ -273,6 +278,8 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 			st.Errorf("execution uses CPU time which is not accounted for")
 		}
 	}
+
+	return ok
 }
 
 // KeepAlive causes the memory of the passed objects to be measured.
@@ -285,7 +292,7 @@ type runStats struct {
 	executionStepsRequired bool
 }
 
-func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) runStats {
+func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) (stats runStats, ok bool) {
 	const nMax = 100_000
 	const memoryMax = 200 * (1 << 20)
 	const timeMax = time.Second
@@ -339,7 +346,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		runtime.KeepAlive(alive)
 
 		if st.runFailed {
-			return runStats{}
+			return runStats{}, false
 		}
 
 		// If st.alive was reallocated, the cost of its new memory block is
@@ -370,7 +377,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		nSum:                   nSum,
 		allocSum:               allocSum,
 		executionStepsRequired: executionStepsRequired,
-	}
+	}, true
 }
 
 // readMemoryUsage returns the number of bytes in use by the Go runtime. If

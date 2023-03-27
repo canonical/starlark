@@ -114,11 +114,14 @@ func TestKeepAlive(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
-		st.RunThread(func(thread *starlark.Thread) {
+		ok := st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.KeepAlive(nil)
 			}
 		})
+		if !ok {
+			t.Error("Runthread returned false")
+		}
 	})
 
 	// Check for exact measuring
@@ -126,12 +129,15 @@ func TestKeepAlive(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(4)
-		st.RunThread(func(thread *starlark.Thread) {
+		ok := st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.KeepAlive(new(int32))
 				thread.AddAllocs(4)
 			}
 		})
+		if !ok {
+			t.Error("Runthread returned false")
+		}
 	})
 
 	// Check for over estimations
@@ -142,12 +148,15 @@ func TestKeepAlive(t *testing.T) {
 		st := startest.From(dummy)
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(4)
-		st.RunThread(func(thread *starlark.Thread) {
+		ok := st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.KeepAlive(new(int32))
 				thread.AddAllocs(20)
 			}
 		})
+		if ok {
+			t.Error("Runthread returned true")
+		}
 		if errLog := dummy.Errors(); errLog != expected {
 			t.Errorf("unexpected error(s): %s", errLog)
 		}
@@ -161,7 +170,7 @@ func TestKeepAlive(t *testing.T) {
 		st := startest.From(dummy)
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(4)
-		st.RunThread(func(thread *starlark.Thread) {
+		ok := st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.KeepAlive(make([]int32, 10))
 				if err := thread.AddAllocs(4); err != nil {
@@ -170,6 +179,9 @@ func TestKeepAlive(t *testing.T) {
 				}
 			}
 		})
+		if ok {
+			t.Error("Runthread returned true")
+		}
 		if errLog := dummy.Errors(); !strings.HasPrefix(errLog, expected) {
 			t.Errorf("unexpected error(s): %s", errLog)
 		}
@@ -182,12 +194,15 @@ func TestKeepAlive(t *testing.T) {
 		st := startest.From(dummy)
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(4)
-		st.RunThread(func(thread *starlark.Thread) {
+		ok := st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.KeepAlive(new(int32))
 				thread.AddAllocs(1)
 			}
 		})
+		if ok {
+			t.Error("Runthread returned true")
+		}
 		if errLog := dummy.Errors(); errLog != expected {
 			t.Errorf("unexpected error(s): %s", errLog)
 		}
@@ -196,11 +211,14 @@ func TestKeepAlive(t *testing.T) {
 	t.Run("check=not-safe", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.NotSafe)
-		st.RunThread(func(thread *starlark.Thread) {
+		ok := st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.KeepAlive(new(int32))
 			}
 		})
+		if !ok {
+			t.Error("Runthread returned false")
+		}
 	})
 
 	t.Run("check=not-safe-capped-allocs", func(t *testing.T) {
@@ -210,12 +228,15 @@ func TestKeepAlive(t *testing.T) {
 		st := startest.From(dummy)
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
-		st.RunThread(func(thread *starlark.Thread) {
+		ok := st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.KeepAlive(new(int32))
 			}
 		})
 
+		if ok {
+			t.Error("Runthread returned true")
+		}
 		if !st.Failed() {
 			t.Error("expected failure")
 		}
@@ -289,11 +310,14 @@ func TestStepBounding(t *testing.T) {
 
 func TestThread(t *testing.T) {
 	st := startest.From(t)
-	st.RunThread(func(thread *starlark.Thread) {
+	ok := st.RunThread(func(thread *starlark.Thread) {
 		if thread == nil {
 			st.Error("received a nil thread")
 		}
 	})
+	if !ok {
+		t.Error("Runthread returned false")
+	}
 }
 
 func TestFailed(t *testing.T) {
@@ -353,6 +377,7 @@ func TestMultipleRunCalls(t *testing.T) {
 
 			dummy := &dummyBase{}
 			st := startest.From(dummy)
+			st.RequireSafety(starlark.NotSafe)
 
 			msgs := []string{"oh no!", "anyway"}
 			for i, msg := range msgs {
@@ -399,11 +424,14 @@ func TestRequireSafety(t *testing.T) {
 
 			st := startest.From(t)
 			st.RequireSafety(starlark.MemSafe | starlark.IOSafe)
-			st.RunThread(func(thread *starlark.Thread) {
+			ok := st.RunThread(func(thread *starlark.Thread) {
 				if _, err := starlark.Call(thread, builtin, nil, nil); err != nil {
 					st.Errorf("unexpected error: %v", err)
 				}
 			})
+			if !ok {
+				t.Error("RunThread returned false")
+			}
 		})
 
 		t.Run("safety=unsafe", func(t *testing.T) {
@@ -413,7 +441,7 @@ func TestRequireSafety(t *testing.T) {
 
 			st := startest.From(t)
 			st.RequireSafety(starlark.MemSafe | starlark.IOSafe)
-			st.RunThread(func(thread *starlark.Thread) {
+			ok := st.RunThread(func(thread *starlark.Thread) {
 				if _, err := starlark.Call(thread, builtin, nil, nil); err == nil {
 					st.Error("expected error")
 				} else {
@@ -423,6 +451,9 @@ func TestRequireSafety(t *testing.T) {
 					}
 				}
 			})
+			if !ok {
+				t.Error("RunThread returned false")
+			}
 		})
 	})
 
@@ -710,6 +741,7 @@ func TestRunStringError(t *testing.T) {
 	for _, test := range tests {
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
+		st.RequireSafety(starlark.NotSafe)
 		ok := st.RunString(fmt.Sprintf("st.error(%s)", test.src))
 		if ok {
 			t.Errorf("%s: RunString returned true", test.name)
