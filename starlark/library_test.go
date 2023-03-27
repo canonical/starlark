@@ -584,6 +584,90 @@ func TestReprAllocs(t *testing.T) {
 }
 
 func TestReversedAllocs(t *testing.T) {
+	reversed, ok := starlark.Universe["reversed"]
+	if !ok {
+		t.Fatal("no such builtin: reversed")
+	}
+
+	t.Run("result", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				iter := &testIterable{
+					maxN: 10,
+					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+						return starlark.None, nil
+					},
+				}
+
+				args := starlark.Tuple{iter}
+				result, err := starlark.Call(thread, reversed, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("iteration", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				maxN: st.N,
+				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+					return starlark.None, nil
+				},
+			}
+
+			result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("early-termination", func(t *testing.T) {
+		const expected = "exceeded memory allocation limits"
+		maxAllocs := uint64(1)
+
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(maxAllocs)
+
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.SetMaxAllocs(maxAllocs)
+
+			var nReached int
+			iter := &testIterable{
+				maxN: st.N,
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					nReached = n
+					return starlark.None, nil
+				},
+			}
+
+			result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
+			if err == nil {
+				st.Error("expected error")
+			} else if err.Error() != expected {
+				st.Errorf("unexpected error: %v", err)
+			}
+			if nReached > 1 && iter.maxN > 1 {
+				st.Errorf("iteration was not terminated early enough")
+			}
+
+			st.KeepAlive(result)
+		})
+	})
 }
 
 func TestSetAllocs(t *testing.T) {
