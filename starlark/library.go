@@ -100,7 +100,7 @@ func init() {
 		"repr":      NotSafe,
 		"reversed":  NotSafe,
 		"set":       NotSafe,
-		"sorted":    NotSafe,
+		"sorted":    MemSafe,
 		"str":       NotSafe,
 		"tuple":     NotSafe,
 		"type":      NotSafe,
@@ -1226,16 +1226,41 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	); err != nil {
 		return nil, err
 	}
-	// TODO: use SafeIterate
-	iter := iterable.Iterate()
+
+	iter, err := SafeIterate(thread, iterable)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 	var values []Value
+	var preallocated bool
 	if n := Len(iterable); n > 0 {
 		values = make(Tuple, 0, n) // preallocate if length is known
+
+		if err := thread.AddAllocs(EstimateSize(values)); err != nil {
+			return nil, err
+		}
+		preallocated = true
 	}
 	var x Value
+	valueSize := int64(unsafe.Sizeof(Value(nil)))
 	for iter.Next(&x) {
 		values = append(values, x)
+
+		if !preallocated {
+			if err := thread.AddAllocs(valueSize); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	if !preallocated {
+		delta := int64(estimateSliceDirect(reflect.ValueOf(values))) - int64(len(values))*valueSize
+		if err := thread.AddAllocs(delta); err != nil {
+			return nil, err
+		}
 	}
 
 	// Derive keys from values by applying key function.
@@ -1256,6 +1281,9 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		sort.Stable(sort.Reverse(slice))
 	} else {
 		sort.Stable(slice)
+	}
+	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
+		return nil, err
 	}
 	return NewList(slice.values), slice.err
 }
