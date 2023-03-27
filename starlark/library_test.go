@@ -589,7 +589,7 @@ func TestReversedAllocs(t *testing.T) {
 		t.Fatal("no such builtin: reversed")
 	}
 
-	t.Run("result", func(t *testing.T) {
+	t.Run("small-result", func(t *testing.T) {
 		st := startest.From(t)
 
 		st.RequireSafety(starlark.MemSafe)
@@ -613,24 +613,47 @@ func TestReversedAllocs(t *testing.T) {
 		})
 	})
 
-	t.Run("iteration", func(t *testing.T) {
-		st := startest.From(t)
+	t.Run("large-result", func(t *testing.T) {
+		t.Run("iterable", func(t *testing.T) {
+			st := startest.From(t)
 
-		st.RequireSafety(starlark.MemSafe)
+			st.RequireSafety(starlark.MemSafe)
 
-		st.RunThread(func(thread *starlark.Thread) {
-			iter := &testIterable{
-				maxN: st.N,
-				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-					return starlark.None, nil
-				},
-			}
+			st.RunThread(func(thread *starlark.Thread) {
+				iter := &testIterable{
+					maxN: st.N,
+					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+						return starlark.None, nil
+					},
+				}
 
-			result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
-			if err != nil {
-				st.Error(err)
-			}
-			st.KeepAlive(result)
+				result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			})
+		})
+
+		t.Run("sequence", func(t *testing.T) {
+			st := startest.From(t)
+
+			st.RequireSafety(starlark.MemSafe)
+
+			st.RunThread(func(thread *starlark.Thread) {
+				iter := &testIterable{
+					maxN: st.N,
+					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+						return starlark.None, nil
+					},
+				}
+
+				result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			})
 		})
 	})
 
@@ -638,34 +661,67 @@ func TestReversedAllocs(t *testing.T) {
 		const expected = "exceeded memory allocation limits"
 		maxAllocs := uint64(1)
 
-		st := startest.From(t)
+		t.Run("iterable", func(t *testing.T) {
+			st := startest.From(t)
 
-		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(maxAllocs)
+			st.RequireSafety(starlark.MemSafe)
+			st.SetMaxAllocs(maxAllocs)
 
-		st.RunThread(func(thread *starlark.Thread) {
-			thread.SetMaxAllocs(maxAllocs)
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.SetMaxAllocs(maxAllocs)
 
-			var nReached int
-			iter := &testIterable{
-				maxN: st.N,
-				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					nReached = n
-					return starlark.None, nil
-				},
-			}
+				var nReached int
+				iter := &testIterable{
+					maxN: st.N,
+					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						nReached = n
+						return starlark.None, nil
+					},
+				}
 
-			result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
-			if err == nil {
-				st.Error("expected error")
-			} else if err.Error() != expected {
-				st.Errorf("unexpected error: %v", err)
-			}
-			if nReached > 1 && iter.maxN > 1 {
-				st.Errorf("iteration was not terminated early enough")
-			}
+				result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
+				if err == nil {
+					st.Error("expected error")
+				} else if err.Error() != expected {
+					st.Errorf("unexpected error: %v", err)
+				}
+				if nReached > 1 && iter.maxN > 1 {
+					st.Errorf("iteration was not terminated early enough")
+				}
 
-			st.KeepAlive(result)
+				st.KeepAlive(result)
+			})
+		})
+
+		t.Run("sequence", func(t *testing.T) {
+			st := startest.From(t)
+
+			st.RequireSafety(starlark.MemSafe)
+
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.SetMaxAllocs(maxAllocs)
+
+				var nReached int
+				iter := &testSequence{
+					maxN: st.N,
+					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						nReached = n
+						return starlark.None, nil
+					},
+				}
+
+				result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
+				if err == nil {
+					st.Error("expected error")
+				} else if err.Error() != expected {
+					st.Errorf("unexpected error: %v", err)
+				}
+				if nReached > 0 {
+					st.Errorf("iteration was not terminated early enough")
+				}
+
+				st.KeepAlive(result)
+			})
 		})
 	})
 }
