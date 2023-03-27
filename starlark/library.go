@@ -1192,25 +1192,22 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	var preallocated bool
 	if n := Len(args[0]); n >= 0 {
 		elems = make([]Value, 0, n) // preallocate if length known
-		preallocated = true
+
 		if err := thread.AddAllocs(EstimateSize(elems)); err != nil {
 			return nil, err
 		}
+		preallocated = true
 	}
 	var x Value
-	var prevCap int
-	var prevCost int64
+	valueSize := int64(unsafe.Sizeof(Value(nil)))
 	for iter.Next(&x) {
 		elems = append(elems, x)
 
-		if !preallocated && cap(elems) != prevCap {
-			newCost := int64(estimateSliceDirect(reflect.ValueOf(elems)))
-			if err := thread.AddAllocs(newCost - prevCost); err != nil {
+		if !preallocated {
+			if err := thread.AddAllocs(valueSize); err != nil {
 				return nil, err
 			}
-			prevCost = newCost
 		}
-		prevCap = cap(elems)
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
@@ -1220,6 +1217,12 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 		elems[i], elems[n-1-i] = elems[n-1-i], elems[i]
 	}
 
+	if !preallocated {
+		delta := int64(estimateSliceDirect(reflect.ValueOf(elems))) - int64(len(elems))*valueSize
+		if err := thread.AddAllocs(delta); err != nil {
+			return nil, err
+		}
+	}
 	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
 		return nil, err
 	}
