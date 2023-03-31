@@ -30,7 +30,7 @@ func TestModuleSafeties(t *testing.T) {
 	}
 }
 
-func testUnary(t *testing.T, name string, inputs []float64) {
+func testUnarySafety(t *testing.T, name string, inputs []float64) {
 	builtin, ok := starlarkmath.Module.Members[name]
 	if !ok {
 		t.Fatalf("no such builtin: math.%s", name)
@@ -62,7 +62,7 @@ func TestMathCopysignAllocs(t *testing.T) {
 }
 
 func TestMathFabsAllocs(t *testing.T) {
-	testUnary(t, "fabs", []float64{0, 1, -1, 1 << 60, -1 << 60})
+	testUnarySafety(t, "fabs", []float64{0, 1, -1, 1 << 60, -1 << 60})
 }
 
 func TestMathFloorAllocs(t *testing.T) {
@@ -78,82 +78,82 @@ func TestMathRemainderAllocs(t *testing.T) {
 }
 
 func TestMathRoundAllocs(t *testing.T) {
-	testUnary(t, "round", []float64{0, 0.5, 1})
+	testUnarySafety(t, "round", []float64{0, 0.5, 1})
 }
 
 func TestMathExpAllocs(t *testing.T) {
-	testUnary(t, "exp", []float64{0, 0.5, 1, -1})
+	testUnarySafety(t, "exp", []float64{0, 0.5, 1, -1})
 }
 
 func TestMathSqrtAllocs(t *testing.T) {
-	testUnary(t, "sqrt", []float64{0, 1, 25})
+	testUnarySafety(t, "sqrt", []float64{0, 1, 25})
 }
 
 func TestMathAcosAllocs(t *testing.T) {
-	testUnary(t, "acos", []float64{0, 1, -0.5})
+	testUnarySafety(t, "acos", []float64{0, 1, -0.5})
 }
 
 func TestMathAsinAllocs(t *testing.T) {
-	testUnary(t, "asin", []float64{0, 1, -0.5})
+	testUnarySafety(t, "asin", []float64{0, 1, -0.5})
 }
 
 func TestMathAtanAllocs(t *testing.T) {
-	testUnary(t, "atan", []float64{0, 1, -100})
+	testUnarySafety(t, "atan", []float64{0, 1, -100})
 }
 
 func TestMathAtan2Allocs(t *testing.T) {
 }
 
 func TestMathCosAllocs(t *testing.T) {
-	testUnary(t, "cos", []float64{0, math.Pi, -math.Pi / 2})
+	testUnarySafety(t, "cos", []float64{0, math.Pi, -math.Pi / 2})
 }
 
 func TestMathHypotAllocs(t *testing.T) {
 }
 
 func TestMathSinAllocs(t *testing.T) {
-	testUnary(t, "sin", []float64{0, math.Pi, -math.Pi / 2})
+	testUnarySafety(t, "sin", []float64{0, math.Pi, -math.Pi / 2})
 }
 
 func TestMathTanAllocs(t *testing.T) {
-	testUnary(t, "tan", []float64{0, math.Pi / 2, -math.Pi / 2})
+	testUnarySafety(t, "tan", []float64{0, math.Pi / 2, -math.Pi / 2})
 }
 
 func TestMathDegreesAllocs(t *testing.T) {
-	testUnary(t, "degrees", []float64{0, math.Pi, -math.Pi})
+	testUnarySafety(t, "degrees", []float64{0, math.Pi, -math.Pi})
 }
 
 func TestMathRadiansAllocs(t *testing.T) {
-	testUnary(t, "radians", []float64{0, 90, -90})
+	testUnarySafety(t, "radians", []float64{0, 90, -90})
 }
 
 func TestMathAcoshAllocs(t *testing.T) {
-	testUnary(t, "acosh", []float64{1, 1 << 60})
+	testUnarySafety(t, "acosh", []float64{1, 1 << 60})
 }
 
 func TestMathAsinhAllocs(t *testing.T) {
-	testUnary(t, "asinh", []float64{0, 1000000000, -1000000000})
+	testUnarySafety(t, "asinh", []float64{0, 1000000000, -1000000000})
 }
 
 func TestMathAtanhAllocs(t *testing.T) {
-	testUnary(t, "atanh", []float64{0, 0.999, -0.999})
+	testUnarySafety(t, "atanh", []float64{0, 0.999, -0.999})
 }
 
 func TestMathCoshAllocs(t *testing.T) {
-	testUnary(t, "cosh", []float64{0, 100, -100})
+	testUnarySafety(t, "cosh", []float64{0, 100, -100})
 }
 
 func TestMathSinhAllocs(t *testing.T) {
-	testUnary(t, "sinh", []float64{0, 100, -100})
+	testUnarySafety(t, "sinh", []float64{0, 100, -100})
 }
 
 func TestMathTanhAllocs(t *testing.T) {
-	testUnary(t, "tanh", []float64{0, 100, -100})
+	testUnarySafety(t, "tanh", []float64{0, 100, -100})
 }
 
 func TestMathLogAllocs(t *testing.T) {
 }
 
 func TestMathGammaAllocs(t *testing.T) {
-	testUnary(t, "gamma", []float64{0, 1, 170})
+	testUnarySafety(t, "gamma", []float64{0, 1, 170})
 }
