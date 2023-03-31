@@ -33,7 +33,7 @@ func TestModuleSafeties(t *testing.T) {
 func testUnary(t *testing.T, name string, inputs []float64) {
 	builtin, ok := starlarkmath.Module.Members[name]
 	if !ok {
-		t.Fatalf("no such builtin: %s", name)
+		t.Fatalf("no such builtin: math.%s", name)
 	}
 
 	for _, input := range inputs {
