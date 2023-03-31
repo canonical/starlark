@@ -5,6 +5,7 @@ import (
 
 	"github.com/canonical/starlark/lib/json"
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/startest"
 )
 
 func TestModuleSafeties(t *testing.T) {
@@ -35,4 +36,19 @@ func TestJsonDecodeAllocs(t *testing.T) {
 }
 
 func TestJsonIndentAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	obj := starlark.String(`{"l":[[[[[[{"i":10,"n":null}]]]]]]}`)
+	fn := json.Module.Members["indent"]
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		result, err := starlark.Call(thread, fn, starlark.Tuple{obj}, nil)
+
+		if err != nil {
+			st.Error(err)
+		}
+
+		st.KeepAlive(result)
+	})
 }

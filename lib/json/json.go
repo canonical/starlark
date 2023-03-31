@@ -81,7 +81,7 @@ var Module = &starlarkstruct.Module{
 var safeties = map[string]starlark.Safety{
 	"encode": starlark.NotSafe,
 	"decode": starlark.NotSafe,
-	"indent": starlark.NotSafe,
+	"indent": starlark.MemSafe,
 }
 
 func init() {
@@ -256,10 +256,48 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	}
 
 	buf := new(bytes.Buffer)
+	buf.Grow(len(str)) // Preallocate since that's the least amount of bytes written
+
+	// There is no way to overload the `buf` calls, so either the entire
+	// logic is rewritten or an estimation is made.
+	// In general, this function will allocate transiently at least 3 times
+	// the original string (best case):
+	//  - once in the converision `[]byte(str)`;
+	//  - once while copying the result (+ indentation) in `buf`;
+	//  - once in the `buf.String()` call (+ indentation).
+	// To be on the safe side, unfortunately, the worst case should considered.
+	// In case of indentation, the worst case is a recursive list of lists as
+	// it adds a new level of indentation every 2 characters. Clearly, this is
+	// a quadratic growth as the increment grows linearly.
+
+	// Taking into account tabs and newlines and working out the algebra, the
+	// worst case can be compacted in the quadratic formula:
+	n := len(str)
+	worstCase := (n*n)/4 + n - 1
+
+	// This makes this function most likely unusable in the context of a
+	// script, but there are only two other approaces to tackle this part:
+	// - mark the function as **not** MemSafe, which makes the function
+	//   unusable as well;
+	// - copy-paste (e.g. rewrite) the indenting logic, so that it uses
+	//   a `StringBuilder` instead.
+	// The second approach has the potential of actually reduce the
+	// transient allocation and speed up the execution, but it's probably
+	// not worthy for a "pretty print" function.
+	if err := thread.CheckAllocs(int64(len(str) + worstCase*2)); err != nil {
+		return nil, err
+	}
+
 	if err := json.Indent(buf, []byte(str), prefix, indent); err != nil {
 		return nil, fmt.Errorf("%s: %v", b.Name(), err)
 	}
-	return starlark.String(buf.String()), nil
+
+	var result starlark.Value = starlark.String(buf.String())
+	if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (_ starlark.Value, err error) {
