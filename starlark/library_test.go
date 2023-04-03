@@ -1231,7 +1231,7 @@ func TestDictUpdateAllocs(t *testing.T) {
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			kv := starlark.MakeInt(i)
+			var kv starlark.Value = starlark.MakeInt(i)
 			if err := thread.AddAllocs(starlark.EstimateSize(kv)); err != nil {
 				st.Fatal(err)
 			}
