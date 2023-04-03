@@ -15,7 +15,6 @@ import (
 	"math"
 	"math/big"
 	"os"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -487,6 +486,10 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	var pairs []Value
 	var x Value
 
+	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
+		return nil, err
+	}
+
 	if n := Len(iterable); n >= 0 {
 		// common case: known length
 		overhead := EstimateMakeSize([]Value{Tuple{}}, n) +
@@ -516,10 +519,6 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 			if err := pairsAppender.Append(pair); err != nil {
 				return nil, err
 			}
-		}
-
-		if err := thread.AddAllocs(int64(estimateSliceDirect(reflect.ValueOf(pairs)))); err != nil {
-			return nil, err
 		}
 	}
 	if err := iter.Err(); err != nil {
