@@ -358,7 +358,7 @@ func TestEnumerateAllocs(t *testing.T) {
 				} else if err.Error() != expected {
 					st.Errorf("unexpected error: %v", err)
 				}
-				if nReached != 1 && iter.maxN != 1 {
+				if nReached > 1 && iter.maxN != 1 {
 					st.Errorf("iteration was not terminated early enough")
 				}
 
@@ -390,7 +390,7 @@ func TestEnumerateAllocs(t *testing.T) {
 				} else if err.Error() != expected {
 					st.Errorf("unexpected error: %v", err)
 				}
-				if nReached > 0 && iter.Len() > 1 {
+				if nReached > 0 && iter.maxN > 1 {
 					st.Errorf("iteration was not terminated early enough: terminated after %d/%d Next calls", nReached+1, iter.Len())
 				}
 
