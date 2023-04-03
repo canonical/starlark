@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
 	"unsafe"
@@ -560,4 +561,24 @@ func TestEstimateMakeSize(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestRoundAllocSize(t *testing.T) {
+	sliceHeaderSize := starlark.RoundAllocSize(int64(unsafe.Sizeof(reflect.SliceHeader{})))
+
+	for _, intendedSize := range []int64{4, 8, 12, 16, 100, 1000, 10000} {
+		st := startest.From(t)
+
+		st.SetMaxAllocs(uint64(starlark.RoundAllocSize(intendedSize)) + uint64(sliceHeaderSize))
+
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				st.KeepAlive(make([]byte, 0, intendedSize))
+
+				if err := thread.AddAllocs(sliceHeaderSize + starlark.RoundAllocSize(intendedSize)); err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	}
 }
