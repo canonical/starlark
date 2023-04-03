@@ -108,21 +108,21 @@ var Module = &starlarkstruct.Module{
 }
 var safeties = map[string]starlark.Safety{
 	"ceil":      starlark.NotSafe,
-	"copysign":  starlark.NotSafe,
+	"copysign":  starlark.MemSafe,
 	"fabs":      starlark.MemSafe,
 	"floor":     starlark.NotSafe,
-	"mod":       starlark.NotSafe,
-	"pow":       starlark.NotSafe,
-	"remainder": starlark.NotSafe,
+	"mod":       starlark.MemSafe,
+	"pow":       starlark.MemSafe,
+	"remainder": starlark.MemSafe,
 	"round":     starlark.MemSafe,
 	"exp":       starlark.MemSafe,
 	"sqrt":      starlark.MemSafe,
 	"acos":      starlark.MemSafe,
 	"asin":      starlark.MemSafe,
 	"atan":      starlark.MemSafe,
-	"atan2":     starlark.NotSafe,
+	"atan2":     starlark.MemSafe,
 	"cos":       starlark.MemSafe,
-	"hypot":     starlark.NotSafe,
+	"hypot":     starlark.MemSafe,
 	"sin":       starlark.MemSafe,
 	"tan":       starlark.MemSafe,
 	"degrees":   starlark.MemSafe,
@@ -185,6 +185,9 @@ func newBinaryBuiltin(name string, fn func(float64, float64) float64) *starlark.
 	return starlark.NewBuiltin(name, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		var x, y floatOrInt
 		if err := starlark.UnpackPositionalArgs(name, args, kwargs, 2, &x, &y); err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(floatSize); err != nil {
 			return nil, err
 		}
 		return starlark.Float(fn(float64(x), float64(y))), nil
