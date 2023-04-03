@@ -167,7 +167,7 @@ func (p *floatOrInt) Unpack(v starlark.Value) error {
 // newUnaryBuiltin wraps a unary floating-point Go function
 // as a Starlark built-in that accepts int or float arguments.
 func newUnaryBuiltin(name string, fn func(float64) float64) *starlark.Builtin {
-	return starlark.NewBuiltinWithSafety(name, starlark.MemSafe, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	return starlark.NewBuiltin(name, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		var x floatOrInt
 		if err := starlark.UnpackPositionalArgs(name, args, kwargs, 1, &x); err != nil {
 			return nil, err
