@@ -1564,35 +1564,31 @@ func dict_items(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	// This function will return a list of `Tuple` (wrapped as values) of length
-	// `len` (wher `len` is the length of the array).
-	// Then it will convert this list in a list of `Values` (allocating each `Tuple`)
-	// So it can take rought twice the size it's returning. For this case it is worth
-	// it to check if there is enough transient memory left.
 	receiver := b.Receiver().(*Dict)
-	len := uintptr(receiver.Len())
+	len := receiver.Len()
 
-	// Rough estimation, just to check not to go too over the bound
-	transientMemory := unsafe.Sizeof(Tuple{}) * len
-	returnedMemory := (unsafe.Sizeof(Value(nil))*3 + unsafe.Sizeof(Tuple{})) * len
-	if err := thread.CheckAllocs(int64(transientMemory + returnedMemory)); err != nil {
+	// dict.Items() allocates a single backing array for the tuples.
+	backingArraySize := EstimateMakeSize([]Value{}, len*2)
+	resSize := EstimateMakeSize([]Value{Tuple{}}, len)
+	resultSize := EstimateSize(&List{})
+	if err := thread.AddAllocs(resSize + backingArraySize + resultSize); err != nil {
+		return nil, err
+	}
+
+	// There is also a transient allocation for the items
+	itemsSize := EstimateMakeSize([]Tuple{}, len)
+	if err := thread.CheckAllocs(itemsSize); err != nil {
 		return nil, err
 	}
 
 	items := receiver.Items()
 	res := make([]Value, len)
-	result := NewList(res)
-	listMemory := EstimateSize(result)
+
 	for i, item := range items {
 		res[i] = item
 	}
-	itemsMemory := EstimateSize(Tuple{nil, nil}) * int64(len)
 
-	if err := thread.AddAllocs(listMemory + itemsMemory); err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return NewList(res), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·keys
