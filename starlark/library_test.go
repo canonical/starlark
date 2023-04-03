@@ -416,9 +416,47 @@ func TestStringPartitionAllocs(t *testing.T) {
 }
 
 func TestStringRemoveprefixAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	str := starlark.String("deadbeef")
+	fn, err := str.Attr("removeprefix")
+	if err != nil {
+		st.Fatal(err)
+	}
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			value, err := starlark.Call(thread, fn, starlark.Tuple{starlark.String("beef")}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(value)
+		}
+	})
 }
 
 func TestStringRemovesuffixAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	str := starlark.String("deadbeef")
+	fn, err := str.Attr("removesuffix")
+	if err != nil {
+		st.Fatal(err)
+	}
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			value, err := starlark.Call(thread, fn, starlark.Tuple{starlark.String("beef")}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(value)
+		}
+	})
 }
 
 func TestStringReplaceAllocs(t *testing.T) {

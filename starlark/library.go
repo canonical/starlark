@@ -225,8 +225,8 @@ var (
 		"lower":          NotSafe,
 		"lstrip":         NotSafe,
 		"partition":      NotSafe,
-		"removeprefix":   NotSafe,
-		"removesuffix":   NotSafe,
+		"removeprefix":   MemSafe,
+		"removesuffix":   MemSafe,
 		"replace":        NotSafe,
 		"rfind":          NotSafe,
 		"rindex":         NotSafe,
@@ -2072,7 +2072,7 @@ func string_partition(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·removeprefix
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·removesuffix
-func string_removefix(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_removefix(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := string(b.Receiver().(String))
 	var fix string
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &fix); err != nil {
@@ -2083,6 +2083,11 @@ func string_removefix(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	} else {
 		recv = strings.TrimSuffix(recv, fix)
 	}
+
+	if err := thread.AddAllocs(EstimateSize("")); err != nil {
+		return nil, err
+	}
+
 	return String(recv), nil
 }
 
