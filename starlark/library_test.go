@@ -2288,6 +2288,37 @@ func TestStringUpperAllocs(t *testing.T) {
 }
 
 func TestSetUnionAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	set := starlark.NewSet(10)
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		fn, err := set.Attr("union")
+		if err != nil {
+			st.Fatal(err)
+		}
+
+		it := testIterable{
+			maxN: st.N,
+			nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+				result := starlark.MakeInt(n)
+				if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+					return nil, err
+				}
+
+				return result, nil
+			},
+		}
+
+		result, err := starlark.Call(thread, fn, starlark.Tuple{&it}, nil)
+		if err != nil {
+			st.Error(err)
+		}
+
+		st.KeepAlive(result)
+		set = result.(*starlark.Set)
+	})
 }
 
 func TestSafeIterateAllocs(t *testing.T) {
