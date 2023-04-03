@@ -443,6 +443,31 @@ func TestStringSplitAllocs(t *testing.T) {
 }
 
 func TestStringSplitlinesAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	str := starlark.String(`
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+Suspendisse porta ipsum a purus pharetra sagittis.
+Fusce tristique ex non fermentum suscipit.
+Curabitur nec velit fringilla arcu lacinia commodo.`)
+
+	fn, err := str.Attr("splitlines")
+	if err != nil {
+		st.Fatal(err)
+	}
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, fn, nil, nil)
+
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringStartswithAllocs(t *testing.T) {

@@ -234,7 +234,7 @@ var (
 		"rsplit":         NotSafe,
 		"rstrip":         NotSafe,
 		"split":          NotSafe,
-		"splitlines":     NotSafe,
+		"splitlines":     MemSafe,
 		"startswith":     NotSafe,
 		"strip":          NotSafe,
 		"title":          NotSafe,
@@ -2323,7 +2323,7 @@ func splitspace(s string, max int) []string {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·splitlines
-func string_splitlines(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_splitlines(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var keepends bool
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &keepends); err != nil {
 		return nil, err
@@ -2340,10 +2340,18 @@ func string_splitlines(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 			lines = lines[:len(lines)-1]
 		}
 	}
+
+	listSize := EstimateSize(&List{})
+	valuesSize := EstimateMakeSize([]Value{String("")}, len(lines))
+	if err := thread.AddAllocs(listSize + valuesSize); err != nil {
+		return nil, err
+	}
+
 	list := make([]Value, len(lines))
 	for i, x := range lines {
 		list[i] = String(x)
 	}
+
 	return NewList(list), nil
 }
 
