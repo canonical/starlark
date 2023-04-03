@@ -137,6 +137,8 @@ var safeties = map[string]starlark.Safety{
 	"gamma":     starlark.MemSafe,
 }
 
+var floatSize = starlark.EstimateSize(starlark.Float(0))
+
 func init() {
 	for name, safety := range safeties {
 		if v, ok := Module.Members[name]; ok {
@@ -165,8 +167,6 @@ func (p *floatOrInt) Unpack(v starlark.Value) error {
 // newUnaryBuiltin wraps a unary floating-point Go function
 // as a Starlark built-in that accepts int or float arguments.
 func newUnaryBuiltin(name string, fn func(float64) float64) *starlark.Builtin {
-	floatSize := starlark.EstimateSize(starlark.Float(0))
-
 	return starlark.NewBuiltinWithSafety(name, starlark.MemSafe, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		var x floatOrInt
 		if err := starlark.UnpackPositionalArgs(name, args, kwargs, 1, &x); err != nil {
