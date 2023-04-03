@@ -15,7 +15,6 @@ import (
 	"math"
 	"math/big"
 	"os"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -487,11 +486,14 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	var pairs []Value
 	var x Value
 
+	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
+		return nil, err
+	}
+
+	costPerN := EstimateSize(Tuple{MakeInt(0), nil})
 	if n := Len(iterable); n >= 0 {
 		// common case: known length
-		overhead := EstimateMakeSize([]Value{Tuple{}}, n) +
-			EstimateMakeSize([][2]Value{{MakeInt(0), nil}}, n)
-		if err := thread.AddAllocs(overhead); err != nil {
+		if err := thread.AddAllocs(int64(n) * costPerN); err != nil {
 			return nil, err
 		}
 
@@ -507,10 +509,9 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		}
 	} else {
 		// non-sequence (unknown length)
-		pairCost := EstimateSize(Tuple{MakeInt(0), nil})
 		pairsAppender := NewSafeAppender(thread, &pairs)
 		for i := 0; iter.Next(&x); i++ {
-			if err := thread.AddAllocs(pairCost); err != nil {
+			if err := thread.AddAllocs(costPerN); err != nil {
 				return nil, err
 			}
 			pair := Tuple{MakeInt(start + i), x}
@@ -519,7 +520,8 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 			}
 		}
 
-		if err := thread.AddAllocs(int64(estimateSliceDirect(reflect.ValueOf(pairs)))); err != nil {
+		overhead := RoundAllocSize(int64(cap(pairs))*costPerN) - int64(len(pairs))*costPerN
+		if err := thread.AddAllocs(overhead); err != nil {
 			return nil, err
 		}
 	}
@@ -527,13 +529,6 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 
-	resultSize := EstimateSize(List{})
-	for _, pair := range pairs {
-		resultSize += EstimateSize(pair.(Tuple)[0]) // Count the new integers.
-	}
-	if err := thread.AddAllocs(resultSize); err != nil {
-		return nil, err
-	}
 	return NewList(pairs), nil
 }
 
