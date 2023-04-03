@@ -487,7 +487,6 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	var pairs []Value
 	var x Value
 
-	pairSize := EstimateSize(Tuple{nil, nil})
 	if n := Len(iterable); n >= 0 {
 		// common case: known length
 		overhead := EstimateMakeSize([]Value{Tuple{}}, n) +
