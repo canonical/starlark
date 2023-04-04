@@ -215,6 +215,69 @@ func TestGetattrAllocs(t *testing.T) {
 }
 
 func TestHasattrAllocs(t *testing.T) {
+	fn := starlark.Universe["hasattr"]
+
+	objs := []starlark.HasAttrs{
+		starlark.String(""),
+		starlark.NewDict(0),
+		starlark.NewList(nil),
+		starlark.NewSet(0),
+		starlark.Bytes(""),
+	}
+
+	t.Run("missing", func(t *testing.T) {
+		st := startest.From(t)
+
+		missing := starlark.String("missing-method")
+
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				for _, obj := range objs {
+					result, err := starlark.Call(thread, fn, starlark.Tuple{obj, missing}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+
+					if result != starlark.False {
+						st.Error("missing method is present")
+					}
+
+					st.KeepAlive(result)
+				}
+			}
+		})
+	})
+
+	t.Run("present", func(t *testing.T) {
+		st := startest.From(t)
+
+		attrs := []string{}
+
+		for _, obj := range objs {
+			attrs = append(attrs, obj.AttrNames()[0])
+		}
+
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				for j, obj := range objs {
+					result, err := starlark.Call(thread, fn, starlark.Tuple{obj, starlark.String(attrs[j])}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+
+					if result != starlark.True {
+						st.Error("declared method is not present")
+					}
+
+					st.KeepAlive(result)
+				}
+			}
+		})
+	})
 }
 
 func TestHashAllocs(t *testing.T) {
