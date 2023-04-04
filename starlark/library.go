@@ -21,6 +21,7 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
+	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -486,10 +487,10 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 
-	costPerN := EstimateSize(Tuple{MakeInt(0), nil})
+	costPerN := EstimateSize(Tuple{MakeInt(0), nil}) + int64(unsafe.Sizeof(Value(nil)))
 	if n := Len(iterable); n >= 0 {
 		// common case: known length
-		if err := thread.AddAllocs(int64(n) * costPerN); err != nil {
+		if err := thread.AddAllocs(RoundAllocSize(int64(n) * costPerN)); err != nil {
 			return nil, err
 		}
 

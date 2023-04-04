@@ -347,7 +347,7 @@ func TestEnumerateAllocs(t *testing.T) {
 
 	t.Run("early-termination", func(t *testing.T) {
 		const expected = "exceeded memory allocation limits"
-		maxAllocs := uint64(100)
+		maxAllocs := uint64(40)
 
 		t.Run("iterable", func(t *testing.T) {
 			st := startest.From(t)
