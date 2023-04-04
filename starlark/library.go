@@ -86,7 +86,7 @@ func init() {
 		"enumerate": NotSafe,
 		"fail":      NotSafe,
 		"float":     NotSafe,
-		"getattr":   NotSafe,
+		"getattr":   MemSafe,
 		"hasattr":   NotSafe,
 		"hash":      NotSafe,
 		"int":       MemSafe,
@@ -606,6 +606,9 @@ func getattr(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 			return nil, nameErr(b, err)
 		}
 		if v != nil {
+			if err := thread.AddAllocs(EstimateSize(v)); err != nil {
+				return nil, err
+			}
 			return v, nil
 		}
 		// (nil, nil) => no such field
