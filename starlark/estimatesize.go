@@ -298,7 +298,7 @@ func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr 
 	result := uintptr(0)
 	typ := v.Type()
 	for i := 0; i < typ.NumField(); i++ {
-		if hasTag(typ.Field(i), "starlark", "ignore-indirect-size") {
+		if hasTag(typ.Field(i), "size", "extern") {
 			continue
 		}
 

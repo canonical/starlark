@@ -337,7 +337,7 @@ func TestEstimateTaggedStruct(t *testing.T) {
 	st.RunThread(func(thread *starlark.Thread) {
 		value := struct {
 			counted string
-			ignored string `starlark:"XXX,ignore-indirect-size,XXX"`
+			ignored string `size:"XXX,extern,XXX"`
 		}{
 			counted: strings.Repeat("Hello, World!", st.N),
 			ignored: strings.Repeat("Hello, World!", st.N),
