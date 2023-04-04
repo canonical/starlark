@@ -133,7 +133,7 @@ var safeties = map[string]starlark.Safety{
 	"cosh":      starlark.MemSafe,
 	"sinh":      starlark.MemSafe,
 	"tanh":      starlark.MemSafe,
-	"log":       starlark.NotSafe,
+	"log":       starlark.MemSafe,
 	"gamma":     starlark.MemSafe,
 }
 
@@ -206,6 +206,9 @@ func log(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwar
 	}
 	if base == 1 {
 		return nil, errors.New("division by zero")
+	}
+	if err := thread.AddAllocs(floatSize); err != nil {
+		return nil, err
 	}
 	return starlark.Float(math.Log(float64(x)) / math.Log(float64(base))), nil
 }

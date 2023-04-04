@@ -187,6 +187,8 @@ func TestMathTanhAllocs(t *testing.T) {
 }
 
 func TestMathLogAllocs(t *testing.T) {
+	testUnarySafety(t, "log", []float64{0, 1, math.E})
+	testBinarySafety(t, "log", [][]float64{{math.E, math.E}, {10000, -10}})
 }
 
 func TestMathGammaAllocs(t *testing.T) {
