@@ -1865,10 +1865,10 @@ func string_find(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·format
-func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_format(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	format := string(b.Receiver().(String))
 	var auto, manual bool // kinds of positional indexing used
-	buf := new(strings.Builder)
+	buf := NewSafeStringBuilder(thread)
 	index := 0
 	for {
 		literal := format
@@ -1881,13 +1881,17 @@ func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 		for {
 			j := strings.IndexByte(literal, '}')
 			if j < 0 {
-				buf.WriteString(literal)
+				if _, err := buf.WriteString(literal); err != nil {
+					return nil, err
+				}
 				break
 			}
 			if len(literal) == j+1 || literal[j+1] != '}' {
 				return nil, fmt.Errorf("format: single '}' in format")
 			}
-			buf.WriteString(literal[:j+1])
+			if _, err := buf.WriteString(literal[:j+1]); err != nil {
+				return nil, err
+			}
 			literal = literal[j+2:]
 		}
 
@@ -1897,7 +1901,9 @@ func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 
 		if i+1 < len(format) && format[i+1] == '{' {
 			// "{{" means a literal '{'
-			buf.WriteByte('{')
+			if err := buf.WriteByte('{'); err != nil {
+				return nil, err
+			}
 			format = format[i+2:]
 			continue
 		}
@@ -1991,16 +1997,27 @@ func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 		switch conv {
 		case "s":
 			if str, ok := AsString(arg); ok {
-				buf.WriteString(str)
+				if _, err := buf.WriteString(str); err != nil {
+					return nil, err
+				}
 			} else {
-				writeValue(buf, arg, nil)
+				if err := writeValue(buf, arg, nil); err != nil {
+					return nil, err
+				}
 			}
 		case "r":
-			writeValue(buf, arg, nil)
+			if err := writeValue(buf, arg, nil); err != nil {
+				return nil, err
+			}
 		default:
 			return nil, fmt.Errorf("format: unknown conversion %q", conv)
 		}
 	}
+
+	if err := thread.AddAllocs(int64(buf.Cap())); err != nil {
+		return nil, err
+	}
+
 	return String(buf.String()), nil
 }
 

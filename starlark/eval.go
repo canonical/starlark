@@ -1715,6 +1715,7 @@ func findParam(params []compile.Binding, name string) int {
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string-interpolation
 func interpolate(format string, x Value) (Value, error) {
+	// FIXME how can we catch memory here?
 	buf := new(strings.Builder)
 	index := 0
 	nargs := 1
