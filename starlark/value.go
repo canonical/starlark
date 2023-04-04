@@ -1166,6 +1166,14 @@ func toString(v Value) string {
 	return buf.String()
 }
 
+func safeToString(thread *Thread, v Value) (string, error) {
+	buf := NewSafeStringBuilder(thread)
+	if err := writeValue(buf, v, nil); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
 // writeValue writes x to out.
 //
 // path is used to detect cycles.
@@ -1173,95 +1181,163 @@ func toString(v Value) string {
 // (These are the only potentially cyclic structures.)
 // Callers should generally pass nil for path.
 // It is safe to re-use the same path slice for multiple calls.
-func writeValue(out StringBuilder, x Value, path []Value) {
+func writeValue(out StringBuilder, x Value, path []Value) error {
 	switch x := x.(type) {
 	case nil:
-		out.WriteString("<nil>") // indicates a bug
+		// indicates a bug
+		if _, err := out.WriteString("<nil>"); err != nil {
+			return err
+		}
 
 	// These four cases are duplicates of T.String(), for efficiency.
 	case NoneType:
-		out.WriteString("None")
+		if _, err := out.WriteString("None"); err != nil {
+			return err
+		}
 
 	case Int:
-		out.WriteString(x.String())
+		if _, err := out.WriteString(x.String()); err != nil {
+			return err
+		}
 
 	case Bool:
 		if x {
-			out.WriteString("True")
+			if _, err := out.WriteString("True"); err != nil {
+				return err
+			}
 		} else {
-			out.WriteString("False")
+			if _, err := out.WriteString("False"); err != nil {
+				return err
+			}
 		}
 
 	case String:
-		out.WriteString(syntax.Quote(string(x), false))
+		if _, err := out.WriteString(syntax.Quote(string(x), false)); err != nil {
+			return err
+		}
 
 	case *List:
-		out.WriteByte('[')
+		if err := out.WriteByte('['); err != nil {
+			return err
+		}
 		if pathContains(path, x) {
-			out.WriteString("...") // list contains itself
+			// list contains itself
+			if _, err := out.WriteString("..."); err != nil {
+				return err
+			}
 		} else {
 			for i, elem := range x.elems {
 				if i > 0 {
-					out.WriteString(", ")
+					if _, err := out.WriteString(", "); err != nil {
+						return err
+					}
 				}
-				writeValue(out, elem, append(path, x))
+				if err := writeValue(out, elem, append(path, x)); err != nil {
+					return err
+				}
 			}
 		}
-		out.WriteByte(']')
+		if err := out.WriteByte(']'); err != nil {
+			return err
+		}
 
 	case Tuple:
-		out.WriteByte('(')
+		if err := out.WriteByte('('); err != nil {
+			return err
+		}
 		for i, elem := range x {
 			if i > 0 {
-				out.WriteString(", ")
+				if _, err := out.WriteString(", "); err != nil {
+					return err
+				}
 			}
-			writeValue(out, elem, path)
+			if err := writeValue(out, elem, path); err != nil {
+				return err
+			}
 		}
 		if len(x) == 1 {
-			out.WriteByte(',')
+			if err := out.WriteByte(','); err != nil {
+				return err
+			}
 		}
-		out.WriteByte(')')
+		if err := out.WriteByte(')'); err != nil {
+			return err
+		}
 
 	case *Function:
-		fmt.Fprintf(out, "<function %s>", x.Name())
+		if _, err := fmt.Fprintf(out, "<function %s>", x.Name()); err != nil {
+			return err
+		}
 
 	case *Builtin:
 		if x.recv != nil {
-			fmt.Fprintf(out, "<built-in method %s of %s value>", x.Name(), x.recv.Type())
+			if _, err := fmt.Fprintf(out, "<built-in method %s of %s value>", x.Name(), x.recv.Type()); err != nil {
+				return err
+			}
 		} else {
-			fmt.Fprintf(out, "<built-in function %s>", x.Name())
+			if _, err := fmt.Fprintf(out, "<built-in function %s>", x.Name()); err != nil {
+				return err
+			}
 		}
 
 	case *Dict:
-		out.WriteByte('{')
+		if err := out.WriteByte('{'); err != nil {
+			return err
+		}
 		if pathContains(path, x) {
-			out.WriteString("...") // dict contains itself
+			// dict contains itself
+			if _, err := out.WriteString("..."); err != nil {
+				return err
+			}
 		} else {
 			sep := ""
 			for e := x.ht.head; e != nil; e = e.next {
 				k, v := e.key, e.value
-				out.WriteString(sep)
-				writeValue(out, k, path)
-				out.WriteString(": ")
-				writeValue(out, v, append(path, x)) // cycle check
+				if _, err := out.WriteString(sep); err != nil {
+					return err
+				}
+				if err := writeValue(out, k, path); err != nil {
+					return err
+				}
+				if _, err := out.WriteString(": "); err != nil {
+					return err
+				}
+
+				if err := writeValue(out, v, append(path, x)); /* cycle check */ err != nil {
+					return err
+				}
 				sep = ", "
 			}
 		}
-		out.WriteByte('}')
+		if err := out.WriteByte('}'); err != nil {
+			return err
+		}
 
 	case *Set:
-		out.WriteString("set([")
+		if _, err := out.WriteString("set(["); err != nil {
+			return err
+		}
 		for i, elem := range x.elems() {
 			if i > 0 {
-				out.WriteString(", ")
+				if _, err := out.WriteString(", "); err != nil {
+					return err
+				}
 			}
-			writeValue(out, elem, path)
+			if err := writeValue(out, elem, path); err != nil {
+				return err
+			}
 		}
-		out.WriteString("])")
+		if _, err := out.WriteString("])"); err != nil {
+			return err
+		}
 
 	default:
-		out.WriteString(x.String())
+		if _, err := out.WriteString(x.String()); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 func pathContains(path []Value, x Value) bool {
