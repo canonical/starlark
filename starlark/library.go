@@ -508,16 +508,24 @@ func fail(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if err := UnpackArgs("fail", nil, kwargs, "sep?", &sep); err != nil {
 		return nil, err
 	}
-	buf := new(strings.Builder)
-	buf.WriteString("fail: ")
+	buf := NewSafeStringBuilder(thread)
+	if _, err := buf.WriteString("fail: "); err != nil {
+		return nil, err
+	}
 	for i, v := range args {
 		if i > 0 {
-			buf.WriteString(sep)
+			if _, err := buf.WriteString(sep); err != nil {
+				return nil, err
+			}
 		}
 		if s, ok := AsString(v); ok {
-			buf.WriteString(s)
+			if _, err := buf.WriteString(s); err != nil {
+				return nil, err
+			}
 		} else {
-			writeValue(buf, v, nil)
+			if err := writeValue(buf, v, nil); err != nil {
+				return nil, err
+			}
 		}
 	}
 
