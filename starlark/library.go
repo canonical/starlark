@@ -429,7 +429,10 @@ func chr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		return nil, fmt.Errorf("chr: Unicode code point U+%X out of range (>0x10FFFF)", i)
 	}
 	ret := String(string(rune(i)))
-	return ret, thread.AddAllocs(int64(EstimateSize(ret)))
+	if err := thread.AddAllocs(int64(EstimateSize(ret))); err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict
