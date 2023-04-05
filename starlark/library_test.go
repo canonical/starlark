@@ -258,7 +258,7 @@ func TestEnumerateAllocs(t *testing.T) {
 		t.Fatal("no such builtin: enumerate")
 	}
 
-	t.Run("result", func(t *testing.T) {
+	t.Run("small-result", func(t *testing.T) {
 		tests := []struct {
 			name  string
 			value starlark.Iterable
@@ -301,7 +301,7 @@ func TestEnumerateAllocs(t *testing.T) {
 		}
 	})
 
-	t.Run("iteration", func(t *testing.T) {
+	t.Run("large-result", func(t *testing.T) {
 		t.Run("iterable", func(t *testing.T) {
 			st := startest.From(t)
 
