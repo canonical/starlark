@@ -483,10 +483,6 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	var pairs []Value
 	var x Value
 
-	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
-		return nil, err
-	}
-
 	costPerN := EstimateSize(Tuple{MakeInt(0), nil}) + int64(unsafe.Sizeof(Value(nil)))
 	if n := Len(iterable); n >= 0 {
 		// common case: known length
@@ -525,6 +521,9 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 
+	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
+		return nil, err
+	}
 	return NewList(pairs), nil
 }
 
