@@ -1234,33 +1234,32 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	defer iter.Done()
 	var values []Value
 	var preallocated bool
+	costPerN := int64(unsafe.Sizeof(Value(nil)))
 	if n := Len(iterable); n > 0 {
-		values = make(Tuple, 0, n) // preallocate if length is known
-
-		if err := thread.AddAllocs(EstimateSize(values)); err != nil {
+		preallocated = true
+		if err := thread.AddAllocs(int64(n) * costPerN); err != nil {
 			return nil, err
 		}
-		preallocated = true
+
+		values = make(Tuple, 0, n) // preallocate if length is known
 	}
 	var x Value
-	valueSize := int64(unsafe.Sizeof(Value(nil)))
 	for iter.Next(&x) {
-		values = append(values, x)
-
 		if !preallocated {
-			if err := thread.AddAllocs(valueSize); err != nil {
+			if err := thread.AddAllocs(costPerN); err != nil {
 				return nil, err
 			}
 		}
+
+		values = append(values, x)
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
-	if !preallocated {
-		delta := int64(estimateSliceDirect(reflect.ValueOf(values))) - int64(len(values))*valueSize
-		if err := thread.AddAllocs(delta); err != nil {
-			return nil, err
-		}
+
+	overhead := RoundAllocSize(int64(cap(values))*costPerN) - int64(len(values))*costPerN
+	if err := thread.AddAllocs(overhead); err != nil {
+		return nil, err
 	}
 
 	// Derive keys from values by applying key function.
