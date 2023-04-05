@@ -269,6 +269,46 @@ func TestMinAllocs(t *testing.T) {
 }
 
 func TestOrdAllocs(t *testing.T) {
+	ord, ok := starlark.Universe["ord"]
+	if !ok {
+		t.Fatal("no such builtin: ord")
+	}
+
+	t.Run("input=string", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.String("Д")}
+
+				result, err := starlark.Call(thread, ord, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("input=bytes", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.Bytes("d")}
+
+				result, err := starlark.Call(thread, ord, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestPrintAllocs(t *testing.T) {
