@@ -34,9 +34,10 @@ import (
 // EstimateSizeShallow has been removed for now since there was no agreement of how
 // to make it consistent.
 
-// EstimateSize returns the estimated size of the
-// value pointed by obj, taking into account the whole
-// object tree.
+// EstimateSize returns the estimated size of the value pointed by obj, taking
+// into account the whole object tree. Take care to ensure that EstimateSize
+// only estimates the size of values controlled by Starlark. SizeAware values
+// override estimation.
 func EstimateSize(obj interface{}) int64 {
 	if obj == nil {
 		return 0
