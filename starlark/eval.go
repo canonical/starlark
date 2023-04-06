@@ -258,6 +258,7 @@ type StringBuilder interface {
 type SafeStringBuilder struct {
 	builder strings.Builder
 	thread  *Thread
+	path    []Value
 
 	err error
 }
@@ -333,6 +334,34 @@ func (tb *SafeStringBuilder) Cap() int       { return tb.builder.Cap() }
 func (tb *SafeStringBuilder) Len() int       { return tb.builder.Len() }
 func (tb *SafeStringBuilder) String() string { return tb.builder.String() }
 func (tb *SafeStringBuilder) Err() error     { return tb.err }
+
+type ValueStringBuilder struct {
+	StringBuilder
+	path []Value
+}
+
+func (sb *ValueStringBuilder) WriteValue(v Value) error {
+	if v == nil {
+		// indicates a bug
+		_, err := sb.WriteString("<nil>")
+		return err
+	}
+
+	if f, ok := v.(ToString); ok {
+		sb.path = append(sb.path, v)
+		defer func() {
+			sb.path = sb.path[0 : len(sb.path)-1]
+		}()
+		return f.BuildString(sb)
+	}
+
+	_, err := sb.WriteString(v.String())
+	return err
+}
+
+func (sb *ValueStringBuilder) WouldLoop(v Value) bool {
+	return pathContains(sb.path, v)
+}
 
 // A StringDict is a mapping from names to values, and represents
 // an environment such as the global variables of a module.

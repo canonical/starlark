@@ -113,6 +113,10 @@ type SizeAware interface {
 	EstimateSize() int64
 }
 
+type ToString interface {
+	BuildString(sb *ValueStringBuilder) error
+}
+
 // A Comparable is a value that defines its own equivalence relation and
 // perhaps ordered comparisons.
 type Comparable interface {
@@ -399,23 +403,27 @@ func (x Bool) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error
 // Float is the type of a Starlark float.
 type Float float64
 
-func (f Float) String() string {
-	var buf strings.Builder
-	f.format(&buf, 'g')
-	return buf.String()
+func (f Float) BuildString(sb *ValueStringBuilder) error {
+	return f.format(sb, 'g')
 }
 
-func (f Float) format(buf *strings.Builder, conv byte) {
+func (f Float) format(buf StringBuilder, conv byte) error {
 	ff := float64(f)
 	if !isFinite(ff) {
 		if math.IsInf(ff, +1) {
-			buf.WriteString("+inf")
+			if _, err := buf.WriteString("+inf"); err != nil {
+				return err
+			}
 		} else if math.IsInf(ff, -1) {
-			buf.WriteString("-inf")
+			if _, err := buf.WriteString("-inf"); err != nil {
+				return err
+			}
 		} else {
-			buf.WriteString("nan")
+			if _, err := buf.WriteString("nan"); err != nil {
+				return err
+			}
 		}
-		return
+		return nil
 	}
 
 	// %g is the default format used by str.
@@ -424,22 +432,30 @@ func (f Float) format(buf *strings.Builder, conv byte) {
 	// is self-evidently a float, not an int.
 	if conv == 'g' || conv == 'G' {
 		s := strconv.FormatFloat(ff, conv, -1, 64)
-		buf.WriteString(s)
+		if _, err := buf.WriteString(s); err != nil {
+			return err
+		}
 		// Ensure result always has a decimal point if no exponent.
 		// "123" -> "123.0"
 		if strings.IndexByte(s, conv-'g'+'e') < 0 && strings.IndexByte(s, '.') < 0 {
-			buf.WriteString(".0")
+			if _, err := buf.WriteString(".0"); err != nil {
+				return err
+			}
 		}
-		return
+		return nil
 	}
 
 	// %[eEfF] use 6-digit precision
-	buf.WriteString(strconv.FormatFloat(ff, conv, 6, 64))
+	if _, err := buf.WriteString(strconv.FormatFloat(ff, conv, 6, 64)); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (f Float) Type() string { return "float" }
-func (f Float) Freeze()      {} // immutable
-func (f Float) Truth() Bool  { return f != 0.0 }
+func (f Float) String() string { return toString(f) }
+func (f Float) Type() string   { return "float" }
+func (f Float) Freeze()        {} // immutable
+func (f Float) Truth() Bool    { return f != 0.0 }
 func (f Float) Hash() (uint32, error) {
 	// Equal float and int values must yield the same hash.
 	// TODO(adonovan): opt: if f is non-integral, and thus not equal
@@ -538,7 +554,10 @@ func (f Float) Unary(op syntax.Token) (Value, error) {
 // of a Starlark string as a Go string.
 type String string
 
-func (s String) String() string        { return syntax.Quote(string(s), false) }
+func (s String) String() string { return syntax.Quote(string(s), false) }
+func (s String) BuildString(sb *ValueStringBuilder) error {
+	return syntax.QuoteWriter(sb, string(s), false)
+}
 func (s String) GoString() string      { return string(s) }
 func (s String) Type() string          { return "string" }
 func (s String) Freeze()               {} // immutable
@@ -583,13 +602,26 @@ var (
 	_ Indexable = (*stringElems)(nil)
 )
 
-func (si stringElems) String() string {
-	if si.ords {
-		return si.s.String() + ".elem_ords()"
-	} else {
-		return si.s.String() + ".elems()"
+func (si stringElems) BuildString(sb *ValueStringBuilder) error {
+	if err := si.s.BuildString(sb); err != nil {
+		return err
 	}
+
+	var name string
+	if si.ords {
+		name = ".elem_ords()"
+	} else {
+		name = ".elems()"
+	}
+
+	if _, err := sb.WriteString(name); err != nil {
+		return err
+	}
+
+	return nil
 }
+
+func (si stringElems) String() string        { return toString(si) }
 func (si stringElems) Type() string          { return "string.elems" }
 func (si stringElems) Freeze()               {} // immutable
 func (si stringElems) Truth() Bool           { return True }
@@ -635,13 +667,26 @@ type stringCodepoints struct {
 
 var _ Iterable = (*stringCodepoints)(nil)
 
-func (si stringCodepoints) String() string {
-	if si.ords {
-		return si.s.String() + ".codepoint_ords()"
-	} else {
-		return si.s.String() + ".codepoints()"
+func (si stringCodepoints) BuildString(sb *ValueStringBuilder) error {
+	if err := si.s.BuildString(sb); err != nil {
+		return err
 	}
+
+	var name string
+	if si.ords {
+		name = ".codepoint_ords()"
+	} else {
+		name = ".codepoints()"
+	}
+
+	if _, err := sb.WriteString(name); err != nil {
+		return err
+	}
+
+	return nil
 }
+
+func (si stringCodepoints) String() string        { return toString(si) }
 func (si stringCodepoints) Type() string          { return "string.codepoints" }
 func (si stringCodepoints) Freeze()               {} // immutable
 func (si stringCodepoints) Truth() Bool           { return True }
@@ -711,9 +756,14 @@ func (fn *Function) Name() string          { return fn.funcode.Name } // "lambda
 func (fn *Function) Doc() string           { return fn.funcode.Doc }
 func (fn *Function) Hash() (uint32, error) { return hashString(fn.funcode.Name), nil }
 func (fn *Function) Freeze()               { fn.defaults.Freeze(); fn.freevars.Freeze() }
-func (fn *Function) String() string        { return toString(fn) }
 func (fn *Function) Type() string          { return "function" }
 func (fn *Function) Truth() Bool           { return true }
+func (fn *Function) String() string        { return toString(fn) }
+
+func (fn *Function) BuildString(out *ValueStringBuilder) error {
+	_, err := fmt.Fprintf(out, "<function %s>", fn.Name())
+	return err
+}
 
 // Globals returns a new, unfrozen StringDict containing all global
 // variables so far defined in the function's module.
@@ -763,8 +813,17 @@ func (b *Builtin) Hash() (uint32, error) {
 	}
 	return h, nil
 }
-func (b *Builtin) Receiver() Value { return b.recv }
+func (b *Builtin) BuildString(out *ValueStringBuilder) error {
+	if b.recv != nil {
+		_, err := fmt.Fprintf(out, "<built-in method %s of %s value>", b.Name(), b.recv.Type())
+		return err
+	} else {
+		_, err := fmt.Fprintf(out, "<built-in function %s>", b.Name())
+		return err
+	}
+}
 func (b *Builtin) String() string  { return toString(b) }
+func (b *Builtin) Receiver() Value { return b.recv }
 func (b *Builtin) Type() string    { return "builtin_function_or_method" }
 func (b *Builtin) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Value, error) {
 	return b.fn(thread, b, args, kwargs)
@@ -832,11 +891,44 @@ func (d *Dict) Keys() []Value                                   { return d.ht.ke
 func (d *Dict) Len() int                                        { return int(d.ht.len) }
 func (d *Dict) Iterate() Iterator                               { return d.ht.iterate() }
 func (d *Dict) SetKey(k, v Value) error                         { return d.ht.insert(k, v) }
-func (d *Dict) String() string                                  { return toString(d) }
 func (d *Dict) Type() string                                    { return "dict" }
 func (d *Dict) Freeze()                                         { d.ht.freeze() }
 func (d *Dict) Truth() Bool                                     { return d.Len() > 0 }
 func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.Errorf("unhashable type: dict") }
+func (d *Dict) String() string                                  { return toString(d) }
+
+func (d *Dict) BuildString(out *ValueStringBuilder) error {
+	if err := out.WriteByte('{'); err != nil {
+		return err
+	}
+
+	if out.WouldLoop(d) {
+		// dict contains itself
+		if _, err := out.WriteString("..."); err != nil {
+			return err
+		}
+	} else {
+		sep := ""
+		for e := d.ht.head; e != nil; e = e.next {
+			k, v := e.key, e.value
+			if _, err := out.WriteString(sep); err != nil {
+				return err
+			}
+			if err := out.WriteValue(k); err != nil {
+				return err
+			}
+			if _, err := out.WriteString(": "); err != nil {
+				return err
+			}
+			if err := out.WriteValue(v); /* cycle check */ err != nil {
+				return err
+			}
+			sep = ", "
+		}
+	}
+
+	return out.WriteByte('}')
+}
 
 func (d *Dict) Attr(name string) (Value, error) { return builtinAttr(d, name, dictMethods) }
 func (d *Dict) AttrNames() []string             { return builtinAttrNames(dictMethods) }
@@ -902,6 +994,36 @@ func (l *List) checkMutable(verb string) error {
 	if l.itercount > 0 {
 		return fmt.Errorf("cannot %s list during iteration", verb)
 	}
+	return nil
+}
+
+func (l *List) BuildString(out *ValueStringBuilder) error {
+	if err := out.WriteByte('['); err != nil {
+		return err
+	}
+
+	if out.WouldLoop(l) {
+		// list contains itself
+		if _, err := out.WriteString("..."); err != nil {
+			return err
+		}
+	} else {
+		for i, elem := range l.elems {
+			if i > 0 {
+				if _, err := out.WriteString(", "); err != nil {
+					return err
+				}
+			}
+			if err := out.WriteValue(elem); err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := out.WriteByte(']'); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1045,6 +1167,34 @@ func (t Tuple) Freeze() {
 		elem.Freeze()
 	}
 }
+func (t Tuple) BuildString(out *ValueStringBuilder) error {
+	if err := out.WriteByte('('); err != nil {
+		return err
+	}
+
+	for i, elem := range t {
+		if i > 0 {
+			if _, err := out.WriteString(", "); err != nil {
+				return err
+			}
+		}
+		if err := out.WriteValue(elem); err != nil {
+			return err
+		}
+	}
+
+	if len(t) == 1 {
+		if err := out.WriteByte(','); err != nil {
+			return err
+		}
+	}
+
+	if err := out.WriteByte(')'); err != nil {
+		return err
+	}
+
+	return nil
+}
 func (t Tuple) String() string { return toString(t) }
 func (t Tuple) Type() string   { return "tuple" }
 func (t Tuple) Truth() Bool    { return len(t) > 0 }
@@ -1108,12 +1258,32 @@ func (s *Set) Has(k Value) (found bool, err error)    { _, found, err = s.ht.loo
 func (s *Set) Insert(k Value) error                   { return s.ht.insert(k, None) }
 func (s *Set) Len() int                               { return int(s.ht.len) }
 func (s *Set) Iterate() Iterator                      { return s.ht.iterate() }
-func (s *Set) String() string                         { return toString(s) }
 func (s *Set) Type() string                           { return "set" }
 func (s *Set) elems() []Value                         { return s.ht.keys() }
 func (s *Set) Freeze()                                { s.ht.freeze() }
 func (s *Set) Hash() (uint32, error)                  { return 0, fmt.Errorf("unhashable type: set") }
 func (s *Set) Truth() Bool                            { return s.Len() > 0 }
+func (s *Set) String() string                         { return toString(s) }
+
+func (s *Set) BuildString(out *ValueStringBuilder) error {
+	if _, err := out.WriteString("set(["); err != nil {
+		return err
+	}
+
+	for i, elem := range s.elems() {
+		if i > 0 {
+			if _, err := out.WriteString(", "); err != nil {
+				return err
+			}
+		}
+		if err := out.WriteValue(elem); err != nil {
+			return err
+		}
+	}
+
+	_, err := out.WriteString("])")
+	return err
+}
 
 func (s *Set) Attr(name string) (Value, error) { return builtinAttr(s, name, setMethods) }
 func (s *Set) AttrNames() []string             { return builtinAttrNames(setMethods) }
@@ -1161,8 +1331,8 @@ func (s *Set) Union(iter Iterator) (Value, error) {
 // toString returns the string form of value v.
 // It may be more efficient than v.String() for larger values.
 func toString(v Value) string {
-	buf := new(strings.Builder)
-	writeValue(buf, v, nil)
+	var buf strings.Builder
+	writeValue(&buf, v, nil)
 	return buf.String()
 }
 
@@ -1182,162 +1352,8 @@ func safeToString(thread *Thread, v Value) (string, error) {
 // Callers should generally pass nil for path.
 // It is safe to re-use the same path slice for multiple calls.
 func writeValue(out StringBuilder, x Value, path []Value) error {
-	switch x := x.(type) {
-	case nil:
-		// indicates a bug
-		if _, err := out.WriteString("<nil>"); err != nil {
-			return err
-		}
-
-	// These four cases are duplicates of T.String(), for efficiency.
-	case NoneType:
-		if _, err := out.WriteString("None"); err != nil {
-			return err
-		}
-
-	case Int:
-		if _, err := out.WriteString(x.String()); err != nil {
-			return err
-		}
-
-	case Bool:
-		if x {
-			if _, err := out.WriteString("True"); err != nil {
-				return err
-			}
-		} else {
-			if _, err := out.WriteString("False"); err != nil {
-				return err
-			}
-		}
-
-	case String:
-		if _, err := out.WriteString(syntax.Quote(string(x), false)); err != nil {
-			return err
-		}
-
-	case *List:
-		if err := out.WriteByte('['); err != nil {
-			return err
-		}
-		if pathContains(path, x) {
-			// list contains itself
-			if _, err := out.WriteString("..."); err != nil {
-				return err
-			}
-		} else {
-			for i, elem := range x.elems {
-				if i > 0 {
-					if _, err := out.WriteString(", "); err != nil {
-						return err
-					}
-				}
-				if err := writeValue(out, elem, append(path, x)); err != nil {
-					return err
-				}
-			}
-		}
-		if err := out.WriteByte(']'); err != nil {
-			return err
-		}
-
-	case Tuple:
-		if err := out.WriteByte('('); err != nil {
-			return err
-		}
-		for i, elem := range x {
-			if i > 0 {
-				if _, err := out.WriteString(", "); err != nil {
-					return err
-				}
-			}
-			if err := writeValue(out, elem, path); err != nil {
-				return err
-			}
-		}
-		if len(x) == 1 {
-			if err := out.WriteByte(','); err != nil {
-				return err
-			}
-		}
-		if err := out.WriteByte(')'); err != nil {
-			return err
-		}
-
-	case *Function:
-		if _, err := fmt.Fprintf(out, "<function %s>", x.Name()); err != nil {
-			return err
-		}
-
-	case *Builtin:
-		if x.recv != nil {
-			if _, err := fmt.Fprintf(out, "<built-in method %s of %s value>", x.Name(), x.recv.Type()); err != nil {
-				return err
-			}
-		} else {
-			if _, err := fmt.Fprintf(out, "<built-in function %s>", x.Name()); err != nil {
-				return err
-			}
-		}
-
-	case *Dict:
-		if err := out.WriteByte('{'); err != nil {
-			return err
-		}
-		if pathContains(path, x) {
-			// dict contains itself
-			if _, err := out.WriteString("..."); err != nil {
-				return err
-			}
-		} else {
-			sep := ""
-			for e := x.ht.head; e != nil; e = e.next {
-				k, v := e.key, e.value
-				if _, err := out.WriteString(sep); err != nil {
-					return err
-				}
-				if err := writeValue(out, k, path); err != nil {
-					return err
-				}
-				if _, err := out.WriteString(": "); err != nil {
-					return err
-				}
-
-				if err := writeValue(out, v, append(path, x)); /* cycle check */ err != nil {
-					return err
-				}
-				sep = ", "
-			}
-		}
-		if err := out.WriteByte('}'); err != nil {
-			return err
-		}
-
-	case *Set:
-		if _, err := out.WriteString("set(["); err != nil {
-			return err
-		}
-		for i, elem := range x.elems() {
-			if i > 0 {
-				if _, err := out.WriteString(", "); err != nil {
-					return err
-				}
-			}
-			if err := writeValue(out, elem, path); err != nil {
-				return err
-			}
-		}
-		if _, err := out.WriteString("])"); err != nil {
-			return err
-		}
-
-	default:
-		if _, err := out.WriteString(x.String()); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	wrapped := &ValueStringBuilder{out, path}
+	return wrapped.WriteValue(x)
 }
 
 func pathContains(path []Value, x Value) bool {
@@ -1562,7 +1578,10 @@ var (
 	_ Indexable  = Bytes("")
 )
 
-func (b Bytes) String() string        { return syntax.Quote(string(b), true) }
+func (b Bytes) String() string { return syntax.Quote(string(b), true) }
+func (b Bytes) BuildString(sb *ValueStringBuilder) error {
+	return syntax.QuoteWriter(sb, string(b), true)
+}
 func (b Bytes) Type() string          { return "bytes" }
 func (b Bytes) Freeze()               {} // immutable
 func (b Bytes) Truth() Bool           { return len(b) > 0 }

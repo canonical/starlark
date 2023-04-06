@@ -172,6 +172,20 @@ func (i Int) String() string {
 	}
 	return strconv.FormatInt(iSmall, 10)
 }
+
+func (i Int) BuildString(sb *ValueStringBuilder) error {
+	iSmall, iBig := i.get()
+
+	var err error
+	if iBig != nil {
+		_, err = fmt.Fprintf(sb, "%d", iBig)
+	} else {
+		_, err = fmt.Fprintf(sb, "%d", iSmall)
+	}
+
+	return err
+}
+
 func (i Int) Type() string { return "int" }
 func (i Int) Freeze()      {} // immutable
 func (i Int) Truth() Bool  { return i.Sign() != 0 }
