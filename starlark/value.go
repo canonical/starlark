@@ -1341,6 +1341,9 @@ func safeToString(thread *Thread, v Value) (string, error) {
 	if err := writeValue(buf, v, nil); err != nil {
 		return "", err
 	}
+	if err := thread.AddAllocs(int64(buf.Cap())); err != nil {
+		return "", err
+	}
 	return buf.String(), nil
 }
 

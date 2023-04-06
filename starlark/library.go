@@ -529,6 +529,10 @@ func fail(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		}
 	}
 
+	if err := thread.AddAllocs(int64(buf.Cap())); err != nil {
+		return nil, err
+	}
+
 	return nil, errors.New(buf.String())
 }
 
@@ -1136,7 +1140,12 @@ func repr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if err := UnpackPositionalArgs("repr", args, kwargs, 1, &x); err != nil {
 		return nil, err
 	}
-	return String(x.String()), nil
+
+	if s, err := safeToString(thread, x); err != nil {
+		return nil, err
+	} else {
+		return String(s), nil
+	}
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#reversed
@@ -1269,9 +1278,17 @@ func str(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		return x, nil
 	case Bytes:
 		// Invalid encodings are replaced by that of U+FFFD.
-		return String(utf8Transcode(string(x))), nil
+		if str, err := safeUtf8Transcode(thread, string(x)); err != nil {
+			return nil, err
+		} else {
+			return String(str), nil
+		}
 	default:
-		return String(x.String()), nil
+		if str, err := safeToString(thread, x); err != nil {
+			return nil, err
+		} else {
+			return String(str), nil
+		}
 	}
 }
 
@@ -1287,6 +1304,23 @@ func utf8Transcode(s string) string {
 		out.WriteRune(r)
 	}
 	return out.String()
+}
+
+func safeUtf8Transcode(thread *Thread, s string) (string, error) {
+	if utf8.ValidString(s) {
+		return s, nil
+	}
+	out := NewSafeStringBuilder(thread)
+	for _, r := range s {
+		if _, err := out.WriteRune(r); err != nil {
+			return "", err
+		}
+	}
+
+	if err := thread.AddAllocs(int64(out.Cap())); err != nil {
+		return "", err
+	}
+	return out.String(), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#tuple
