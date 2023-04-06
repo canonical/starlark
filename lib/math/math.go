@@ -233,7 +233,7 @@ func floor(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kw
 
 	switch t := x.(type) {
 	case starlark.Int:
-		if err := thread.AddAllocs(starlark.EstimateSize(starlark.MakeInt(0))); err != nil {
+		if err := thread.AddAllocs(starlark.EstimateSize(t)); err != nil {
 			return nil, err
 		}
 		return t, nil
