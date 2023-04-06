@@ -404,6 +404,31 @@ func TestStringIsupperAllocs(t *testing.T) {
 }
 
 func TestStringJoinAllocs(t *testing.T) {
+	string_join, _ := starlark.String("aa").Attr("join")
+	if string_join == nil {
+		t.Fatal("no such method: string.join")
+	}
+
+	st := startest.From(t)
+
+	st.RequireSafety(starlark.MemSafe)
+
+	st.RunThread(func(thread *starlark.Thread) {
+		iter := &testIterable{
+			maxN: st.N,
+			nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
+				return starlark.String("b"), nil
+			},
+		}
+
+		args := starlark.Tuple{iter}
+
+		result, err := starlark.Call(thread, string_join, args, nil)
+		if err != nil {
+			st.Error(err)
+		}
+		st.KeepAlive(result)
+	})
 }
 
 func TestStringLowerAllocs(t *testing.T) {

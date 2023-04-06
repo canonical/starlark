@@ -221,7 +221,7 @@ var (
 		"isspace":        NotSafe,
 		"istitle":        NotSafe,
 		"isupper":        NotSafe,
-		"join":           NotSafe,
+		"join":           MemSafe,
 		"lower":          NotSafe,
 		"lstrip":         NotSafe,
 		"partition":      NotSafe,
@@ -2009,14 +2009,17 @@ func string_index(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·join
-func string_join(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_join(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := string(b.Receiver().(String))
 	var iterable Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
-	// No need for SafeIterate as they are transient.
-	iter := iterable.Iterate()
+
+	iter, err := SafeIterate(thread, iterable)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 	buf := new(strings.Builder)
 	var x Value
@@ -2028,7 +2031,17 @@ func string_join(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		if !ok {
 			return nil, fmt.Errorf("join: in list, want string, got %s", x.Type())
 		}
+		if err := thread.AddAllocs(int64(len(s) + len(recv))); err != nil {
+			return nil, err
+		}
 		buf.WriteString(s)
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	overhead := EstimateSize("") + RoundAllocSize(int64(buf.Cap())) - int64(buf.Len())
+	if err := thread.AddAllocs(overhead); err != nil {
+		return nil, err
 	}
 	return String(buf.String()), nil
 }
