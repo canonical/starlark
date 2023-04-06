@@ -204,7 +204,7 @@ var (
 		"upper":          NewBuiltin("upper", string_upper),
 	}
 	stringMethodSafeties = map[string]Safety{
-		"capitalize":     NotSafe,
+		"capitalize":     MemSafe,
 		"codepoint_ords": NotSafe,
 		"codepoints":     NotSafe,
 		"count":          NotSafe,
@@ -1623,11 +1623,16 @@ func list_pop(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·capitalize
-func string_capitalize(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_capitalize(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
 	s := string(b.Receiver().(String))
+
+	if err := thread.AddAllocs(EstimateSize(s)); err != nil {
+		return nil, err
+	}
+
 	res := new(strings.Builder)
 	res.Grow(len(s))
 	for i, r := range s {

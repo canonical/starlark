@@ -353,6 +353,24 @@ func TestListRemoveAllocs(t *testing.T) {
 }
 
 func TestStringCapitalizeAllocs(t *testing.T) {
+	string_capitalize, _ := starlark.String("deadbeef").Attr("capitalize")
+	if string_capitalize == nil {
+		t.Fatal("no such method: string.capitalize")
+	}
+
+	st := startest.From(t)
+
+	st.RequireSafety(starlark.MemSafe)
+
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, string_capitalize, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringCodepoint_ordsAllocs(t *testing.T) {
