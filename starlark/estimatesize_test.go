@@ -352,3 +352,52 @@ func TestRoundAllocSize(t *testing.T) {
 		})
 	}
 }
+
+func TestInterfaceSize(t *testing.T) {
+	st := startest.From(t)
+	iface := interface{}(nil)
+	st.SetMaxAllocs(uint64(starlark.EstimateSize(&iface)))
+	st.RunThread(func(thread *starlark.Thread) {
+		interfaces := make([]interface{}, 0, st.N)
+		if err := thread.AddAllocs(int64(st.N) * starlark.InterfaceSize); err != nil {
+			st.Error(err)
+		}
+		st.KeepAlive(interfaces)
+	})
+}
+
+func TestStringHeaderSize(t *testing.T) {
+	st := startest.From(t)
+
+	st.SetMaxAllocs(uint64(starlark.EstimateSize(reflect.StringHeader{})))
+
+	st.RunThread(func(thread *starlark.Thread) {
+		const base = "hello, world!"
+
+		for i := 0; i < st.N; i++ {
+			val := base[2:3]
+			if err := thread.AddAllocs(starlark.StringHeaderSize); err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(val)
+		}
+	})
+}
+
+func TestSliceHeaderSize(t *testing.T) {
+	st := startest.From(t)
+
+	st.SetMaxAllocs(uint64(starlark.EstimateSize(reflect.SliceHeader{})))
+
+	st.RunThread(func(thread *starlark.Thread) {
+		base := []int64{5, 10, 15, 20, 25}
+
+		for i := 0; i < st.N; i++ {
+			val := base[2:3]
+			if err := thread.AddAllocs(starlark.SliceHeaderSize); err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(val)
+		}
+	})
+}
