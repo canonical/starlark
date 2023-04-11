@@ -530,7 +530,7 @@ func fail(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		}
 	}
 
-	if err := thread.AddAllocs(int64(buf.Cap())); err != nil {
+	if err := thread.AddAllocs(RoundAllocSize(int64(buf.Cap()))); err != nil {
 		return nil, err
 	}
 
@@ -1149,6 +1149,9 @@ func repr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if s, err := safeToString(thread, x); err != nil {
 		return nil, err
 	} else {
+		if err := thread.AddAllocs(int64(unsafe.Sizeof(""))); err != nil {
+			return nil, err
+		}
 		return String(s), nil
 	}
 }

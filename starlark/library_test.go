@@ -208,6 +208,39 @@ func TestEnumerateAllocs(t *testing.T) {
 }
 
 func TestFailAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	fn := starlark.Universe["fail"]
+
+	listLoopContent := []starlark.Value{nil}
+	var listLoop starlark.Value = starlark.NewList(listLoopContent)
+	listLoopContent[0] = listLoop
+
+	dictLoop := starlark.NewDict(1)
+	var dictLoopValue starlark.Value = dictLoop
+	dictLoop.SetKey(starlark.MakeInt(0xdeadbeef), dictLoopValue)
+
+	args := starlark.Tuple{
+		starlark.True,
+		listLoop,
+		dictLoop,
+		starlark.Float(math.Phi),
+		starlark.NewSet(1),
+		starlark.String(`"'{}¹`),
+	}
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			res, err := starlark.Call(thread, fn, args, nil)
+			if err == nil {
+				st.Errorf("fail returned success %v", res)
+			}
+
+			st.KeepAlive(err.Error())
+			thread.AddAllocs(int64(unsafe.Sizeof(""))) // string -> interface conversion
+		}
+	})
 }
 
 func TestFloatAllocs(t *testing.T) {
@@ -321,6 +354,38 @@ func TestRangeAllocs(t *testing.T) {
 }
 
 func TestReprAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	fn := starlark.Universe["repr"]
+
+	listLoopContent := []starlark.Value{nil}
+	var listLoop starlark.Value = starlark.NewList(listLoopContent)
+	listLoopContent[0] = listLoop
+
+	dictLoop := starlark.NewDict(1)
+	var dictLoopValue starlark.Value = dictLoop
+	dictLoop.SetKey(starlark.MakeInt(0xdeadbeef), dictLoopValue)
+
+	args := starlark.Tuple{
+		starlark.True,
+		listLoop,
+		dictLoop,
+		starlark.Float(math.Phi),
+		starlark.NewSet(1),
+		starlark.String(`"'{}¹`),
+	}
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			res, err := starlark.Call(thread, fn, starlark.Tuple{args}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(res)
+		}
+	})
 }
 
 func TestReversedAllocs(t *testing.T) {
