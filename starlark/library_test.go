@@ -296,7 +296,9 @@ func TestPrintAllocs(t *testing.T) {
 	}
 
 	printFn := func(thread *starlark.Thread, msg string) {
-		thread.AddAllocs(int64(unsafe.Sizeof("")))
+		if err := thread.AddAllocs(int64(unsafe.Sizeof(""))); err != nil {
+			st.Error(err)
+		}
 		st.KeepAlive(msg)
 	}
 
@@ -331,6 +333,58 @@ func TestSortedAllocs(t *testing.T) {
 }
 
 func TestStrAllocs(t *testing.T) {
+
+	fn := starlark.Universe["str"]
+
+	listLoopContent := []starlark.Value{nil}
+	var listLoop starlark.Value = starlark.NewList(listLoopContent)
+	listLoopContent[0] = listLoop
+
+	dictLoop := starlark.NewDict(1)
+	var dictLoopValue starlark.Value = dictLoop
+	dictLoop.SetKey(starlark.MakeInt(0xdeadbeef), dictLoopValue)
+
+	args := starlark.Tuple{
+		starlark.True,
+		listLoop,
+		dictLoop,
+		starlark.Float(math.Phi),
+		starlark.NewSet(1),
+		starlark.String(`"'{}¹`),
+	}
+
+	t.Run("noop", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				res, err := starlark.Call(thread, fn, starlark.Tuple{starlark.String("any string `\"'")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+
+				st.KeepAlive(res)
+			}
+		})
+	})
+
+	t.Run("conversion", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				res, err := starlark.Call(thread, fn, starlark.Tuple{args}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+
+				st.KeepAlive(res)
+			}
+		})
+	})
 }
 
 func TestTupleAllocs(t *testing.T) {

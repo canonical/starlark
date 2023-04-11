@@ -21,6 +21,7 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
+	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -1279,18 +1280,24 @@ func str(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	}
 	switch x := args[0].(type) {
 	case String:
-		return x, nil
+		return args[0], nil
 	case Bytes:
 		// Invalid encodings are replaced by that of U+FFFD.
 		if str, err := safeUtf8Transcode(thread, string(x)); err != nil {
 			return nil, err
 		} else {
+			if err := thread.AddAllocs(RoundAllocSize(int64(unsafe.Sizeof("")))); err != nil {
+				return nil, err
+			}
 			return String(str), nil
 		}
 	default:
 		if str, err := safeToString(thread, x); err != nil {
 			return nil, err
 		} else {
+			if err := thread.AddAllocs(RoundAllocSize(int64(unsafe.Sizeof("")))); err != nil {
+				return nil, err
+			}
 			return String(str), nil
 		}
 	}
