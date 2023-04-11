@@ -359,10 +359,14 @@ func TestSafeStringBuilder(t *testing.T) {
 		t.Run("Grow", func(t *testing.T) {
 			st := startest.From(t)
 			st.RunThread(func(thread *starlark.Thread) {
+				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
 				builder.Grow(st.N)
 				if err := builder.Err(); err != nil {
 					t.Errorf("unexpected error: %v", err)
+				}
+				if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
+					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
 				}
 				st.KeepAlive(builder.String())
 			})
@@ -371,9 +375,13 @@ func TestSafeStringBuilder(t *testing.T) {
 		t.Run("Write", func(t *testing.T) {
 			st := startest.From(t)
 			st.RunThread(func(thread *starlark.Thread) {
+				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
 				if _, err := builder.Write(make([]byte, st.N)); err != nil {
 					t.Errorf("unexpected error: %v", err)
+				}
+				if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
+					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
 				}
 				st.KeepAlive(builder.String())
 			})
@@ -382,9 +390,13 @@ func TestSafeStringBuilder(t *testing.T) {
 		t.Run("WriteString", func(t *testing.T) {
 			st := startest.From(t)
 			st.RunThread(func(thread *starlark.Thread) {
+				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
 				if _, err := builder.WriteString(strings.Repeat("a", st.N)); err != nil {
 					t.Errorf("unexpected error: %v", err)
+				}
+				if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
+					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
 				}
 				st.KeepAlive(builder.String())
 			})
@@ -393,11 +405,15 @@ func TestSafeStringBuilder(t *testing.T) {
 		t.Run("WriteByte", func(t *testing.T) {
 			st := startest.From(t)
 			st.RunThread(func(thread *starlark.Thread) {
+				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
 				for i := 0; i < st.N; i++ {
 					if err := builder.WriteByte(97); err != nil {
 						t.Errorf("unexpected error: %v", err)
 					}
+				}
+				if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
+					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
 				}
 				st.KeepAlive(builder.String())
 			})
@@ -406,11 +422,15 @@ func TestSafeStringBuilder(t *testing.T) {
 		t.Run("WriteRune", func(t *testing.T) {
 			st := startest.From(t)
 			st.RunThread(func(thread *starlark.Thread) {
+				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
 				for i := 0; i < st.N; i++ {
 					if _, err := builder.WriteRune('a'); err != nil {
 						t.Errorf("unexpected error: %v", err)
 					}
+				}
+				if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
+					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
 				}
 				st.KeepAlive(builder.String())
 			})

@@ -283,12 +283,13 @@ func (tb *SafeStringBuilder) safeGrow(n int) error {
 
 	if tb.Cap()-tb.Len() < n {
 		// Make sure that we can allocate more
-		newBufferSize := EstimateMakeSize([]byte{}, tb.Cap()*2+n)
+		newCap := tb.Cap()*2 + n
+		newBufferSize := EstimateMakeSize([]byte{}, newCap)
 		if err := tb.thread.AddAllocs(newBufferSize - int64(tb.allocs)); err != nil {
 			tb.err = err
 			return err
 		}
-		tb.builder.Grow(n)
+		tb.builder.Grow(n + int(newBufferSize) - newCap)
 		tb.allocs = uint64(newBufferSize)
 	}
 	return nil
