@@ -409,25 +409,52 @@ func TestStringJoinAllocs(t *testing.T) {
 		t.Fatal("no such method: string.join")
 	}
 
-	st := startest.From(t)
+	t.Run("growth", func(t *testing.T) {
+		st := startest.From(t)
 
-	st.RequireSafety(starlark.MemSafe)
+		st.RequireSafety(starlark.MemSafe)
 
-	st.RunThread(func(thread *starlark.Thread) {
-		iter := &testIterable{
-			maxN: st.N,
-			nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
-				return starlark.String("b"), nil
-			},
-		}
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				maxN: st.N,
+				nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
+					return starlark.String("b"), nil
+				},
+			}
 
-		args := starlark.Tuple{iter}
+			args := starlark.Tuple{iter}
 
-		result, err := starlark.Call(thread, string_join, args, nil)
-		if err != nil {
-			st.Error(err)
-		}
-		st.KeepAlive(result)
+			result, err := starlark.Call(thread, string_join, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("result", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				iter := &testIterable{
+					maxN: 10,
+					nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
+						return starlark.String("b"), nil
+					},
+				}
+
+				args := starlark.Tuple{iter}
+
+				result, err := starlark.Call(thread, string_join, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
 	})
 }
 

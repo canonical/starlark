@@ -15,6 +15,7 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -2039,7 +2040,7 @@ func string_join(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
-	overhead := EstimateSize("") + RoundAllocSize(int64(buf.Cap())) - int64(buf.Len())
+	overhead := EstimateSize(reflect.StringHeader{}) + RoundAllocSize(int64(buf.Cap())) - int64(buf.Len())
 	if err := thread.AddAllocs(overhead); err != nil {
 		return nil, err
 	}
