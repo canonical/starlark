@@ -3,8 +3,10 @@ package starlark_test
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
+	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -272,6 +274,45 @@ func TestOrdAllocs(t *testing.T) {
 }
 
 func TestPrintAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	fn := starlark.Universe["print"]
+
+	listLoopContent := []starlark.Value{nil}
+	var listLoop starlark.Value = starlark.NewList(listLoopContent)
+	listLoopContent[0] = listLoop
+
+	dictLoop := starlark.NewDict(1)
+	var dictLoopValue starlark.Value = dictLoop
+	dictLoop.SetKey(starlark.MakeInt(0xdeadbeef), dictLoopValue)
+
+	args := starlark.Tuple{
+		starlark.True,
+		listLoop,
+		dictLoop,
+		starlark.Float(math.Phi),
+		starlark.NewSet(1),
+		starlark.String(`"'{}¹`),
+	}
+
+	printFn := func(thread *starlark.Thread, msg string) {
+		thread.AddAllocs(int64(unsafe.Sizeof("")))
+		st.KeepAlive(msg)
+	}
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		thread.Print = printFn
+
+		for i := 0; i < st.N; i++ {
+			res, err := starlark.Call(thread, fn, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(res)
+		}
+	})
 }
 
 func TestRangeAllocs(t *testing.T) {

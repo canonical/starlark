@@ -84,7 +84,7 @@ func init() {
 		"dict":      NotSafe,
 		"dir":       NotSafe,
 		"enumerate": NotSafe,
-		"fail":      NotSafe,
+		"fail":      MemSafe,
 		"float":     NotSafe,
 		"getattr":   NotSafe,
 		"hasattr":   NotSafe,
@@ -95,13 +95,13 @@ func init() {
 		"max":       NotSafe,
 		"min":       NotSafe,
 		"ord":       NotSafe,
-		"print":     NotSafe,
+		"print":     MemSafe,
 		"range":     NotSafe,
-		"repr":      NotSafe,
+		"repr":      MemSafe,
 		"reversed":  NotSafe,
 		"set":       NotSafe,
 		"sorted":    NotSafe,
-		"str":       NotSafe,
+		"str":       MemSafe,
 		"tuple":     NotSafe,
 		"type":      NotSafe,
 		"zip":       NotSafe,
@@ -989,6 +989,10 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 				return nil, err
 			}
 		}
+	}
+
+	if err := thread.AddAllocs(RoundAllocSize(int64(buf.Cap()))); err != nil {
+		return nil, err
 	}
 
 	s := buf.String()
