@@ -3,8 +3,10 @@ package starlark_test
 import (
 	"math"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/startest"
 )
 
 func TestDefaultAllocMaxIsUnbounded(t *testing.T) {
@@ -284,4 +286,33 @@ func TestAddAllocsCancelledRejection(t *testing.T) {
 	} else if allocs := thread.Allocs(); allocs != 0 {
 		t.Errorf("changes were recorded against cancelled thread: expected 0 allocations, got %v", allocs)
 	}
+}
+
+func TestSafeStringBuilder(t *testing.T) {
+	st := startest.From(t)
+	st.RunThread(func(thread *starlark.Thread) {
+		var builder starlark.StringBuilder
+		thread.SetMaxAllocs(1)
+
+		builder = starlark.NewSafeStringBuilder(thread)
+		if _, err := builder.Write([]byte{1, 2, 3, 4}); err == nil {
+			st.Errorf("Write shouldn't be able to over allocate")
+		}
+
+		builder = starlark.NewSafeStringBuilder(thread)
+		if _, err := builder.WriteString("Test"); err == nil {
+			st.Errorf("WriteString shouldn't be able to over allocate")
+		}
+
+		builder = starlark.NewSafeStringBuilder(thread)
+		builder.Grow(4)
+		if err := builder.WriteByte(1); err == nil {
+			st.Errorf("WriteByte shouldn't be able to write after an over allocation attempt")
+		}
+
+		builder = starlark.NewSafeStringBuilder(thread)
+		if _, err := builder.WriteRune(utf8.MaxRune); err == nil {
+			st.Errorf("WriteRune shouldn't be able to over allocate")
+		}
+	})
 }

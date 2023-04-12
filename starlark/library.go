@@ -34,6 +34,8 @@ import (
 var Universe StringDict
 var universeSafeties map[string]Safety
 
+var ErrUnsupported = errors.New("unsupported operation")
+
 func init() {
 	// https://github.com/google/starlark-go/blob/master/doc/spec.md#built-in-constants-and-functions
 	Universe = StringDict{
@@ -75,7 +77,7 @@ func init() {
 	universeSafeties = map[string]Safety{
 		"abs":       NotSafe,
 		"any":       NotSafe,
-		"all":       NotSafe,
+		"all":       MemSafe,
 		"bool":      NotSafe,
 		"bytes":     NotSafe,
 		"chr":       NotSafe,
@@ -87,7 +89,7 @@ func init() {
 		"getattr":   NotSafe,
 		"hasattr":   NotSafe,
 		"hash":      MemSafe,
-		"int":       NotSafe,
+		"int":       MemSafe,
 		"len":       NotSafe,
 		"list":      NotSafe,
 		"max":       NotSafe,
@@ -323,13 +325,20 @@ func all(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if err := UnpackPositionalArgs("all", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
-	iter := iterable.Iterate()
+
+	iter, err := SafeIterate(thread, iterable)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 	var x Value
 	for iter.Next(&x) {
 		if !x.Truth() {
 			return False, nil
 		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	return True, nil
 }
@@ -340,6 +349,7 @@ func any(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if err := UnpackPositionalArgs("any", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
+	// TODO: use SafeIterate
 	iter := iterable.Iterate()
 	defer iter.Done()
 	var x Value
@@ -381,6 +391,7 @@ func bytes_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 			// common case: known length
 			buf.Grow(n)
 		}
+		// No need for SafeIterate as allocation is only transitional
 		iter := x.Iterate()
 		defer iter.Done()
 		var elem Value
@@ -426,6 +437,7 @@ func dict(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		return nil, fmt.Errorf("dict: got %d arguments, want at most 1", len(args))
 	}
 	dict := new(Dict)
+	// TODO: use SafeIterate
 	if err := updateDict(dict, args, kwargs); err != nil {
 		return nil, fmt.Errorf("dict: %v", err)
 	}
@@ -461,6 +473,7 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 
+	// TODO: use SafeIterate
 	iter := iterable.Iterate()
 	defer iter.Done()
 
@@ -676,7 +689,16 @@ func javaStringHash(s string) (h int32) {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#int
-func int_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func int_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (res Value, err error) {
+	defer func() {
+		if res != nil {
+			if e := thread.AddAllocs(EstimateSize(res)); e != nil {
+				res = nil
+				err = e
+			}
+		}
+	}()
+
 	var x Value = zero
 	var base Value
 	if err := UnpackArgs("int", args, kwargs, "x", &x, "base?", &base); err != nil {
@@ -684,6 +706,13 @@ func int_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	}
 
 	if s, ok := AsString(x); ok {
+		// Max result size is going to be base36, where each char is going to have 36 values
+		// To make things easy we will just consider each character to be max 6 bits.
+		// It's pessimistic, but easy.
+		if err := thread.CheckAllocs((int64(len(s)*6) + 7) / 8); err != nil {
+			return nil, err
+		}
+
 		b := 10
 		if base != nil {
 			var err error
@@ -812,6 +841,7 @@ func list(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	}
 	var elems []Value
 	if iterable != nil {
+		// TODO: use SafeIterate
 		iter := iterable.Iterate()
 		defer iter.Done()
 		if n := Len(iterable); n > 0 {
@@ -846,6 +876,7 @@ func minmax(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	} else {
 		iterable = args
 	}
+	// No need for SafeIterate since only one will be returned.
 	iter := Iterate(iterable)
 	if iter == nil {
 		return nil, fmt.Errorf("%s: %s value is not iterable", b.Name(), iterable.Type())
@@ -1083,7 +1114,8 @@ func (it *rangeIterator) Next(p *Value) bool {
 }
 func (*rangeIterator) Done() {}
 
-func (*rangeIterator) Safety() Safety { return NotSafe }
+func (it *rangeIterator) Err() error     { return nil }
+func (it *rangeIterator) Safety() Safety { return NotSafe }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#repr
 func repr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
@@ -1100,6 +1132,7 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	if err := UnpackPositionalArgs("reversed", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
+	// TODO: use SafeIterate
 	iter := iterable.Iterate()
 	defer iter.Done()
 	var elems []Value
@@ -1125,6 +1158,7 @@ func set(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	}
 	set := new(Set)
 	if iterable != nil {
+		// TODO: use SafeIterate
 		iter := iterable.Iterate()
 		defer iter.Done()
 		var x Value
@@ -1150,7 +1184,7 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	); err != nil {
 		return nil, err
 	}
-
+	// TODO: use SafeIterate
 	iter := iterable.Iterate()
 	defer iter.Done()
 	var values []Value
@@ -1251,6 +1285,7 @@ func tuple(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if len(args) == 0 {
 		return Tuple(nil), nil
 	}
+	// TODO: use SafeIterate
 	iter := iterable.Iterate()
 	defer iter.Done()
 	var elems Tuple
@@ -1290,6 +1325,7 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		}
 	}()
 	for i, seq := range args {
+		// TODO: use SafeIterate
 		it := Iterate(seq)
 		if it == nil {
 			return nil, fmt.Errorf("zip: argument #%d is not iterable: %s", i+1, seq.Type())
@@ -1432,6 +1468,7 @@ func dict_update(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if len(args) > 1 {
 		return nil, fmt.Errorf("update: got %d arguments, want at most 1", len(args))
 	}
+	// TODO: use SafeIterate
 	if err := updateDict(b.Receiver().(*Dict), args, kwargs); err != nil {
 		return nil, fmt.Errorf("update: %v", err)
 	}
@@ -1486,6 +1523,7 @@ func list_extend(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := recv.checkMutable("extend"); err != nil {
 		return nil, nameErr(b, err)
 	}
+	// TODO: use SafeIterate
 	listExtend(recv, iterable)
 	return None, nil
 }
@@ -1661,7 +1699,8 @@ func (it *bytesIterator) Next(p *Value) bool {
 
 func (*bytesIterator) Done() {}
 
-func (*bytesIterator) Safety() Safety { return NotSafe }
+func (it *bytesIterator) Err() error     { return nil }
+func (it *bytesIterator) Safety() Safety { return NotSafe }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·count
 func string_count(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
@@ -1980,6 +2019,7 @@ func string_join(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
+	// No need for SafeIterate as they are transient.
 	iter := iterable.Iterate()
 	defer iter.Done()
 	buf := new(strings.Builder)
@@ -2317,6 +2357,7 @@ func set_union(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &iterable); err != nil {
 		return nil, err
 	}
+	// TODO: use SafeIterate
 	iter := iterable.Iterate()
 	defer iter.Done()
 	union, err := b.Receiver().(*Set).Union(iter)
@@ -2373,6 +2414,7 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 			}
 		default:
 			// all other sequences
+			// TODO: use SafeIterate
 			iter := Iterate(updates)
 			if iter == nil {
 				return fmt.Errorf("got %s, want iterable", updates.Type())
@@ -2380,6 +2422,7 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 			defer iter.Done()
 			var pair Value
 			for i := 0; iter.Next(&pair); i++ {
+				// TODO: use SafeIterate
 				iter2 := Iterate(pair)
 				if iter2 == nil {
 					return fmt.Errorf("dictionary update sequence element #%d is not iterable (%s)", i, pair.Type())
