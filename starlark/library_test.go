@@ -104,11 +104,7 @@ func TestHasattrAllocs(t *testing.T) {
 }
 
 func TestHashAllocs(t *testing.T) {
-	hash, ok := starlark.Universe["hash"]
-	if !ok {
-		t.Errorf("no such builtin: hash")
-		return
-	}
+	hash := starlark.Universe["hash"]
 
 	t.Run("input=string", func(t *testing.T) {
 		st := startest.From(t)
