@@ -238,8 +238,7 @@ func TestStringIndexAllocs(t *testing.T) {
 func TestStringIsalnumAllocs(t *testing.T) {
 	string_isalnum, _ := starlark.String("hello, world!").Attr("isalnum")
 	if string_isalnum == nil {
-		t.Errorf("no such method: string.isalnum")
-		return
+		t.Fatal("no such method: string.isalnum")
 	}
 
 	st := startest.From(t)
