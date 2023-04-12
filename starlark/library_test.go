@@ -250,8 +250,7 @@ func TestStringIslowerAllocs(t *testing.T) {
 func TestStringIsspaceAllocs(t *testing.T) {
 	string_isspace, _ := starlark.String("    \t    ").Attr("isspace")
 	if string_isspace == nil {
-		t.Errorf("no such method: string.isspace")
-		return
+		t.Fatal("no such method: string.isspace")
 	}
 
 	st := startest.From(t)
