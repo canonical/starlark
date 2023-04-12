@@ -275,11 +275,7 @@ func TestPrintAllocs(t *testing.T) {
 }
 
 func TestRangeAllocs(t *testing.T) {
-	range_, ok := starlark.Universe["range"]
-	if !ok {
-		t.Errorf("No such builtin: range")
-		return
-	}
+	fn := starlark.Universe["range"]
 
 	t.Run("non-enumerating", func(t *testing.T) {
 		st := startest.From(t)
@@ -288,7 +284,7 @@ func TestRangeAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(10000), starlark.MakeInt(1)}
-				result, err := starlark.Call(thread, range_, args, nil)
+				result, err := starlark.Call(thread, fn, args, nil)
 				if err != nil {
 					st.Error(err)
 				}
@@ -303,15 +299,15 @@ func TestRangeAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			args := starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(st.N), starlark.MakeInt(1)}
-			result, err := starlark.Call(thread, range_, args, nil)
+			result, err := starlark.Call(thread, fn, args, nil)
 			if err != nil {
-				st.Fatal(err)
+				st.Error(err)
 			}
 			st.KeepAlive(result)
 
 			iter, err := starlark.SafeIterate(thread, result)
 			if err != nil {
-				st.Fatal(err)
+				st.Error(err)
 			}
 
 			defer iter.Done()
@@ -322,7 +318,7 @@ func TestRangeAllocs(t *testing.T) {
 			}
 
 			if err := iter.Err(); err != nil {
-				st.Fatal(err)
+				st.Error(err)
 			}
 		})
 	})
