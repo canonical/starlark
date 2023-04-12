@@ -652,7 +652,10 @@ func hash(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		return nil, fmt.Errorf("hash: got %s, want string or bytes", x.Type())
 	}
 	ret := MakeInt64(h)
-	return ret, thread.AddAllocs(int64(EstimateSize(ret)))
+	if err := thread.AddAllocs(int64(EstimateSize(ret))); err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 // javaStringHash returns the same hash as would be produced by
