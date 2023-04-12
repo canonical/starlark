@@ -247,8 +247,7 @@ func TestStringIsdigitAllocs(t *testing.T) {
 func TestStringIslowerAllocs(t *testing.T) {
 	string_islower, _ := starlark.String("sphinx of black quartz, judge my vow").Attr("islower")
 	if string_islower == nil {
-		t.Errorf("no such method: string.islower")
-		return
+		t.Fatal("no such method: string.islower")
 	}
 
 	st := startest.From(t)
