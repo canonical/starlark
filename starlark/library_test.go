@@ -436,59 +436,39 @@ func TestStringRpartitionAllocs(t *testing.T) {
 func TestStringRsplitAllocs(t *testing.T) {
 	t.Run("delimiter", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("deadbeef", st.N))
 			delimiter := starlark.String("beef")
-			fn, err := str.Attr("rsplit")
 
+			rsplit, _ := str.Attr("rsplit")
+			if rsplit == nil {
+				st.Fatal("no such method: string.rsplit")
+			}
+
+			result, err := starlark.Call(thread, rsplit, starlark.Tuple{delimiter, starlark.MakeInt(st.N)}, nil)
 			if err != nil {
 				st.Error(err)
-				return
 			}
-
-			if fn == nil {
-				st.Errorf("`string.rsplit` builtin doesn't exists")
-				return
-			}
-
-			result, err := starlark.Call(thread, fn, starlark.Tuple{delimiter, starlark.MakeInt(st.N)}, nil)
-
-			if err != nil {
-				st.Error(err)
-				return
-			}
-
 			st.KeepAlive(result)
 		})
 	})
 
 	t.Run("empty-delimiter", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("go    go", st.N))
-			fn, err := str.Attr("rsplit")
 
+			split, _ := str.Attr("rsplit")
+			if split == nil {
+				st.Fatal("no such method: string.rsplit")
+			}
+
+			result, err := starlark.Call(thread, split, starlark.Tuple{starlark.None, starlark.MakeInt(st.N)}, nil)
 			if err != nil {
 				st.Error(err)
-				return
 			}
-
-			if fn == nil {
-				st.Errorf("`string.rsplit` builtin doesn't exists")
-				return
-			}
-
-			result, err := starlark.Call(thread, fn, starlark.Tuple{starlark.None, starlark.MakeInt(st.N)}, nil)
-
-			if err != nil {
-				st.Error(err)
-				return
-			}
-
 			st.KeepAlive(result)
 		})
 	})
@@ -500,59 +480,39 @@ func TestStringRstripAllocs(t *testing.T) {
 func TestStringSplitAllocs(t *testing.T) {
 	t.Run("delimiter", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("deadbeef", st.N))
 			delimiter := starlark.String("beef")
-			fn, err := str.Attr("split")
 
+			split, _ := str.Attr("split")
+			if split == nil {
+				st.Fatal("no such method: string.split")
+			}
+
+			result, err := starlark.Call(thread, split, starlark.Tuple{delimiter}, nil)
 			if err != nil {
 				st.Error(err)
-				return
 			}
-
-			if fn == nil {
-				st.Errorf("`string.split` builtin doesn't exists")
-				return
-			}
-
-			result, err := starlark.Call(thread, fn, starlark.Tuple{delimiter}, nil)
-
-			if err != nil {
-				st.Error(err)
-				return
-			}
-
 			st.KeepAlive(result)
 		})
 	})
 
 	t.Run("empty-delimiter", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("go    go", st.N))
-			fn, err := str.Attr("split")
 
+			split, _ := str.Attr("split")
+			if split == nil {
+				st.Fatal("no such method: string.split")
+			}
+
+			result, err := starlark.Call(thread, split, starlark.Tuple{}, nil)
 			if err != nil {
 				st.Error(err)
-				return
 			}
-
-			if fn == nil {
-				st.Errorf("`string.split` builtin doesn't exists")
-				return
-			}
-
-			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
-
-			if err != nil {
-				st.Error(err)
-				return
-			}
-
 			st.KeepAlive(result)
 		})
 	})
