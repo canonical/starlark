@@ -2099,13 +2099,11 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 
-	result := strings.Replace(recv, old, new, count)
-
+	var result Value = String(strings.Replace(recv, old, new, count))
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
 	}
-
-	return String(result), nil
+	return result, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·rfind
