@@ -21,6 +21,7 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
+	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -1392,10 +1393,6 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			tuple := array[:cols:cols]
 			array = array[cols:]
 			for j, iter := range iters {
-				// This logic assumes that since each iterator declared a
-				// length, the only reason for it to stop is an iteration
-				// error, otherwise the contract would be broken (e.g.
-				// an iterator would have declared a wrong length)
 				if !iter.Next(&tuple[j]) {
 					return nil, iter.Err()
 				}
@@ -1409,9 +1406,6 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			tuple := make(Tuple, cols)
 			for i, iter := range iters {
 				if !iter.Next(&tuple[i]) {
-					// There are two reasons to stop:
-					//  - iteration exaustion;
-					//  - iteration error.
 					if err := iter.Err(); err != nil {
 						return nil, err
 					}
