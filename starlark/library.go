@@ -21,7 +21,6 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -2230,9 +2229,8 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	}
 
 	var res []string
-
 	if sep_ == nil || sep_ == None {
-		if err := thread.CheckAllocs(int64(len(recv)/2) + 1); err != nil {
+		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/2+1)); err != nil {
 			return nil, err
 		}
 
@@ -2250,7 +2248,7 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 			return nil, fmt.Errorf("split: empty separator")
 		}
 
-		if err := thread.CheckAllocs(int64(len(recv)/len(sep) + 1)); err != nil {
+		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/len(sep)+1)); err != nil {
 			return nil, err
 		}
 
@@ -2275,16 +2273,20 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		return nil, fmt.Errorf("split: got %s for separator, want string", sep_.Type())
 	}
 
-	list := make([]Value, len(res))
-
-	if err := thread.AddAllocs(int64(cap(list)) * int64(unsafe.Sizeof("")+unsafe.Sizeof([]interface{}{}))); err != nil {
+	listSize := EstimateMakeSize([]Value{String("")}, len(res))
+	resultSize := EstimateSize(&List{})
+	if err := thread.AddAllocs(resultSize + listSize); err != nil {
 		return nil, err
 	}
+
+	list := make([]Value, len(res))
+	var result Value = NewList(list)
 
 	for i, x := range res {
 		list[i] = String(x)
 	}
-	return NewList(list), nil
+
+	return result, nil
 }
 
 // Precondition: max >= 0.
