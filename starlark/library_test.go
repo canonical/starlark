@@ -438,15 +438,20 @@ func TestStringRsplitAllocs(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
-			str := starlark.String(strings.Repeat("deadbeef", st.N))
 			delimiter := starlark.String("beef")
+			// I must count the string content as well since it will
+			// be kept alive by the slices taken by the delimeter.
+			str := starlark.String(strings.Repeat("deadbeef", st.N))
+			if err := thread.AddAllocs(int64(len(str))); err != nil {
+				st.Error(err)
+			}
 
-			rsplit, _ := str.Attr("rsplit")
-			if rsplit == nil {
+			string_rsplit, _ := str.Attr("rsplit")
+			if string_rsplit == nil {
 				st.Fatal("no such method: string.rsplit")
 			}
 
-			result, err := starlark.Call(thread, rsplit, starlark.Tuple{delimiter, starlark.MakeInt(st.N)}, nil)
+			result, err := starlark.Call(thread, string_rsplit, starlark.Tuple{delimiter, starlark.MakeInt(st.N)}, nil)
 			if err != nil {
 				st.Error(err)
 			}
@@ -459,13 +464,16 @@ func TestStringRsplitAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("go    go", st.N))
+			if err := thread.AddAllocs(int64(len(str))); err != nil {
+				st.Error(err)
+			}
 
-			split, _ := str.Attr("rsplit")
-			if split == nil {
+			string_split, _ := str.Attr("rsplit")
+			if string_split == nil {
 				st.Fatal("no such method: string.rsplit")
 			}
 
-			result, err := starlark.Call(thread, split, starlark.Tuple{starlark.None, starlark.MakeInt(st.N)}, nil)
+			result, err := starlark.Call(thread, string_split, starlark.Tuple{starlark.None, starlark.MakeInt(st.N)}, nil)
 			if err != nil {
 				st.Error(err)
 			}
@@ -490,12 +498,12 @@ func TestStringSplitAllocs(t *testing.T) {
 				st.Error(err)
 			}
 
-			split, _ := str.Attr("split")
-			if split == nil {
+			string_split, _ := str.Attr("split")
+			if string_split == nil {
 				st.Fatal("no such method: string.split")
 			}
 
-			result, err := starlark.Call(thread, split, starlark.Tuple{delimiter}, nil)
+			result, err := starlark.Call(thread, string_split, starlark.Tuple{delimiter}, nil)
 			if err != nil {
 				st.Error(err)
 			}
@@ -512,12 +520,12 @@ func TestStringSplitAllocs(t *testing.T) {
 				st.Error(err)
 			}
 
-			split, _ := str.Attr("split")
-			if split == nil {
+			string_split, _ := str.Attr("split")
+			if string_split == nil {
 				st.Fatal("no such method: string.split")
 			}
 
-			result, err := starlark.Call(thread, split, starlark.Tuple{}, nil)
+			result, err := starlark.Call(thread, string_split, starlark.Tuple{}, nil)
 			if err != nil {
 				st.Error(err)
 			}
@@ -530,13 +538,13 @@ func TestStringSplitAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("g g g")
-			split, _ := str.Attr("split")
-			if split == nil {
+			string_split, _ := str.Attr("split")
+			if string_split == nil {
 				st.Fatal("no such method: string.split")
 			}
 
 			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, split, starlark.Tuple{}, nil)
+				result, err := starlark.Call(thread, string_split, starlark.Tuple{}, nil)
 				if err != nil {
 					st.Error(err)
 				}
