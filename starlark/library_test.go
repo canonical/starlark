@@ -429,23 +429,15 @@ func TestStringReplaceAllocs(t *testing.T) {
 		str := starlark.String(strings.Repeat("deadbeef", st.N))
 		toReplace := starlark.String("beef")
 		replacement := starlark.String("🍖")
-		fn, err := str.Attr("replace")
 
-		if err != nil {
-			st.Error(err)
-			return
-		}
-
+		fn, _ := str.Attr("replace")
 		if fn == nil {
-			st.Errorf("`string.replace` builtin doesn't exists")
-			return
+			st.Fatal("no such method: string.replace")
 		}
 
 		result, err := starlark.Call(thread, fn, starlark.Tuple{toReplace, replacement}, nil)
-
 		if err != nil {
 			st.Error(err)
-			return
 		}
 
 		st.KeepAlive(result)
