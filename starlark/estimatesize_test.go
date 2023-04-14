@@ -353,7 +353,7 @@ func TestRoundAllocSize(t *testing.T) {
 	}
 }
 
-func TestEstimateSizeArray(t *testing.T) {
+func TestEstimateMakeSize(t *testing.T) {
 	t.Run("slice", func(t *testing.T) {
 		t.Run("empty", func(t *testing.T) {
 			st := startest.From(t)
