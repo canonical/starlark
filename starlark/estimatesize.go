@@ -55,6 +55,30 @@ func EstimateSize(obj interface{}) int64 {
 	return int64(estimateSizeAll(v, make(map[uintptr]struct{})))
 }
 
+// EstimateSizeArray estimates the size of an array containing n elements which
+// with a layout which follows given template. The template must be a slice,
+// which may contain templates of the objects to construct.
+func EstimateSizeArray(template interface{}, n int) int64 {
+	v := reflect.ValueOf(template)
+	if v.Kind() != reflect.Slice {
+		panic("EstimateSizeArray template must be a slice")
+	}
+
+	intendedBlockSize := int64(v.Type().Elem().Size()) * int64(n)
+
+	len := v.Len()
+	if len == 0 {
+		return RoundAllocSize(intendedBlockSize) // Assume single zero value.
+	}
+
+	blockSize := RoundAllocSize(intendedBlockSize * int64(len))
+	var elemsSize int64
+	for i := 0; i < len; i++ {
+		elemsSize += int64(estimateSizeIndirect(v.Index(i), make(map[uintptr]struct{})))
+	}
+	return blockSize + elemsSize*int64(n)
+}
+
 func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	switch v.Kind() {
 	case reflect.String:
