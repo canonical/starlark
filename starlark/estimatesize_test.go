@@ -377,7 +377,7 @@ func TestEstimateMakeSize(t *testing.T) {
 
 				ret := make([]string, st.N)
 				for i := 0; i < len(ret); i++ {
-					ret[i] = strings.Clone(str)
+					ret[i] = string([]byte(str))
 				}
 				st.KeepAlive(ret)
 			})
