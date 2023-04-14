@@ -55,18 +55,26 @@ func EstimateSize(obj interface{}) int64 {
 	return int64(estimateSizeAll(v, make(map[uintptr]struct{})))
 }
 
-// EstimateSizeArray estimates the size of an array containing n elements which
-// with a layout which follows given template. The template must be a slice,
-// which may contain templates of the objects to construct.
-func EstimateSizeArray(template interface{}, n int) int64 {
+// EstimateMakeSize estimates the cost of calling make to build a map or an
+// array of n elements which have a layout which follows the given template.
+// The template must be a map or a slice, which may contain templates of the
+// objects to construct.
+func EstimateMakeSize(template interface{}, n int) int64 {
 	v := reflect.ValueOf(template)
-	if v.Kind() != reflect.Slice {
-		panic("EstimateSizeArray template must be a slice")
+	switch v.Kind() {
+	case reflect.Slice:
+		return estimateMakeArraySize(v, n)
+	case reflect.Map:
+		return estimateMakeMapSize(v, n)
+	default:
+		panic("EstimateSizeArray template must be a slice or a map")
 	}
+}
 
-	intendedBlockSize := int64(v.Type().Elem().Size()) * int64(n)
+func estimateMakeArraySize(template reflect.Value, n int) int64 {
+	intendedBlockSize := int64(template.Type().Elem().Size()) * int64(n)
 
-	len := v.Len()
+	len := template.Len()
 	if len == 0 {
 		return RoundAllocSize(intendedBlockSize) // Assume single zero value.
 	}
@@ -74,9 +82,28 @@ func EstimateSizeArray(template interface{}, n int) int64 {
 	blockSize := RoundAllocSize(intendedBlockSize * int64(len))
 	var elemsSize int64
 	for i := 0; i < len; i++ {
-		elemsSize += int64(estimateSizeIndirect(v.Index(i), make(map[uintptr]struct{})))
+		elemsSize += int64(estimateSizeIndirect(template.Index(i), make(map[uintptr]struct{})))
 	}
 	return blockSize + elemsSize*int64(n)
+}
+
+func estimateMakeMapSize(template reflect.Value, n int) int64 {
+	len := template.Len()
+	if len == 0 {
+		return int64(estimateMapDirectWithLen(template.Type(), n))
+	}
+
+	var indirectSize int64
+	seen := map[uintptr]struct{}{}
+	iter := template.MapRange()
+	for iter.Next() {
+		indirectSize += int64(estimateSizeIndirect(iter.Key(), seen))
+		indirectSize += int64(estimateSizeIndirect(iter.Value(), seen))
+	}
+	indirectSize *= int64(n)
+
+	directSize := int64(estimateMapDirectWithLen(template.Type(), len*n))
+	return directSize + indirectSize
 }
 
 func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -214,6 +241,10 @@ func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 }
 
 func estimateMapDirect(v reflect.Value) uintptr {
+	return estimateMapDirectWithLen(v.Type(), v.Len())
+}
+
+func estimateMapDirectWithLen(t reflect.Type, len int) uintptr {
 	// Maps are hard to measure because we don't have access
 	// to the internal capacity (whatever that means). That is
 	// the first problem: "capacity" is a fuzzy concept in hash
@@ -235,14 +266,13 @@ func estimateMapDirect(v reflect.Value) uintptr {
 	// - k1 = (size_k + size_v + 1) * 4 + sizeof(ptr)
 	// - k2 = 1912 when x64, 1096 when x86
 
-	mapType := v.Type()
-	keySize := mapType.Key().Size()
-	valueSize := mapType.Elem().Size()
+	keySize := t.Key().Size()
+	valueSize := t.Elem().Size()
 	k1 := int64(getMapKVPairSize(keySize, valueSize))
 
 	const k2 = int64(204*unsafe.Sizeof(uintptr(0)) + 280)
 
-	return uintptr(RoundAllocSize(int64(v.Len())*k1) + k2)
+	return uintptr(RoundAllocSize(int64(len)*k1) + k2)
 }
 
 // getMapKVPairSize returns the estimated size a key-value pair
