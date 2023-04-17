@@ -346,6 +346,13 @@ func TestEstimateMakeSize(t *testing.T) {
 			})
 
 			st.RunThread(func(thread *starlark.Thread) {
+				if err := thread.AddAllocs(starlark.EstimateMakeSize([]starlark.Value{}, st.N)); err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(make([]starlark.Value, 0, st.N))
+			})
+
+			st.RunThread(func(thread *starlark.Thread) {
 				if err := thread.AddAllocs(starlark.EstimateMakeSize([][2]starlark.Value{}, st.N)); err != nil {
 					st.Error(err)
 				}
