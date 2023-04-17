@@ -490,4 +490,51 @@ func TestEstimateMakeSize(t *testing.T) {
 			})
 		})
 	})
+
+	t.Run("chan", func(t *testing.T) {
+		t.Run("unbuffered", func(t *testing.T) {
+			t.Run("empty", func(t *testing.T) {
+				st := startest.From(t)
+				st.RunThread(func(thread *starlark.Thread) {
+					for i := 0; i < st.N; i++ {
+						channel := make(chan int)
+						if err := thread.AddAllocs(starlark.EstimateMakeSize(make(chan int), st.N)); err != nil {
+							st.Error(err)
+						}
+						st.KeepAlive(channel)
+					}
+				})
+			})
+		})
+
+		t.Run("buffered", func(t *testing.T) {
+			t.Run("empty", func(t *testing.T) {
+				st := startest.From(t)
+				st.RunThread(func(thread *starlark.Thread) {
+					channel := make(chan int, st.N)
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(make(chan int), st.N)); err != nil {
+						st.Error(err)
+					}
+					st.KeepAlive(channel)
+				})
+			})
+			t.Run("populated", func(t *testing.T) {
+				st := startest.From(t)
+				st.RunThread(func(thread *starlark.Thread) {
+					channel := make(chan int, st.N)
+					for i := 0; i < st.N; i++ {
+						channel <- i
+					}
+					if err := thread.AddAllocs(starlark.EstimateSize(int(0)) * int64(st.N)); err != nil {
+						st.Error(err)
+					}
+
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(make(chan int), st.N)); err != nil {
+						st.Error(err)
+					}
+					st.KeepAlive(channel)
+				})
+			})
+		})
+	})
 }

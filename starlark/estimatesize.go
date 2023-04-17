@@ -55,10 +55,8 @@ func EstimateSize(obj interface{}) int64 {
 	return int64(estimateSizeAll(v, make(map[uintptr]struct{})))
 }
 
-// EstimateMakeSize estimates the cost of calling make to build a map or an
-// array of n elements which have a layout which follows the given template.
-// The template must be a map or a slice, which may contain templates of the
-// objects to construct.
+// EstimateMakeSize estimates the cost of calling make to build a slice, map or
+// chan of n elements as specified by template.
 func EstimateMakeSize(template interface{}, n int) int64 {
 	v := reflect.ValueOf(template)
 	switch v.Kind() {
@@ -66,8 +64,10 @@ func EstimateMakeSize(template interface{}, n int) int64 {
 		return int64(estimateMakeArraySize(v, n))
 	case reflect.Map:
 		return int64(estimateMakeMapSize(v, n))
+	case reflect.Chan:
+		return int64(estimateMakeChanSize(v, n))
 	default:
-		panic("EstimateSizeArray template must be a slice or a map")
+		panic("EstimateSizeArray template must be a slice, map or channel")
 	}
 }
 
@@ -102,8 +102,16 @@ func estimateMakeMapSize(template reflect.Value, n int) uintptr {
 	}
 	indirectSize *= uintptr(n)
 
-	directSize := estimateMapDirectWithLen(template.Type(), len*n)
+	directSize := estimateMapDirectWithLen(template.Type(), n*len)
 	return directSize + indirectSize
+}
+
+func estimateMakeChanSize(template reflect.Value, n int) uintptr {
+	assumedLen := template.Len()
+	if assumedLen == 0 {
+		assumedLen = 1
+	}
+	return estimateChanDirectWithCap(template.Type(), n*assumedLen)
 }
 
 func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -213,17 +221,21 @@ func estimateChanAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 }
 
 func estimateChanDirect(v reflect.Value) uintptr {
+	return estimateChanDirectWithCap(v.Type(), v.Cap())
+}
+
+func estimateChanDirectWithCap(t reflect.Type, cap int) uintptr {
 	// This is a very rough approximation of the size of
 	// the chan header.
 	const chanHeaderSize = 10 * unsafe.Sizeof(int(0))
 
-	elementType := v.Type().Elem()
+	elemSize := t.Elem().Size()
 
 	// The two calls provide a pessimistic view since in case of
 	// an elementType that doesn't contain any pointer it
 	// will be allocated in a single bigger block (leading
 	// to a single getAllocSize call).
-	return roundAllocSize(chanHeaderSize) + roundAllocSize(uintptr(v.Cap())*elementType.Size())
+	return roundAllocSize(chanHeaderSize) + roundAllocSize(uintptr(cap)*elemSize)
 }
 
 func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
