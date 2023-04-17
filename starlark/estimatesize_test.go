@@ -1,6 +1,7 @@
 package starlark_test
 
 import (
+	"fmt"
 	"math/rand"
 	"reflect"
 	"strings"
@@ -423,6 +424,91 @@ func TestEstimateMakeSize(t *testing.T) {
 	})
 
 	t.Run("map", func(t *testing.T) {
+		t.Run("empty", func(t *testing.T) {
+			st := startest.From(t)
+			st.RunThread(func(thread *starlark.Thread) {
+				if err := thread.AddAllocs(starlark.EstimateMakeSize(map[int]int{}, st.N)); err != nil {
+					st.Error(err)
+				}
 
+				st.KeepAlive(make(map[int]int, st.N))
+			})
+
+			st.RunThread(func(thread *starlark.Thread) {
+				if err := thread.AddAllocs(starlark.EstimateMakeSize(map[string]starlark.Value{}, st.N)); err != nil {
+					st.Error(err)
+				}
+
+				st.KeepAlive(make(map[string]starlark.Value, st.N))
+			})
+
+			st.RunThread(func(thread *starlark.Thread) {
+				if err := thread.AddAllocs(starlark.EstimateMakeSize(map[[16]int64][256]byte{}, st.N)); err != nil {
+					st.Error(err)
+				}
+
+				st.KeepAlive(make(map[[16]int][256]byte, st.N))
+			})
+		})
+
+		t.Run("single", func(t *testing.T) {
+			st := startest.From(t)
+
+			st.RunThread(func(thread *starlark.Thread) {
+				if err := thread.AddAllocs(starlark.EstimateMakeSize(map[int][]int{0: {0}}, st.N)); err != nil {
+					st.Error(err)
+				}
+
+				val := make(map[int][]int, st.N)
+				for i := 0; i < len(val); i++ {
+					val[i] = []int{i}
+				}
+
+				st.KeepAlive(val)
+			})
+
+			st.RunThread(func(thread *starlark.Thread) {
+				if err := thread.AddAllocs(starlark.EstimateMakeSize(map[string]int{"xxxxxxxx": 1}, st.N)); err != nil {
+					st.Error(err)
+				}
+
+				ret := make(map[string]int, st.N)
+				for i := 0; i < len(ret); i++ {
+					key := fmt.Sprintf("%8d", i)
+					ret[key] = i
+				}
+
+				st.KeepAlive(ret)
+			})
+
+		})
+
+		t.Run("multiple", func(t *testing.T) {
+			st := startest.From(t)
+
+			st.RunThread(func(thread *starlark.Thread) {
+				template := map[interface{}]starlark.Value{
+					1:           starlark.String("ixxxxxxxx"),
+					"sxxxxxxxx": starlark.MakeInt(0),
+					-1:          nil,
+				}
+
+				if err := thread.AddAllocs(starlark.EstimateMakeSize(template, st.N)); err != nil {
+					st.Error(err)
+				}
+
+				val := make(map[interface{}]starlark.Value, 3*st.N)
+				for i := 0; i < st.N; i++ {
+					val[i] = starlark.String(fmt.Sprintf("i%8d", i))
+
+					str := fmt.Sprintf("s%8d", i)
+					val[str] = starlark.MakeInt(i)
+
+					val[-i] = nil
+				}
+
+				st.KeepAlive(val)
+			})
+		})
 	})
 }
