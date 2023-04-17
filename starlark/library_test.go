@@ -353,7 +353,7 @@ func TestListRemoveAllocs(t *testing.T) {
 }
 
 func TestStringCapitalizeAllocs(t *testing.T) {
-	string_capitalize, _ := starlark.String("deadbeef").Attr("capitalize")
+	string_capitalize, _ := starlark.String("ıııııııııı").Attr("capitalize")
 	if string_capitalize == nil {
 		t.Fatal("no such method: string.capitalize")
 	}

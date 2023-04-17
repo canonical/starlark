@@ -15,6 +15,7 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -1629,7 +1630,7 @@ func string_capitalize(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 	}
 	s := string(b.Receiver().(String))
 
-	if err := thread.AddAllocs(EstimateSize(s)); err != nil {
+	if err := thread.CheckAllocs(EstimateSize(s)); err != nil {
 		return nil, err
 	}
 
@@ -1642,6 +1643,10 @@ func string_capitalize(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 			r = unicode.ToLower(r)
 		}
 		res.WriteRune(r)
+	}
+
+	if err := thread.AddAllocs(EstimateSize(reflect.StringHeader{}) + RoundAllocSize(int64(res.Cap()))); err != nil {
+		return nil, err
 	}
 	return String(res.String()), nil
 }
