@@ -358,6 +358,7 @@ func TestEstimateMakeSize(t *testing.T) {
 	t.Run("slice", func(t *testing.T) {
 		t.Run("empty", func(t *testing.T) {
 			st := startest.From(t)
+
 			st.RunThread(func(thread *starlark.Thread) {
 				if err := thread.AddAllocs(starlark.EstimateMakeSize([]starlark.Value{}, st.N)); err != nil {
 					st.Error(err)
@@ -406,7 +407,6 @@ func TestEstimateMakeSize(t *testing.T) {
 
 		t.Run("multiple", func(t *testing.T) {
 			st := startest.From(t)
-
 			st.RunThread(func(thread *starlark.Thread) {
 				if err := thread.AddAllocs(starlark.EstimateMakeSize([]starlark.Value{starlark.MakeInt(0), nil}, st.N)); err != nil {
 					st.Error(err)
@@ -426,6 +426,7 @@ func TestEstimateMakeSize(t *testing.T) {
 	t.Run("map", func(t *testing.T) {
 		t.Run("empty", func(t *testing.T) {
 			st := startest.From(t)
+
 			st.RunThread(func(thread *starlark.Thread) {
 				if err := thread.AddAllocs(starlark.EstimateMakeSize(map[int]int{}, st.N)); err != nil {
 					st.Error(err)
@@ -468,13 +469,13 @@ func TestEstimateMakeSize(t *testing.T) {
 			})
 
 			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.EstimateMakeSize(map[string]int{"xxxxxxxx": 1}, st.N)); err != nil {
+				if err := thread.AddAllocs(starlark.EstimateMakeSize(map[string]int{"kxxxxxxxx": 1}, st.N)); err != nil {
 					st.Error(err)
 				}
 
 				ret := make(map[string]int, st.N)
 				for i := 0; i < len(ret); i++ {
-					key := fmt.Sprintf("%8d", i)
+					key := fmt.Sprintf("k%8d", i)
 					ret[key] = i
 				}
 
@@ -485,11 +486,10 @@ func TestEstimateMakeSize(t *testing.T) {
 
 		t.Run("multiple", func(t *testing.T) {
 			st := startest.From(t)
-
 			st.RunThread(func(thread *starlark.Thread) {
 				template := map[interface{}]starlark.Value{
-					1:           starlark.String("ixxxxxxxx"),
-					"sxxxxxxxx": starlark.MakeInt(0),
+					1:           starlark.String("vxxxxxxxx"),
+					"kxxxxxxxx": starlark.MakeInt(0),
 					-1:          nil,
 				}
 
@@ -499,9 +499,9 @@ func TestEstimateMakeSize(t *testing.T) {
 
 				val := make(map[interface{}]starlark.Value, 3*st.N)
 				for i := 0; i < st.N; i++ {
-					val[i] = starlark.String(fmt.Sprintf("i%8d", i))
+					val[i] = starlark.String(fmt.Sprintf("k%8d", i))
 
-					str := fmt.Sprintf("s%8d", i)
+					str := fmt.Sprintf("v%8d", i)
 					val[str] = starlark.MakeInt(i)
 
 					val[-i] = nil
