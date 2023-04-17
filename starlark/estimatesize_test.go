@@ -363,6 +363,13 @@ func TestEstimateMakeSize(t *testing.T) {
 				}
 				st.KeepAlive(make([]starlark.Value, st.N))
 			})
+
+			st.RunThread(func(thread *starlark.Thread) {
+				if err := thread.AddAllocs(starlark.EstimateMakeSize([][2]starlark.Value{}, st.N)); err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(make([][2]starlark.Value, st.N))
+			})
 		})
 
 		t.Run("single", func(t *testing.T) {
@@ -370,7 +377,6 @@ func TestEstimateMakeSize(t *testing.T) {
 
 			st.RunThread(func(thread *starlark.Thread) {
 				const str = "foo"
-
 				if err := thread.AddAllocs(starlark.EstimateMakeSize([]string{str}, st.N)); err != nil {
 					st.Error(err)
 				}
@@ -379,38 +385,38 @@ func TestEstimateMakeSize(t *testing.T) {
 				for i := 0; i < len(ret); i++ {
 					ret[i] = string([]byte(str))
 				}
+
 				st.KeepAlive(ret)
 			})
 
 			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.EstimateMakeSize([][2]starlark.Value{}, st.N)); err != nil {
-					st.Error(err)
-				}
-				st.KeepAlive(make([][2]starlark.Value, st.N))
-			})
-
-			st.RunThread(func(thread *starlark.Thread) {
-				starlark.EstimateMakeSize([]map[int]int{{}}, 10)
 				if err := thread.AddAllocs(starlark.EstimateMakeSize([]map[int][64]int{{}}, st.N)); err != nil {
 					st.Error(err)
 				}
+
 				val := make([]map[int][64]int, st.N)
 				for i := 0; i < len(val); i++ {
 					val[i] = map[int][64]int{}
 				}
+
 				st.KeepAlive(val)
 			})
 		})
 
-		t.Run("repeated", func(t *testing.T) {
+		t.Run("multiple", func(t *testing.T) {
 			st := startest.From(t)
 
 			st.RunThread(func(thread *starlark.Thread) {
-				thread.AddAllocs(starlark.EstimateMakeSize([]starlark.Value{starlark.MakeInt(0), nil}, st.N))
-				val := make([]starlark.Value, 2*st.N)
-				for i := 0; i < len(val); i += 2 {
-					val[i] = starlark.MakeInt(i)
+				if err := thread.AddAllocs(starlark.EstimateMakeSize([]starlark.Value{starlark.MakeInt(0), nil}, st.N)); err != nil {
+					st.Error(err)
 				}
+
+				val := make([]starlark.Value, 0, 2*st.N)
+				for i := 0; i < st.N; i++ {
+					val = append(val, starlark.MakeInt(i))
+					val = append(val, nil)
+				}
+
 				st.KeepAlive(val)
 			})
 		})
