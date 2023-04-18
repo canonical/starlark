@@ -450,40 +450,6 @@ func (f Float) Hash() (uint32, error) {
 	return 1618033, nil // NaN, +/-Inf
 }
 
-func (f Float) EstimateSize() int64 {
-	// The size of a Float seems simple at the first glance, but it has some
-	// hidden complexity coming from **value type** semantics in Go.
-	//
-	// A value type which becomes an interface will trigger the Go's
-	// "tiny allocator" if:
-	// - the value is less than 16 bytes;
-	// - the value does not contain any pointer.
-	//
-	// The problem with tiny allocator is that it can free its 16bytes-chunks only
-	// when all the values in that chunk have been collected (they are similar to
-	// small, gc-ed, arenas in the sense that once a segment has been allocated
-	// it will not be freed until the whole arena is freed).
-	// For this reason, depending on the interactions with the rest of the code,
-	// a Float allocation (when a Float in wrapped in an interface like Value)
-	// could result in up to 8 bytes of overhead (e.g. when a transient variable
-	// is allocated in the same chunk as the Float, its lifetime will be linked
-	// to the Float and not to the transient).
-	//
-	// While this seems far fetched and rare, there are examples in this repository
-	// of execution paths that will consistently hit the worst-case scenario like
-	// the `float` builtin: when converting an big.Int, whose size is between 32 and
-	// 64 bits, it uses a transient big.Float whose mantissa is 8 bytes long (first
-	// 8 bytes of a tiny chunk), then it will immediately allocate the 8 bytes for
-	// the Float (wrapped in a Value) result which will take the remaining 8 bytes.
-	// The first 8 transient byte will be collected, but not freed until the result
-	// of the function is collected leading to 16bytes of memory allocated for each
-	// Float (instead of the expected 8) and a 100% waste of memory.
-	//
-	// For this reason, I will take the conservative approach and consider all the
-	// allocations of this type as taking 16 bytes.
-	return 16
-}
-
 func floor(f Float) Float { return Float(math.Floor(float64(f))) }
 
 // isFinite reports whether f represents a finite rational value.
