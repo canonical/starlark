@@ -332,65 +332,76 @@ func TestEstimateString(t *testing.T) {
 func TestEstimateMakeSize(t *testing.T) {
 	t.Run("slice", func(t *testing.T) {
 		t.Run("empty", func(t *testing.T) {
-			st := startest.From(t)
-
-			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.EstimateMakeSize([]starlark.Value{}, st.N)); err != nil {
-					st.Error(err)
-				}
-				st.KeepAlive(make([]starlark.Value, st.N))
+			t.Run("with-len", func(t *testing.T) {
+				st := startest.From(t)
+				st.RunThread(func(thread *starlark.Thread) {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize([]starlark.Value{}, st.N)); err != nil {
+						st.Error(err)
+					}
+					st.KeepAlive(make([]starlark.Value, st.N))
+				})
 			})
 
-			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.EstimateMakeSize([]starlark.Value{}, st.N)); err != nil {
-					st.Error(err)
-				}
-				st.KeepAlive(make([]starlark.Value, 0, st.N))
+			t.Run("with-cap", func(t *testing.T) {
+				st := startest.From(t)
+				st.RunThread(func(thread *starlark.Thread) {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize([]starlark.Value{}, st.N)); err != nil {
+						st.Error(err)
+					}
+					st.KeepAlive(make([]starlark.Value, 0, st.N))
+				})
 			})
 
-			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.EstimateMakeSize([][2]starlark.Value{}, st.N)); err != nil {
-					st.Error(err)
-				}
-				st.KeepAlive(make([][2]starlark.Value, st.N))
+			t.Run("complex-elems", func(t *testing.T) {
+				st := startest.From(t)
+				st.RunThread(func(thread *starlark.Thread) {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize([][2]starlark.Value{}, st.N)); err != nil {
+						st.Error(err)
+					}
+					st.KeepAlive(make([][2]starlark.Value, st.N))
+				})
 			})
 		})
 
 		t.Run("single", func(t *testing.T) {
-			st := startest.From(t)
+			t.Run("small-elem", func(t *testing.T) {
+				st := startest.From(t)
+				st.RunThread(func(thread *starlark.Thread) {
+					const str = "foo"
+					if err := thread.AddAllocs(starlark.EstimateMakeSize([]string{str}, st.N)); err != nil {
+						st.Error(err)
+					}
 
-			st.RunThread(func(thread *starlark.Thread) {
-				const str = "foo"
-				if err := thread.AddAllocs(starlark.EstimateMakeSize([]string{str}, st.N)); err != nil {
-					st.Error(err)
-				}
+					ret := make([]string, st.N)
+					for i := 0; i < len(ret); i++ {
+						ret[i] = string([]byte(str))
+					}
 
-				ret := make([]string, st.N)
-				for i := 0; i < len(ret); i++ {
-					ret[i] = string([]byte(str))
-				}
-
-				st.KeepAlive(ret)
+					st.KeepAlive(ret)
+				})
 			})
 
-			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.EstimateMakeSize([]map[int][64]int{{}}, st.N)); err != nil {
-					st.Error(err)
-				}
+			t.Run("large-elem", func(t *testing.T) {
+				st := startest.From(t)
+				st.RunThread(func(thread *starlark.Thread) {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize([]map[int][64]int{{}}, st.N)); err != nil {
+						st.Error(err)
+					}
 
-				val := make([]map[int][64]int, st.N)
-				for i := 0; i < len(val); i++ {
-					val[i] = map[int][64]int{}
-				}
+					val := make([]map[int][64]int, st.N)
+					for i := 0; i < len(val); i++ {
+						val[i] = map[int][64]int{}
+					}
 
-				st.KeepAlive(val)
+					st.KeepAlive(val)
+				})
 			})
 		})
 	})
 
 	t.Run("map", func(t *testing.T) {
 		t.Run("empty", func(t *testing.T) {
-			t.Run("map[int]int", func(t *testing.T) {
+			t.Run("small-elems", func(t *testing.T) {
 				st := startest.From(t)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[int]int{}, st.N)); err != nil {
@@ -401,18 +412,7 @@ func TestEstimateMakeSize(t *testing.T) {
 				})
 			})
 
-			t.Run("map[string]starlark.Value", func(t *testing.T) {
-				st := startest.From(t)
-				st.RunThread(func(thread *starlark.Thread) {
-					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[string]starlark.Value{}, st.N)); err != nil {
-						st.Error(err)
-					}
-
-					st.KeepAlive(make(map[string]starlark.Value, st.N))
-				})
-			})
-
-			t.Run("map[[16]int][256]byte", func(t *testing.T) {
+			t.Run("large-elems", func(t *testing.T) {
 				st := startest.From(t)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[[16]int64][256]byte{}, st.N)); err != nil {
@@ -425,23 +425,7 @@ func TestEstimateMakeSize(t *testing.T) {
 		})
 
 		t.Run("single", func(t *testing.T) {
-			t.Run("map[int][]int", func(t *testing.T) {
-				st := startest.From(t)
-				st.RunThread(func(thread *starlark.Thread) {
-					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[int][]int{0: {0}}, st.N)); err != nil {
-						st.Error(err)
-					}
-
-					val := make(map[int][]int, st.N)
-					for i := 0; i < len(val); i++ {
-						val[i] = []int{i}
-					}
-
-					st.KeepAlive(val)
-				})
-			})
-
-			t.Run("map[string]int", func(t *testing.T) {
+			t.Run("string-keys", func(t *testing.T) {
 				st := startest.From(t)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[string]int{"kxxxxxxxx": 1}, st.N)); err != nil {
@@ -455,6 +439,22 @@ func TestEstimateMakeSize(t *testing.T) {
 					}
 
 					st.KeepAlive(ret)
+				})
+			})
+
+			t.Run("slice-values", func(t *testing.T) {
+				st := startest.From(t)
+				st.RunThread(func(thread *starlark.Thread) {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[int][]int{0: {0}}, st.N)); err != nil {
+						st.Error(err)
+					}
+
+					val := make(map[int][]int, st.N)
+					for i := 0; i < len(val); i++ {
+						val[i] = []int{i}
+					}
+
+					st.KeepAlive(val)
 				})
 			})
 		})
@@ -486,6 +486,7 @@ func TestEstimateMakeSize(t *testing.T) {
 					st.KeepAlive(make(chan int, st.N))
 				})
 			})
+
 			t.Run("populated", func(t *testing.T) {
 				st := startest.From(t)
 				st.RunThread(func(thread *starlark.Thread) {
