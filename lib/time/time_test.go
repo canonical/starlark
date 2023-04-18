@@ -45,11 +45,7 @@ func TestTimeFromTimestampAllocs(t *testing.T) {
 }
 
 func TestTimeIsValidTimezoneAllocs(t *testing.T) {
-	is_valid_timestamp, ok := time.Module.Members["is_valid_timezone"]
-	if !ok {
-		t.Errorf("no such method: is_valid_timezone")
-		return
-	}
+	is_valid_timezone, _ := time.Module.Members["is_valid_timezone"]
 
 	t.Run("timezone=valid", func(t *testing.T) {
 		st := startest.From(t)
@@ -57,7 +53,7 @@ func TestTimeIsValidTimezoneAllocs(t *testing.T) {
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, is_valid_timestamp, starlark.Tuple{starlark.String("Europe/Prague")}, nil)
+				result, err := starlark.Call(thread, is_valid_timezone, starlark.Tuple{starlark.String("Europe/Prague")}, nil)
 				if err != nil {
 					st.Error(err)
 				}
@@ -72,7 +68,7 @@ func TestTimeIsValidTimezoneAllocs(t *testing.T) {
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, is_valid_timestamp, starlark.Tuple{starlark.String("Middle_Earth/Minas_Tirith")}, nil)
+				result, err := starlark.Call(thread, is_valid_timezone, starlark.Tuple{starlark.String("Middle_Earth/Minas_Tirith")}, nil)
 				if err != nil {
 					st.Error(err)
 				}
