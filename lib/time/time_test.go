@@ -42,11 +42,7 @@ func TestMethodSafetiesExist(t *testing.T) {
 }
 
 func TestTimeFromTimestampAllocs(t *testing.T) {
-	from_timestamp, ok := time.Module.Members["from_timestamp"]
-	if !ok {
-		t.Errorf("no such method: from_timestamp")
-		return
-	}
+	from_timestamp, _ := time.Module.Members["from_timestamp"]
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
