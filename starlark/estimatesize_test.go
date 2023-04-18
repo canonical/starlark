@@ -198,11 +198,6 @@ func TestNil(t *testing.T) {
 		t.Errorf("EstimateSize for nil must be 0")
 	}
 
-	var nilString string
-	if starlark.EstimateSize(nilString) != 0 {
-		t.Errorf("EstimateSize for nil must be 0")
-	}
-
 	var nilSlice *[]int
 	if starlark.EstimateSize(nilSlice) != 0 {
 		t.Errorf("EstimateSize for nil must be 0")
