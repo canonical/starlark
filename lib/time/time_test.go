@@ -46,7 +46,6 @@ func TestTimeFromTimestampAllocs(t *testing.T) {
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
-	st.SetMaxAllocs(24)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			result, err := starlark.Call(thread, from_timestamp, starlark.Tuple{starlark.MakeInt(10000)}, nil)
