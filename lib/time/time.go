@@ -143,7 +143,7 @@ func fromTimestamp(thread *starlark.Thread, _ *starlark.Builtin, args starlark.T
 	if err := starlark.UnpackPositionalArgs("from_timestamp", args, kwargs, 1, &sec, &nsec); err != nil {
 		return nil, err
 	}
-	if err := thread.AddAllocs(int64(starlark.EstimateSize(Time{}))); err != nil {
+	if err := thread.AddAllocs(starlark.EstimateSize(Time{})); err != nil {
 		return nil, err
 	}
 	return Time(time.Unix(sec, nsec)), nil
