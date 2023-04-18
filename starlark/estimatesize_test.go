@@ -2,6 +2,7 @@ package starlark_test
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"strings"
 	"testing"
@@ -385,110 +386,76 @@ func TestEstimateMakeSize(t *testing.T) {
 				st.KeepAlive(val)
 			})
 		})
-
-		t.Run("multiple", func(t *testing.T) {
-			st := startest.From(t)
-			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.EstimateMakeSize([]starlark.Value{starlark.MakeInt(0), nil}, st.N)); err != nil {
-					st.Error(err)
-				}
-
-				val := make([]starlark.Value, 0, 2*st.N)
-				for i := 0; i < st.N; i++ {
-					val = append(val, starlark.MakeInt(i))
-					val = append(val, nil)
-				}
-
-				st.KeepAlive(val)
-			})
-		})
 	})
 
 	t.Run("map", func(t *testing.T) {
 		t.Run("empty", func(t *testing.T) {
-			st := startest.From(t)
+			t.Run("map[int]int", func(t *testing.T) {
+				st := startest.From(t)
+				st.RunThread(func(thread *starlark.Thread) {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[int]int{}, st.N)); err != nil {
+						st.Error(err)
+					}
 
-			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.EstimateMakeSize(map[int]int{}, st.N)); err != nil {
-					st.Error(err)
-				}
-
-				st.KeepAlive(make(map[int]int, st.N))
+					st.KeepAlive(make(map[int]int, st.N))
+				})
 			})
 
-			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.EstimateMakeSize(map[string]starlark.Value{}, st.N)); err != nil {
-					st.Error(err)
-				}
+			t.Run("map[string]starlark.Value", func(t *testing.T) {
+				st := startest.From(t)
+				st.RunThread(func(thread *starlark.Thread) {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[string]starlark.Value{}, st.N)); err != nil {
+						st.Error(err)
+					}
 
-				st.KeepAlive(make(map[string]starlark.Value, st.N))
+					st.KeepAlive(make(map[string]starlark.Value, st.N))
+				})
 			})
 
-			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.EstimateMakeSize(map[[16]int64][256]byte{}, st.N)); err != nil {
-					st.Error(err)
-				}
+			t.Run("map[[16]int][256]byte", func(t *testing.T) {
+				st := startest.From(t)
+				st.RunThread(func(thread *starlark.Thread) {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[[16]int64][256]byte{}, st.N)); err != nil {
+						st.Error(err)
+					}
 
-				st.KeepAlive(make(map[[16]int][256]byte, st.N))
+					st.KeepAlive(make(map[[16]int][256]byte, st.N))
+				})
 			})
 		})
 
 		t.Run("single", func(t *testing.T) {
-			st := startest.From(t)
+			t.Run("map[int][]int", func(t *testing.T) {
+				st := startest.From(t)
+				st.RunThread(func(thread *starlark.Thread) {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[int][]int{0: {0}}, st.N)); err != nil {
+						st.Error(err)
+					}
 
-			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.EstimateMakeSize(map[int][]int{0: {0}}, st.N)); err != nil {
-					st.Error(err)
-				}
+					val := make(map[int][]int, st.N)
+					for i := 0; i < len(val); i++ {
+						val[i] = []int{i}
+					}
 
-				val := make(map[int][]int, st.N)
-				for i := 0; i < len(val); i++ {
-					val[i] = []int{i}
-				}
-
-				st.KeepAlive(val)
+					st.KeepAlive(val)
+				})
 			})
 
-			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.EstimateMakeSize(map[string]int{"kxxxxxxxx": 1}, st.N)); err != nil {
-					st.Error(err)
-				}
+			t.Run("map[string]int", func(t *testing.T) {
+				st := startest.From(t)
+				st.RunThread(func(thread *starlark.Thread) {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[string]int{"kxxxxxxxx": 1}, st.N)); err != nil {
+						st.Error(err)
+					}
 
-				ret := make(map[string]int, st.N)
-				for i := 0; i < len(ret); i++ {
-					key := fmt.Sprintf("k%8d", i)
-					ret[key] = i
-				}
+					ret := make(map[string]int, st.N)
+					for i := 0; i < len(ret); i++ {
+						key := fmt.Sprintf("k%8d", i)
+						ret[key] = i
+					}
 
-				st.KeepAlive(ret)
-			})
-
-		})
-
-		t.Run("multiple", func(t *testing.T) {
-			st := startest.From(t)
-			st.RunThread(func(thread *starlark.Thread) {
-				template := map[interface{}]starlark.Value{
-					1:           starlark.String("vxxxxxxxx"),
-					"kxxxxxxxx": starlark.MakeInt(0),
-					-1:          nil,
-				}
-
-				if err := thread.AddAllocs(starlark.EstimateMakeSize(template, st.N)); err != nil {
-					st.Error(err)
-				}
-
-				val := make(map[interface{}]starlark.Value, 3*st.N)
-				for i := 0; i < st.N; i++ {
-					val[i] = starlark.String(fmt.Sprintf("k%8d", i))
-
-					str := fmt.Sprintf("v%8d", i)
-					val[str] = starlark.MakeInt(i)
-
-					val[-i] = nil
-				}
-
-				st.KeepAlive(val)
+					st.KeepAlive(ret)
+				})
 			})
 		})
 	})
@@ -499,8 +466,8 @@ func TestEstimateMakeSize(t *testing.T) {
 				st := startest.From(t)
 				st.RunThread(func(thread *starlark.Thread) {
 					for i := 0; i < st.N; i++ {
-						channel := make(chan int)
-						if err := thread.AddAllocs(starlark.EstimateMakeSize(make(chan int), st.N)); err != nil {
+						var channel chan int
+						if err := thread.AddAllocs(starlark.EstimateMakeSize(channel, st.N)); err != nil {
 							st.Error(err)
 						}
 						st.KeepAlive(channel)
@@ -513,26 +480,22 @@ func TestEstimateMakeSize(t *testing.T) {
 			t.Run("empty", func(t *testing.T) {
 				st := startest.From(t)
 				st.RunThread(func(thread *starlark.Thread) {
-					channel := make(chan int, st.N)
-					if err := thread.AddAllocs(starlark.EstimateMakeSize(make(chan int), st.N)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(make(chan int, 4*st.N), st.N)); err != nil {
 						st.Error(err)
 					}
-					st.KeepAlive(channel)
+					st.KeepAlive(make(chan int, st.N))
 				})
 			})
 			t.Run("populated", func(t *testing.T) {
 				st := startest.From(t)
 				st.RunThread(func(thread *starlark.Thread) {
-					channel := make(chan int, st.N)
-					for i := 0; i < st.N; i++ {
-						channel <- i
-					}
-					if err := thread.AddAllocs(starlark.EstimateSize(int(0)) * int64(st.N)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(make(chan int), st.N)); err != nil {
 						st.Error(err)
 					}
 
-					if err := thread.AddAllocs(starlark.EstimateMakeSize(make(chan int), st.N)); err != nil {
-						st.Error(err)
+					channel := make(chan int, st.N)
+					for i := 0; i < st.N; i++ {
+						channel <- i
 					}
 					st.KeepAlive(channel)
 				})
@@ -541,24 +504,59 @@ func TestEstimateMakeSize(t *testing.T) {
 	})
 
 	t.Run("invalid", func(t *testing.T) {
-		const expected = "EstimateMakeSize template must be a slice, map or chan: got int32"
-		getPanic := func(fn func()) (v interface{}, panicked bool) {
+		tests := []struct {
+			name     string
+			expect   string
+			template interface{}
+		}{{
+			name:     "invalid-type",
+			expect:   "template must be a slice, map or chan: got float64",
+			template: 0.0,
+		}, {
+			name:     "slice",
+			expect:   "template length must be at most 1: got value of length 2",
+			template: []string{"spanner", "wrench"},
+		}, {
+			name:   "map",
+			expect: "template length must be at most 1: got value of length 2",
+			template: map[string]float64{
+				"pi":  math.Pi,
+				"phi": math.Phi,
+			},
+		}, {
+			name:   "chan",
+			expect: "template length must be at most 1: got value of length 3",
+			template: func() interface{} {
+				ret := make(chan int, 3)
+				ret <- 1
+				ret <- 2
+				ret <- 3
+				return ret
+			}(),
+		}}
+
+		catch := func(fn func()) (v interface{}, panicked bool) {
 			defer func() {
-				v = recover()
-				panicked = true
+				if v = recover(); v != nil {
+					panicked = true
+				}
 			}()
 			fn()
 			return
 		}
 
-		v, panicked := getPanic(func() {
-			starlark.EstimateMakeSize('f', 10)
-		})
-		if !panicked {
-			t.Error("invalid EstimateMakeSize input did not cause panic")
-		}
-		if v != expected {
-			t.Errorf("unexpected panic value: %v", v)
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				err, panicked := catch(func() {
+					starlark.EstimateMakeSize(test.template, 25)
+				})
+				if !panicked {
+					t.Error("invalid MakeSizeInput did not cause panic")
+				}
+				if err != test.expect {
+					t.Errorf("unexpected error: %v", err)
+				}
+			})
 		}
 	})
 }

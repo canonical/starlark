@@ -68,51 +68,48 @@ func EstimateMakeSize(template interface{}, n int) int64 {
 	case reflect.Chan:
 		return int64(estimateMakeChanSize(v, n))
 	default:
-		panic(fmt.Sprintf("EstimateMakeSize template must be a slice, map or chan: got %s", v.Kind()))
+		panic(fmt.Sprintf("template must be a slice, map or chan: got %s", v.Kind()))
 	}
 }
 
+const templateTooLong = "template length must be at most 1: got value of length %d"
+
 func estimateMakeSliceSize(template reflect.Value, n int) uintptr {
-	intendedBlockSize := template.Type().Elem().Size() * uintptr(n)
-
 	len := template.Len()
-	if len == 0 {
-		return roundAllocSize(intendedBlockSize) // Assume single zero value.
+	if len > 1 {
+		panic(fmt.Sprintf(templateTooLong, len))
 	}
 
-	blockSize := roundAllocSize(intendedBlockSize * uintptr(len))
-	var elemsSize uintptr
-	for i := 0; i < len; i++ {
-		elemsSize += estimateSizeIndirect(template.Index(i), make(map[uintptr]struct{}))
+	size := roundAllocSize(uintptr(n) * template.Type().Elem().Size())
+	if len > 0 {
+		size += uintptr(n) * estimateSizeIndirect(template.Index(0), make(map[uintptr]struct{}))
 	}
-	return blockSize + elemsSize*uintptr(n)
+	return size
 }
 
 func estimateMakeMapSize(template reflect.Value, n int) uintptr {
 	len := template.Len()
-	if len == 0 {
-		return estimateMapDirectWithLen(template.Type(), n)
+	if len > 1 {
+		panic(fmt.Sprintf(templateTooLong, len))
 	}
 
-	var indirectSize uintptr
-	seen := map[uintptr]struct{}{}
-	iter := template.MapRange()
-	for iter.Next() {
-		indirectSize += estimateSizeIndirect(iter.Key(), seen)
-		indirectSize += estimateSizeIndirect(iter.Value(), seen)
-	}
-	indirectSize *= uintptr(n)
+	size := estimateMapDirectWithLen(template.Type(), n)
+	if len > 0 {
+		iter := template.MapRange()
+		iter.Next()
 
-	directSize := estimateMapDirectWithLen(template.Type(), n*len)
-	return directSize + indirectSize
+		seen := map[uintptr]struct{}{}
+		size += uintptr(n) * estimateSizeIndirect(iter.Key(), seen)
+		size += uintptr(n) * estimateSizeIndirect(iter.Value(), seen)
+	}
+	return size
 }
 
 func estimateMakeChanSize(template reflect.Value, n int) uintptr {
-	assumedLen := template.Len()
-	if assumedLen == 0 {
-		assumedLen = 1
+	if len := template.Len(); len > 1 {
+		panic(fmt.Sprintf(templateTooLong, len))
 	}
-	return estimateChanDirectWithCap(template.Type(), n*assumedLen)
+	return estimateChanDirectWithCap(template.Type(), n)
 }
 
 func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
