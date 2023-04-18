@@ -195,11 +195,6 @@ func estimateStringAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	// it is not possible to get the capacity of the buffer
 	// holding the string.
 
-	if v.Len() == 0 {
-		// In this case (excluding the above) neither the memory
-		// for the string nor the memory for the header are allocated.
-		return 0
-	}
 	return estimateSizeDirect(v) + estimateStringIndirect(v, seen)
 }
 
