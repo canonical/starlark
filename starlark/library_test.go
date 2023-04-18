@@ -716,8 +716,6 @@ func TestListAllocs(t *testing.T) {
 }
 
 func TestMinMaxAllocs(t *testing.T) {
-	st := startest.From(t)
-
 	iterable := &testIterable{
 		nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 			res := starlark.MakeInt(n)
@@ -729,19 +727,23 @@ func TestMinMaxAllocs(t *testing.T) {
 		},
 	}
 
+	min := starlark.Universe["min"]
+	max := starlark.Universe["max"]
+
+	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		iterable.maxN = st.N
 
-		min, err := starlark.Call(thread, starlark.Universe["min"], starlark.Tuple{iterable}, nil)
+		min, err := starlark.Call(thread, min, starlark.Tuple{iterable}, nil)
 		if err != nil {
-			st.Fatal(err)
+			st.Error(err)
 		}
 		st.KeepAlive(min)
 
-		max, err := starlark.Call(thread, starlark.Universe["max"], starlark.Tuple{iterable}, nil)
+		max, err := starlark.Call(thread, max, starlark.Tuple{iterable}, nil)
 		if err != nil {
-			st.Fatal(err)
+			st.Error(err)
 		}
 		st.KeepAlive(max)
 	})
