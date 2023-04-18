@@ -130,27 +130,22 @@ func (it *testIterator) Done()      {}
 func (it *testIterator) Err() error { return it.err }
 
 func TestAbsAllocs(t *testing.T) {
-	fn, ok := starlark.Universe["abs"]
-
-	if !ok {
-		t.Errorf("`abs` builtin not found")
-		return
-	}
+	abs := starlark.Universe["abs"]
 
 	t.Run("positive-ints", func(t *testing.T) {
 		st := startest.From(t)
 
-		one := starlark.Value(starlark.MakeInt(1))
+		var one starlark.Value = starlark.MakeInt(1)
 
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(th *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				stillOne, err := starlark.Call(th, fn, starlark.Tuple{one}, nil)
+				result, err := starlark.Call(th, abs, starlark.Tuple{one}, nil)
 				if err != nil {
 					st.Error(err)
 				}
 
-				st.KeepAlive(stillOne)
+				st.KeepAlive(result)
 			}
 		})
 	})
@@ -158,15 +153,17 @@ func TestAbsAllocs(t *testing.T) {
 	t.Run("small-ints", func(t *testing.T) {
 		st := startest.From(t)
 
+		var speedOfLightInVacuum starlark.Value = starlark.MakeInt(-299792458)
+
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(th *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				speedOfLightInVacuum, err := starlark.Call(th, fn, starlark.Tuple{starlark.MakeInt(-299792458)}, nil)
+				result, err := starlark.Call(th, abs, starlark.Tuple{speedOfLightInVacuum}, nil)
 				if err != nil {
 					st.Error(err)
 				}
 
-				st.KeepAlive(speedOfLightInVacuum)
+				st.KeepAlive(result)
 			}
 		})
 	})
@@ -174,15 +171,17 @@ func TestAbsAllocs(t *testing.T) {
 	t.Run("big-ints", func(t *testing.T) {
 		st := startest.From(t)
 
+		var electrostaticConstant starlark.Value = starlark.MakeInt64(-8987551792)
+
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(th *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				electrostaticConstant, err := starlark.Call(th, fn, starlark.Tuple{starlark.MakeInt64(-8987551792)}, nil)
+				result, err := starlark.Call(th, abs, starlark.Tuple{electrostaticConstant}, nil)
 				if err != nil {
 					st.Error(err)
 				}
 
-				st.KeepAlive(electrostaticConstant)
+				st.KeepAlive(result)
 			}
 		})
 	})
@@ -190,15 +189,17 @@ func TestAbsAllocs(t *testing.T) {
 	t.Run("positive-floats", func(t *testing.T) {
 		st := startest.From(t)
 
+		var pi starlark.Value = starlark.Float(math.Pi)
+
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(th *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				pi, err := starlark.Call(th, fn, starlark.Tuple{starlark.Float(math.Pi)}, nil)
+				result, err := starlark.Call(th, abs, starlark.Tuple{pi}, nil)
 				if err != nil {
 					st.Error(err)
 				}
 
-				st.KeepAlive(pi)
+				st.KeepAlive(result)
 			}
 		})
 	})
@@ -206,15 +207,17 @@ func TestAbsAllocs(t *testing.T) {
 	t.Run("floats", func(t *testing.T) {
 		st := startest.From(t)
 
+		var electronElementaryCharge starlark.Value = starlark.Float(-1.602176634e-19)
+
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(th *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				electronElementaryCharge, err := starlark.Call(th, fn, starlark.Tuple{starlark.Float(-1.602176634e-19 /* elementary charge of an electron */)}, nil)
+				result, err := starlark.Call(th, abs, starlark.Tuple{electronElementaryCharge}, nil)
 				if err != nil {
 					st.Error(err)
 				}
 
-				st.KeepAlive(electronElementaryCharge)
+				st.KeepAlive(result)
 			}
 		})
 	})

@@ -308,8 +308,11 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	}
 	switch tx := x.(type) {
 	case Float:
-		result := Float(math.Abs(float64(tx)))
+		if tx >= 0 {
+			return x, nil
+		}
 
+		result := Float(math.Abs(float64(tx)))
 		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
 		}
@@ -321,7 +324,6 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		}
 
 		result := zero.Sub(tx)
-
 		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
 		}
