@@ -62,7 +62,7 @@ func EstimateMakeSize(template interface{}, n int) int64 {
 	v := reflect.ValueOf(template)
 	switch v.Kind() {
 	case reflect.Slice:
-		return int64(estimateMakeArraySize(v, n))
+		return int64(estimateMakeSliceSize(v, n))
 	case reflect.Map:
 		return int64(estimateMakeMapSize(v, n))
 	case reflect.Chan:
@@ -72,7 +72,7 @@ func EstimateMakeSize(template interface{}, n int) int64 {
 	}
 }
 
-func estimateMakeArraySize(template reflect.Value, n int) uintptr {
+func estimateMakeSliceSize(template reflect.Value, n int) uintptr {
 	intendedBlockSize := template.Type().Elem().Size() * uintptr(n)
 
 	len := template.Len()
