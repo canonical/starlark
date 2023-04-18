@@ -1654,9 +1654,15 @@ func string_iterable(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Va
 	ords := b.Name()[len(b.Name())-2] == 'd'
 	codepoints := b.Name()[0] == 'c'
 	if codepoints {
-		return stringCodepoints{s, ords}, thread.AddAllocs(int64(EstimateSize(stringCodepoints{})))
+		if err := thread.AddAllocs(EstimateSize(stringCodepoints{})); err != nil {
+			return nil, err
+		}
+		return stringCodepoints{s, ords}, nil
 	} else {
-		return stringElems{s, ords}, thread.AddAllocs(int64(EstimateSize(stringCodepoints{})))
+		if err := thread.AddAllocs(EstimateSize(stringElems{})); err != nil {
+			return nil, err
+		}
+		return stringElems{s, ords}, nil
 	}
 }
 
