@@ -515,18 +515,18 @@ func TestEstimateMakeSize(t *testing.T) {
 			template: 0.0,
 		}, {
 			name:     "slice",
-			expect:   "template length must be at most 1: got value of length 2",
+			expect:   "template length must be at most 1: got length 2",
 			template: []string{"spanner", "wrench"},
 		}, {
 			name:   "map",
-			expect: "template length must be at most 1: got value of length 2",
+			expect: "template length must be at most 1: got length 2",
 			template: map[string]float64{
 				"pi":  math.Pi,
 				"phi": math.Phi,
 			},
 		}, {
 			name:   "chan",
-			expect: "template length must be at most 1: got value of length 3",
+			expect: "template length must be at most 1: got length 3",
 			template: func() interface{} {
 				ret := make(chan int, 3)
 				ret <- 1

@@ -72,7 +72,7 @@ func EstimateMakeSize(template interface{}, n int) int64 {
 	}
 }
 
-const templateTooLong = "template length must be at most 1: got value of length %d"
+const templateTooLong = "template length must be at most 1: got length %d"
 
 func estimateMakeSliceSize(template reflect.Value, n int) uintptr {
 	len := template.Len()
