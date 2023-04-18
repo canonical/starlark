@@ -828,7 +828,6 @@ func len_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	}
 
 	result := MakeInt(len)
-
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
 	}
