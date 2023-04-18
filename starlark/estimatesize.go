@@ -1,6 +1,7 @@
 package starlark
 
 import (
+	"fmt"
 	"reflect"
 	"unsafe"
 )
@@ -67,7 +68,7 @@ func EstimateMakeSize(template interface{}, n int) int64 {
 	case reflect.Chan:
 		return int64(estimateMakeChanSize(v, n))
 	default:
-		panic("EstimateSizeArray template must be a slice, map or channel")
+		panic(fmt.Sprintf("EstimateMakeSize template must be a slice, map or chan: got %s", v.Kind()))
 	}
 }
 

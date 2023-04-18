@@ -544,4 +544,26 @@ func TestEstimateMakeSize(t *testing.T) {
 			})
 		})
 	})
+
+	t.Run("invalid", func(t *testing.T) {
+		const expected = "EstimateMakeSize template must be a slice, map or chan: got int32"
+		getPanic := func(fn func()) (v interface{}, panicked bool) {
+			defer func() {
+				v = recover()
+				panicked = true
+			}()
+			fn()
+			return
+		}
+
+		v, panicked := getPanic(func() {
+			starlark.EstimateMakeSize('f', 10)
+		})
+		if !panicked {
+			t.Error("invalid EstimateMakeSize input did not cause panic")
+		}
+		if v != expected {
+			t.Errorf("unexpected panic value: %v", v)
+		}
+	})
 }
