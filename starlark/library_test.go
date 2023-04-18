@@ -488,8 +488,6 @@ func TestSafeIterateAllocs(t *testing.T) {
 }
 
 func TestTupleIteration(t *testing.T) {
-	st := startest.From(t)
-
 	values := starlark.Tuple{
 		starlark.None,
 		starlark.False,
@@ -503,6 +501,7 @@ func TestTupleIteration(t *testing.T) {
 
 	tupleAsValue := starlark.Value(values)
 
+	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
@@ -520,7 +519,7 @@ func TestTupleIteration(t *testing.T) {
 			}
 
 			if err := it.Err(); err != nil {
-				st.Fatal(err)
+				st.Error(err)
 			}
 		}
 	})
