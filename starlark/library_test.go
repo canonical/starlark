@@ -356,11 +356,7 @@ func TestStringCapitalizeAllocs(t *testing.T) {
 }
 
 func TestStringCodepointOrdsAllocs(t *testing.T) {
-	codepoint_ords, _ := starlark.String("pancakes").Attr("codepoint_ords")
-	if codepoint_ords == nil {
-		t.Error("no such method: string.codepoint_ords")
-		return
-	}
+	string_codepoint_ords, _ := starlark.String("pancakes").Attr("codepoint_ords")
 
 	st := startest.From(t)
 
@@ -368,7 +364,7 @@ func TestStringCodepointOrdsAllocs(t *testing.T) {
 
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, codepoint_ords, nil, nil)
+			result, err := starlark.Call(thread, string_codepoint_ords, nil, nil)
 			if err != nil {
 				st.Error(err)
 			}
@@ -378,11 +374,7 @@ func TestStringCodepointOrdsAllocs(t *testing.T) {
 }
 
 func TestStringCodepointsAllocs(t *testing.T) {
-	codepoints, _ := starlark.String("pancakes").Attr("codepoints")
-	if codepoints == nil {
-		t.Error("no such method: string.codepoints")
-		return
-	}
+	string_codepoints, _ := starlark.String("pancakes").Attr("codepoints")
 
 	st := startest.From(t)
 
@@ -390,7 +382,7 @@ func TestStringCodepointsAllocs(t *testing.T) {
 
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, codepoints, nil, nil)
+			result, err := starlark.Call(thread, string_codepoints, nil, nil)
 			if err != nil {
 				st.Error(err)
 			}
@@ -403,11 +395,7 @@ func TestStringCountAllocs(t *testing.T) {
 }
 
 func TestStringElemOrdsAllocs(t *testing.T) {
-	elem_ords, _ := starlark.String("pancakes").Attr("elem_ords")
-	if elem_ords == nil {
-		t.Error("no such method: string.elem_ords")
-		return
-	}
+	string_elem_ords, _ := starlark.String("pancakes").Attr("elem_ords")
 
 	st := startest.From(t)
 
@@ -415,7 +403,7 @@ func TestStringElemOrdsAllocs(t *testing.T) {
 
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, elem_ords, nil, nil)
+			result, err := starlark.Call(thread, string_elem_ords, nil, nil)
 			if err != nil {
 				st.Error(err)
 			}
@@ -426,10 +414,6 @@ func TestStringElemOrdsAllocs(t *testing.T) {
 
 func TestStringElemsAllocs(t *testing.T) {
 	string_elems, _ := starlark.String("pancakes").Attr("elems")
-	if string_elems == nil {
-		t.Error("no such method: string.elems")
-		return
-	}
 
 	st := startest.From(t)
 
