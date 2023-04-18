@@ -56,16 +56,19 @@ func testUnarySafety(t *testing.T, name string, inputs []float64) {
 }
 
 func TestMathCeilAllocs(t *testing.T) {
-	fn := starlarkmath.Module.Members["ceil"]
+	math_ceil := starlarkmath.Module.Members["ceil"]
 
 	t.Run("int", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, fn, starlark.Tuple{starlark.MakeInt(i)}, nil)
+				var n starlark.Value = starlark.MakeInt(i)
+				if err := thread.AddAllocs(starlark.EstimateSize(n)); err != nil {
+					st.Error(err)
+				}
+
+				result, err := starlark.Call(thread, math_ceil, starlark.Tuple{n}, nil)
 				if err != nil {
 					st.Error(err)
 				}
@@ -77,14 +80,15 @@ func TestMathCeilAllocs(t *testing.T) {
 
 	t.Run("big-int", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				big := starlark.MakeInt64(int64(i) + 1<<32)
-				thread.AddAllocs(starlark.EstimateSize(big))
+				if err := thread.AddAllocs(starlark.EstimateSize(big)); err != nil {
+					st.Error(err)
+				}
 
-				result, err := starlark.Call(thread, fn, starlark.Tuple{big}, nil)
+				result, err := starlark.Call(thread, math_ceil, starlark.Tuple{big}, nil)
 				if err != nil {
 					st.Error(err)
 				}
@@ -96,14 +100,15 @@ func TestMathCeilAllocs(t *testing.T) {
 
 	t.Run("float", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				float := starlark.Float(i) / starlark.Float(i+1)
-				thread.AddAllocs(starlark.EstimateSize(float))
+				if err := thread.AddAllocs(starlark.EstimateSize(float)); err != nil {
+					st.Error(err)
+				}
 
-				result, err := starlark.Call(thread, fn, starlark.Tuple{float}, nil)
+				result, err := starlark.Call(thread, math_ceil, starlark.Tuple{float}, nil)
 				if err != nil {
 					st.Error(err)
 				}

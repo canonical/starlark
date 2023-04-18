@@ -219,9 +219,7 @@ func ceil(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwa
 		return x, nil
 	case starlark.Float:
 		var result starlark.Value
-		var err error
-		result, err = starlark.NumberToInt(starlark.Float(math.Ceil(float64(t))))
-
+		result, err := starlark.NumberToInt(starlark.Float(math.Ceil(float64(t))))
 		if err != nil {
 			return nil, err
 		}
