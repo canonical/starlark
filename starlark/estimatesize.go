@@ -1,6 +1,7 @@
 package starlark
 
 import (
+	"fmt"
 	"reflect"
 	"unsafe"
 )
@@ -55,6 +56,62 @@ func EstimateSize(obj interface{}) int64 {
 	return int64(estimateSizeAll(v, make(map[uintptr]struct{})))
 }
 
+// EstimateMakeSize estimates the cost of calling make to build a slice, map or
+// chan of n elements as specified by template.
+func EstimateMakeSize(template interface{}, n int) int64 {
+	v := reflect.ValueOf(template)
+	switch v.Kind() {
+	case reflect.Slice:
+		return int64(estimateMakeSliceSize(v, n))
+	case reflect.Map:
+		return int64(estimateMakeMapSize(v, n))
+	case reflect.Chan:
+		return int64(estimateMakeChanSize(v, n))
+	default:
+		panic(fmt.Sprintf("template must be a slice, map or chan: got %s", v.Kind()))
+	}
+}
+
+const templateTooLong = "template length must be at most 1: got length %d"
+
+func estimateMakeSliceSize(template reflect.Value, n int) uintptr {
+	len := template.Len()
+	if len > 1 {
+		panic(fmt.Sprintf(templateTooLong, len))
+	}
+
+	size := roundAllocSize(uintptr(n) * template.Type().Elem().Size())
+	if len > 0 {
+		size += uintptr(n) * estimateSizeIndirect(template.Index(0), make(map[uintptr]struct{}))
+	}
+	return size
+}
+
+func estimateMakeMapSize(template reflect.Value, n int) uintptr {
+	len := template.Len()
+	if len > 1 {
+		panic(fmt.Sprintf(templateTooLong, len))
+	}
+
+	size := estimateMapDirectWithLen(template.Type(), n)
+	if len > 0 {
+		iter := template.MapRange()
+		iter.Next()
+
+		seen := map[uintptr]struct{}{}
+		size += uintptr(n) * estimateSizeIndirect(iter.Key(), seen)
+		size += uintptr(n) * estimateSizeIndirect(iter.Value(), seen)
+	}
+	return size
+}
+
+func estimateMakeChanSize(template reflect.Value, n int) uintptr {
+	if len := template.Len(); len > 1 {
+		panic(fmt.Sprintf(templateTooLong, len))
+	}
+	return estimateChanDirectWithCap(template.Type(), n)
+}
+
 func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	switch v.Kind() {
 	case reflect.String:
@@ -69,7 +126,7 @@ func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 }
 
 func estimateSizeDirect(v reflect.Value) uintptr {
-	return uintptr(RoundAllocSize(int64(v.Type().Size())))
+	return roundAllocSize(v.Type().Size())
 }
 
 func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -135,16 +192,11 @@ func estimateStringAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	// it is not possible to get the capacity of the buffer
 	// holding the string.
 
-	if v.Len() == 0 {
-		// In this case (excluding the above) neither the memory
-		// for the string nor the memory for the header are allocated.
-		return 0
-	}
 	return estimateSizeDirect(v) + estimateStringIndirect(v, seen)
 }
 
 func estimateStringIndirect(v reflect.Value, _ map[uintptr]struct{}) uintptr {
-	return uintptr(RoundAllocSize(int64(v.Len())))
+	return roundAllocSize(uintptr(v.Len()))
 }
 
 func estimateChanAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -162,17 +214,21 @@ func estimateChanAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 }
 
 func estimateChanDirect(v reflect.Value) uintptr {
+	return estimateChanDirectWithCap(v.Type(), v.Cap())
+}
+
+func estimateChanDirectWithCap(t reflect.Type, cap int) uintptr {
 	// This is a very rough approximation of the size of
 	// the chan header.
-	const chanHeaderSize = int64(10 * unsafe.Sizeof(int(0)))
+	const chanHeaderSize = 10 * unsafe.Sizeof(int(0))
 
-	elementType := v.Type().Elem()
+	elemSize := t.Elem().Size()
 
 	// The two calls provide a pessimistic view since in case of
 	// an elementType that doesn't contain any pointer it
 	// will be allocated in a single bigger block (leading
 	// to a single getAllocSize call).
-	return uintptr(RoundAllocSize(chanHeaderSize) + RoundAllocSize(int64(v.Cap())*int64(elementType.Size())))
+	return roundAllocSize(chanHeaderSize) + roundAllocSize(uintptr(cap)*elemSize)
 }
 
 func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -190,6 +246,10 @@ func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 }
 
 func estimateMapDirect(v reflect.Value) uintptr {
+	return estimateMapDirectWithLen(v.Type(), v.Len())
+}
+
+func estimateMapDirectWithLen(t reflect.Type, len int) uintptr {
 	// Maps are hard to measure because we don't have access
 	// to the internal capacity (whatever that means). That is
 	// the first problem: "capacity" is a fuzzy concept in hash
@@ -211,14 +271,13 @@ func estimateMapDirect(v reflect.Value) uintptr {
 	// - k1 = (size_k + size_v + 1) * 4 + sizeof(ptr)
 	// - k2 = 1912 when x64, 1096 when x86
 
-	mapType := v.Type()
-	keySize := mapType.Key().Size()
-	valueSize := mapType.Elem().Size()
-	k1 := int64(getMapKVPairSize(keySize, valueSize))
+	keySize := t.Key().Size()
+	valueSize := t.Elem().Size()
+	k1 := getMapKVPairSize(keySize, valueSize)
 
-	const k2 = int64(204*unsafe.Sizeof(uintptr(0)) + 280)
+	const k2 = 204*unsafe.Sizeof(uintptr(0)) + 280
 
-	return uintptr(RoundAllocSize(int64(v.Len())*k1) + k2)
+	return roundAllocSize(uintptr(len)*k1) + k2
 }
 
 // getMapKVPairSize returns the estimated size a key-value pair
@@ -270,7 +329,7 @@ func estimateSliceAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 }
 
 func estimateSliceDirect(v reflect.Value) uintptr {
-	return uintptr(RoundAllocSize(int64(v.Type().Elem().Size()) * int64(v.Cap())))
+	return roundAllocSize(v.Type().Elem().Size() * uintptr(v.Cap()))
 }
 
 func estimateSliceIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -319,18 +378,18 @@ var classToSize = [numSizeClasses]uint16{0, 8, 16, 24, 32, 48, 64, 80, 96, 112, 
 var sizeToClass8 = [smallSizeMax/smallSizeDiv + 1]uint8{0, 1, 2, 3, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 21, 22, 22, 22, 22, 23, 23, 23, 23, 24, 24, 24, 24, 25, 25, 25, 25, 26, 26, 26, 26, 27, 27, 27, 27, 27, 27, 27, 27, 28, 28, 28, 28, 28, 28, 28, 28, 29, 29, 29, 29, 29, 29, 29, 29, 30, 30, 30, 30, 30, 30, 30, 30, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32}
 var sizeToClass128 = [(maxSmallSize-smallSizeMax)/largeSizeDiv + 1]uint8{32, 33, 34, 35, 36, 37, 37, 38, 38, 39, 39, 40, 40, 40, 41, 41, 41, 42, 43, 43, 44, 44, 44, 44, 44, 45, 45, 45, 45, 45, 45, 46, 46, 46, 46, 47, 47, 47, 47, 47, 47, 48, 48, 48, 49, 49, 50, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 52, 52, 52, 52, 52, 52, 52, 52, 52, 52, 53, 53, 54, 54, 54, 54, 55, 55, 55, 55, 55, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 57, 57, 57, 57, 57, 57, 57, 57, 57, 57, 58, 58, 58, 58, 58, 58, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 59, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 61, 61, 61, 61, 61, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67}
 
-func alignUp(n, a int64) int64 {
+func alignUp(n, a uintptr) uintptr {
 	return (n + a - 1) &^ (a - 1)
 }
 
-func divRoundUp(n, a int64) int64 {
+func divRoundUp(n, a uintptr) uintptr {
 	return (n + a - 1) / a
 }
 
-// RoundAllocSize rounds an intended allocation amount to an allocation
+// roundAllocSize rounds an intended allocation amount to an allocation
 // amount which can be made by Go. This function returns at least 16
 // bytes due to how small allocations are grouped.
-func RoundAllocSize(size int64) int64 {
+func roundAllocSize(size uintptr) uintptr {
 	// This is the same as `runtime.roundupsize`
 	if size <= 0 {
 		return 0
@@ -340,9 +399,9 @@ func RoundAllocSize(size int64) int64 {
 		return tinyAllocMaxSize
 	} else if size < maxSmallSize {
 		if size <= smallSizeMax-8 {
-			return int64(classToSize[sizeToClass8[divRoundUp(size, smallSizeDiv)]])
+			return uintptr(classToSize[sizeToClass8[divRoundUp(size, smallSizeDiv)]])
 		} else {
-			return int64(classToSize[sizeToClass128[divRoundUp(size-smallSizeMax, largeSizeDiv)]])
+			return uintptr(classToSize[sizeToClass128[divRoundUp(size-smallSizeMax, largeSizeDiv)]])
 		}
 	}
 	if size+pageSize < size {
