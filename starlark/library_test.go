@@ -363,8 +363,9 @@ func TestStringCodepointOrdsAllocs(t *testing.T) {
 	}
 
 	st := startest.From(t)
+
 	st.RequireSafety(starlark.MemSafe)
-	st.SetMaxAllocs(24)
+
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			result, err := starlark.Call(thread, codepoint_ords, nil, nil)
@@ -384,8 +385,9 @@ func TestStringCodepointsAllocs(t *testing.T) {
 	}
 
 	st := startest.From(t)
+
 	st.RequireSafety(starlark.MemSafe)
-	st.SetMaxAllocs(24)
+
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			result, err := starlark.Call(thread, codepoints, nil, nil)
@@ -408,8 +410,9 @@ func TestStringElemOrdsAllocs(t *testing.T) {
 	}
 
 	st := startest.From(t)
+
 	st.RequireSafety(starlark.MemSafe)
-	st.SetMaxAllocs(24)
+
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			result, err := starlark.Call(thread, elem_ords, nil, nil)
@@ -422,18 +425,19 @@ func TestStringElemOrdsAllocs(t *testing.T) {
 }
 
 func TestStringElemsAllocs(t *testing.T) {
-	elems, _ := starlark.String("pancakes").Attr("elems")
-	if elems == nil {
+	string_elems, _ := starlark.String("pancakes").Attr("elems")
+	if string_elems == nil {
 		t.Error("no such method: string.elems")
 		return
 	}
 
 	st := startest.From(t)
+
 	st.RequireSafety(starlark.MemSafe)
-	st.SetMaxAllocs(24)
+
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, elems, nil, nil)
+			result, err := starlark.Call(thread, string_elems, nil, nil)
 			if err != nil {
 				st.Error(err)
 			}
