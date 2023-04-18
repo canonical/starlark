@@ -557,11 +557,7 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		return result, nil
 
 	case Float:
-		if err := thread.AddAllocs(EstimateSize(x)); err != nil {
-			return nil, err
-		}
-
-		return x, nil
+		return args[0], nil
 
 	case String:
 		if x == "" {
