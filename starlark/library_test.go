@@ -212,15 +212,15 @@ func TestFloatAllocs(t *testing.T) {
 }
 
 func TestGetattrAllocs(t *testing.T) {
-	st := startest.From(t)
-
 	obj := starlark.String("test")
-	fn := starlark.Universe["getattr"]
+	attr := starlark.String("split")
+	getattr := starlark.Universe["getattr"]
 
+	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, fn, starlark.Tuple{obj, starlark.String("split")}, nil)
+			result, err := starlark.Call(thread, getattr, starlark.Tuple{obj, attr}, nil)
 			if err != nil {
 				st.Error(err)
 			}
