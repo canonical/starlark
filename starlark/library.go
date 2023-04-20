@@ -21,7 +21,6 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -1378,16 +1377,14 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	var result []Value
 	if rows >= 0 {
 		// length known
-		if err := thread.CheckAllocs(int64(rows+cols*rows+3)*int64(unsafe.Sizeof(Value(nil))) + int64(rows)*int64(unsafe.Sizeof(result))); err != nil {
+		resultSize := EstimateMakeSize([]Value{Tuple{}}, rows)
+		arraySize := EstimateMakeSize(Tuple{}, cols*rows)
+		if err := thread.AddAllocs(resultSize + arraySize); err != nil {
 			return nil, err
 		}
 
 		result = make([]Value, rows)
 		array := make(Tuple, cols*rows) // allocate a single backing array
-
-		if err := thread.AddAllocs(int64(cap(result)+cap(array)+3)*int64(unsafe.Sizeof(Value(nil))) + int64(len(result))*int64(unsafe.Sizeof(result))); err != nil {
-			return nil, err
-		}
 
 		for i := 0; i < rows; i++ {
 			tuple := array[:cols:cols]
@@ -1403,6 +1400,11 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		// length not known
 	outer:
 		for {
+			tupleSize := EstimateMakeSize(Tuple{}, cols)
+			if err := thread.AddAllocs(tupleSize); err != nil {
+				return nil, err
+			}
+
 			tuple := make(Tuple, cols)
 			for i, iter := range iters {
 				if !iter.Next(&tuple[i]) {
@@ -1413,17 +1415,25 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 				}
 			}
 
-			if err := thread.AddAllocs(int64(unsafe.Sizeof(tuple)) + int64(cols)*int64(unsafe.Sizeof(Value(nil)))); err != nil {
-				return nil, err
+			if cap(result) == len(result) {
+				overallocEstimation := EstimateMakeSize([]Value{Tuple{}}, cap(result)*5/4)
+				if err := thread.CheckAllocs(overallocEstimation); err != nil {
+					return nil, err
+				}
 			}
 
 			result = append(result, tuple)
 		}
 
-		if err := thread.AddAllocs(int64(unsafe.Sizeof(Value(nil))) * int64(cap(result))); err != nil {
+		if err := thread.AddAllocs(EstimateMakeSize([]Value{Tuple{}}, cap(result))); err != nil {
 			return nil, err
 		}
 	}
+
+	if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
+		return nil, err
+	}
+
 	return NewList(result), nil
 }
 
