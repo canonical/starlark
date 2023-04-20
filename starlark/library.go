@@ -21,7 +21,6 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -1524,18 +1523,29 @@ func dict_values(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 }
 
 func safe_append(thread *Thread, slice []Value, elements ...Value) ([]Value, error) {
-	originalCap := cap(slice)
-	elems := append(slice, elements...)
-	finalCap := cap(elems)
-
-	if finalCap > originalCap {
-		growth := uintptr(finalCap - originalCap)
-		if err := thread.AddAllocs(int64(growth * unsafe.Sizeof(Value(nil)))); err != nil {
+	if cap(slice) < len(slice)+len(elements) {
+		// Reallocations in go start steep, but usually settle for a
+		// ~25% more. Only when the size of the slice is small the
+		// percentage is way bigger (up to 100%), but small cases
+		// really don't matter as this code only prevents spikes.
+		capEstimate := (len(slice) + len(elements)) * 5 / 4
+		if err := thread.CheckAllocs(EstimateMakeSize([]Value{}, capEstimate)); err != nil {
 			return nil, err
 		}
 	}
 
-	return elems, nil
+	result := append(slice, elements...)
+
+	initialSize := EstimateMakeSize([]Value{}, cap(slice))
+	finalSize := EstimateMakeSize([]Value{}, cap(result))
+	if finalSize > initialSize {
+		growth := finalSize - initialSize
+		if err := thread.AddAllocs(growth); err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·append
@@ -1604,11 +1614,11 @@ func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		if eq, err := Equal(recv.elems[i], value); err != nil {
 			return nil, nameErr(b, err)
 		} else if eq {
-			result := MakeInt(i)
+			var result Value = MakeInt(i)
 			if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 				return nil, err
 			}
-			return MakeInt(i), nil
+			return result, nil
 		}
 	}
 	return nil, nameErr(b, "value not in list")
