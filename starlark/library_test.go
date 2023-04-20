@@ -1895,19 +1895,18 @@ func TestStringLstripAllocs(t *testing.T) {
 }
 
 func TestStringPartitionAllocs(t *testing.T) {
-	st := startest.From(t)
-
 	recv := starlark.String("don't communicate by sharing memory, share memory by communicating.")
 
-	fn, err := recv.Attr("partition")
-	if err != nil {
-		st.Fatal(err)
+	string_partition, _ := recv.Attr("partition")
+	if string_partition == nil {
+		t.Fatal("no such method: string.partition")
 	}
 
+	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, fn, starlark.Tuple{starlark.String("channel")}, nil)
+			result, err := starlark.Call(thread, string_partition, starlark.Tuple{starlark.String("channel")}, nil)
 			if err != nil {
 				st.Error(err)
 			}
@@ -1918,7 +1917,7 @@ func TestStringPartitionAllocs(t *testing.T) {
 
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, fn, starlark.Tuple{starlark.String("memory")}, nil)
+			result, err := starlark.Call(thread, string_partition, starlark.Tuple{starlark.String("memory")}, nil)
 			if err != nil {
 				st.Error(err)
 			}
@@ -1962,19 +1961,18 @@ func TestStringRindexAllocs(t *testing.T) {
 }
 
 func TestStringRpartitionAllocs(t *testing.T) {
-	st := startest.From(t)
-
 	recv := starlark.String("don't communicate by sharing memory, share memory by communicating.")
 
-	fn, err := recv.Attr("rpartition")
-	if err != nil {
-		st.Fatal(err)
+	string_rpartition, _ := recv.Attr("rpartition")
+	if string_rpartition == nil {
+		t.Fatal("no such method: string.rpartition")
 	}
 
+	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, fn, starlark.Tuple{starlark.String("channel")}, nil)
+			result, err := starlark.Call(thread, string_rpartition, starlark.Tuple{starlark.String("channel")}, nil)
 			if err != nil {
 				st.Error(err)
 			}
@@ -1985,7 +1983,7 @@ func TestStringRpartitionAllocs(t *testing.T) {
 
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, fn, starlark.Tuple{starlark.String("memory")}, nil)
+			result, err := starlark.Call(thread, string_rpartition, starlark.Tuple{starlark.String("memory")}, nil)
 			if err != nil {
 				st.Error(err)
 			}
