@@ -2236,14 +2236,14 @@ func string_upper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 
 	arg := string(b.Receiver().(String))
 
-	// see string_upper
+	// see string_lower
 	if err := thread.CheckAllocs(EstimateMakeSize([]byte{}, len(arg)*2)); err != nil {
 		return nil, err
 	}
 
 	var result Value = String(strings.ToUpper(arg))
 
-	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+	if err := thread.AddAllocs(EstimateMakeSize([]byte{}, len(result.(String))+utf8.UTFMax)); err != nil {
 		return nil, err
 	}
 

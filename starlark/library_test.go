@@ -589,6 +589,26 @@ func TestStringUpperAllocs(t *testing.T) {
 
 			st.KeepAlive(result)
 		})
+
+		// edge case
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("ı", st.N))
+			fn, err := str.Attr("upper")
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			st.KeepAlive(result)
+		})
 	})
 
 	t.Run("Unicode-single", func(t *testing.T) {
