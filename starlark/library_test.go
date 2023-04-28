@@ -297,24 +297,46 @@ func TestChrAllocs(t *testing.T) {
 }
 
 func TestDictAllocs(t *testing.T) {
-	st := startest.From(t)
+	values := &testIterable{
+		nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+			var result starlark.Value = starlark.Tuple{starlark.MakeInt(n), starlark.None}
+			if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+				return nil, err
+			}
 
-	listValues := make([]starlark.Value, 100)
-	for i := 0; i < len(listValues); i++ {
-		listValues[i] = starlark.Tuple{starlark.MakeInt(i), starlark.None}
+			return result, nil
+		},
+		maxN: 100,
 	}
-	list := starlark.NewList(listValues)
 
-	st.RequireSafety(starlark.MemSafe)
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, starlark.Universe["dict"], starlark.Tuple{list}, nil)
+	t.Run("fixed", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			values.maxN = 100
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, starlark.Universe["dict"], starlark.Tuple{values}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("average", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			values.maxN = st.N
+			result, err := starlark.Call(thread, starlark.Universe["dict"], starlark.Tuple{values}, nil)
 			if err != nil {
 				st.Error(err)
 			}
 
 			st.KeepAlive(result)
-		}
+		})
 	})
 }
 
