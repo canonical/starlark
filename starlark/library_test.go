@@ -443,24 +443,22 @@ func TestStringSplitAllocs(t *testing.T) {
 }
 
 func TestStringSplitlinesAllocs(t *testing.T) {
-	st := startest.From(t)
-
 	str := starlark.String(`
 Lorem ipsum dolor sit amet, consectetur adipiscing elit.
 Suspendisse porta ipsum a purus pharetra sagittis.
 Fusce tristique ex non fermentum suscipit.
 Curabitur nec velit fringilla arcu lacinia commodo.`)
 
-	fn, err := str.Attr("splitlines")
-	if err != nil {
-		st.Fatal(err)
+	string_splitlines, _ := str.Attr("splitlines")
+	if string_splitlines == nil {
+		t.Fatal("no such method: string.splitlines")
 	}
 
+	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, fn, nil, nil)
-
+			result, err := starlark.Call(thread, string_splitlines, nil, nil)
 			if err != nil {
 				st.Error(err)
 			}
