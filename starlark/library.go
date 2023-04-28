@@ -21,7 +21,6 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -1599,13 +1598,9 @@ func dict_keys(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 
 	dict := b.Receiver().(*Dict)
 
-	const (
-		headerSize  = unsafe.Sizeof(List{})
-		elementSize = unsafe.Sizeof(Value(nil))
-	)
-
-	listSize := roundAllocSize(headerSize) + roundAllocSize(elementSize*uintptr(dict.Len()))
-	if err := thread.AddAllocs(int64(listSize)); err != nil {
+	resultSize := EstimateSize(&List{})
+	keysSize := EstimateMakeSize([]Value{}, dict.Len())
+	if err := thread.AddAllocs(resultSize + keysSize); err != nil {
 		return nil, err
 	}
 
@@ -1644,15 +1639,11 @@ func dict_popitem(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		return nil, nameErr(b, err) // dict is frozen
 	}
 
-	result := make(Tuple, 2)
-	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+	if err := thread.AddAllocs(EstimateSize(Tuple{nil, nil})); err != nil {
 		return nil, err
 	}
 
-	result[0] = k
-	result[1] = v
-
-	return result, nil
+	return Tuple{k, v}, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·setdefault
@@ -1667,10 +1658,10 @@ func dict_setdefault(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Va
 	} else if ok {
 		return v, nil
 	} else {
-		before := dict.EstimateSize()
+		before := EstimateSize(dict)
 		if err := dict.SetKey(key, dflt); err != nil {
 			return nil, nameErr(b, err)
-		} else if err := thread.AddAllocs(dict.EstimateSize() - before); err != nil {
+		} else if err := thread.AddAllocs(EstimateSize(dict) - before); err != nil {
 			return nil, err
 		} else {
 			return dflt, nil
@@ -1697,13 +1688,9 @@ func dict_values(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 
 	dict := b.Receiver().(*Dict)
 
-	const (
-		headerSize  = unsafe.Sizeof(List{})
-		elementSize = unsafe.Sizeof(Value(nil))
-	)
-
-	listSize := roundAllocSize(headerSize) + roundAllocSize(elementSize*uintptr(dict.Len()))
-	if err := thread.AddAllocs(int64(listSize)); err != nil {
+	resultSize := EstimateSize(&List{})
+	valuesSize := EstimateMakeSize([]Value{}, dict.Len())
+	if err := thread.AddAllocs(resultSize + valuesSize); err != nil {
 		return nil, err
 	}
 
@@ -2694,14 +2681,17 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 		default:
 			// all other sequences
 			// FIXME how to count for steps and time without counting transient memory?
-			iter := Iterate(updates)
-			if iter == nil {
-				return fmt.Errorf("got %s, want iterable", updates.Type())
+			iter, err := SafeIterate(thread, updates)
+			if err != nil {
+				if err == ErrUnsupported {
+					return fmt.Errorf("got %s, want iterable", updates.Type())
+				}
+
+				return err
 			}
 			defer iter.Done()
 			var pair Value
 			for i := 0; iter.Next(&pair); i++ {
-				// TODO: use SafeIterate
 				iter2, err := SafeIterate(thread, pair)
 				if err != nil {
 					if err == ErrUnsupported {
@@ -2725,6 +2715,10 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 				if err := dict.SetKey(k, v); err != nil {
 					return err
 				}
+			}
+
+			if err := iter.Err(); err != nil {
+				return err
 			}
 		}
 	}
