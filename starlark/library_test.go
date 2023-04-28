@@ -297,6 +297,7 @@ func TestChrAllocs(t *testing.T) {
 }
 
 func TestDictAllocs(t *testing.T) {
+	dict := starlark.Universe["dict"]
 	values := &testIterable{
 		nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 			var result starlark.Value = starlark.Tuple{starlark.MakeInt(n), starlark.None}
@@ -315,7 +316,7 @@ func TestDictAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			values.maxN = 100
 			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, starlark.Universe["dict"], starlark.Tuple{values}, nil)
+				result, err := starlark.Call(thread, dict, starlark.Tuple{values}, nil)
 				if err != nil {
 					st.Error(err)
 				}
@@ -330,7 +331,7 @@ func TestDictAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			values.maxN = st.N
-			result, err := starlark.Call(thread, starlark.Universe["dict"], starlark.Tuple{values}, nil)
+			result, err := starlark.Call(thread, dict, starlark.Tuple{values}, nil)
 			if err != nil {
 				st.Error(err)
 			}
@@ -917,20 +918,18 @@ func TestBytesElemsAllocs(t *testing.T) {
 }
 
 func TestDictClearAllocs(t *testing.T) {
-	st := startest.From(t)
-
 	dict := starlark.NewDict(100)
 	keys := make([]starlark.Value, 100)
-
 	for i := 0; i < 100; i++ {
 		keys[i] = starlark.MakeInt(i)
 	}
 
 	fn, err := dict.Attr("clear")
 	if err != nil {
-		st.Fatal(err)
+		t.Fatal(err)
 	}
 
+	st := startest.From(t)
 	st.SetMaxAllocs(0)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
@@ -939,69 +938,69 @@ func TestDictClearAllocs(t *testing.T) {
 				dict.SetKey(k, starlark.None)
 			}
 
-			_, err := starlark.Call(thread, fn, nil, nil)
+			result, err := starlark.Call(thread, fn, nil, nil)
 			if err != nil {
-				st.Fatal(err)
+				st.Error(err)
 			}
+
+			st.KeepAlive(result)
 		}
 	})
 }
 
 func TestDictGetAllocs(t *testing.T) {
-
 	dict := starlark.NewDict(100)
 	keys := make([]starlark.Value, 100)
-
 	for i := 0; i < 100; i++ {
 		keys[i] = starlark.MakeInt(i)
 		dict.SetKey(keys[i], keys[i])
 	}
 
-	fn, err := dict.Attr("get")
-	if err != nil {
-		t.Fatal(err)
+	dict_get, _ := dict.Attr("get")
+	if dict_get == nil {
+		t.Fatal("no such method: dict.get")
 	}
 
 	t.Run("present", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.SetMaxAllocs(0)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				value, err := starlark.Call(thread, fn, starlark.Tuple{starlark.MakeInt(i % 100)}, nil)
+				value, err := starlark.Call(thread, dict_get, starlark.Tuple{starlark.MakeInt(i % 100)}, nil)
 				if err != nil {
-					st.Fatal(err)
+					st.Error(err)
 				}
 
 				if value == starlark.None {
-					st.Fatalf("key %v not found", keys[i])
+					st.Errorf("key %v not found", keys[i])
 				}
 
 				st.KeepAlive(value)
 			}
+
 			st.KeepAlive(dict)
 		})
 	})
 
 	t.Run("missing", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.SetMaxAllocs(0)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				value, err := starlark.Call(thread, fn, starlark.Tuple{starlark.None}, nil)
+				value, err := starlark.Call(thread, dict_get, starlark.Tuple{starlark.None}, nil)
 				if err != nil {
-					st.Fatal(err)
+					st.Error(err)
 				}
 
 				if value != starlark.None {
-					st.Fatal("`None` is not a key")
+					st.Error("`None` is not a key")
 				}
 
 				st.KeepAlive(value)
 			}
+
 			st.KeepAlive(dict)
 		})
 	})
@@ -1010,56 +1009,53 @@ func TestDictGetAllocs(t *testing.T) {
 func TestDictItemsAllocs(t *testing.T) {
 	t.Run("average", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			dict := starlark.NewDict(st.N)
-
 			for i := 0; i < st.N; i++ {
 				key := starlark.MakeInt(i)
 				dict.SetKey(key, starlark.None)
 				if err := thread.AddAllocs(starlark.EstimateSize(key)); err != nil {
-					st.Fatal(err)
+					st.Error(err)
 				}
 			}
 
-			fn, err := dict.Attr("items")
-			if err != nil {
-				st.Fatal(err)
+			dict_items, _ := dict.Attr("items")
+			if dict_items == nil {
+				st.Fatal("no such method: dict.items")
 			}
 
-			items, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			result, err := starlark.Call(thread, dict_items, nil, nil)
 			if err != nil {
-				st.Fatal(err)
+				st.Error(err)
 			}
 
-			st.KeepAlive(items)
+			st.KeepAlive(result)
 		})
 	})
 
 	t.Run("fixed", func(t *testing.T) {
-		st := startest.From(t)
-
-		dict := starlark.NewDict(st.N)
+		dict := starlark.NewDict(100)
 		for i := 0; i < 100; i++ {
 			key := starlark.MakeInt(i)
 			dict.SetKey(key, starlark.None)
 		}
 
-		fn, err := dict.Attr("items")
-		if err != nil {
-			st.Fatal(err)
+		dict_items, _ := dict.Attr("items")
+		if dict_items == nil {
+			t.Fatal("no such method: dict.items")
 		}
 
+		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				values, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+				result, err := starlark.Call(thread, dict_items, nil, nil)
 				if err != nil {
-					st.Fatal(err)
+					st.Error(err)
 				}
 
-				st.KeepAlive(values)
+				st.KeepAlive(result)
 			}
 		})
 	})
@@ -1068,11 +1064,9 @@ func TestDictItemsAllocs(t *testing.T) {
 func TestDictKeysAllocs(t *testing.T) {
 	t.Run("average", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			dict := starlark.NewDict(st.N)
-
 			for i := 0; i < st.N; i++ {
 				key := starlark.MakeInt(i)
 				dict.SetKey(key, starlark.None)
@@ -1081,159 +1075,133 @@ func TestDictKeysAllocs(t *testing.T) {
 				}
 			}
 
-			fn, err := dict.Attr("keys")
-			if err != nil {
-				st.Fatal(err)
+			dict_keys, _ := dict.Attr("keys")
+			if dict_keys == nil {
+				st.Fatal("no such method: dict.keys")
 			}
 
-			keys, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			result, err := starlark.Call(thread, dict_keys, nil, nil)
 			if err != nil {
-				st.Fatal(err)
+				st.Error(err)
 			}
 
-			st.KeepAlive(keys)
+			st.KeepAlive(result)
 		})
 	})
 
 	t.Run("fixed", func(t *testing.T) {
-		st := startest.From(t)
-
-		dict := starlark.NewDict(st.N)
+		dict := starlark.NewDict(100)
 		for i := 0; i < 100; i++ {
 			key := starlark.MakeInt(i)
 			dict.SetKey(key, starlark.None)
 		}
 
-		fn, err := dict.Attr("keys")
-		if err != nil {
-			st.Fatal(err)
+		dict_keys, _ := dict.Attr("keys")
+		if dict_keys == nil {
+			t.Fatal("no such method: dict.keys")
 		}
 
+		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				keys, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+				result, err := starlark.Call(thread, dict_keys, nil, nil)
 				if err != nil {
-					st.Fatal(err)
+					st.Error(err)
 				}
 
-				st.KeepAlive(keys)
+				st.KeepAlive(result)
 			}
 		})
 	})
 }
 
 func TestDictPopAllocs(t *testing.T) {
-	st := startest.From(t)
-
 	dict := starlark.NewDict(100)
-
 	for i := 0; i < 100; i++ {
 		key := starlark.MakeInt(i)
 		dict.SetKey(key, key)
 	}
 
-	fn, err := dict.Attr("pop")
-
-	if err != nil {
-		st.Fatal(err)
+	dict_pop, _ := dict.Attr("pop")
+	if dict_pop == nil {
+		t.Fatal("no such method: dict.pop")
 	}
 
-	if fn == nil {
-		st.Fatal("`dict.pop` method doesn't exists")
-	}
-
+	st := startest.From(t)
 	st.SetMaxAllocs(0)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			value, err := starlark.Call(thread, fn, starlark.Tuple{starlark.MakeInt(i % 100)}, nil)
+			result, err := starlark.Call(thread, dict_pop, starlark.Tuple{starlark.MakeInt(i % 100)}, nil)
 			if err != nil {
-				st.Fatal(err)
+				st.Error(err)
 			}
 
-			st.KeepAlive(value)
-
-			dict.SetKey(value, value)
+			st.KeepAlive(result)
+			dict.SetKey(result, result)
 		}
 	})
 }
 
 func TestDictPopitemAllocs(t *testing.T) {
-	st := startest.From(t)
-
 	dict := starlark.NewDict(100)
-
 	for i := 0; i < 100; i++ {
 		key := starlark.MakeInt(i)
 		dict.SetKey(key, key)
 	}
 
-	fn, err := dict.Attr("popitem")
-
-	if err != nil {
-		st.Fatal(err)
-		return
+	dict_popitem, _ := dict.Attr("popitem")
+	if dict_popitem == nil {
+		t.Fatal("no such method: dict.popitem")
 	}
 
-	if fn == nil {
-		st.Fatal("`dict.popitem` method doesn't exists")
-	}
-
+	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			tuple, err := starlark.Call(thread, fn, nil, nil)
-
+			result, err := starlark.Call(thread, dict_popitem, nil, nil)
 			if err != nil {
-				st.Fatal(err)
+				st.Error(err)
 			}
 
-			var k, v starlark.Value
-
-			if value, ok := tuple.(starlark.Tuple); !ok {
-				st.Fatalf("expected Tuple got %v", value.Type())
-			} else if value.Len() != 2 {
-				st.Fatal("expected a pair")
+			if tuple, ok := result.(starlark.Tuple); !ok {
+				st.Errorf("expected Tuple got %v", tuple.Type())
+			} else if tuple.Len() != 2 {
+				st.Error("expected a pair")
 			} else {
-				k = value[0]
-				v = value[1]
+				dict.SetKey(tuple[0], tuple[1])
 			}
 
-			st.KeepAlive(tuple)
-			dict.SetKey(k, v)
+			st.KeepAlive(result)
 		}
+
 		st.KeepAlive(dict)
 	})
 }
 
 func TestDictSetdefaultAllocs(t *testing.T) {
-	st := startest.From(t)
 	dict := starlark.NewDict(0)
-	fn, err := dict.Attr("setdefault")
-
-	if err != nil {
-		st.Fatal(err)
+	dict_setdefault, _ := dict.Attr("setdefault")
+	if dict_setdefault == nil {
+		t.Fatal("no such method: dict.setdefault")
 	}
 
-	if fn == nil {
-		st.Fatal("`dict.setdefault` method doesn't exists")
-	}
-
+	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			key := starlark.MakeInt(i)
-			thread.AddAllocs(starlark.EstimateSize(key))
+			var key starlark.Value = starlark.MakeInt(i)
+			if err := thread.AddAllocs(starlark.EstimateSize(key)); err != nil {
+				st.Error(err)
+			}
 
-			value, err := starlark.Call(thread, fn, starlark.Tuple{key, key}, nil)
+			result, err := starlark.Call(thread, dict_setdefault, starlark.Tuple{key, key}, nil)
 			if err != nil {
-				st.Fatal(err)
+				st.Error(err)
 			}
 
-			if err := thread.AddAllocs(starlark.EstimateSize(value)); err != nil {
-				st.Fatal(err)
-			}
+			st.KeepAlive(result)
 		}
 
 		st.KeepAlive(dict)
@@ -1241,30 +1209,28 @@ func TestDictSetdefaultAllocs(t *testing.T) {
 }
 
 func TestDictUpdateAllocs(t *testing.T) {
-	st := startest.From(t)
-
 	dict := starlark.NewDict(0)
-
-	fn, err := dict.Attr("update")
-	if err != nil {
-		st.Fatal(err)
+	dict_update, _ := dict.Attr("update")
+	if dict_update == nil {
+		t.Fatal("no such method: dict.update")
 	}
 
+	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			var kv starlark.Value = starlark.MakeInt(i)
 			if err := thread.AddAllocs(starlark.EstimateSize(kv)); err != nil {
-				st.Fatal(err)
+				st.Error(err)
 			}
 
-			_, err := starlark.Call(thread, fn, starlark.Tuple{starlark.Tuple{
-				starlark.Tuple{kv, kv},
-				starlark.Tuple{kv, kv},
-			}}, nil)
+			updates := starlark.Tuple{starlark.Tuple{kv, kv}, starlark.Tuple{kv, kv}}
+			result, err := starlark.Call(thread, dict_update, starlark.Tuple{updates}, nil)
 			if err != nil {
 				st.Error(err)
 			}
+
+			st.KeepAlive(result)
 		}
 
 		st.KeepAlive(dict)
@@ -1274,11 +1240,9 @@ func TestDictUpdateAllocs(t *testing.T) {
 func TestDictValuesAllocs(t *testing.T) {
 	t.Run("average", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			dict := starlark.NewDict(st.N)
-
 			for i := 0; i < st.N; i++ {
 				key := starlark.MakeInt(i)
 				dict.SetKey(key, starlark.None)
@@ -1287,43 +1251,42 @@ func TestDictValuesAllocs(t *testing.T) {
 				}
 			}
 
-			fn, err := dict.Attr("values")
-			if err != nil {
-				st.Fatal(err)
+			dict_values, _ := dict.Attr("values")
+			if dict_values == nil {
+				st.Fatal("no such method: dict.values")
 			}
 
-			values, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			result, err := starlark.Call(thread, dict_values, nil, nil)
 			if err != nil {
-				st.Fatal(err)
+				st.Error(err)
 			}
 
-			st.KeepAlive(values)
+			st.KeepAlive(result)
 		})
 	})
 
 	t.Run("fixed", func(t *testing.T) {
-		st := startest.From(t)
-
-		dict := starlark.NewDict(st.N)
+		dict := starlark.NewDict(100)
 		for i := 0; i < 100; i++ {
 			key := starlark.MakeInt(i)
 			dict.SetKey(key, starlark.None)
 		}
 
-		fn, err := dict.Attr("values")
-		if err != nil {
-			st.Fatal(err)
+		fn, _ := dict.Attr("values")
+		if fn == nil {
+			t.Fatal("no such method: dict.values")
 		}
 
+		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				values, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+				result, err := starlark.Call(thread, fn, nil, nil)
 				if err != nil {
-					st.Fatal(err)
+					st.Error(err)
 				}
 
-				st.KeepAlive(values)
+				st.KeepAlive(result)
 			}
 		})
 	})
