@@ -2045,18 +2045,14 @@ func string_lower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	// upper and the size of the encoded lower. The maximum difference among
 	// them (according to unicode.ToLower implementation) is only 1 byte,
 	// which could be expected. This means that this logic must take that
-	// spike into account.
-	if err := thread.CheckAllocs(EstimateMakeSize([]byte{}, len(arg)*2)); err != nil {
+	// into account.
+	bufferSize := EstimateMakeSize([]byte{}, len(arg)*2+utf8.UTFMax)
+	resultSize := EstimateSize(String(""))
+	if err := thread.AddAllocs(bufferSize + resultSize); err != nil {
 		return nil, err
 	}
 
-	var result Value = String(strings.ToLower(arg))
-
-	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return String(strings.ToLower(arg)), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·partition
@@ -2237,17 +2233,13 @@ func string_upper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	arg := string(b.Receiver().(String))
 
 	// see string_lower
-	if err := thread.CheckAllocs(EstimateMakeSize([]byte{}, len(arg)*2)); err != nil {
+	bufferSize := EstimateMakeSize([]byte{}, len(arg)*2+utf8.UTFMax)
+	resultSize := EstimateSize(String(""))
+	if err := thread.AddAllocs(bufferSize + resultSize); err != nil {
 		return nil, err
 	}
 
-	var result Value = String(strings.ToUpper(arg))
-
-	if err := thread.AddAllocs(EstimateMakeSize([]byte{}, len(result.(String))+utf8.UTFMax)); err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return String(strings.ToUpper(arg)), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·split
