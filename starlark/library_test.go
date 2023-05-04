@@ -491,8 +491,8 @@ func TestStringSplitlinesAllocs(t *testing.T) {
 }
 
 func TestStringStartswithAllocs(t *testing.T) {
-	string_startswith, _ := starlark.String("a single step").Attr("startswith")
-	prefix := starlark.String("a journey of a thousand miles")
+	string_startswith, _ := starlark.String("a journey of a thousand miles").Attr("startswith")
+	prefix := starlark.String("a single step")
 
 	if string_startswith == nil {
 		t.Errorf("no such method: string.startswith")
