@@ -545,7 +545,9 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 			return Float(0.0), nil
 		}
 	case Int:
-		result, err := x.finiteFloat()
+		var err error
+		var result Value
+		result, err = x.finiteFloat()
 		if err != nil {
 			return nil, err
 		}
@@ -591,7 +593,7 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 			return nil, fmt.Errorf("invalid float literal: %s", s)
 		}
 
-		result := Float(f)
+		var result Value = Float(f)
 		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
 		}
