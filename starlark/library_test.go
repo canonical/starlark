@@ -516,6 +516,7 @@ func TestTupleIteration(t *testing.T) {
 				if v != values[j] {
 					st.Errorf("expected %v got %v", values[j], v)
 				}
+				st.KeepAlive(v)
 			}
 
 			if err := it.Err(); err != nil {
