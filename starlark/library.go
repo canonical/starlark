@@ -550,11 +550,9 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		if err != nil {
 			return nil, err
 		}
-
 		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
 		}
-
 		return result, nil
 	case Float:
 		// Converting args[0] to x and then returning x as Value
@@ -591,12 +589,10 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		if err != nil {
 			return nil, fmt.Errorf("invalid float literal: %s", s)
 		}
-
 		var result Value = Float(f)
 		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
 		}
-
 		return result, nil
 	default:
 		return nil, fmt.Errorf("float got %s, want number or string", x.Type())
