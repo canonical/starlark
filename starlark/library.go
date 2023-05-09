@@ -514,7 +514,7 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 			pairs = append(pairs, pair)
 		}
 
-		overhead := EstimateMakeSize([]Value{Tuple{MakeInt(0), nil}}, len(pairs)) - int64(len(pairs))*costPerN
+		overhead := int64(cap(pairs)-len(pairs)) * costPerN
 		if err := thread.AddAllocs(overhead); err != nil {
 			return nil, err
 		}
