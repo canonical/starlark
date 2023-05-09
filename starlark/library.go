@@ -536,8 +536,8 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	}
 	switch x := args[0].(type) {
 	case Bool:
-		// `thread.AddAllocs` is not called as memory is
-		// never allocated for constants
+		// thread.AddAllocs is not called as memory is
+		// never allocated for constants.
 		if x {
 			return Float(1.0), nil
 		} else {
