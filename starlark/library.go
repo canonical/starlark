@@ -493,7 +493,6 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 
 		pairs = make([]Value, 0, n)
 		array := make(Tuple, 2*n) // allocate a single backing array
-
 		for i := 0; iter.Next(&x); i++ {
 			pair := array[:2:2]
 			array = array[2:]
@@ -508,12 +507,10 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 			if err := thread.AddAllocs(costPerN); err != nil {
 				return nil, err
 			}
-
 			pair := Tuple{MakeInt(start + i), x}
 			pairs = append(pairs, pair)
 		}
 	}
-
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
