@@ -21,7 +21,6 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -483,10 +482,12 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	var pairs []Value
 	var x Value
 
-	costPerN := EstimateSize(Tuple{MakeInt(0), nil}) + int64(unsafe.Sizeof(Value(nil)))
 	if n := Len(iterable); n >= 0 {
 		// common case: known length
-		if err := thread.AddAllocs(RoundAllocSize(int64(n) * costPerN)); err != nil {
+		overhead := EstimateSize(Tuple{}) +
+			EstimateMakeSize([]Value{Tuple{}}, n) +
+			EstimateMakeSize([][2]Value{{MakeInt(0), nil}}, n)
+		if err := thread.AddAllocs(overhead); err != nil {
 			return nil, err
 		}
 
@@ -502,6 +503,8 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		}
 	} else {
 		// non-sequence (unknown length)
+		costPerN := EstimateSize(&Tuple{MakeInt(0), nil})
+
 		for i := 0; iter.Next(&x); i++ {
 			if err := thread.AddAllocs(costPerN); err != nil {
 				return nil, err
@@ -511,7 +514,7 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 			pairs = append(pairs, pair)
 		}
 
-		overhead := RoundAllocSize(int64(cap(pairs))*costPerN) - int64(len(pairs))*costPerN
+		overhead := EstimateMakeSize([]Value{Tuple{MakeInt(0), nil}}, len(pairs)) - int64(len(pairs))*costPerN
 		if err := thread.AddAllocs(overhead); err != nil {
 			return nil, err
 		}
