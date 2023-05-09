@@ -501,7 +501,8 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		}
 	} else {
 		// non-sequence (unknown length)
-		costPerN := EstimateSize(Tuple{MakeInt(0), nil}) + EstimateMakeSize([]Value{}, 2) // Count storage size twice to account for append over-shoot.
+		costPerN := EstimateSize(Tuple{MakeInt(0), nil}) +
+			EstimateMakeSize([]Value{}, 2) // Double-count backing slice memory to cover any reallocations made by append.
 		for i := 0; iter.Next(&x); i++ {
 			if err := thread.AddAllocs(costPerN); err != nil {
 				return nil, err
