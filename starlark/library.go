@@ -85,7 +85,7 @@ func init() {
 		"dir":       NotSafe,
 		"enumerate": NotSafe,
 		"fail":      NotSafe,
-		"float":     NotSafe,
+		"float":     MemSafe,
 		"getattr":   NotSafe,
 		"hasattr":   NotSafe,
 		"hash":      NotSafe,
@@ -536,15 +536,28 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	}
 	switch x := args[0].(type) {
 	case Bool:
+		// thread.AddAllocs is not called as memory is
+		// never allocated for constants.
 		if x {
 			return Float(1.0), nil
 		} else {
 			return Float(0.0), nil
 		}
 	case Int:
-		return x.finiteFloat()
+		var err error
+		var result Value
+		result, err = x.finiteFloat()
+		if err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+			return nil, err
+		}
+		return result, nil
 	case Float:
-		return x, nil
+		// Converting args[0] to x and then returning x as Value
+		// casues an additional allocation, so return args[0] directly.
+		return args[0], nil
 	case String:
 		if x == "" {
 			return nil, fmt.Errorf("float: empty string")
@@ -576,7 +589,11 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		if err != nil {
 			return nil, fmt.Errorf("invalid float literal: %s", s)
 		}
-		return Float(f), nil
+		var result Value = Float(f)
+		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+			return nil, err
+		}
+		return result, nil
 	default:
 		return nil, fmt.Errorf("float got %s, want number or string", x.Type())
 	}
