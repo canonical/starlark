@@ -503,8 +503,7 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		}
 	} else {
 		// non-sequence (unknown length)
-		costPerN := EstimateSize(&Tuple{MakeInt(0), nil})
-
+		costPerN := EstimateSize(Tuple{MakeInt(0), nil}) + EstimateMakeSize([]Value{}, 2) // Count storage size twice to account for append over-shoot.
 		for i := 0; iter.Next(&x); i++ {
 			if err := thread.AddAllocs(costPerN); err != nil {
 				return nil, err
@@ -512,11 +511,6 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 
 			pair := Tuple{MakeInt(start + i), x}
 			pairs = append(pairs, pair)
-		}
-
-		overhead := int64(cap(pairs)-len(pairs)) * costPerN
-		if err := thread.AddAllocs(overhead); err != nil {
-			return nil, err
 		}
 	}
 
