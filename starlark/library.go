@@ -484,8 +484,7 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 
 	if n := Len(iterable); n >= 0 {
 		// common case: known length
-		overhead := EstimateSize(Tuple{}) +
-			EstimateMakeSize([]Value{Tuple{}}, n) +
+		overhead := EstimateMakeSize([]Value{Tuple{}}, n) +
 			EstimateMakeSize([][2]Value{{MakeInt(0), nil}}, n)
 		if err := thread.AddAllocs(overhead); err != nil {
 			return nil, err
