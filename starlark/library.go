@@ -536,9 +536,8 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	}
 	switch x := args[0].(type) {
 	case Bool:
-		// Constant **value types** statically casted to interfaces become
-		// symbols in the text part of the executable, so they won't actually
-		// allocate anything.
+		// `thread.AddAllocs` is not called as memory is
+		// never allocated for constants
 		if x {
 			return Float(1.0), nil
 		} else {
@@ -557,10 +556,10 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		}
 
 		return result, nil
-
 	case Float:
+		// Converting args[0] to x and then returning x as Value
+		// casues an additional allocation, so return args[0] directly.
 		return args[0], nil
-
 	case String:
 		if x == "" {
 			return nil, fmt.Errorf("float: empty string")
