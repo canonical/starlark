@@ -598,3 +598,42 @@ func TestSafeIterateAllocs(t *testing.T) {
 		})
 	})
 }
+
+func TestTupleIteration(t *testing.T) {
+	values := starlark.Tuple{
+		starlark.None,
+		starlark.False,
+		starlark.True,
+		starlark.MakeInt(0),
+		starlark.MakeInt64(1 << 34),
+		starlark.String("starlark"),
+		starlark.NewList(nil),
+		starlark.NewDict(10),
+	}
+
+	tupleAsValue := starlark.Value(values)
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			it, err := starlark.SafeIterate(thread, tupleAsValue)
+			if err != nil {
+				st.Fatal(err)
+			}
+			defer it.Done()
+
+			var v starlark.Value
+			for j := 0; it.Next(&v); j++ {
+				if v != values[j] {
+					st.Errorf("expected %v got %v", values[j], v)
+				}
+				st.KeepAlive(v)
+			}
+
+			if err := it.Err(); err != nil {
+				st.Error(err)
+			}
+		}
+	})
+}
