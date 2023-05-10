@@ -502,7 +502,7 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	} else {
 		// non-sequence (unknown length)
 		pairCost := EstimateSize(Tuple{MakeInt(0), nil})
-		appender := NewSafeAppender(thread, pairs)
+		appender := NewSafeAppender(thread, &pairs)
 		for i := 0; iter.Next(&x); i++ {
 			if err := thread.AddAllocs(pairCost); err != nil {
 				return nil, err
