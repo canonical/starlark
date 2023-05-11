@@ -71,11 +71,24 @@ func TestSafeAppenderInputValidation(t *testing.T) {
 
 func TestSafeAppender(t *testing.T) {
 	t.Run("ints", func(t *testing.T) {
+		t.Run("no-allocation", func(t *testing.T) {
+			storage := make([]int, 0, 16)
+			st := startest.From(t)
+			st.SetMaxAllocs(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				appender := starlark.NewSafeAppender(thread, &storage)
+				for i := 0; i < st.N; i++ {
+					appender.Append(i)
+					if len(storage) == cap(storage) {
+						storage = storage[:0]
+					}
+				}
+				st.KeepAlive(storage)
+			})
+		})
+
 		t.Run("many-small", func(t *testing.T) {
 			st := startest.From(t)
-
-			// st.SetMaxAllocs(0) // TODO(kcza): test allocations
-
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					slice := []int{1, 3, 5}
