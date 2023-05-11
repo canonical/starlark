@@ -7,8 +7,8 @@ import (
 
 type SafeAppender struct {
 	thread   *Thread
-	slicePtr reflect.Value
-	elemSize int64
+	slice    reflect.Value
+	elemSize uintptr
 }
 
 func NewSafeAppender(thread *Thread, slicePtr interface{}) *SafeAppender {
@@ -19,31 +19,32 @@ func NewSafeAppender(thread *Thread, slicePtr interface{}) *SafeAppender {
 	if kind := ptr.Kind(); kind != reflect.Ptr {
 		panic(fmt.Sprintf("expected pointer to slice, got %v", kind))
 	}
-	if kind := ptr.Elem().Kind(); kind != reflect.Slice {
+	slice := ptr.Elem()
+	if kind := slice.Kind(); kind != reflect.Slice {
 		panic(fmt.Sprintf("expected pointer to slice, got pointer to %v", kind))
 	}
 	return &SafeAppender{
 		thread:   thread,
-		slicePtr: ptr,
-		elemSize: EstimateSize(reflect.New(ptr.Type().Elem())), // TODO(kcza): avoid allocation spike here? (eg. could make new [1000]int)
+		slice:    slice,
+		elemSize: slice.Type().Elem().Size(),
 	}
 }
 
 func (sa *SafeAppender) Append(values ...interface{}) error {
-	slice := sa.slicePtr.Elem()
-	cap := slice.Cap()
-	if slice.Len()+len(values) > cap {
-		if err := sa.thread.CheckAllocs(int64(cap)); err != nil {
+	cap := sa.slice.Cap()
+	if sa.slice.Len()+len(values) > cap {
+		if err := sa.thread.CheckAllocs(int64(uintptr(cap)*sa.elemSize) / 5); err != nil {
 			return err
 		}
 	}
+	var slice = sa.slice
 	for _, value := range values {
 		slice = reflect.Append(slice, reflect.ValueOf(value))
 	}
-	sa.slicePtr.Elem().Set(slice)
-	delta := int64(slice.Cap() - cap)
-	if delta > 0 { // TODO(kcza): account for size-classes
-		if err := sa.thread.AddAllocs(delta * sa.elemSize); err != nil {
+	sa.slice.Set(slice)
+	delta := roundAllocSize(uintptr(slice.Cap()-cap) * sa.elemSize)
+	if delta > 0 {
+		if err := sa.thread.AddAllocs(int64(delta)); err != nil {
 			return err
 		}
 	}
