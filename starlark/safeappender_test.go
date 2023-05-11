@@ -111,9 +111,6 @@ func TestSafeAppender(t *testing.T) {
 
 		t.Run("one-large", func(t *testing.T) {
 			st := startest.From(t)
-
-			// st.SetMaxAllocs(0) // TODO(kcza): test allocations
-
 			st.RunThread(func(thread *starlark.Thread) {
 				slice := []int{1, 3, 5}
 				if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
@@ -143,9 +140,6 @@ func TestSafeAppender(t *testing.T) {
 	t.Run("interfaces", func(t *testing.T) {
 		t.Run("many-small", func(t *testing.T) {
 			st := startest.From(t)
-
-			// st.SetMaxAllocs(0) // TODO(kcza): test allocations
-
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					slice := []interface{}{false, 0, ""}
@@ -168,9 +162,6 @@ func TestSafeAppender(t *testing.T) {
 
 		t.Run("one-large", func(t *testing.T) {
 			st := startest.From(t)
-
-			// st.SetMaxAllocs(0) // TODO(kcza): test allocations
-
 			st.RunThread(func(thread *starlark.Thread) {
 				slice := []interface{}{false, false}
 				if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
@@ -178,6 +169,10 @@ func TestSafeAppender(t *testing.T) {
 				}
 				var toAppend []interface{}
 				for i := 0; i < st.N; i++ {
+					var item interface{} = -i
+					if err := thread.AddAllocs(starlark.EstimateSize(item)); err != nil {
+						st.Error(err)
+					}
 					toAppend = append(toAppend, -i)
 				}
 
