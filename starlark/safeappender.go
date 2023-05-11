@@ -33,7 +33,7 @@ func NewSafeAppender(thread *Thread, slicePtr interface{}) *SafeAppender {
 func (sa *SafeAppender) Append(values ...interface{}) error {
 	cap := sa.slice.Cap()
 	if sa.slice.Len()+len(values) > cap {
-		if err := sa.thread.CheckAllocs(int64(uintptr(cap)*sa.elemSize) / 5); err != nil {
+		if err := sa.thread.CheckAllocs(int64(uintptr(cap) * sa.elemSize)); err != nil {
 			return err
 		}
 	}
@@ -41,12 +41,40 @@ func (sa *SafeAppender) Append(values ...interface{}) error {
 	for _, value := range values {
 		slice = reflect.Append(slice, reflect.ValueOf(value))
 	}
-	sa.slice.Set(slice)
-	delta := roundAllocSize(uintptr(slice.Cap()-cap) * sa.elemSize)
+	delta := uintptr(slice.Cap()-cap) * sa.elemSize
 	if delta > 0 {
-		if err := sa.thread.AddAllocs(int64(delta)); err != nil {
+		if err := sa.thread.AddAllocs(int64(roundAllocSize(delta))); err != nil {
 			return err
 		}
 	}
+	sa.slice.Set(slice)
+	return nil
+}
+
+func (sa *SafeAppender) AppendSlice(values interface{}) error {
+	toAppend := reflect.ValueOf(values)
+	if kind := toAppend.Kind(); kind != reflect.Slice {
+		panic(fmt.Sprintf("expected slice got %v", kind))
+	}
+
+	cap := sa.slice.Cap()
+	if sa.slice.Len()+toAppend.Len() > cap {
+		// Consider up to twice the size for the allocation overshoot
+		allocation := uintptr((sa.slice.Len()+toAppend.Len())*2 - cap)
+		if err := sa.thread.CheckAllocs(int64(allocation * sa.elemSize)); err != nil {
+			return err
+		}
+	}
+
+	slice := reflect.AppendSlice(sa.slice, toAppend)
+
+	delta := uintptr(slice.Cap() - cap)
+	if delta > 0 {
+		if err := sa.thread.AddAllocs(int64(roundAllocSize(delta * sa.elemSize))); err != nil {
+			return err
+		}
+	}
+
+	sa.slice.Set(slice)
 	return nil
 }
