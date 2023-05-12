@@ -8,7 +8,7 @@ import (
 type SafeAppender struct {
 	thread   *Thread
 	slice    reflect.Value
-	elemSize uintptr
+	elemType reflect.Type
 }
 
 func NewSafeAppender(thread *Thread, slicePtr interface{}) *SafeAppender {
@@ -23,27 +23,34 @@ func NewSafeAppender(thread *Thread, slicePtr interface{}) *SafeAppender {
 	if kind := slice.Kind(); kind != reflect.Slice {
 		panic(fmt.Sprintf("expected pointer to slice, got pointer to %v", kind))
 	}
+
+	elemType := slice.Type().Elem()
+
 	return &SafeAppender{
 		thread:   thread,
 		slice:    slice,
-		elemSize: slice.Type().Elem().Size(),
+		elemType: elemType,
 	}
 }
 
 func (sa *SafeAppender) Append(values ...interface{}) error {
 	cap := sa.slice.Cap()
 	if sa.slice.Len()+len(values) > cap {
-		if err := sa.thread.CheckAllocs(int64(uintptr(cap) * sa.elemSize)); err != nil {
+		if err := sa.thread.CheckAllocs(int64(uintptr(cap) * sa.elemType.Size())); err != nil {
 			return err
 		}
 	}
 	slice := sa.slice
 	for _, value := range values {
-		slice = reflect.Append(slice, reflect.ValueOf(value))
+		if value == nil {
+			slice = reflect.Append(slice, reflect.Zero(sa.elemType))
+		} else {
+			slice = reflect.Append(slice, reflect.ValueOf(value))
+		}
 	}
 	if slice.Cap() != cap {
-		oldSize := int64(roundAllocSize(uintptr(cap) * sa.elemSize))
-		newSize := int64(roundAllocSize(uintptr(slice.Cap()) * sa.elemSize))
+		oldSize := int64(roundAllocSize(uintptr(cap) * sa.elemType.Size()))
+		newSize := int64(roundAllocSize(uintptr(slice.Cap()) * sa.elemType.Size()))
 
 		if err := sa.thread.AddAllocs(newSize - oldSize); err != nil {
 			return err
@@ -62,14 +69,14 @@ func (sa *SafeAppender) AppendSlice(values interface{}) error {
 	if sa.slice.Len()+toAppend.Len() > cap {
 		// Consider up to twice the size for the allocation overshoot
 		allocation := uintptr((sa.slice.Len()+toAppend.Len())*2 - cap)
-		if err := sa.thread.CheckAllocs(int64(allocation * sa.elemSize)); err != nil {
+		if err := sa.thread.CheckAllocs(int64(allocation * sa.elemType.Size())); err != nil {
 			return err
 		}
 	}
 	slice := reflect.AppendSlice(sa.slice, toAppend)
 	if slice.Cap() != cap {
-		oldSize := int64(roundAllocSize(uintptr(cap) * sa.elemSize))
-		newSize := int64(roundAllocSize(uintptr(slice.Cap()) * sa.elemSize))
+		oldSize := int64(roundAllocSize(uintptr(cap) * sa.elemType.Size()))
+		newSize := int64(roundAllocSize(uintptr(slice.Cap()) * sa.elemType.Size()))
 
 		if err := sa.thread.AddAllocs(newSize - oldSize); err != nil {
 			return err

@@ -132,12 +132,12 @@ func TestSafeAppenderAppend(t *testing.T) {
 						st.Error(err)
 					}
 					sa := starlark.NewSafeAppender(thread, &slice)
-					if err := sa.Append(0.0, rune(0)); err != nil {
+					if err := sa.Append(0.0, rune(0), nil); err != nil {
 						st.Error(err)
 					}
 					st.KeepAlive(slice)
 
-					expected := []interface{}{false, 0, "", 0.0, rune(0)}
+					expected := []interface{}{false, 0, "", 0.0, rune(0), nil}
 					if !reflect.DeepEqual(slice, expected) {
 						t.Errorf("expected %v, got %v", expected, slice)
 					}
