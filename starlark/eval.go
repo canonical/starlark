@@ -774,12 +774,11 @@ func makeExprFunc(expr syntax.Expr, env StringDict) (*Function, error) {
 
 // list += iterable
 func safeListExtend(thread *Thread, x *List, y Iterable) error {
+	appender := NewSafeAppender(thread, &x.elems)
 	if ylist, ok := y.(*List); ok {
 		// fast path: list += list
-		if elems, err := safe_append(thread, x.elems, ylist.elems...); err != nil {
+		if err := appender.AppendSlice(ylist.elems); err != nil {
 			return err
-		} else {
-			x.elems = elems
 		}
 	} else {
 		iter, err := SafeIterate(thread, y)
@@ -789,10 +788,8 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 		defer iter.Done()
 		var z Value
 		for iter.Next(&z) {
-			if elems, err := safe_append(thread, x.elems, z); err != nil {
+			if err := appender.Append(z); err != nil {
 				return err
-			} else {
-				x.elems = elems
 			}
 		}
 

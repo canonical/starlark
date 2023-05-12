@@ -1522,32 +1522,6 @@ func dict_values(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	return NewList(res), nil
 }
 
-func safe_append(thread *Thread, slice []Value, elements ...Value) ([]Value, error) {
-	if cap(slice) < len(slice)+len(elements) {
-		// Reallocations in go start steep, but usually settle for a
-		// ~25% more. Only when the size of the slice is small the
-		// percentage is way bigger (up to 100%), but small cases
-		// really don't matter as this code only prevents spikes.
-		capEstimate := (len(slice) + len(elements)) * 5 / 4
-		if err := thread.CheckAllocs(EstimateMakeSize([]Value{}, capEstimate)); err != nil {
-			return nil, err
-		}
-	}
-
-	result := append(slice, elements...)
-
-	initialSize := EstimateMakeSize([]Value{}, cap(slice))
-	finalSize := EstimateMakeSize([]Value{}, cap(result))
-	if finalSize > initialSize {
-		growth := finalSize - initialSize
-		if err := thread.AddAllocs(growth); err != nil {
-			return nil, err
-		}
-	}
-
-	return result, nil
-}
-
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·append
 func list_append(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var object Value
@@ -1559,10 +1533,9 @@ func list_append(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		return nil, nameErr(b, err)
 	}
 
-	if elems, err := safe_append(thread, recv.elems, object); err != nil {
+	appender := NewSafeAppender(thread, &recv.elems)
+	if err := appender.Append(object); err != nil {
 		return nil, err
-	} else {
-		recv.elems = elems
 	}
 
 	return None, nil
@@ -1640,21 +1613,18 @@ func list_insert(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		index += recv.Len()
 	}
 
+	appender := NewSafeAppender(thread, &recv.elems)
 	if index >= recv.Len() {
 		// end
-		if elems, err := safe_append(thread, recv.elems, object); err != nil {
+		if err := appender.Append(object); err != nil {
 			return nil, err
-		} else {
-			recv.elems = elems
 		}
 	} else {
 		if index < 0 {
 			index = 0 // start
 		}
-		if elems, err := safe_append(thread, recv.elems, nil); err != nil {
+		if err := appender.Append(nil); err != nil {
 			return nil, err
-		} else {
-			recv.elems = elems
 		}
 
 		copy(recv.elems[index+1:], recv.elems[index:]) // slide up one
