@@ -1,8 +1,6 @@
 package starlark_test
 
 import (
-	"errors"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -10,66 +8,37 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
-func panicValue(t *testing.T, f func()) (msg interface{}, panicked bool) {
-	defer func() {
-		if msg = recover(); msg != nil {
-			panicked = true
-		}
-	}()
-
-	f()
-
-	return
-}
-
 func TestSafeAppenderInputValidation(t *testing.T) {
-	t.Run("nil", func(t *testing.T) {
-		const expected = "expected pointer to slice, got nil"
-
-		thread := &starlark.Thread{}
-		val, panicked := panicValue(t, func() {
-			starlark.NewSafeAppender(thread, nil)
-		})
-		if !panicked {
+	checkPanic := func(expected string) {
+		if err := recover(); err != nil {
+			if err != expected {
+				t.Errorf("unexpected panic expected %#v but got %#v", expected, err)
+			}
+		} else {
 			t.Error("expected panic")
 		}
-		if val != expected {
-			t.Errorf("unexpected panic expected %#v but got %#v", expected, val)
-		}
+	}
+
+	t.Run("nil", func(t *testing.T) {
+		defer checkPanic("expected pointer to slice, got nil")
+		thread := &starlark.Thread{}
+		starlark.NewSafeAppender(thread, nil)
 	})
 
 	t.Run("non-pointer", func(t *testing.T) {
-		const expected = "expected pointer to slice, got int"
-
+		defer checkPanic("expected pointer to slice, got int")
 		thread := &starlark.Thread{}
-		val, panicked := panicValue(t, func() {
-			starlark.NewSafeAppender(thread, 25)
-		})
-		if !panicked {
-			t.Error("expected panic")
-		}
-		if val != expected {
-			t.Errorf("unexpected panic expected %#v but got %#v", expected, val)
-		}
+		starlark.NewSafeAppender(thread, 25)
 	})
 
 	t.Run("non-slice pointer", func(t *testing.T) {
-		const expected = "expected pointer to slice, got pointer to int"
-
+		defer checkPanic("expected pointer to slice, got pointer to int")
 		thread := &starlark.Thread{}
-		val, panicked := panicValue(t, func() {
-			starlark.NewSafeAppender(thread, new(int))
-		})
-		if !panicked {
-			t.Error("expected panic")
-		}
-		if val != expected {
-			t.Errorf("unexpected panic expected %#v but got %#v", expected, val)
-		}
+		starlark.NewSafeAppender(thread, new(int))
 	})
 }
 
-func TestSafeAppender(t *testing.T) {
+func TestSafeAppenderAppend(t *testing.T) {
 	t.Run("ints", func(t *testing.T) {
 		t.Run("no-allocation", func(t *testing.T) {
 			storage := make([]int, 0, 16)
@@ -95,10 +64,12 @@ func TestSafeAppender(t *testing.T) {
 					if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
 						st.Error(err)
 					}
+
 					sa := starlark.NewSafeAppender(thread, &slice)
 					if err := sa.Append(-1, -1); err != nil {
 						st.Error(err)
 					}
+
 					st.KeepAlive(slice)
 
 					expected := []int{1, 3, 5, -1, -1}
@@ -116,11 +87,11 @@ func TestSafeAppender(t *testing.T) {
 				if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
 					st.Error(err)
 				}
+				expected := slice
 				var toAppend []interface{}
-				var expectAppended []int
 				for i := 0; i < st.N; i++ {
 					toAppend = append(toAppend, -i)
-					expectAppended = append(expectAppended, -i)
+					expected = append(expected, -i)
 				}
 
 				sa := starlark.NewSafeAppender(thread, &slice)
@@ -129,11 +100,25 @@ func TestSafeAppender(t *testing.T) {
 				}
 				st.KeepAlive(slice)
 
-				expected := append([]int{1, 3, 5}, expectAppended...)
 				if !reflect.DeepEqual(slice, expected) {
 					t.Errorf("expected %v, got %v", expected, slice)
 				}
 			})
+		})
+	})
+
+	t.Run("big-struct", func(t *testing.T) {
+		st := startest.From(t)
+		st.RunThread(func(thread *starlark.Thread) {
+			slice := [][100]int{}
+			appender := starlark.NewSafeAppender(thread, &slice)
+			for i := 0; i < st.N; i++ {
+				appender.Append([100]int{})
+			}
+			if len(slice) != st.N {
+				t.Errorf("expected %d elements, got %d", st.N, len(slice))
+			}
+			st.KeepAlive(slice)
 		})
 	})
 
@@ -161,19 +146,21 @@ func TestSafeAppender(t *testing.T) {
 		})
 
 		t.Run("one-large", func(t *testing.T) {
+			initialSlice := []interface{}{false, false}
 			st := startest.From(t)
 			st.RunThread(func(thread *starlark.Thread) {
-				slice := []interface{}{false, false}
-				if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
+				if err := thread.AddAllocs(starlark.EstimateSize(0) * int64(st.N)); err != nil {
 					st.Error(err)
 				}
-				var toAppend []interface{}
+				toAppend := make([]interface{}, st.N)
 				for i := 0; i < st.N; i++ {
-					var item interface{} = -i
-					if err := thread.AddAllocs(starlark.EstimateSize(item)); err != nil {
-						st.Error(err)
-					}
-					toAppend = append(toAppend, -i)
+					toAppend[i] = -i
+				}
+				expected := append(initialSlice, toAppend...)
+
+				slice := initialSlice
+				if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
+					st.Error(err)
 				}
 
 				sa := starlark.NewSafeAppender(thread, &slice)
@@ -182,7 +169,126 @@ func TestSafeAppender(t *testing.T) {
 				}
 				st.KeepAlive(slice)
 
-				expected := append([]interface{}{false, false}, toAppend...)
+				if !reflect.DeepEqual(slice, expected) {
+					t.Errorf("expected %v, got %v", expected, slice)
+				}
+			})
+		})
+	})
+}
+
+func TestSafeAppenderAppendSlice(t *testing.T) {
+	t.Run("ints", func(t *testing.T) {
+		t.Run("no-allocation", func(t *testing.T) {
+			storage := make([]int, 0, 16)
+			toAppend := []int{1, 2, 3, 4}
+			st := startest.From(t)
+			st.SetMaxAllocs(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				appender := starlark.NewSafeAppender(thread, &storage)
+				for i := 0; i < st.N; i++ {
+					appender.AppendSlice(toAppend)
+					if len(storage) == cap(storage) {
+						storage = storage[:0]
+					}
+				}
+				st.KeepAlive(storage)
+			})
+		})
+
+		t.Run("many-small", func(t *testing.T) {
+			st := startest.From(t)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					slice := []int{1, 3, 5}
+					if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
+						st.Error(err)
+					}
+					sa := starlark.NewSafeAppender(thread, &slice)
+					if err := sa.AppendSlice([]int{-1, -1}); err != nil {
+						st.Error(err)
+					}
+					st.KeepAlive(slice)
+
+					expected := []int{1, 3, 5, -1, -1}
+					if !reflect.DeepEqual(slice, expected) {
+						t.Errorf("expected %v, got %v", expected, slice)
+					}
+				}
+			})
+		})
+
+		t.Run("one-large", func(t *testing.T) {
+			st := startest.From(t)
+			st.RunThread(func(thread *starlark.Thread) {
+				slice := []int{1, 3, 5}
+				expected := slice
+				var toAppend []int
+				for i := 0; i < st.N; i++ {
+					toAppend = append(toAppend, -i)
+					expected = append(expected, -i)
+				}
+
+				sa := starlark.NewSafeAppender(thread, &slice)
+				if err := sa.AppendSlice(toAppend); err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(slice)
+
+				if !reflect.DeepEqual(slice, expected) {
+					t.Errorf("expected %v, got %v", expected, slice)
+				}
+			})
+		})
+	})
+
+	t.Run("interfaces", func(t *testing.T) {
+		t.Run("many-small", func(t *testing.T) {
+			st := startest.From(t)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					slice := []interface{}{false, 0, ""}
+					if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
+						st.Error(err)
+					}
+					sa := starlark.NewSafeAppender(thread, &slice)
+					if err := sa.AppendSlice([]interface{}{0.0, rune(0)}); err != nil {
+						st.Error(err)
+					}
+					st.KeepAlive(slice)
+
+					expected := []interface{}{false, 0, "", 0.0, rune(0)}
+					if !reflect.DeepEqual(slice, expected) {
+						t.Errorf("expected %v, got %v", expected, slice)
+					}
+				}
+			})
+		})
+
+		t.Run("one-large", func(t *testing.T) {
+			initialSlice := []interface{}{false, false}
+			st := startest.From(t)
+			st.RunThread(func(thread *starlark.Thread) {
+				if err := thread.AddAllocs(starlark.EstimateSize(0) * int64(st.N)); err != nil {
+					st.Error(err)
+				}
+				toAppend := make([]interface{}, st.N)
+				for i := 0; i < st.N; i++ {
+					toAppend[i] = -i
+				}
+				expected := append(initialSlice, toAppend...)
+
+				slice := initialSlice
+				if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
+					st.Error(err)
+				}
+
+				sa := starlark.NewSafeAppender(thread, &slice)
+				if err := sa.AppendSlice(toAppend); err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(slice)
+
 				if !reflect.DeepEqual(slice, expected) {
 					t.Errorf("expected %v, got %v", expected, slice)
 				}
@@ -192,42 +298,34 @@ func TestSafeAppender(t *testing.T) {
 }
 
 func TestSafeAppenderTypeMismatch(t *testing.T) {
+	checkPanic := func() {
+		if recover() == nil {
+			t.Error("expected panic")
+		}
+	}
+
 	t.Run("incompatible-kinds", func(t *testing.T) {
+		defer checkPanic()
 		thread := &starlark.Thread{}
 		slice := []int{1, 3, 5}
 		sa := starlark.NewSafeAppender(thread, &slice)
-
-		_, panicked := panicValue(t, func() { sa.Append("nope") })
-		if !panicked {
-			t.Error("expected panic")
-		}
+		sa.Append("nope")
 	})
 
 	t.Run("unimplemented-interface", func(t *testing.T) {
+		defer checkPanic()
 		thread := &starlark.Thread{}
 		slice := []starlark.Value{starlark.False, starlark.MakeInt(0)}
 		sa := starlark.NewSafeAppender(thread, &slice)
-
-		_, panicked := panicValue(t, func() { sa.Append("nope") })
-		if !panicked {
-			t.Error("expected panic")
-		}
+		sa.Append("nope")
 	})
 
 	t.Run("incompatible-interfaces", func(t *testing.T) {
-		var a fmt.Stringer
-		if _, ok := a.(error); ok {
-			t.Fatal("interface conversion succeeded (test requires failure)")
-		}
-
+		defer checkPanic()
 		thread := &starlark.Thread{}
-		slice := []fmt.Stringer{starlark.False, starlark.Float(0.0)}
+		slice := []interface{ private() }{}
 		sa := starlark.NewSafeAppender(thread, &slice)
-
-		_, panicked := panicValue(t, func() { sa.Append(errors.New("nope")) })
-		if !panicked {
-			t.Error("expected panic")
-		}
+		sa.Append("nope")
 	})
 }
 
