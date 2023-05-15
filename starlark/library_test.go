@@ -539,9 +539,9 @@ func TestZipAllocs(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
-			list := starlark.NewList(make([]starlark.Value, st.N))
+			tuple := make(starlark.Tuple, st.N)
 
-			result, err := starlark.Call(thread, zip, starlark.Tuple{list, list}, nil)
+			result, err := starlark.Call(thread, zip, starlark.Tuple{tuple, tuple}, nil)
 			if err != nil {
 				st.Error(err)
 			}
@@ -588,11 +588,11 @@ func TestZipAllocs(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
-			list := starlark.NewList(make([]starlark.Value, st.N))
+			tuple := make(starlark.Tuple, st.N)
 			iterable := &testIterable{st.N, nth}
 			sequence := &testSequence{st.N * 2, nth}
 
-			result, err := starlark.Call(thread, zip, starlark.Tuple{iterable, sequence, list}, nil)
+			result, err := starlark.Call(thread, zip, starlark.Tuple{iterable, sequence, tuple}, nil)
 			if err != nil {
 				st.Error(err)
 			}
