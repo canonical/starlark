@@ -178,6 +178,22 @@ func TestSafeAppenderAppend(t *testing.T) {
 }
 
 func TestSafeAppenderAppendSlice(t *testing.T) {
+	t.Run("nil", func(t *testing.T) {
+		const expected = "expected slice, got nil"
+		defer func() {
+			if err := recover(); err != nil {
+				if err != expected {
+					t.Errorf("unexpected panic expected %#v but got %#v", expected, err)
+				}
+			} else {
+				t.Error("expected panic")
+			}
+		}()
+
+		slice := []int{}
+		sa := starlark.NewSafeAppender(&starlark.Thread{}, &slice)
+		sa.AppendSlice(nil)
+	})
 	t.Run("ints", func(t *testing.T) {
 		t.Run("no-allocation", func(t *testing.T) {
 			storage := make([]int, 0, 16)

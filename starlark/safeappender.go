@@ -61,6 +61,9 @@ func (sa *SafeAppender) Append(values ...interface{}) error {
 }
 
 func (sa *SafeAppender) AppendSlice(values interface{}) error {
+	if values == nil {
+		panic("expected slice, got nil")
+	}
 	toAppend := reflect.ValueOf(values)
 	if kind := toAppend.Kind(); kind != reflect.Slice {
 		panic(fmt.Sprintf("expected slice got %v", kind))
