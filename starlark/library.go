@@ -1398,13 +1398,14 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		}
 	} else {
 		// length not known
+		tupleSize := EstimateMakeSize(Tuple{}, cols)
+		valueSize := EstimateSize(Tuple{}) // Inserting in a []Value makes an allocation
+		appender := NewSafeAppender(thread, &result)
 	outer:
 		for {
-			tupleSize := EstimateMakeSize(Tuple{}, cols)
-			if err := thread.AddAllocs(tupleSize); err != nil {
+			if err := thread.AddAllocs(tupleSize + valueSize); err != nil {
 				return nil, err
 			}
-
 			tuple := make(Tuple, cols)
 			for i, iter := range iters {
 				if !iter.Next(&tuple[i]) {
@@ -1414,19 +1415,7 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 					break outer
 				}
 			}
-
-			if cap(result) == len(result) {
-				overallocEstimation := EstimateMakeSize([]Value{Tuple{}}, cap(result)*5/4)
-				if err := thread.CheckAllocs(overallocEstimation); err != nil {
-					return nil, err
-				}
-			}
-
-			result = append(result, tuple)
-		}
-
-		if err := thread.AddAllocs(EstimateMakeSize([]Value{Tuple{}}, cap(result))); err != nil {
-			return nil, err
+			appender.Append(tuple)
 		}
 	}
 
