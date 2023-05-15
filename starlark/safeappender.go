@@ -48,7 +48,6 @@ func (sa *SafeAppender) Append(values ...interface{}) error {
 			slice = reflect.Append(slice, reflect.ValueOf(value))
 		}
 	}
-	sa.slice.Set(slice)
 	if slice.Cap() != cap {
 		oldSize := int64(roundAllocSize(uintptr(cap) * sa.elemType.Size()))
 		newSize := int64(roundAllocSize(uintptr(slice.Cap()) * sa.elemType.Size()))
@@ -57,6 +56,7 @@ func (sa *SafeAppender) Append(values ...interface{}) error {
 			return err
 		}
 	}
+	sa.slice.Set(slice)
 	return nil
 }
 
