@@ -1308,32 +1308,24 @@ func tuple(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	}
 	defer iter.Done()
 	var elems Tuple
-	var preallocated bool
-	costPerN := int64(unsafe.Sizeof(Value(nil)))
 	if n := Len(iterable); n > 0 {
-		preallocated = true
-		if err := thread.AddAllocs(int64(n) * costPerN); err != nil {
+		if err := thread.AddAllocs(EstimateMakeSize(Tuple{}, n)); err != nil {
 			return nil, err
 		}
-
 		elems = make(Tuple, 0, n) // preallocate if length is known
 	}
+	elemsAppender := NewSafeAppender(thread, &elems)
 	var x Value
 	for iter.Next(&x) {
-		if !preallocated {
-			if err := thread.AddAllocs(costPerN); err != nil {
-				return nil, err
-			}
+		if err := elemsAppender.Append(x); err != nil {
+			return nil, err
 		}
-
-		elems = append(elems, x)
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
 
-	overhead := EstimateSize(Tuple{}) + RoundAllocSize(int64(cap(elems))*costPerN) - int64(len(elems))*costPerN
-	if err := thread.AddAllocs(overhead); err != nil {
+	if err := thread.AddAllocs(EstimateSize(Tuple{})); err != nil {
 		return nil, err
 	}
 	return elems, nil
