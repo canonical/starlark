@@ -313,35 +313,55 @@ func TestSafeAppenderAppendSlice(t *testing.T) {
 	})
 }
 
-func TestSafeAppenderTypeMismatch(t *testing.T) {
-	checkPanic := func() {
+func TestSafeAppenderAppendTypeMismatch(t *testing.T) {
+	checkPanic := func(t *testing.T) {
 		if recover() == nil {
 			t.Error("expected panic")
 		}
 	}
 
-	t.Run("incompatible-kinds", func(t *testing.T) {
-		defer checkPanic()
-		thread := &starlark.Thread{}
-		slice := []int{1, 3, 5}
-		sa := starlark.NewSafeAppender(thread, &slice)
-		sa.Append("nope")
+	t.Run("Append", func(t *testing.T) {
+		t.Run("incompatible-kinds", func(t *testing.T) {
+			defer checkPanic(t)
+			thread := &starlark.Thread{}
+			slice := []int{1, 3, 5}
+			sa := starlark.NewSafeAppender(thread, &slice)
+			sa.Append("nope")
+		})
+
+		t.Run("unimplemented-interface", func(t *testing.T) {
+			defer checkPanic(t)
+			thread := &starlark.Thread{}
+			slice := []starlark.Value{starlark.False, starlark.MakeInt(0)}
+			sa := starlark.NewSafeAppender(thread, &slice)
+			sa.Append("nope")
+		})
+
+		t.Run("incompatible-interfaces", func(t *testing.T) {
+			defer checkPanic(t)
+			thread := &starlark.Thread{}
+			slice := []interface{ private() }{}
+			sa := starlark.NewSafeAppender(thread, &slice)
+			sa.Append("nope")
+		})
 	})
 
-	t.Run("unimplemented-interface", func(t *testing.T) {
-		defer checkPanic()
-		thread := &starlark.Thread{}
-		slice := []starlark.Value{starlark.False, starlark.MakeInt(0)}
-		sa := starlark.NewSafeAppender(thread, &slice)
-		sa.Append("nope")
-	})
+	t.Run("AppendSlice", func(t *testing.T) {
+		t.Run("incompatible-kinds", func(t *testing.T) {
+			defer checkPanic(t)
+			thread := &starlark.Thread{}
+			slice := []int{}
+			sa := starlark.NewSafeAppender(thread, &slice)
+			sa.AppendSlice([]interface{}{})
+		})
 
-	t.Run("incompatible-interfaces", func(t *testing.T) {
-		defer checkPanic()
-		thread := &starlark.Thread{}
-		slice := []interface{ private() }{}
-		sa := starlark.NewSafeAppender(thread, &slice)
-		sa.Append("nope")
+		t.Run("incompatible-interfaces", func(t *testing.T) {
+			defer checkPanic(t)
+			thread := &starlark.Thread{}
+			slice := []interface{ private() }{}
+			sa := starlark.NewSafeAppender(thread, &slice)
+			sa.AppendSlice([]interface{}{})
+		})
 	})
 }
 
