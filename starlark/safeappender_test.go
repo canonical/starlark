@@ -3,6 +3,7 @@ package starlark_test
 import (
 	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -382,4 +383,131 @@ func TestSafeAppenderErrorReturn(t *testing.T) {
 		}
 	}
 	t.Error("expected error")
+}
+
+func TestSafeAppenderNil(t *testing.T) {
+	tests := []struct {
+		name   string
+		slice  interface{}
+		expect string
+	}{{
+		name:  "interface",
+		slice: &[]interface{}{},
+	}, {
+		name:  "pointer",
+		slice: &[]*struct{}{},
+	}, {
+		name:  "slice",
+		slice: &[][]int{},
+	}, {
+		name:  "map",
+		slice: &[]map[int]int{},
+	}, {
+		name:  "chan",
+		slice: &[]chan int{},
+	}, {
+		name:   "bool",
+		slice:  &[]bool{},
+		expect: "unexpected nil",
+	}, {
+		name:   "int",
+		slice:  &[]int{},
+		expect: "unexpected nil",
+	}, {
+		name:   "int8",
+		slice:  &[]int8{},
+		expect: "unexpected nil",
+	}, {
+		name:   "int16",
+		slice:  &[]int16{},
+		expect: "unexpected nil",
+	}, {
+		name:   "int32",
+		slice:  &[]int32{},
+		expect: "unexpected nil",
+	}, {
+		name:   "int64",
+		slice:  &[]int64{},
+		expect: "unexpected nil",
+	}, {
+		name:   "uint",
+		slice:  &[]uint{},
+		expect: "unexpected nil",
+	}, {
+		name:   "uint8",
+		slice:  &[]uint8{},
+		expect: "unexpected nil",
+	}, {
+		name:   "uint16",
+		slice:  &[]uint16{},
+		expect: "unexpected nil",
+	}, {
+		name:   "uint32",
+		slice:  &[]uint32{},
+		expect: "unexpected nil",
+	}, {
+		name:   "uint64",
+		slice:  &[]uint64{},
+		expect: "unexpected nil",
+	}, {
+		name:   "rune",
+		slice:  &[]rune{},
+		expect: "unexpected nil",
+	}, {
+		name:   "uintptr",
+		slice:  &[]uintptr{},
+		expect: "unexpected nil",
+	}, {
+		name:   "float32",
+		slice:  &[]float32{},
+		expect: "unexpected nil",
+	}, {
+		name:   "float64",
+		slice:  &[]float64{},
+		expect: "unexpected nil",
+	}, {
+		name:   "complex64",
+		slice:  &[]complex64{},
+		expect: "unexpected nil",
+	}, {
+		name:   "complex128",
+		slice:  &[]complex128{},
+		expect: "unexpected nil",
+	}, {
+		name:   "string",
+		slice:  &[]string{},
+		expect: "unexpected nil",
+	}, {
+		name:   "array",
+		slice:  &[][10]int{},
+		expect: "unexpected nil",
+	}, {
+		name:   "struct",
+		slice:  &[]struct{}{},
+		expect: "unexpected nil",
+	}, {
+		name:   "func",
+		slice:  &[]func(){},
+		expect: "unexpected nil",
+	}, {
+		name:   "unsafe.Pointer",
+		slice:  &[]unsafe.Pointer{},
+		expect: "unexpected nil",
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			defer func() {
+				msg := recover()
+				if msg == nil && test.expect != "" {
+					t.Error("expected panic")
+				} else if msg != nil && msg != test.expect {
+					t.Errorf("expected panic %#v but got: %v", test.expect, msg)
+				}
+			}()
+			sa := starlark.NewSafeAppender(&starlark.Thread{}, test.slice)
+			if err := sa.Append(nil); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
 }

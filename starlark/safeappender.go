@@ -9,6 +9,7 @@ type SafeAppender struct {
 	thread   *Thread
 	slice    reflect.Value
 	elemType reflect.Type
+	allowNil bool
 }
 
 func NewSafeAppender(thread *Thread, slicePtr interface{}) *SafeAppender {
@@ -25,11 +26,16 @@ func NewSafeAppender(thread *Thread, slicePtr interface{}) *SafeAppender {
 	}
 
 	elemType := slice.Type().Elem()
-
+	elemKind := elemType.Kind()
 	return &SafeAppender{
 		thread:   thread,
 		slice:    slice,
 		elemType: elemType,
+		allowNil: elemKind == reflect.Chan ||
+			elemKind == reflect.Interface ||
+			elemKind == reflect.Map ||
+			elemKind == reflect.Ptr ||
+			elemKind == reflect.Slice,
 	}
 }
 
@@ -43,6 +49,9 @@ func (sa *SafeAppender) Append(values ...interface{}) error {
 	slice := sa.slice
 	for _, value := range values {
 		if value == nil {
+			if !sa.allowNil {
+				panic("unexpected nil")
+			}
 			slice = reflect.Append(slice, reflect.Zero(sa.elemType))
 		} else {
 			slice = reflect.Append(slice, reflect.ValueOf(value))
