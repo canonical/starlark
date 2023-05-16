@@ -209,6 +209,30 @@ func TestFailAllocs(t *testing.T) {
 }
 
 func TestFloatAllocs(t *testing.T) {
+	float := starlark.Universe["float"]
+
+	values := []starlark.Value{
+		starlark.True,
+		starlark.MakeInt(1),
+		starlark.MakeInt64(1 << 32),
+		starlark.Float(1 << 32),
+		starlark.String("2147483648"),
+		starlark.String("18446744073709551616"),
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	for _, value := range values {
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, float, starlark.Tuple{value}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	}
 }
 
 func TestGetattrAllocs(t *testing.T) {
@@ -648,5 +672,44 @@ func TestSafeIterateAllocs(t *testing.T) {
 				st.KeepAlive(value)
 			}
 		})
+	})
+}
+
+func TestTupleIteration(t *testing.T) {
+	values := starlark.Tuple{
+		starlark.None,
+		starlark.False,
+		starlark.True,
+		starlark.MakeInt(0),
+		starlark.MakeInt64(1 << 34),
+		starlark.String("starlark"),
+		starlark.NewList(nil),
+		starlark.NewDict(10),
+	}
+
+	tupleAsValue := starlark.Value(values)
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			it, err := starlark.SafeIterate(thread, tupleAsValue)
+			if err != nil {
+				st.Fatal(err)
+			}
+			defer it.Done()
+
+			var v starlark.Value
+			for j := 0; it.Next(&v); j++ {
+				if v != values[j] {
+					st.Errorf("expected %v got %v", values[j], v)
+				}
+				st.KeepAlive(v)
+			}
+
+			if err := it.Err(); err != nil {
+				st.Error(err)
+			}
+		}
 	})
 }
