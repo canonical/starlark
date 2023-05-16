@@ -2039,26 +2039,26 @@ func string_join(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		return nil, err
 	}
 	defer iter.Done()
-	buf := new(strings.Builder)
+	buf := NewSafeStringBuilder(thread)
 	var x Value
 	for i := 0; iter.Next(&x); i++ {
 		if i > 0 {
-			buf.WriteString(recv)
+			if _, err := buf.WriteString(recv); err != nil {
+				return nil, err
+			}
 		}
 		s, ok := AsString(x)
 		if !ok {
 			return nil, fmt.Errorf("join: in list, want string, got %s", x.Type())
 		}
-		if err := thread.AddAllocs(int64(len(s) + len(recv))); err != nil {
+		if _, err := buf.WriteString(s); err != nil {
 			return nil, err
 		}
-		buf.WriteString(s)
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
-	overhead := EstimateSize(reflect.StringHeader{}) + RoundAllocSize(int64(buf.Cap())) - int64(buf.Len())
-	if err := thread.AddAllocs(overhead); err != nil {
+	if err := thread.AddAllocs(buf.EstimateStringSize()); err != nil {
 		return nil, err
 	}
 	return String(buf.String()), nil

@@ -270,6 +270,14 @@ func NewSafeStringBuilder(thread *Thread) *SafeStringBuilder {
 	return &SafeStringBuilder{thread: thread}
 }
 
+var stringSize = EstimateSize("")
+
+// EstimateStringSize estimates the size of the result of String. This takes
+// into account the capacity of the buffer, unlike EstimateSize(tb.String()).
+func (tb *SafeStringBuilder) EstimateStringSize() int64 {
+	return stringSize + int64(roundAllocSize(uintptr(tb.builder.Cap())))
+}
+
 func (tb *SafeStringBuilder) safeGrow(n int) error {
 	if tb.err != nil {
 		return tb.err
