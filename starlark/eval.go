@@ -256,10 +256,10 @@ type StringBuilder interface {
 // and which abides by sandboxing limits. Errors prevent subsequent
 // operations.
 type SafeStringBuilder struct {
-	builder strings.Builder
-	thread  *Thread
-
-	err error
+	builder    strings.Builder
+	thread     *Thread
+	bufferSize int64
+	err        error
 }
 
 var _ StringBuilder = &SafeStringBuilder{}
@@ -270,6 +270,11 @@ func NewSafeStringBuilder(thread *Thread) *SafeStringBuilder {
 	return &SafeStringBuilder{thread: thread}
 }
 
+func (tb *SafeStringBuilder) Leak() {
+	tb.thread.AddAllocs(-tb.bufferSize)
+	tb.bufferSize = 0
+}
+
 func (tb *SafeStringBuilder) safeGrow(n int) error {
 	if tb.err != nil {
 		return tb.err
@@ -277,11 +282,12 @@ func (tb *SafeStringBuilder) safeGrow(n int) error {
 
 	if tb.Cap()-tb.Len() < n {
 		// Make sure that we can allocate more
-		if err := tb.thread.CheckAllocs(int64(tb.Cap()*2 + n)); err != nil {
-			tb.err = err
+		newBufferSize := EstimateMakeSize([]byte{}, tb.Cap()*2+n)
+		if err := tb.thread.AddAllocs(newBufferSize - tb.bufferSize); err != nil {
 			return err
 		}
 		tb.builder.Grow(n)
+		tb.bufferSize = newBufferSize
 	}
 	return nil
 }
