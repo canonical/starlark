@@ -270,13 +270,6 @@ func NewSafeStringBuilder(thread *Thread) *SafeStringBuilder {
 	return &SafeStringBuilder{thread: thread}
 }
 
-// Leak removes the buffer's allocations from a Thread's tally, indicating that
-// the memory no longer belongs to the Thread.
-func (tb *SafeStringBuilder) Leak() {
-	tb.thread.AddAllocs(-tb.bufferSize)
-	tb.bufferSize = 0
-}
-
 func (tb *SafeStringBuilder) safeGrow(n int) error {
 	if tb.err != nil {
 		return tb.err
@@ -335,6 +328,13 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 	}
 
 	return tb.builder.WriteRune(r)
+}
+
+// Leak removes the buffer's allocations from a Thread's tally, indicating that
+// the memory no longer belongs to the Thread.
+func (tb *SafeStringBuilder) Leak() {
+	tb.thread.AddAllocs(-tb.bufferSize)
+	tb.bufferSize = 0
 }
 
 func (tb *SafeStringBuilder) Cap() int       { return tb.builder.Cap() }
