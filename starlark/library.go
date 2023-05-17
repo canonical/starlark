@@ -664,7 +664,7 @@ func hash(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	default:
 		return nil, fmt.Errorf("hash: got %s, want string or bytes", x.Type())
 	}
-	ret := MakeInt64(h)
+	ret := Value(MakeInt64(h))
 	if err := thread.AddAllocs(EstimateSize(ret)); err != nil {
 		return nil, err
 	}
