@@ -407,6 +407,23 @@ func TestStringIndexAllocs(t *testing.T) {
 }
 
 func TestStringIsalnumAllocs(t *testing.T) {
+	string_isalnum, _ := starlark.String("hello, world!").Attr("isalnum")
+	if string_isalnum == nil {
+		t.Fatal("no such method: string.isalnum")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, string_isalnum, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringIsalphaAllocs(t *testing.T) {
