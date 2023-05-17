@@ -428,7 +428,7 @@ func chr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if i > unicode.MaxRune {
 		return nil, fmt.Errorf("chr: Unicode code point U+%X out of range (>0x10FFFF)", i)
 	}
-	ret := String(string(rune(i)))
+	ret := Value(String(string(rune(i))))
 	if err := thread.AddAllocs(EstimateSize(ret)); err != nil {
 		return nil, err
 	}
