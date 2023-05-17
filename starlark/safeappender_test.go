@@ -21,19 +21,19 @@ func TestSafeAppenderInputValidation(t *testing.T) {
 	}
 
 	t.Run("nil", func(t *testing.T) {
-		defer checkPanic("expected pointer to slice, got nil")
+		defer checkPanic("NewSafeAppender: expected pointer to slice, got nil")
 		thread := &starlark.Thread{}
 		starlark.NewSafeAppender(thread, nil)
 	})
 
 	t.Run("non-pointer", func(t *testing.T) {
-		defer checkPanic("expected pointer to slice, got int")
+		defer checkPanic("NewSafeAppender: expected pointer to slice, got int")
 		thread := &starlark.Thread{}
 		starlark.NewSafeAppender(thread, 25)
 	})
 
 	t.Run("non-slice pointer", func(t *testing.T) {
-		defer checkPanic("expected pointer to slice, got pointer to int")
+		defer checkPanic("NewSafeAppender: expected pointer to slice, got pointer to int")
 		thread := &starlark.Thread{}
 		starlark.NewSafeAppender(thread, new(int))
 	})
@@ -180,7 +180,7 @@ func TestSafeAppenderAppend(t *testing.T) {
 
 func TestSafeAppenderAppendSlice(t *testing.T) {
 	t.Run("nil", func(t *testing.T) {
-		const expected = "expected slice, got nil"
+		const expected = "SafeAppender.AppendSlice: expected slice, got nil"
 		defer func() {
 			if err := recover(); err != nil {
 				if err != expected {
@@ -195,6 +195,24 @@ func TestSafeAppenderAppendSlice(t *testing.T) {
 		sa := starlark.NewSafeAppender(&starlark.Thread{}, &slice)
 		sa.AppendSlice(nil)
 	})
+
+	t.Run("non-slice", func(t *testing.T) {
+		const expected = "SafeAppender.AppendSlice: expected slice, got string"
+		defer func() {
+			if err := recover(); err != nil {
+				if err != expected {
+					t.Errorf("unexpected panic expected %#v but got %#v", expected, err)
+				}
+			} else {
+				t.Error("expected panic")
+			}
+		}()
+
+		nonslice := []int{}
+		sa := starlark.NewSafeAppender(&starlark.Thread{}, &nonslice)
+		sa.AppendSlice("spanner")
+	})
+
 	t.Run("ints", func(t *testing.T) {
 		t.Run("no-allocation", func(t *testing.T) {
 			storage := make([]int, 0, 16)
@@ -315,7 +333,7 @@ func TestSafeAppenderAppendSlice(t *testing.T) {
 }
 
 func TestSafeAppenderAppendTypeMismatch(t *testing.T) {
-	checkPanic := func(t *testing.T) {
+	assertPanics := func(t *testing.T) {
 		if recover() == nil {
 			t.Error("expected panic")
 		}
@@ -323,7 +341,7 @@ func TestSafeAppenderAppendTypeMismatch(t *testing.T) {
 
 	t.Run("Append", func(t *testing.T) {
 		t.Run("incompatible-kinds", func(t *testing.T) {
-			defer checkPanic(t)
+			defer assertPanics(t)
 			thread := &starlark.Thread{}
 			slice := []int{1, 3, 5}
 			sa := starlark.NewSafeAppender(thread, &slice)
@@ -331,7 +349,7 @@ func TestSafeAppenderAppendTypeMismatch(t *testing.T) {
 		})
 
 		t.Run("unimplemented-interface", func(t *testing.T) {
-			defer checkPanic(t)
+			defer assertPanics(t)
 			thread := &starlark.Thread{}
 			slice := []starlark.Value{starlark.False, starlark.MakeInt(0)}
 			sa := starlark.NewSafeAppender(thread, &slice)
@@ -339,7 +357,7 @@ func TestSafeAppenderAppendTypeMismatch(t *testing.T) {
 		})
 
 		t.Run("incompatible-interfaces", func(t *testing.T) {
-			defer checkPanic(t)
+			defer assertPanics(t)
 			thread := &starlark.Thread{}
 			slice := []interface{ private() }{}
 			sa := starlark.NewSafeAppender(thread, &slice)
@@ -349,7 +367,7 @@ func TestSafeAppenderAppendTypeMismatch(t *testing.T) {
 
 	t.Run("AppendSlice", func(t *testing.T) {
 		t.Run("incompatible-kinds", func(t *testing.T) {
-			defer checkPanic(t)
+			defer assertPanics(t)
 			thread := &starlark.Thread{}
 			slice := []int{}
 			sa := starlark.NewSafeAppender(thread, &slice)
@@ -357,7 +375,7 @@ func TestSafeAppenderAppendTypeMismatch(t *testing.T) {
 		})
 
 		t.Run("incompatible-interfaces", func(t *testing.T) {
-			defer checkPanic(t)
+			defer assertPanics(t)
 			thread := &starlark.Thread{}
 			slice := []interface{ private() }{}
 			sa := starlark.NewSafeAppender(thread, &slice)
@@ -408,91 +426,91 @@ func TestSafeAppenderNil(t *testing.T) {
 	}, {
 		name:   "bool",
 		slice:  &[]bool{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "int",
 		slice:  &[]int{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "int8",
 		slice:  &[]int8{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "int16",
 		slice:  &[]int16{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "int32",
 		slice:  &[]int32{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "int64",
 		slice:  &[]int64{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "uint",
 		slice:  &[]uint{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "uint8",
 		slice:  &[]uint8{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "uint16",
 		slice:  &[]uint16{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "uint32",
 		slice:  &[]uint32{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "uint64",
 		slice:  &[]uint64{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "rune",
 		slice:  &[]rune{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "uintptr",
 		slice:  &[]uintptr{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "float32",
 		slice:  &[]float32{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "float64",
 		slice:  &[]float64{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "complex64",
 		slice:  &[]complex64{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "complex128",
 		slice:  &[]complex128{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "string",
 		slice:  &[]string{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "array",
 		slice:  &[][10]int{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "struct",
 		slice:  &[]struct{}{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "func",
 		slice:  &[]func(){},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}, {
 		name:   "unsafe.Pointer",
 		slice:  &[]unsafe.Pointer{},
-		expect: "unexpected nil",
+		expect: "SafeAppender.Append: unexpected nil",
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
