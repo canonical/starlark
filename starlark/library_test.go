@@ -430,6 +430,23 @@ func TestStringIsalphaAllocs(t *testing.T) {
 }
 
 func TestStringIsdigitAllocs(t *testing.T) {
+	string_isdigit, _ := starlark.String("1234567890").Attr("isdigit")
+	if string_isdigit == nil {
+		t.Fatal("no such method: string.isdigit")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, string_isdigit, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringIslowerAllocs(t *testing.T) {
