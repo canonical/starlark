@@ -13,15 +13,15 @@ type SafeAppender struct {
 
 func NewSafeAppender(thread *Thread, slicePtr interface{}) *SafeAppender {
 	if slicePtr == nil {
-		panic("expected pointer to slice, got nil")
+		panic("NewSafeAppender: expected pointer to slice, got nil")
 	}
 	ptr := reflect.ValueOf(slicePtr)
 	if kind := ptr.Kind(); kind != reflect.Ptr {
-		panic(fmt.Sprintf("expected pointer to slice, got %v", kind))
+		panic(fmt.Sprintf("NewSafeAppender: expected pointer to slice, got %v", kind))
 	}
 	slice := ptr.Elem()
 	if kind := slice.Kind(); kind != reflect.Slice {
-		panic(fmt.Sprintf("expected pointer to slice, got pointer to %v", kind))
+		panic(fmt.Sprintf("NewSafeAppender: expected pointer to slice, got pointer to %v", kind))
 	}
 
 	elemType := slice.Type().Elem()
@@ -45,7 +45,7 @@ func (sa *SafeAppender) Append(values ...interface{}) error {
 			switch sa.elemType.Kind() {
 			case reflect.Chan, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
 			default:
-				panic("unexpected nil")
+				panic("SafeAppender.Append: unexpected nil")
 			}
 			slice = reflect.Append(slice, reflect.Zero(sa.elemType))
 		} else {
@@ -65,11 +65,11 @@ func (sa *SafeAppender) Append(values ...interface{}) error {
 
 func (sa *SafeAppender) AppendSlice(values interface{}) error {
 	if values == nil {
-		panic("expected slice, got nil")
+		panic("SafeAppender.AppendSilce: expected slice, got nil")
 	}
 	toAppend := reflect.ValueOf(values)
 	if kind := toAppend.Kind(); kind != reflect.Slice {
-		panic(fmt.Sprintf("expected slice, got %v", kind))
+		panic(fmt.Sprintf("SafeAppender.AppendSilce: expected slice, got %v", kind))
 	}
 	cap := sa.slice.Cap()
 	if sa.slice.Len()+toAppend.Len() > cap {
