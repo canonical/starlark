@@ -256,10 +256,10 @@ type StringBuilder interface {
 // and which abides by sandboxing limits. Errors prevent subsequent
 // operations.
 type SafeStringBuilder struct {
-	builder    strings.Builder
-	thread     *Thread
-	bufferSize int64
-	err        error
+	builder strings.Builder
+	thread  *Thread
+	allocs  uint64
+	err     error
 }
 
 var _ StringBuilder = &SafeStringBuilder{}
@@ -270,6 +270,12 @@ func NewSafeStringBuilder(thread *Thread) *SafeStringBuilder {
 	return &SafeStringBuilder{thread: thread}
 }
 
+// Allocs returns the total allocations reported to this SafeStringBuilder's
+// thread.
+func (tb *SafeStringBuilder) Allocs() uint64 {
+	return tb.allocs
+}
+
 func (tb *SafeStringBuilder) safeGrow(n int) error {
 	if tb.err != nil {
 		return tb.err
@@ -278,11 +284,11 @@ func (tb *SafeStringBuilder) safeGrow(n int) error {
 	if tb.Cap()-tb.Len() < n {
 		// Make sure that we can allocate more
 		newBufferSize := EstimateMakeSize([]byte{}, tb.Cap()*2+n)
-		if err := tb.thread.AddAllocs(newBufferSize - tb.bufferSize); err != nil {
+		if err := tb.thread.AddAllocs(newBufferSize - int64(tb.allocs)); err != nil {
 			return err
 		}
 		tb.builder.Grow(n)
-		tb.bufferSize = newBufferSize
+		tb.allocs = uint64(newBufferSize)
 	}
 	return nil
 }
@@ -328,13 +334,6 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 	}
 
 	return tb.builder.WriteRune(r)
-}
-
-// Leak removes the buffer's allocations from a Thread's tally, indicating that
-// the memory no longer belongs to the Thread.
-func (tb *SafeStringBuilder) Leak() {
-	tb.thread.AddAllocs(-tb.bufferSize)
-	tb.bufferSize = 0
 }
 
 func (tb *SafeStringBuilder) Cap() int       { return tb.builder.Cap() }

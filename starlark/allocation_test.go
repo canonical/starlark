@@ -417,24 +417,24 @@ func TestSafeStringBuilder(t *testing.T) {
 		})
 	})
 
-	t.Run("leak", func(t *testing.T) {
-		thread := &starlark.Thread{}
+	t.Run("allocs", func(t *testing.T) {
+		st := startest.From(t)
+		st.RunThread(func(thread *starlark.Thread) {
+			sb := starlark.NewSafeStringBuilder(thread)
+			initialAllocs := thread.Allocs()
 
-		sb := starlark.NewSafeStringBuilder(thread)
-		initialAllocs := thread.Allocs()
+			if _, err := sb.WriteString("foo bar baz qux"); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
 
-		if _, err := sb.WriteString("foo bar baz quux"); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
+			if thread.Allocs() == initialAllocs {
+				t.Error("SafeStringBuilder did not allocate")
+			}
 
-		if thread.Allocs() == initialAllocs {
-			t.Error("SafeStringBuilder did not allocate")
-		}
-
-		sb.Leak()
-
-		if allocs := thread.Allocs(); allocs > initialAllocs {
-			t.Errorf("allocations not leaked: expected %d allocations but got %d", initialAllocs, allocs)
-		}
+			expected := thread.Allocs() - initialAllocs
+			if actual := sb.Allocs(); actual != expected {
+				t.Errorf("incorrect number of allocs reported: expected %d but got %d", expected, actual)
+			}
+		})
 	})
 }
