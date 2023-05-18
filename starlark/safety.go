@@ -76,8 +76,8 @@ func (flags Safety) String() string {
 
 // CheckValid checks that a given set of safety flags contains only defined
 // flags.
-func (f Safety) CheckValid() error {
-	if f >= safetyFlagsLimit {
+func (flags Safety) CheckValid() error {
+	if flags >= safetyFlagsLimit {
 		return errors.New("internal error: invalid safety flags")
 	}
 	return nil
@@ -111,7 +111,7 @@ type SafetyError struct {
 	Missing Safety
 }
 
-func (SafetyError) Error() string {
+func (se SafetyError) Error() string {
 	return "feature unavailable to the sandbox"
 }
 

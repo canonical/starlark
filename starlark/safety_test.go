@@ -46,18 +46,18 @@ func TestSafety(t *testing.T) {
 
 func testSafety(t *testing.T, require, probe starlark.Safety, expectPass bool) {
 	if actual := probe.Contains(require); actual != expectPass {
-		t.Errorf("Safety checking did not return correct value: expected %v but got %v", expectPass, actual)
+		t.Errorf("safety checking did not return correct value: expected %v but got %v", expectPass, actual)
 	}
 
 	if err := probe.CheckContains(require); expectPass && err != nil {
-		t.Errorf("Safety checking returned unexpected error: checking that %v permits %v returned %v", require, probe, err)
+		t.Errorf("safety checking returned unexpected error: checking that %v permits %v returned %v", require, probe, err)
 	} else if !expectPass {
 		if err == nil {
-			t.Errorf("Safety checking did not return an error when expected")
+			t.Errorf("safety checking did not return an error when expected")
 		} else if safetyErr, ok := err.(*starlark.SafetyError); !ok {
-			t.Errorf("Expected a safety error: got a %T", err)
+			t.Errorf("expected a safety error: got a %T", err)
 		} else if expectedMissing := require &^ probe; safetyErr.Missing != expectedMissing {
-			t.Errorf("Incorrect missing flags reported: expected %v but got %v", expectedMissing, safetyErr.Missing)
+			t.Errorf("incorrect missing flags reported: expected %v but got %v", expectedMissing, safetyErr.Missing)
 		}
 	}
 }
@@ -67,13 +67,13 @@ func TestSafetyValidityChecking(t *testing.T) {
 	const invalidSafety = starlark.Safety(0xdebac1e)
 
 	if err := validSafety.CheckValid(); err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
 
 	if err := invalidSafety.CheckValid(); err == nil {
-		t.Errorf("No error when checking invalid safety")
+		t.Errorf("no error when checking invalid safety")
 	} else if err.Error() != "internal error: invalid safety flags" {
-		t.Errorf("Unexpected error when checking invalid safety: %v", err)
+		t.Errorf("unexpected error when checking invalid safety: %v", err)
 	}
 }
 
@@ -82,7 +82,7 @@ func TestDefaultStoredSafetyIsZero(t *testing.T) {
 		return starlark.None, nil
 	})
 	if storedSafety := b.Safety(); storedSafety != 0 {
-		t.Errorf("Default safety is not zero: got %d", storedSafety)
+		t.Errorf("default safety is not zero: got %d", storedSafety)
 	}
 }
 
@@ -105,7 +105,7 @@ func TestSafetyFlagNameOrder(t *testing.T) {
 
 	for safety, expected := range tests {
 		if actual := safety.String(); actual != expected {
-			t.Errorf("Expected %s but got %s", expected, actual)
+			t.Errorf("expected %s but got %s", expected, actual)
 		}
 	}
 }
@@ -124,15 +124,15 @@ func TestBuiltinClosuresInteractSafely(t *testing.T) {
 	builtinClosure2 := starlark.NewBuiltinWithSafety("bar", expectedClosure2Safety, base("bar"))
 
 	if closure1Safety := builtinClosure1.Safety(); closure1Safety != expectedClosure1Safety {
-		t.Errorf("Incorrect safety reported on closure: expected %s but got %s", expectedClosure1Safety, closure1Safety)
+		t.Errorf("incorrect safety reported on closure: expected %s but got %s", expectedClosure1Safety, closure1Safety)
 	}
 	if closure2Safety := builtinClosure2.Safety(); closure2Safety != expectedClosure2Safety {
-		t.Errorf("Incorrect safety reported on closure: expected %s but got %s", expectedClosure2Safety, closure2Safety)
+		t.Errorf("incorrect safety reported on closure: expected %s but got %s", expectedClosure2Safety, closure2Safety)
 	}
 }
 
 func TestFunctionSafeExecution(t *testing.T) {
-	// Ensure that starlark-defined functions can always be run
+	// Ensure that Starlark-defined functions can always be run
 	const prog = `
 def func():
 	pass
@@ -143,7 +143,7 @@ func()
 
 	_, err := starlark.ExecFile(thread, "func_safety_test.go", prog, nil)
 	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
@@ -155,7 +155,7 @@ func TestLambdaSafeExecution(t *testing.T) {
 
 	_, err := starlark.ExecFile(thread, "lambda_safety_test.go", prog, nil)
 	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
@@ -174,7 +174,7 @@ func TestBuiltinSafeExecution(t *testing.T) {
 		env := starlark.StringDict{"fn": fn}
 
 		if _, err := starlark.ExecFile(thread, "builtin_safety_restrictions", "fn()", env); err != nil {
-			t.Errorf("Unexpected error executing safe builtin: %v", err)
+			t.Errorf("unexpected error executing safe builtin: %v", err)
 		}
 	})
 
@@ -185,9 +185,9 @@ func TestBuiltinSafeExecution(t *testing.T) {
 		env := starlark.StringDict{"fn": fn}
 
 		if _, err := starlark.ExecFile(thread, "builtin_safety_restrictions", "fn()", env); err == nil {
-			t.Errorf("Expected error when trying to execute forbidden builtin")
+			t.Errorf("expected error when trying to execute forbidden builtin")
 		} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
-			t.Errorf("Unexpected error executing safe builtin: %v", err)
+			t.Errorf("unexpected error executing safe builtin: %v", err)
 		}
 	})
 
@@ -198,9 +198,9 @@ func TestBuiltinSafeExecution(t *testing.T) {
 
 		env := starlark.StringDict{"fn": fn}
 		if _, err := starlark.ExecFile(thread, "builtin_safety_restrictions", "fn()", env); err == nil {
-			t.Errorf("Expected error trying to evaluate builtin with invalid safety")
+			t.Errorf("expected error trying to evaluate builtin with invalid safety")
 		} else if err.Error() != "cannot call builtin 'fn': internal error: invalid safety flags" {
-			t.Errorf("Unexpected error: %v", err)
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 }
@@ -213,17 +213,17 @@ var (
 	_ starlark.SafetyAware = &dummyCallable{}
 )
 
-func (dummyCallable) String() string        { return "" }
-func (dummyCallable) Type() string          { return "dummyCallable" }
-func (dummyCallable) Freeze()               {}
-func (dummyCallable) Truth() starlark.Bool  { return false }
-func (dummyCallable) Hash() (uint32, error) { return 0, nil }
-func (dummyCallable) Name() string          { return "dummyCallable" }
-func (dummyCallable) CallInternal(*starlark.Thread, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+func (dc dummyCallable) String() string        { return "" }
+func (dc dummyCallable) Type() string          { return "dummyCallable" }
+func (dc dummyCallable) Freeze()               {}
+func (dc dummyCallable) Truth() starlark.Bool  { return false }
+func (dc dummyCallable) Hash() (uint32, error) { return 0, nil }
+func (dc dummyCallable) Name() string          { return "dummyCallable" }
+func (dc dummyCallable) CallInternal(*starlark.Thread, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 	return starlark.None, nil
 }
-func (d *dummyCallable) Safety() starlark.Safety              { return d.safety }
-func (d *dummyCallable) DeclareSafety(safety starlark.Safety) { d.safety = safety }
+func (dc *dummyCallable) Safety() starlark.Safety              { return dc.safety }
+func (dc *dummyCallable) DeclareSafety(safety starlark.Safety) { dc.safety = safety }
 
 func TestCallableSafeExecution(t *testing.T) {
 	thread := &starlark.Thread{}
@@ -238,29 +238,29 @@ func TestCallableSafeExecution(t *testing.T) {
 	// Permit
 	c.DeclareSafety(starlark.Safe)
 	if _, err := starlark.ExecFile(thread, "dynamic_safety_checking", prog, env); err != nil {
-		t.Errorf("Unexpected error running permitted callable %v", err)
+		t.Errorf("unexpected error running permitted callable %v", err)
 	}
 
 	// Forbid
 	c.DeclareSafety(starlark.NotSafe)
 	if _, err := starlark.ExecFile(thread, "dynamic_safety_checking", prog, env); err == nil {
-		t.Errorf("Expected error running dynamically-forbidden callable")
+		t.Errorf("expected error running dynamically-forbidden callable")
 	} else if err.Error() != "cannot call value of type 'dummyCallable': feature unavailable to the sandbox" {
-		t.Errorf("Unexpected error running forbidden callable: %v", err)
+		t.Errorf("unexpected error running forbidden callable: %v", err)
 	}
 
 	// Repermit
 	c.DeclareSafety(starlark.Safe)
 	if _, err := starlark.ExecFile(thread, "dynamic_safety_checking", prog, env); err != nil {
-		t.Errorf("Unexpected error running dynamically re-permitted callable %v", err)
+		t.Errorf("unexpected error running dynamically re-permitted callable %v", err)
 	}
 
 	const invalidSafety = starlark.Safety(0xfedcba)
 	c.DeclareSafety(invalidSafety)
 	if _, err := starlark.ExecFile(thread, "dynamic_safety_checking", prog, env); err == nil {
-		t.Errorf("Expected invalid callable-safety to result in error")
+		t.Errorf("expected invalid callable-safety to result in error")
 	} else if err.Error() != "cannot call value of type 'dummyCallable': internal error: invalid safety flags" {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
@@ -271,12 +271,12 @@ func TestNewBuiltinWithSafety(t *testing.T) {
 
 	const validSafety = starlark.IOSafe | starlark.MemSafe
 	if safety := starlark.NewBuiltinWithSafety("fn", validSafety, fn).Safety(); safety != validSafety {
-		t.Errorf("Incorrect stored safety: expected %v but got %v", validSafety, safety)
+		t.Errorf("incorrect stored safety: expected %v but got %v", validSafety, safety)
 	}
 
 	const invalidSafety = starlark.Safety(0x0ddba11)
 	if safety := starlark.NewBuiltinWithSafety("fn", invalidSafety, fn).Safety(); safety != invalidSafety {
-		t.Errorf("Incorrect stored safety: expected %v but got %v", validSafety, safety)
+		t.Errorf("incorrect stored safety: expected %v but got %v", validSafety, safety)
 	}
 }
 
@@ -290,6 +290,6 @@ func TestBindReceiverSafety(t *testing.T) {
 	recv := starlark.String("foo")
 	boundBuiltin := builtin.BindReceiver(recv)
 	if actual := boundBuiltin.Safety(); actual != expected {
-		t.Errorf("Builtin with bound receiver had incorrect safety: expected %v but got %v", expected, actual)
+		t.Errorf("builtin with bound receiver had incorrect safety: expected %v but got %v", expected, actual)
 	}
 }
