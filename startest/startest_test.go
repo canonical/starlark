@@ -3,6 +3,7 @@ package startest_test
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -132,8 +133,10 @@ func TestKeepAlive(t *testing.T) {
 
 	// Check for over estimations
 	t.Run("check=over-estimation", func(t *testing.T) {
-		dummyT := testing.T{}
-		st := startest.From(&dummyT)
+		const expected = "declared allocations are above maximum (20 > 4)"
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -141,33 +144,37 @@ func TestKeepAlive(t *testing.T) {
 				thread.AddAllocs(20)
 			}
 		})
-		if !dummyT.Failed() {
-			t.Error("Expected allocation test failure")
+		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("unexpected error(s): %s", errLog)
 		}
 	})
 
 	// Check for too many allocs
 	t.Run("check=over-allocation", func(t *testing.T) {
-		dummyT := testing.T{}
-		st := startest.From(&dummyT)
+		const expected = "measured memory is above maximum"
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.KeepAlive(make([]int32, 10))
 				if err := thread.AddAllocs(4); err != nil {
-					t.Errorf("Unexpected error: %v", err)
+					t.Errorf("unexpected error: %v", err)
 					return
 				}
 			}
 		})
-		if !dummyT.Failed() {
-			t.Error("Expected allocation test failure")
+		if errLog := dummy.Errors(); !strings.HasPrefix(errLog, expected) {
+			t.Errorf("unexpected error(s): %s", errLog)
 		}
 	})
 
 	t.Run("check=means-compared", func(t *testing.T) {
-		dummyT := testing.T{}
-		st := startest.From(&dummyT)
+		const expected = "measured memory is above declared allocations (4 > 1)"
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -175,8 +182,8 @@ func TestKeepAlive(t *testing.T) {
 				thread.AddAllocs(1)
 			}
 		})
-		if !dummyT.Failed() {
-			t.Error("Expected failure")
+		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("unexpected error(s): %s", errLog)
 		}
 	})
 
@@ -191,7 +198,10 @@ func TestKeepAlive(t *testing.T) {
 	})
 
 	t.Run("check=not-safe-capped-allocs", func(t *testing.T) {
-		st := startest.From(&testing.T{})
+		const expected = "measured memory is above maximum (4 > 0)\nmeasured memory is above declared allocations (4 > 0)"
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -200,7 +210,45 @@ func TestKeepAlive(t *testing.T) {
 		})
 
 		if !st.Failed() {
-			t.Error("Expected failure")
+			t.Error("expected failure")
+		}
+		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("unexpected error(s): %s", errLog)
+		}
+	})
+}
+
+func TestStepBounding(t *testing.T) {
+	t.Run("steps=safe", func(t *testing.T) {
+		st := startest.From(t)
+		st.SetMaxExecutionSteps(1000)
+
+		st.AddBuiltin(safeRange)
+
+		st.RunString(`
+			for _ in range(st.n):
+				pass
+		`)
+	})
+
+	t.Run("steps=not-safe", func(t *testing.T) {
+		expected := regexp.MustCompile(`execution steps are above maximum \(\d+ > 1\)`)
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+		st.SetMaxExecutionSteps(1)
+		st.AddBuiltin(safeRange)
+		st.RunString(`
+			for _ in range(st.n):
+				for _ in range(2):
+					pass
+		`)
+
+		if !st.Failed() {
+			t.Error("expected failure")
+		}
+		if errLog := dummy.Errors(); !expected.Match([]byte(errLog)) {
+			t.Errorf("unexpected error(s): %s", errLog)
 		}
 	})
 }
@@ -209,30 +257,41 @@ func TestThread(t *testing.T) {
 	st := startest.From(t)
 	st.RunThread(func(thread *starlark.Thread) {
 		if thread == nil {
-			st.Error("Received a nil thread")
+			st.Error("received a nil thread")
 		}
 	})
 }
 
 func TestFailed(t *testing.T) {
-	dummyT := &testing.T{}
-
-	st := startest.From(dummyT)
+	dummy := &dummyBase{}
+	st := startest.From(dummy)
 
 	if st.Failed() {
-		t.Error("Startest reported that it failed prematurely")
+		t.Error("startest reported that it failed prematurely")
 	}
 
 	st.Log("foobar")
 
 	if st.Failed() {
-		t.Error("Startest reported that it failed prematurely")
+		t.Error("startest reported that it failed prematurely")
+	}
+	if log := dummy.Logs(); log != "foobar" {
+		t.Errorf("unexpected log output: %s", log)
+	}
+	if errLog := dummy.Errors(); errLog != "" {
+		t.Errorf("unexpected error logged: %s", errLog)
 	}
 
 	st.Error("snafu")
 
 	if !st.Failed() {
-		t.Error("Startest did not report that it had failed")
+		t.Error("startest did not report that it had failed")
+	}
+	if log := dummy.Logs(); log != "foobar" {
+		t.Errorf("unexpected log output: %s", log)
+	}
+	if errLog := dummy.Errors(); errLog != "snafu" {
+		t.Errorf("unexpected error logged: %s", errLog)
 	}
 }
 
@@ -247,7 +306,7 @@ func TestRequireSafety(t *testing.T) {
 			st.RequireSafety(starlark.MemSafe | starlark.IOSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				if _, err := starlark.Call(thread, builtin, nil, nil); err != nil {
-					st.Errorf("Unexpected error: %v", err)
+					st.Errorf("unexpected error: %v", err)
 				}
 			})
 		})
@@ -261,9 +320,9 @@ func TestRequireSafety(t *testing.T) {
 			st.RequireSafety(starlark.MemSafe | starlark.IOSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				if _, err := starlark.Call(thread, builtin, nil, nil); err == nil {
-					st.Error("Expected error")
+					st.Error("expected error")
 				} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
-					st.Errorf("Unexpected error: %v", err)
+					st.Errorf("unexpected error: %v", err)
 				}
 			})
 		})
@@ -299,7 +358,7 @@ func TestRequireSafety(t *testing.T) {
 				t.Errorf("RunString returned true")
 			}
 			if errLog := dummy.Errors(); errLog != expected {
-				t.Errorf("Unexpected error(s): %#v", errLog)
+				t.Errorf("unexpected error(s): %#v", errLog)
 			}
 		})
 
@@ -316,7 +375,7 @@ func TestRequireSafety(t *testing.T) {
 				t.Error("RunString returned true")
 			}
 			if errLog := dummy.Errors(); errLog != expected {
-				t.Errorf("Unexpected error(s): %#v", errLog)
+				t.Errorf("unexpected error(s): %#v", errLog)
 			}
 		})
 	})
@@ -432,7 +491,7 @@ func TestStringFail(t *testing.T) {
 		st.Errorf("RunString returned true")
 	}
 	if errLog := dummy.Errors(); errLog != expected {
-		st.Errorf("Unexpected error(s): %#v", errLog)
+		st.Errorf("unexpected error(s): %#v", errLog)
 	}
 }
 
@@ -474,7 +533,7 @@ func TestRequireSafetyDefault(t *testing.T) {
 				st := startest.From(t)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.CheckPermits(safety); err == nil {
-						t.Errorf("Expected safety error checking %v", safety)
+						t.Errorf("expected safety error checking %v", safety)
 					}
 				})
 			})
@@ -495,7 +554,7 @@ func TestRequireSafetyDefault(t *testing.T) {
 					t.Errorf("RunString returned true testing %v", safety)
 				}
 				if errLog := dummy.Errors(); errLog != expected {
-					t.Errorf("Unexpected error(s) testing %v: %#v", safety, errLog)
+					t.Errorf("unexpected error(s) testing %v: %#v", safety, errLog)
 				}
 			})
 		})
@@ -513,7 +572,7 @@ func TestRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 
 	if safety := startest.STSafety(st); safety != expectedSafety {
 		missing := safety &^ expectedSafety
-		t.Errorf("Missing safety flags %v, expected %v", missing.String(), expectedSafety.String())
+		t.Errorf("missing safety flags %v, expected %v", missing.String(), expectedSafety.String())
 	}
 
 	st.RunThread(func(thread *starlark.Thread) {
@@ -642,7 +701,7 @@ func TestRunStringPredecls(t *testing.T) {
 				st.RequireSafety(starlark.NotSafe)
 				st.AddValue("value", test.value)
 				if ok := st.RunString(fmt.Sprintf("assert.eq(repr(value), %#v)", test.repr)); !ok {
-					t.Errorf("RunString returned false")
+					t.Errorf("%s: RunString returned false", test.name)
 				}
 			}
 		})
@@ -654,11 +713,11 @@ func TestRunStringPredecls(t *testing.T) {
 			st := startest.From(dummy)
 			st.AddValue("value", nil)
 			if !st.Failed() {
-				t.Errorf("Expected failure adding nil value")
+				t.Errorf("expected failure adding nil value")
 			}
 
 			if errLog := dummy.Errors(); errLog != expected {
-				t.Errorf("Unexpected error(s): %#v", errLog)
+				t.Errorf("unexpected error(s): %#v", errLog)
 			}
 		})
 	})
@@ -679,7 +738,7 @@ func TestRunStringPredecls(t *testing.T) {
 			}
 
 			if !builtinCalled {
-				t.Error("Builtin was not called")
+				t.Error("builtin was not called")
 			}
 		})
 
@@ -720,11 +779,11 @@ func TestLocals(t *testing.T) {
 
 	testLocals := func(t *testing.T, thread *starlark.Thread) {
 		if local := thread.Local(localName); local == nil {
-			t.Error("Local was not set")
+			t.Error("local was not set")
 		} else if actual, ok := local.(string); !ok {
-			t.Errorf("Expected a string, got a %T", local)
+			t.Errorf("expected a string, got a %T", local)
 		} else if actual != expected {
-			t.Errorf("Incorrect local: expected '%v' but got '%v'", expected, actual)
+			t.Errorf("incorrect local: expected '%v' but got '%v'", expected, actual)
 		}
 	}
 
@@ -761,11 +820,11 @@ var _ starlark.Value = &dummyRange{}
 var _ starlark.Iterable = &dummyRange{}
 var _ starlark.Iterator = &dummyRangeIterator{}
 
-func (*dummyRange) String() string                { return "dummyRange" }
-func (*dummyRange) Type() string                  { return "dummyRange" }
-func (*dummyRange) Freeze()                       {}
-func (*dummyRange) Truth() starlark.Bool          { return starlark.True }
-func (*dummyRange) Hash() (uint32, error)         { return 0, errors.New("unhashable type: dummyRange") }
+func (dr *dummyRange) String() string             { return "dummyRange" }
+func (dr *dummyRange) Type() string               { return "dummyRange" }
+func (dr *dummyRange) Freeze()                    {}
+func (dr *dummyRange) Truth() starlark.Bool       { return starlark.True }
+func (dr *dummyRange) Hash() (uint32, error)      { return 0, errors.New("unhashable type: dummyRange") }
 func (dr *dummyRange) Iterate() starlark.Iterator { return &dummyRangeIterator{0, *dr} }
 
 func (iter *dummyRangeIterator) Next(p *starlark.Value) bool {
@@ -776,7 +835,9 @@ func (iter *dummyRangeIterator) Next(p *starlark.Value) bool {
 	}
 	return false
 }
-func (iter *dummyRangeIterator) Done() {}
+
+func (iter *dummyRangeIterator) Done()      {}
+func (iter *dummyRangeIterator) Err() error { return nil }
 
 var safeRange *starlark.Builtin
 
@@ -835,11 +896,11 @@ func TestRunStringMemSafety(t *testing.T) {
 		}
 
 		if !st.Failed() {
-			t.Error("Expected failure")
+			t.Error("expected failure")
 		}
 
 		if errLog := dummy.Errors(); errLog != expected {
-			t.Errorf("Unexpected error(s): %#v", errLog)
+			t.Errorf("unexpected error(s): %#v", errLog)
 		}
 	})
 
@@ -875,7 +936,7 @@ func TestAssertModuleIntegration(t *testing.T) {
 
 		failValue, ok := starlark.Universe["fail"]
 		if !ok {
-			t.Error("No such builtin: fail")
+			t.Error("no such builtin: fail")
 		}
 		fail, ok := failValue.(*starlark.Builtin)
 		if !ok {
