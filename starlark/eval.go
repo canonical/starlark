@@ -329,7 +329,6 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 	} else {
 		growAmount = utf8.UTFMax
 	}
-
 	if err := tb.safeGrow(growAmount); err != nil {
 		return 0, err
 	}
