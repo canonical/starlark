@@ -285,6 +285,7 @@ func (tb *SafeStringBuilder) safeGrow(n int) error {
 		// Make sure that we can allocate more
 		newBufferSize := EstimateMakeSize([]byte{}, tb.Cap()*2+n)
 		if err := tb.thread.AddAllocs(newBufferSize - int64(tb.allocs)); err != nil {
+			tb.err = err
 			return err
 		}
 		tb.builder.Grow(n)

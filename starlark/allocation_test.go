@@ -297,7 +297,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 			builder := starlark.NewSafeStringBuilder(thread)
 			builder.Grow(1000)
-			if err := builder.Err(); err != nil {
+			if err := builder.Err(); err == nil {
 				t.Errorf("Grow shouldn't be able to over allocate")
 			}
 		})
