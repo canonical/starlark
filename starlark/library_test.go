@@ -105,6 +105,7 @@ var _ starlark.SafeIterator = &testIterator{}
 func (it *testIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
 func (it *testIterator) Safety() starlark.Safety            { return starlark.Safe }
 func (it *testIterator) Next(p *starlark.Value) bool {
+	it.n++
 	if it.nth == nil {
 		it.err = errors.New("testIterator called with nil nth function")
 	}
@@ -112,7 +113,7 @@ func (it *testIterator) Next(p *starlark.Value) bool {
 		return false
 	}
 
-	if it.maxN > 0 && it.n >= it.maxN {
+	if it.maxN > 0 && it.n > it.maxN {
 		return false
 	}
 	ret, err := it.nth(it.thread, it.n)
@@ -122,11 +123,60 @@ func (it *testIterator) Next(p *starlark.Value) bool {
 	}
 
 	*p = ret
-	it.n++
 	return true
 }
 func (it *testIterator) Done()      {}
 func (it *testIterator) Err() error { return it.err }
+
+// testSequence is a sequence with customisable yield behaviour.
+type testSequence struct {
+	// maxN sets the upper bound on the number of iterations performed.
+	maxN int
+
+	// nth returns a value to be yielded by the nth Next call.
+	nth func(thread *starlark.Thread, n int) (starlark.Value, error)
+}
+
+var _ starlark.Sequence = &testSequence{}
+
+func (ts *testSequence) Freeze() {}
+func (ts *testSequence) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", ts.Type())
+}
+func (ts *testSequence) String() string       { return "testSequence" }
+func (ts *testSequence) Truth() starlark.Bool { return ts.maxN != 0 }
+func (ts *testSequence) Type() string         { return "testSequence" }
+func (ts *testSequence) Iterate() starlark.Iterator {
+	if ts.maxN < 0 {
+		panic(fmt.Sprintf("testSequence is unbounded: got upper bound %v", ts.maxN))
+	}
+	return &testSequenceIterator{
+		testIterator{
+			maxN: ts.maxN,
+			nth:  ts.nth,
+		},
+	}
+}
+func (ts *testSequence) Len() int {
+	ret := ts.maxN
+	if ret < 0 {
+		panic(fmt.Sprintf("testSequence is unbounded: got upper bound %v", ret))
+	}
+	return ret
+}
+
+type testSequenceIterator struct {
+	testIterator
+}
+
+var _ starlark.SafeIterator = &testSequenceIterator{}
+
+func (iter *testSequenceIterator) Next(p *starlark.Value) bool {
+	if iter.maxN == 0 {
+		return false
+	}
+	return iter.testIterator.Next(p)
+}
 
 func TestAbsAllocs(t *testing.T) {
 }
@@ -203,6 +253,166 @@ func TestDirAllocs(t *testing.T) {
 }
 
 func TestEnumerateAllocs(t *testing.T) {
+	enumerate, ok := starlark.Universe["enumerate"]
+	if !ok {
+		t.Fatal("no such builtin: enumerate")
+	}
+
+	t.Run("small-result", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			value starlark.Iterable
+		}{{
+			name: "iterable",
+			value: &testIterable{
+				maxN: 10,
+				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+					return starlark.None, nil
+				},
+			},
+		}, {
+			name: "sequence",
+			value: &testSequence{
+				maxN: 10,
+				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+					return starlark.None, nil
+				},
+			},
+		}}
+
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				st := startest.From(t)
+
+				st.RequireSafety(starlark.MemSafe)
+
+				st.RunThread(func(thread *starlark.Thread) {
+					for i := 0; i < st.N; i++ {
+						args := starlark.Tuple{test.value}
+
+						result, err := starlark.Call(thread, enumerate, args, nil)
+						if err != nil {
+							st.Error(err)
+						}
+						st.KeepAlive(result)
+					}
+				})
+			})
+		}
+	})
+
+	t.Run("large-result", func(t *testing.T) {
+		t.Run("iterable", func(t *testing.T) {
+			st := startest.From(t)
+
+			st.RequireSafety(starlark.MemSafe)
+
+			st.RunThread(func(thread *starlark.Thread) {
+				iter := &testIterable{
+					maxN: st.N,
+					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+						return starlark.None, nil
+					},
+				}
+
+				result, err := starlark.Call(thread, enumerate, starlark.Tuple{iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			})
+		})
+
+		t.Run("sequence", func(t *testing.T) {
+			st := startest.From(t)
+
+			st.RequireSafety(starlark.MemSafe)
+
+			st.RunThread(func(thread *starlark.Thread) {
+				iter := &testSequence{
+					maxN: st.N,
+					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+						return starlark.None, nil
+					},
+				}
+
+				result, err := starlark.Call(thread, enumerate, starlark.Tuple{iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			})
+		})
+	})
+
+	t.Run("early-termination", func(t *testing.T) {
+		const expected = "exceeded memory allocation limits"
+		maxAllocs := uint64(40)
+
+		t.Run("iterable", func(t *testing.T) {
+			st := startest.From(t)
+
+			st.RequireSafety(starlark.MemSafe)
+			st.SetMaxAllocs(maxAllocs)
+
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.SetMaxAllocs(maxAllocs)
+
+				var nReached int
+				iter := &testIterable{
+					maxN: st.N,
+					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						nReached = n
+						return starlark.None, nil
+					},
+				}
+
+				result, err := starlark.Call(thread, enumerate, starlark.Tuple{iter}, nil)
+				if err == nil {
+					st.Error("expected error")
+				} else if err.Error() != expected {
+					st.Errorf("unexpected error: %v", err)
+				}
+				if nReached > 1 && iter.maxN != 1 {
+					st.Errorf("iteration was not terminated early enough")
+				}
+
+				st.KeepAlive(result)
+			})
+		})
+
+		t.Run("sequence", func(t *testing.T) {
+			st := startest.From(t)
+
+			st.RequireSafety(starlark.MemSafe)
+			st.SetMaxAllocs(maxAllocs)
+
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.SetMaxAllocs(maxAllocs)
+
+				var nReached int
+				iter := &testSequence{
+					maxN: st.N,
+					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						nReached = n
+						return starlark.None, nil
+					},
+				}
+
+				result, err := starlark.Call(thread, enumerate, starlark.Tuple{iter}, nil)
+				if err == nil {
+					st.Error("expected error")
+				} else if err.Error() != expected {
+					st.Errorf("unexpected error: %v", err)
+				}
+				if nReached > 0 && iter.maxN > 1 {
+					st.Errorf("iteration was not terminated early enough: terminated after %d/%d Next calls", nReached+1, iter.Len())
+				}
+
+				st.KeepAlive(result)
+			})
+		})
+	})
 }
 
 func TestFailAllocs(t *testing.T) {
