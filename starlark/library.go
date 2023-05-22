@@ -219,7 +219,7 @@ var (
 		"isdigit":        MemSafe,
 		"islower":        MemSafe,
 		"isspace":        MemSafe,
-		"istitle":        NotSafe,
+		"istitle":        MemSafe,
 		"isupper":        NotSafe,
 		"join":           NotSafe,
 		"lower":          NotSafe,

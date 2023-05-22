@@ -717,6 +717,23 @@ func TestStringIsspaceAllocs(t *testing.T) {
 }
 
 func TestStringIstitleAllocs(t *testing.T) {
+	string_istitle, _ := starlark.String("Hello, world!").Attr("istitle")
+	if string_istitle == nil {
+		t.Fatal("no such method: string.istitle")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, string_istitle, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringIsupperAllocs(t *testing.T) {
