@@ -677,6 +677,23 @@ func TestStringIsdigitAllocs(t *testing.T) {
 }
 
 func TestStringIslowerAllocs(t *testing.T) {
+	string_islower, _ := starlark.String("sphinx of black quartz, judge my vow").Attr("islower")
+	if string_islower == nil {
+		t.Fatal("no such method: string.islower")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, string_islower, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringIsspaceAllocs(t *testing.T) {
