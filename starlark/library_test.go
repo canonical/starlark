@@ -637,6 +637,23 @@ func TestStringIsalnumAllocs(t *testing.T) {
 }
 
 func TestStringIsalphaAllocs(t *testing.T) {
+	string_isalpha, _ := starlark.String("hello, world!").Attr("isalpha")
+	if string_isalpha == nil {
+		t.Fatal("no such method: string.isalpha")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, string_isalpha, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringIsdigitAllocs(t *testing.T) {

@@ -215,7 +215,7 @@ var (
 		"format":         NotSafe,
 		"index":          NotSafe,
 		"isalnum":        MemSafe,
-		"isalpha":        NotSafe,
+		"isalpha":        MemSafe,
 		"isdigit":        MemSafe,
 		"islower":        NotSafe,
 		"isspace":        MemSafe,
