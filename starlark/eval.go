@@ -289,6 +289,11 @@ func (tb *SafeStringBuilder) safeGrow(n int) error {
 			tb.err = err
 			return err
 		}
+		// The real size of the allocated buffer might be
+		// bigger than expected. For this reason, add the
+		// difference between the real buffer size and the
+		// target capacity, so that every allocated byte
+		// is available to the user.
 		tb.builder.Grow(n + int(newBufferSize) - newCap)
 		tb.allocs = uint64(newBufferSize)
 	}
