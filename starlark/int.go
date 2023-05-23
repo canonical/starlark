@@ -173,7 +173,7 @@ func (i Int) String() string {
 	return strconv.FormatInt(iSmall, 10)
 }
 
-func (i Int) BuildString(sb *ValueStringBuilder) error {
+func (i Int) SafeString(sb *ValueStringBuilder) error {
 	iSmall, iBig := i.get()
 
 	var err error

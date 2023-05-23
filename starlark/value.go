@@ -112,8 +112,8 @@ type SizeAware interface {
 	EstimateSize() int64
 }
 
-type ToString interface {
-	BuildString(sb *ValueStringBuilder) error
+type SafeStringer interface {
+	SafeString(sb *ValueStringBuilder) error
 }
 
 // A Comparable is a value that defines its own equivalence relation and
@@ -401,7 +401,7 @@ func (x Bool) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error
 // Float is the type of a Starlark float.
 type Float float64
 
-func (f Float) BuildString(sb *ValueStringBuilder) error {
+func (f Float) SafeString(sb *ValueStringBuilder) error {
 	return f.format(sb, 'g')
 }
 
@@ -553,7 +553,7 @@ func (f Float) Unary(op syntax.Token) (Value, error) {
 type String string
 
 func (s String) String() string { return syntax.Quote(string(s), false) }
-func (s String) BuildString(sb *ValueStringBuilder) error {
+func (s String) SafeString(sb *ValueStringBuilder) error {
 	return syntax.QuoteWriter(sb, string(s), false)
 }
 func (s String) GoString() string      { return string(s) }
@@ -600,8 +600,8 @@ var (
 	_ Indexable = (*stringElems)(nil)
 )
 
-func (si stringElems) BuildString(sb *ValueStringBuilder) error {
-	if err := si.s.BuildString(sb); err != nil {
+func (si stringElems) SafeString(sb *ValueStringBuilder) error {
+	if err := si.s.SafeString(sb); err != nil {
 		return err
 	}
 
@@ -665,8 +665,8 @@ type stringCodepoints struct {
 
 var _ Iterable = (*stringCodepoints)(nil)
 
-func (si stringCodepoints) BuildString(sb *ValueStringBuilder) error {
-	if err := si.s.BuildString(sb); err != nil {
+func (si stringCodepoints) SafeString(sb *ValueStringBuilder) error {
+	if err := si.s.SafeString(sb); err != nil {
 		return err
 	}
 
@@ -758,7 +758,7 @@ func (fn *Function) Type() string          { return "function" }
 func (fn *Function) Truth() Bool           { return true }
 func (fn *Function) String() string        { return toString(fn) }
 
-func (fn *Function) BuildString(out *ValueStringBuilder) error {
+func (fn *Function) SafeString(out *ValueStringBuilder) error {
 	_, err := fmt.Fprintf(out, "<function %s>", fn.Name())
 	return err
 }
@@ -811,7 +811,7 @@ func (b *Builtin) Hash() (uint32, error) {
 	}
 	return h, nil
 }
-func (b *Builtin) BuildString(out *ValueStringBuilder) error {
+func (b *Builtin) SafeString(out *ValueStringBuilder) error {
 	if b.recv != nil {
 		_, err := fmt.Fprintf(out, "<built-in method %s of %s value>", b.Name(), b.recv.Type())
 		return err
@@ -894,7 +894,7 @@ func (d *Dict) Truth() Bool                                     { return d.Len()
 func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.Errorf("unhashable type: dict") }
 func (d *Dict) String() string                                  { return toString(d) }
 
-func (d *Dict) BuildString(out *ValueStringBuilder) error {
+func (d *Dict) SafeString(out *ValueStringBuilder) error {
 	if err := out.WriteByte('{'); err != nil {
 		return err
 	}
@@ -995,7 +995,7 @@ func (l *List) checkMutable(verb string) error {
 	return nil
 }
 
-func (l *List) BuildString(out *ValueStringBuilder) error {
+func (l *List) SafeString(out *ValueStringBuilder) error {
 	if err := out.WriteByte('['); err != nil {
 		return err
 	}
@@ -1166,7 +1166,7 @@ func (t Tuple) Freeze() {
 		elem.Freeze()
 	}
 }
-func (t Tuple) BuildString(out *ValueStringBuilder) error {
+func (t Tuple) SafeString(out *ValueStringBuilder) error {
 	if err := out.WriteByte('('); err != nil {
 		return err
 	}
@@ -1267,7 +1267,7 @@ func (s *Set) Hash() (uint32, error)                  { return 0, fmt.Errorf("un
 func (s *Set) Truth() Bool                            { return s.Len() > 0 }
 func (s *Set) String() string                         { return toString(s) }
 
-func (s *Set) BuildString(out *ValueStringBuilder) error {
+func (s *Set) SafeString(out *ValueStringBuilder) error {
 	if _, err := out.WriteString("set(["); err != nil {
 		return err
 	}
@@ -1581,7 +1581,7 @@ var (
 )
 
 func (b Bytes) String() string { return syntax.Quote(string(b), true) }
-func (b Bytes) BuildString(sb *ValueStringBuilder) error {
+func (b Bytes) SafeString(sb *ValueStringBuilder) error {
 	return syntax.QuoteWriter(sb, string(b), true)
 }
 func (b Bytes) Type() string          { return "bytes" }

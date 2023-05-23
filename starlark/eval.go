@@ -353,8 +353,8 @@ func (sb *ValueStringBuilder) WriteValue(v Value) error {
 		return err
 	}
 
-	if f, ok := v.(ToString); ok {
-		return f.BuildString(sb)
+	if f, ok := v.(SafeStringer); ok {
+		return f.SafeString(sb)
 	}
 
 	_, err := sb.WriteString(v.String())
