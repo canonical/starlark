@@ -361,15 +361,26 @@ func (sb *ValueStringBuilder) WriteValue(v Value) error {
 	return err
 }
 
-func (sb *ValueStringBuilder) Mark(v Value) (unmark func(), inserted bool) {
+func (sb *ValueStringBuilder) Mark(v Value) bool {
 	if pathContains(sb.path, v) {
-		return nil, false
+		return false
 	} else {
 		sb.path = append(sb.path, v)
-		return func() {
-			sb.path = sb.path[0 : len(sb.path)-1]
-		}, true
+		return true
 	}
+}
+
+func (sb *ValueStringBuilder) Unmark(v Value) error {
+	if len(sb.path) == 0 {
+		return fmt.Errorf("trying to unmark %v, but it was never marked", v)
+	}
+
+	last := len(sb.path) - 1
+	if sb.path[last] != v {
+		return fmt.Errorf("unmarking the wrong value (got %v expected %v)", v, sb.path[last])
+	}
+	sb.path = sb.path[0 : len(sb.path)-1]
+	return nil
 }
 
 // A StringDict is a mapping from names to values, and represents

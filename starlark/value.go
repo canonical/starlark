@@ -899,13 +899,13 @@ func (d *Dict) BuildString(out *ValueStringBuilder) error {
 		return err
 	}
 
-	if unmark, ok := out.Mark(d); !ok {
+	if !out.Mark(d) {
 		// dict contains itself
 		if _, err := out.WriteString("..."); err != nil {
 			return err
 		}
 	} else {
-		defer unmark()
+		defer out.Unmark(d)
 		sep := ""
 		for e := d.ht.head; e != nil; e = e.next {
 			k, v := e.key, e.value
@@ -1000,13 +1000,13 @@ func (l *List) BuildString(out *ValueStringBuilder) error {
 		return err
 	}
 
-	if unmark, ok := out.Mark(l); !ok {
+	if !out.Mark(l) {
 		// list contains itself
 		if _, err := out.WriteString("..."); err != nil {
 			return err
 		}
 	} else {
-		defer unmark()
+		defer out.Unmark(l)
 		for i, elem := range l.elems {
 			if i > 0 {
 				if _, err := out.WriteString(", "); err != nil {
