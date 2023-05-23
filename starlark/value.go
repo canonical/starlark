@@ -1070,6 +1070,8 @@ func (t Tuple) Hash() (uint32, error) {
 
 type tupleIterator struct{ elems Tuple }
 
+var _ SafeIterator = &tupleIterator{}
+
 func (it *tupleIterator) NextAllocs() int64 { return 0 }
 
 func (it *tupleIterator) Next(p *Value) bool {
@@ -1083,8 +1085,9 @@ func (it *tupleIterator) Next(p *Value) bool {
 
 func (it *tupleIterator) Done() {}
 
-func (it *tupleIterator) Err() error     { return nil }
-func (it *tupleIterator) Safety() Safety { return NotSafe }
+func (it *tupleIterator) BindThread(thread *Thread) {}
+func (it *tupleIterator) Err() error                { return nil }
+func (it *tupleIterator) Safety() Safety            { return MemSafe }
 
 // A Set represents a Starlark set value.
 // The zero value of Set is a valid empty set.
