@@ -646,7 +646,7 @@ func TestStrAllocs(t *testing.T) {
 		starlark.String(`"'{}🌋`),
 	}
 
-	t.Run("noop", func(t *testing.T) {
+	t.Run("no-op", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
