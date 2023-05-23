@@ -605,14 +605,14 @@ func (si stringElems) SafeString(sb *ValueStringBuilder) error {
 		return err
 	}
 
-	var name string
+	var method string
 	if si.ords {
-		name = ".elem_ords()"
+		method = ".elem_ords()"
 	} else {
-		name = ".elems()"
+		method = ".elems()"
 	}
 
-	if _, err := sb.WriteString(name); err != nil {
+	if _, err := sb.WriteString(method); err != nil {
 		return err
 	}
 
@@ -670,14 +670,14 @@ func (si stringCodepoints) SafeString(sb *ValueStringBuilder) error {
 		return err
 	}
 
-	var name string
+	var method string
 	if si.ords {
-		name = ".codepoint_ords()"
+		method = ".codepoint_ords()"
 	} else {
-		name = ".codepoints()"
+		method = ".codepoints()"
 	}
 
-	if _, err := sb.WriteString(name); err != nil {
+	if _, err := sb.WriteString(method); err != nil {
 		return err
 	}
 
@@ -918,7 +918,7 @@ func (d *Dict) SafeString(out *ValueStringBuilder) error {
 			if _, err := out.WriteString(": "); err != nil {
 				return err
 			}
-			if err := out.WriteValue(v); /* cycle check */ err != nil {
+			if err := out.WriteValue(v); err != nil {
 				return err
 			}
 			sep = ", "

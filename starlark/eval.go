@@ -379,7 +379,7 @@ func (sb *ValueStringBuilder) Unmark(v Value) error {
 	if sb.path[last] != v {
 		return fmt.Errorf("unmarking the wrong value (got %v expected %v)", v, sb.path[last])
 	}
-	sb.path = sb.path[0 : len(sb.path)-1]
+	sb.path = sb.path[:last]
 	return nil
 }
 
