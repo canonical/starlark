@@ -436,7 +436,7 @@ func TestFailAllocs(t *testing.T) {
 		dictLoop,
 		starlark.Float(math.Phi),
 		starlark.NewSet(1),
-		starlark.String(`"'{}¹`),
+		starlark.String(`"'{}🌋`),
 	}
 
 	st.RequireSafety(starlark.MemSafe)
@@ -558,7 +558,7 @@ func TestPrintAllocs(t *testing.T) {
 		dictLoop,
 		starlark.Float(math.Phi),
 		starlark.NewSet(1),
-		starlark.String(`"'{}¹`),
+		starlark.String(`"'{}🌋`),
 	}
 
 	printFn := func(thread *starlark.Thread, msg string) {
@@ -602,7 +602,7 @@ func TestReprAllocs(t *testing.T) {
 		dictLoop,
 		starlark.Float(math.Phi),
 		starlark.NewSet(1),
-		starlark.String(`"'{}¹`),
+		starlark.String(`"'{}🌋`),
 	}
 
 	st.RequireSafety(starlark.MemSafe)
@@ -643,7 +643,7 @@ func TestStrAllocs(t *testing.T) {
 		dictLoop,
 		starlark.Float(math.Phi),
 		starlark.NewSet(1),
-		starlark.String(`"'{}¹`),
+		starlark.String(`"'{}🌋`),
 	}
 
 	t.Run("noop", func(t *testing.T) {
