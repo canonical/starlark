@@ -348,8 +348,7 @@ type ValueStringBuilder struct {
 
 func (sb *ValueStringBuilder) WriteValue(v Value) error {
 	if v == nil {
-		// indicates a bug
-		_, err := sb.WriteString("<nil>")
+		_, err := sb.WriteString("<nil>") // indicates a bug
 		return err
 	}
 
@@ -1764,7 +1763,6 @@ func findParam(params []compile.Binding, name string) int {
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string-interpolation
 func interpolate(format string, x Value) (Value, error) {
-	// FIXME how can we catch memory here?
 	buf := new(strings.Builder)
 	index := 0
 	nargs := 1
