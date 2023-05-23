@@ -542,7 +542,6 @@ func TestOrdAllocs(t *testing.T) {
 
 func TestPrintAllocs(t *testing.T) {
 	st := startest.From(t)
-
 	fn := starlark.Universe["print"]
 
 	listLoopContent := []starlark.Value{nil}
@@ -563,7 +562,7 @@ func TestPrintAllocs(t *testing.T) {
 	}
 
 	printFn := func(thread *starlark.Thread, msg string) {
-		if err := thread.AddAllocs(int64(unsafe.Sizeof(""))); err != nil {
+		if err := thread.AddAllocs(starlark.EstimateSize("")); err != nil {
 			st.Error(err)
 		}
 		st.KeepAlive(msg)
@@ -572,13 +571,11 @@ func TestPrintAllocs(t *testing.T) {
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		thread.Print = printFn
-
 		for i := 0; i < st.N; i++ {
 			res, err := starlark.Call(thread, fn, args, nil)
 			if err != nil {
 				st.Error(err)
 			}
-
 			st.KeepAlive(res)
 		}
 	})
@@ -589,7 +586,6 @@ func TestRangeAllocs(t *testing.T) {
 
 func TestReprAllocs(t *testing.T) {
 	st := startest.From(t)
-
 	fn := starlark.Universe["repr"]
 
 	listLoopContent := []starlark.Value{nil}
@@ -616,7 +612,6 @@ func TestReprAllocs(t *testing.T) {
 			if err != nil {
 				st.Error(err)
 			}
-
 			st.KeepAlive(res)
 		}
 	})
@@ -632,7 +627,6 @@ func TestSortedAllocs(t *testing.T) {
 }
 
 func TestStrAllocs(t *testing.T) {
-
 	fn := starlark.Universe["str"]
 
 	listLoopContent := []starlark.Value{nil}
@@ -654,7 +648,6 @@ func TestStrAllocs(t *testing.T) {
 
 	t.Run("noop", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
@@ -663,7 +656,6 @@ func TestStrAllocs(t *testing.T) {
 				if err != nil {
 					st.Error(err)
 				}
-
 				st.KeepAlive(res)
 			}
 		})
@@ -671,7 +663,6 @@ func TestStrAllocs(t *testing.T) {
 
 	t.Run("conversion", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -679,7 +670,6 @@ func TestStrAllocs(t *testing.T) {
 				if err != nil {
 					st.Error(err)
 				}
-
 				st.KeepAlive(res)
 			}
 		})
