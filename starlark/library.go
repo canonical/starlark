@@ -1364,7 +1364,6 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			if err == ErrUnsupported {
 				return nil, fmt.Errorf("zip: argument #%d is not iterable: %s", i+1, seq.Type())
 			}
-
 			return nil, err
 		}
 		iters[i] = it
@@ -1373,7 +1372,6 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			rows = n // possibly -1
 		}
 	}
-
 	var result []Value
 	if rows >= 0 {
 		// length known
@@ -1382,16 +1380,18 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		if err := thread.AddAllocs(resultSize + arraySize); err != nil {
 			return nil, err
 		}
-
 		result = make([]Value, rows)
 		array := make(Tuple, cols*rows) // allocate a single backing array
-
 		for i := 0; i < rows; i++ {
 			tuple := array[:cols:cols]
 			array = array[cols:]
 			for j, iter := range iters {
 				if !iter.Next(&tuple[j]) {
-					return nil, iter.Err()
+					if err := iter.Err(); err != nil {
+						return nil, err
+					} else {
+						return nil, fmt.Errorf("zip: iteration stopped earlier than reported length")
+					}
 				}
 			}
 			result[i] = tuple
@@ -1399,7 +1399,7 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	} else {
 		// length not known
 		tupleSize := EstimateMakeSize(Tuple{}, cols)
-		valueSize := EstimateSize(Tuple{}) // Inserting in a []Value makes an allocation
+		valueSize := EstimateSize(Tuple{})
 		appender := NewSafeAppender(thread, &result)
 	outer:
 		for {
@@ -1415,14 +1415,15 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 					break outer
 				}
 			}
-			appender.Append(tuple)
+			if err := appender.Append(tuple); err != nil {
+				return nil, err
+			}
 		}
 	}
 
 	if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
 		return nil, err
 	}
-
 	return NewList(result), nil
 }
 
