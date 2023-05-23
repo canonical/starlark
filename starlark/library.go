@@ -80,7 +80,7 @@ func init() {
 		"all":       MemSafe,
 		"bool":      NotSafe,
 		"bytes":     NotSafe,
-		"chr":       NotSafe,
+		"chr":       MemSafe,
 		"dict":      NotSafe,
 		"dir":       NotSafe,
 		"enumerate": MemSafe,
@@ -428,7 +428,11 @@ func chr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if i > unicode.MaxRune {
 		return nil, fmt.Errorf("chr: Unicode code point U+%X out of range (>0x10FFFF)", i)
 	}
-	return String(string(rune(i))), nil
+	ret := Value(String(string(rune(i))))
+	if err := thread.AddAllocs(EstimateSize(ret)); err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict

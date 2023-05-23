@@ -244,6 +244,23 @@ func TestBytesAllocs(t *testing.T) {
 }
 
 func TestChrAllocs(t *testing.T) {
+	chr := starlark.Universe["chr"]
+
+	st := startest.From(t)
+
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(32)
+
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			args := starlark.Tuple{starlark.MakeInt(97)}
+			result, err := starlark.Call(thread, chr, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestDictAllocs(t *testing.T) {
