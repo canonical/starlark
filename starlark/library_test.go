@@ -6,7 +6,6 @@ import (
 	"math"
 	"strings"
 	"testing"
-	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -448,7 +447,7 @@ func TestFailAllocs(t *testing.T) {
 			}
 
 			st.KeepAlive(err.Error())
-			thread.AddAllocs(int64(unsafe.Sizeof(""))) // string -> interface conversion
+			thread.AddAllocs(starlark.EstimateSize("")) // string -> interface conversion
 		}
 	})
 }
