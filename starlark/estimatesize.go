@@ -1,6 +1,7 @@
 package starlark
 
 import (
+	"fmt"
 	"reflect"
 	"unsafe"
 )
@@ -53,6 +54,62 @@ func EstimateSize(obj interface{}) int64 {
 	}
 
 	return int64(estimateSizeAll(v, make(map[uintptr]struct{})))
+}
+
+// EstimateMakeSize estimates the cost of calling make to build a slice, map or
+// chan of n elements as specified by template.
+func EstimateMakeSize(template interface{}, n int) int64 {
+	v := reflect.ValueOf(template)
+	switch v.Kind() {
+	case reflect.Slice:
+		return int64(estimateMakeSliceSize(v, n))
+	case reflect.Map:
+		return int64(estimateMakeMapSize(v, n))
+	case reflect.Chan:
+		return int64(estimateMakeChanSize(v, n))
+	default:
+		panic(fmt.Sprintf("template must be a slice, map or chan: got %s", v.Kind()))
+	}
+}
+
+const templateTooLong = "template length must be at most 1: got length %d"
+
+func estimateMakeSliceSize(template reflect.Value, n int) uintptr {
+	len := template.Len()
+	if len > 1 {
+		panic(fmt.Sprintf(templateTooLong, len))
+	}
+
+	size := roundAllocSize(uintptr(n) * template.Type().Elem().Size())
+	if len > 0 {
+		size += uintptr(n) * estimateSizeIndirect(template.Index(0), make(map[uintptr]struct{}))
+	}
+	return size
+}
+
+func estimateMakeMapSize(template reflect.Value, n int) uintptr {
+	len := template.Len()
+	if len > 1 {
+		panic(fmt.Sprintf(templateTooLong, len))
+	}
+
+	size := estimateMapDirectWithLen(template.Type(), n)
+	if len > 0 {
+		iter := template.MapRange()
+		iter.Next()
+
+		seen := map[uintptr]struct{}{}
+		size += uintptr(n) * estimateSizeIndirect(iter.Key(), seen)
+		size += uintptr(n) * estimateSizeIndirect(iter.Value(), seen)
+	}
+	return size
+}
+
+func estimateMakeChanSize(template reflect.Value, n int) uintptr {
+	if len := template.Len(); len > 1 {
+		panic(fmt.Sprintf(templateTooLong, len))
+	}
+	return estimateChanDirectWithCap(template.Type(), n)
 }
 
 func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -135,11 +192,6 @@ func estimateStringAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	// it is not possible to get the capacity of the buffer
 	// holding the string.
 
-	if v.Len() == 0 {
-		// In this case (excluding the above) neither the memory
-		// for the string nor the memory for the header are allocated.
-		return 0
-	}
 	return estimateSizeDirect(v) + estimateStringIndirect(v, seen)
 }
 
@@ -162,17 +214,21 @@ func estimateChanAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 }
 
 func estimateChanDirect(v reflect.Value) uintptr {
+	return estimateChanDirectWithCap(v.Type(), v.Cap())
+}
+
+func estimateChanDirectWithCap(t reflect.Type, cap int) uintptr {
 	// This is a very rough approximation of the size of
 	// the chan header.
 	const chanHeaderSize = 10 * unsafe.Sizeof(int(0))
 
-	elementType := v.Type().Elem()
+	elemSize := t.Elem().Size()
 
 	// The two calls provide a pessimistic view since in case of
 	// an elementType that doesn't contain any pointer it
 	// will be allocated in a single bigger block (leading
 	// to a single getAllocSize call).
-	return roundAllocSize(chanHeaderSize) + roundAllocSize(uintptr(v.Cap())*elementType.Size())
+	return roundAllocSize(chanHeaderSize) + roundAllocSize(uintptr(cap)*elemSize)
 }
 
 func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -190,6 +246,10 @@ func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 }
 
 func estimateMapDirect(v reflect.Value) uintptr {
+	return estimateMapDirectWithLen(v.Type(), v.Len())
+}
+
+func estimateMapDirectWithLen(t reflect.Type, len int) uintptr {
 	// Maps are hard to measure because we don't have access
 	// to the internal capacity (whatever that means). That is
 	// the first problem: "capacity" is a fuzzy concept in hash
@@ -211,14 +271,13 @@ func estimateMapDirect(v reflect.Value) uintptr {
 	// - k1 = (size_k + size_v + 1) * 4 + sizeof(ptr)
 	// - k2 = 1912 when x64, 1096 when x86
 
-	mapType := v.Type()
-	keySize := mapType.Key().Size()
-	valueSize := mapType.Elem().Size()
+	keySize := t.Key().Size()
+	valueSize := t.Elem().Size()
 	k1 := getMapKVPairSize(keySize, valueSize)
 
 	const k2 = 204*unsafe.Sizeof(uintptr(0)) + 280
 
-	return roundAllocSize(uintptr(v.Len())*k1) + k2
+	return roundAllocSize(uintptr(len)*k1) + k2
 }
 
 // getMapKVPairSize returns the estimated size a key-value pair
@@ -332,7 +391,7 @@ func divRoundUp(n, a uintptr) uintptr {
 // bytes due to how small allocations are grouped.
 func roundAllocSize(size uintptr) uintptr {
 	// This is the same as `runtime.roundupsize`
-	if size == 0 {
+	if size <= 0 {
 		return 0
 	} else if size < tinyAllocMaxSize {
 		// Pessimistic view to take into account linked-lifetimes of
