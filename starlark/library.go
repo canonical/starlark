@@ -1389,9 +1389,8 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 				if !iter.Next(&tuple[j]) {
 					if err := iter.Err(); err != nil {
 						return nil, err
-					} else {
-						return nil, fmt.Errorf("zip: iteration stopped earlier than reported length")
 					}
+					return nil, fmt.Errorf("zip: iteration stopped earlier than reported length")
 				}
 			}
 			result[i] = tuple
