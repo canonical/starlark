@@ -258,7 +258,6 @@ type StringBuilder interface {
 type SafeStringBuilder struct {
 	builder strings.Builder
 	thread  *Thread
-	path    []Value
 	allocs  uint64
 	err     error
 }
@@ -355,10 +354,6 @@ func (sb *ValueStringBuilder) WriteValue(v Value) error {
 	}
 
 	if f, ok := v.(ToString); ok {
-		sb.path = append(sb.path, v)
-		defer func() {
-			sb.path = sb.path[0 : len(sb.path)-1]
-		}()
 		return f.BuildString(sb)
 	}
 
@@ -366,8 +361,15 @@ func (sb *ValueStringBuilder) WriteValue(v Value) error {
 	return err
 }
 
-func (sb *ValueStringBuilder) WouldLoop(v Value) bool {
-	return pathContains(sb.path, v)
+func (sb *ValueStringBuilder) Mark(v Value) (unmark func(), inserted bool) {
+	if pathContains(sb.path, v) {
+		return nil, false
+	} else {
+		sb.path = append(sb.path, v)
+		return func() {
+			sb.path = sb.path[0 : len(sb.path)-1]
+		}, true
+	}
 }
 
 // A StringDict is a mapping from names to values, and represents

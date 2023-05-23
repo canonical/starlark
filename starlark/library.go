@@ -21,7 +21,6 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -213,7 +212,7 @@ var (
 		"elems":          NotSafe,
 		"endswith":       NotSafe,
 		"find":           NotSafe,
-		"format":         NotSafe,
+		"format":         MemSafe,
 		"index":          NotSafe,
 		"isalnum":        MemSafe,
 		"isalpha":        NotSafe,
@@ -549,10 +548,6 @@ func fail(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 				return nil, err
 			}
 		}
-	}
-
-	if err := thread.AddAllocs(RoundAllocSize(int64(buf.Cap()))); err != nil {
-		return nil, err
 	}
 
 	return nil, errors.New(buf.String())
@@ -1030,14 +1025,11 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		}
 	}
 
-	if err := thread.AddAllocs(RoundAllocSize(int64(buf.Cap()))); err != nil {
-		return nil, err
-	}
-
 	s := buf.String()
 	if thread.Print != nil {
 		thread.Print(thread, s)
 	} else {
+		thread.AddAllocs(-int64(buf.Allocs()))
 		fmt.Fprintln(os.Stderr, s)
 	}
 	return None, nil
@@ -1187,7 +1179,7 @@ func repr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if s, err := safeToString(thread, x); err != nil {
 		return nil, err
 	} else {
-		if err := thread.AddAllocs(int64(unsafe.Sizeof(""))); err != nil {
+		if err := thread.AddAllocs(EstimateSize("")); err != nil {
 			return nil, err
 		}
 		return String(s), nil
@@ -1327,7 +1319,7 @@ func str(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		if str, err := safeUtf8Transcode(thread, string(x)); err != nil {
 			return nil, err
 		} else {
-			if err := thread.AddAllocs(RoundAllocSize(int64(unsafe.Sizeof("")))); err != nil {
+			if err := thread.AddAllocs(EstimateSize("")); err != nil {
 				return nil, err
 			}
 			return String(str), nil
@@ -1336,7 +1328,7 @@ func str(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		if str, err := safeToString(thread, x); err != nil {
 			return nil, err
 		} else {
-			if err := thread.AddAllocs(RoundAllocSize(int64(unsafe.Sizeof("")))); err != nil {
+			if err := thread.AddAllocs(EstimateSize("")); err != nil {
 				return nil, err
 			}
 			return String(str), nil
@@ -1369,9 +1361,6 @@ func safeUtf8Transcode(thread *Thread, s string) (string, error) {
 		}
 	}
 
-	if err := thread.AddAllocs(int64(out.Cap())); err != nil {
-		return "", err
-	}
 	return out.String(), nil
 }
 
@@ -2100,7 +2089,7 @@ func string_format(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Valu
 		}
 	}
 
-	if err := thread.AddAllocs(int64(buf.Cap())); err != nil {
+	if err := thread.AddAllocs(EstimateSize("")); err != nil {
 		return nil, err
 	}
 

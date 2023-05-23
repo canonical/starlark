@@ -7,35 +7,35 @@
 // Starlark values are represented by the Value interface.
 // The following built-in Value types are known to the evaluator:
 //
-//      NoneType        -- NoneType
-//      Bool            -- bool
-//      Bytes           -- bytes
-//      Int             -- int
-//      Float           -- float
-//      String          -- string
-//      *List           -- list
-//      Tuple           -- tuple
-//      *Dict           -- dict
-//      *Set            -- set
-//      *Function       -- function (implemented in Starlark)
-//      *Builtin        -- builtin_function_or_method (function or method implemented in Go)
+//	NoneType        -- NoneType
+//	Bool            -- bool
+//	Bytes           -- bytes
+//	Int             -- int
+//	Float           -- float
+//	String          -- string
+//	*List           -- list
+//	Tuple           -- tuple
+//	*Dict           -- dict
+//	*Set            -- set
+//	*Function       -- function (implemented in Starlark)
+//	*Builtin        -- builtin_function_or_method (function or method implemented in Go)
 //
 // Client applications may define new data types that satisfy at least
 // the Value interface.  Such types may provide additional operations by
 // implementing any of these optional interfaces:
 //
-//      Callable        -- value is callable like a function
-//      Comparable      -- value defines its own comparison operations
-//      Iterable        -- value is iterable using 'for' loops
-//      Sequence        -- value is iterable sequence of known length
-//      Indexable       -- value is sequence with efficient random access
-//      Mapping         -- value maps from keys to values, like a dictionary
-//      HasBinary       -- value defines binary operations such as * and +
-//      HasAttrs        -- value has readable fields or methods x.f
-//      HasSetField     -- value has settable fields x.f
-//      HasSetIndex     -- value supports element update using x[i]=y
-//      HasSetKey       -- value supports map update using x[k]=v
-//      HasUnary        -- value defines unary operations such as + and -
+//	Callable        -- value is callable like a function
+//	Comparable      -- value defines its own comparison operations
+//	Iterable        -- value is iterable using 'for' loops
+//	Sequence        -- value is iterable sequence of known length
+//	Indexable       -- value is sequence with efficient random access
+//	Mapping         -- value maps from keys to values, like a dictionary
+//	HasBinary       -- value defines binary operations such as * and +
+//	HasAttrs        -- value has readable fields or methods x.f
+//	HasSetField     -- value has settable fields x.f
+//	HasSetIndex     -- value supports element update using x[i]=y
+//	HasSetKey       -- value supports map update using x[k]=v
+//	HasUnary        -- value defines unary operations such as + and -
 //
 // Client applications may also define domain-specific functions in Go
 // and make them available to Starlark programs.  Use NewBuiltin to
@@ -63,7 +63,6 @@
 // through Starlark code and into callbacks.  When evaluation fails it
 // returns an EvalError from which the application may obtain a
 // backtrace of active Starlark calls.
-//
 package starlark // import "github.com/canonical/starlark/starlark"
 
 // This file defines the data types of Starlark and their basic operations.
@@ -238,13 +237,12 @@ var (
 //
 // Example usage:
 //
-// 	iter := iterable.Iterator()
+//	iter := iterable.Iterator()
 //	defer iter.Done()
 //	var x Value
 //	for iter.Next(&x) {
 //		...
 //	}
-//
 type Iterator interface {
 	// If the iterator is exhausted, Next returns false.
 	// Otherwise it sets *p to the current element of the sequence,
@@ -297,7 +295,7 @@ type HasSetKey interface {
 var _ HasSetKey = (*Dict)(nil)
 
 // A HasBinary value may be used as either operand of these binary operators:
-//     +   -   *   /   //   %   in   not in   |   &   ^   <<   >>
+//   - -   *   /   //   %   in   not in   |   &   ^   <<   >>
 //
 // The Side argument indicates whether the receiver is the left or right operand.
 //
@@ -317,7 +315,7 @@ const (
 )
 
 // A HasUnary value may be used as the operand of these unary operators:
-//     +   -   ~
+//   - -   ~
 //
 // An implementation may decline to handle an operation by returning (nil, nil).
 // For this reason, clients should always call the standalone Unary(op, x)
@@ -856,13 +854,12 @@ func NewBuiltinWithSafety(name string, safety Safety, fn func(*Thread, *Builtin,
 // In the example below, the value of f is the string.index
 // built-in method bound to the receiver value "abc":
 //
-//     f = "abc".index; f("a"); f("b")
+//	f = "abc".index; f("a"); f("b")
 //
 // In the common case, the receiver is bound only during the call,
 // but this still results in the creation of a temporary method closure:
 //
-//     "abc".index("a")
-//
+//	"abc".index("a")
 func (b *Builtin) BindReceiver(recv Value) *Builtin {
 	return &Builtin{name: b.name, fn: b.fn, recv: recv, safety: b.safety}
 }
@@ -902,12 +899,13 @@ func (d *Dict) BuildString(out *ValueStringBuilder) error {
 		return err
 	}
 
-	if out.WouldLoop(d) {
+	if unmark, ok := out.Mark(d); !ok {
 		// dict contains itself
 		if _, err := out.WriteString("..."); err != nil {
 			return err
 		}
 	} else {
+		defer unmark()
 		sep := ""
 		for e := d.ht.head; e != nil; e = e.next {
 			k, v := e.key, e.value
@@ -1002,12 +1000,13 @@ func (l *List) BuildString(out *ValueStringBuilder) error {
 		return err
 	}
 
-	if out.WouldLoop(l) {
+	if unmark, ok := out.Mark(l); !ok {
 		// list contains itself
 		if _, err := out.WriteString("..."); err != nil {
 			return err
 		}
 	} else {
+		defer unmark()
 		for i, elem := range l.elems {
 			if i > 0 {
 				if _, err := out.WriteString(", "); err != nil {
@@ -1342,9 +1341,6 @@ func toString(v Value) string {
 func safeToString(thread *Thread, v Value) (string, error) {
 	buf := NewSafeStringBuilder(thread)
 	if err := writeValue(buf, v, nil); err != nil {
-		return "", err
-	}
-	if err := thread.AddAllocs(RoundAllocSize(int64(buf.Cap()))); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
