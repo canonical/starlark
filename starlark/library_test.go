@@ -182,58 +182,6 @@ func TestAbsAllocs(t *testing.T) {
 }
 
 func TestAnyAllocs(t *testing.T) {
-	any, ok := starlark.Universe["any"]
-	if !ok {
-		t.Error("no such builtin: any")
-		return
-	}
-
-	t.Run("result", func(t *testing.T) {
-		st := startest.From(t)
-
-		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(0)
-
-		st.RunThread(func(thread *starlark.Thread) {
-			for i := 0; i < st.N; i++ {
-				args := starlark.Tuple{&testIterable{
-					maxN: 10,
-					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-						return starlark.False, nil
-					},
-				}}
-
-				result, err := starlark.Call(thread, any, args, nil)
-				if err != nil {
-					st.Error(err)
-				}
-				st.KeepAlive(result)
-			}
-		})
-	})
-
-	t.Run("iteration", func(t *testing.T) {
-		st := startest.From(t)
-
-		st.RequireSafety(starlark.MemSafe)
-
-		st.RunThread(func(thread *starlark.Thread) {
-			args := starlark.Tuple{&testIterable{
-				maxN: st.N,
-				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					ret := starlark.NewList(make([]starlark.Value, 0, 16))
-					st.KeepAlive(ret)
-					return ret, thread.AddAllocs(starlark.EstimateSize(ret))
-				}},
-			}
-
-			result, err := starlark.Call(thread, any, args, nil)
-			if err != nil {
-				t.Errorf("unexpected error: %s", err.Error())
-			}
-			st.KeepAlive(result)
-		})
-	})
 }
 
 func TestAllAllocs(t *testing.T) {

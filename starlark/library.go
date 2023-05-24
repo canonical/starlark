@@ -77,7 +77,7 @@ func init() {
 
 	universeSafeties = map[string]Safety{
 		"abs":       NotSafe,
-		"any":       MemSafe,
+		"any":       NotSafe,
 		"all":       MemSafe,
 		"bool":      NotSafe,
 		"bytes":     NotSafe,
@@ -350,20 +350,14 @@ func any(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if err := UnpackPositionalArgs("any", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
-
-	iter, err := SafeIterate(thread, iterable)
-	if err != nil {
-		return nil, err
-	}
+	// TODO: use SafeIterate
+	iter := iterable.Iterate()
 	defer iter.Done()
 	var x Value
 	for iter.Next(&x) {
 		if x.Truth() {
 			return True, nil
 		}
-	}
-	if err := iter.Err(); err != nil {
-		return nil, err
 	}
 	return False, nil
 }
@@ -493,20 +487,16 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	var pairs []Value
 	var x Value
 
-	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
-		return nil, err
-	}
-
-	costPerN := EstimateSize(Tuple{MakeInt(0), nil}) + int64(unsafe.Sizeof(Value(nil)))
 	if n := Len(iterable); n >= 0 {
 		// common case: known length
-		if err := thread.AddAllocs(RoundAllocSize(int64(n) * costPerN)); err != nil {
+		overhead := EstimateMakeSize([]Value{Tuple{}}, n) +
+			EstimateMakeSize([][2]Value{{MakeInt(0), nil}}, n)
+		if err := thread.AddAllocs(overhead); err != nil {
 			return nil, err
 		}
 
 		pairs = make([]Value, 0, n)
 		array := make(Tuple, 2*n) // allocate a single backing array
-
 		for i := 0; iter.Next(&x); i++ {
 			pair := array[:2:2]
 			array = array[2:]
@@ -516,9 +506,10 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		}
 	} else {
 		// non-sequence (unknown length)
+		pairCost := EstimateSize(Tuple{MakeInt(0), nil})
 		pairsAppender := NewSafeAppender(thread, &pairs)
 		for i := 0; iter.Next(&x); i++ {
-			if err := thread.AddAllocs(costPerN); err != nil {
+			if err := thread.AddAllocs(pairCost); err != nil {
 				return nil, err
 			}
 			pair := Tuple{MakeInt(start + i), x}
@@ -526,16 +517,14 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 				return nil, err
 			}
 		}
-
-		overhead := RoundAllocSize(int64(cap(pairs))*costPerN) - int64(len(pairs))*costPerN
-		if err := thread.AddAllocs(overhead); err != nil {
-			return nil, err
-		}
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
 
+	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
+		return nil, err
+	}
 	return NewList(pairs), nil
 }
 
