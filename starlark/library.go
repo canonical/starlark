@@ -21,7 +21,6 @@ import (
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -1178,24 +1177,23 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	}
 	defer iter.Done()
 	var elems []Value
-	var preallocated bool
-	costPerN := int64(unsafe.Sizeof(Value(nil)))
+	var appender *SafeAppender
 	if n := Len(args[0]); n >= 0 {
-		preallocated = true
-		if err := thread.AddAllocs(int64(n) * costPerN); err != nil {
+		if err := thread.AddAllocs(EstimateMakeSize([]Value{}, n)); err != nil {
 			return nil, err
 		}
-
 		elems = make([]Value, 0, n) // preallocate if length known
+	} else {
+		appender = NewSafeAppender(thread, &elems)
 	}
 	var x Value
 	for iter.Next(&x) {
-		if !preallocated {
-			if err := thread.AddAllocs(costPerN); err != nil {
+		if appender != nil {
+			if err := appender.Append(x); err != nil {
 				return nil, err
 			}
+			continue
 		}
-
 		elems = append(elems, x)
 	}
 	if err := iter.Err(); err != nil {
@@ -1205,9 +1203,7 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	for i := 0; i < n>>1; i++ {
 		elems[i], elems[n-1-i] = elems[n-1-i], elems[i]
 	}
-
-	overhead := EstimateSize(List{}) + RoundAllocSize(int64(cap(elems))*costPerN) - int64(len(elems))*costPerN
-	if err := thread.AddAllocs(overhead); err != nil {
+	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
 		return nil, err
 	}
 	return NewList(elems), nil
