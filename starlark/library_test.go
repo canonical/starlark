@@ -427,7 +427,7 @@ func TestFailAllocs(t *testing.T) {
 
 	dictLoop := starlark.NewDict(1)
 	var dictLoopValue starlark.Value = dictLoop
-	dictLoop.SetKey(starlark.MakeInt(0xdeadbeef), dictLoopValue)
+	dictLoop.SetKey(starlark.MakeInt(0x1CEB00DA), dictLoopValue)
 
 	args := starlark.Tuple{
 		starlark.True,
@@ -549,7 +549,7 @@ func TestPrintAllocs(t *testing.T) {
 
 	dictLoop := starlark.NewDict(1)
 	var dictLoopValue starlark.Value = dictLoop
-	dictLoop.SetKey(starlark.MakeInt(0xdeadbeef), dictLoopValue)
+	dictLoop.SetKey(starlark.MakeInt(0x1CEB00DA), dictLoopValue)
 
 	args := starlark.Tuple{
 		starlark.True,
@@ -593,7 +593,7 @@ func TestReprAllocs(t *testing.T) {
 
 	dictLoop := starlark.NewDict(1)
 	var dictLoopValue starlark.Value = dictLoop
-	dictLoop.SetKey(starlark.MakeInt(0xdeadbeef), dictLoopValue)
+	dictLoop.SetKey(starlark.MakeInt(0x1CEB00DA), dictLoopValue)
 
 	args := starlark.Tuple{
 		starlark.True,
@@ -634,7 +634,7 @@ func TestStrAllocs(t *testing.T) {
 
 	dictLoop := starlark.NewDict(1)
 	var dictLoopValue starlark.Value = dictLoop
-	dictLoop.SetKey(starlark.MakeInt(0xdeadbeef), dictLoopValue)
+	dictLoop.SetKey(starlark.MakeInt(0x1CEB00DA), dictLoopValue)
 
 	args := starlark.Tuple{
 		starlark.True,
