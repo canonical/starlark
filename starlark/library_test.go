@@ -417,9 +417,6 @@ func TestEnumerateAllocs(t *testing.T) {
 }
 
 func TestFailAllocs(t *testing.T) {
-	st := startest.From(t)
-
-	fn := starlark.Universe["fail"]
 
 	listLoopContent := []starlark.Value{nil}
 	var listLoop starlark.Value = starlark.NewList(listLoopContent)
@@ -438,6 +435,8 @@ func TestFailAllocs(t *testing.T) {
 		starlark.String(`"'{}🌋`),
 	}
 
+	st := startest.From(t)
+	fn := starlark.Universe["fail"]
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
@@ -445,7 +444,6 @@ func TestFailAllocs(t *testing.T) {
 			if err == nil {
 				st.Errorf("fail returned success %v", res)
 			}
-
 			st.KeepAlive(err.Error())
 			thread.AddAllocs(starlark.EstimateSize("")) // string -> interface conversion
 		}
@@ -540,9 +538,6 @@ func TestOrdAllocs(t *testing.T) {
 }
 
 func TestPrintAllocs(t *testing.T) {
-	st := startest.From(t)
-	fn := starlark.Universe["print"]
-
 	listLoopContent := []starlark.Value{nil}
 	var listLoop starlark.Value = starlark.NewList(listLoopContent)
 	listLoopContent[0] = listLoop
@@ -560,13 +555,14 @@ func TestPrintAllocs(t *testing.T) {
 		starlark.String(`"'{}🌋`),
 	}
 
+	st := startest.From(t)
+	fn := starlark.Universe["print"]
 	printFn := func(thread *starlark.Thread, msg string) {
 		if err := thread.AddAllocs(starlark.EstimateSize("")); err != nil {
 			st.Error(err)
 		}
 		st.KeepAlive(msg)
 	}
-
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		thread.Print = printFn
@@ -584,9 +580,6 @@ func TestRangeAllocs(t *testing.T) {
 }
 
 func TestReprAllocs(t *testing.T) {
-	st := startest.From(t)
-	fn := starlark.Universe["repr"]
-
 	listLoopContent := []starlark.Value{nil}
 	var listLoop starlark.Value = starlark.NewList(listLoopContent)
 	listLoopContent[0] = listLoop
@@ -604,6 +597,8 @@ func TestReprAllocs(t *testing.T) {
 		starlark.String(`"'{}🌋`),
 	}
 
+	st := startest.From(t)
+	fn := starlark.Universe["repr"]
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
@@ -626,8 +621,6 @@ func TestSortedAllocs(t *testing.T) {
 }
 
 func TestStrAllocs(t *testing.T) {
-	fn := starlark.Universe["str"]
-
 	listLoopContent := []starlark.Value{nil}
 	var listLoop starlark.Value = starlark.NewList(listLoopContent)
 	listLoopContent[0] = listLoop
@@ -636,6 +629,7 @@ func TestStrAllocs(t *testing.T) {
 	var dictLoopValue starlark.Value = dictLoop
 	dictLoop.SetKey(starlark.MakeInt(0x1CEB00DA), dictLoopValue)
 
+	fn := starlark.Universe["str"]
 	args := starlark.Tuple{
 		starlark.True,
 		listLoop,

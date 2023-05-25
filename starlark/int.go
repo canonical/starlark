@@ -172,7 +172,6 @@ func (i Int) String() string {
 	}
 	return strconv.FormatInt(iSmall, 10)
 }
-
 func (i Int) Type() string { return "int" }
 func (i Int) Freeze()      {} // immutable
 func (i Int) Truth() Bool  { return i.Sign() != 0 }

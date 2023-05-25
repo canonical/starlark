@@ -1360,7 +1360,6 @@ func safeUtf8Transcode(thread *Thread, s string) (string, error) {
 			return "", err
 		}
 	}
-
 	return out.String(), nil
 }
 
@@ -2092,7 +2091,6 @@ func string_format(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Valu
 	if err := thread.AddAllocs(EstimateSize("")); err != nil {
 		return nil, err
 	}
-
 	return String(buf.String()), nil
 }
 

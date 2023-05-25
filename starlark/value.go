@@ -1164,8 +1164,8 @@ func (s *Set) Union(iter Iterator) (Value, error) {
 // toString returns the string form of value v.
 // It may be more efficient than v.String() for larger values.
 func toString(v Value) string {
-	var buf strings.Builder
-	writeValue(&buf, v, nil)
+	buf := new(strings.Builder)
+	writeValue(buf, v, nil)
 	return buf.String()
 }
 
