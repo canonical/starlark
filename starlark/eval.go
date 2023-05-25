@@ -341,47 +341,6 @@ func (tb *SafeStringBuilder) Len() int       { return tb.builder.Len() }
 func (tb *SafeStringBuilder) String() string { return tb.builder.String() }
 func (tb *SafeStringBuilder) Err() error     { return tb.err }
 
-type ValueStringBuilder struct {
-	StringBuilder
-	path []Value
-}
-
-func (sb *ValueStringBuilder) WriteValue(v Value) error {
-	if v == nil {
-		_, err := sb.WriteString("<nil>") // indicates a bug
-		return err
-	}
-
-	if f, ok := v.(SafeStringer); ok {
-		return f.SafeString(sb)
-	}
-
-	_, err := sb.WriteString(v.String())
-	return err
-}
-
-func (sb *ValueStringBuilder) Mark(v Value) bool {
-	if pathContains(sb.path, v) {
-		return false
-	} else {
-		sb.path = append(sb.path, v)
-		return true
-	}
-}
-
-func (sb *ValueStringBuilder) Unmark(v Value) error {
-	if len(sb.path) == 0 {
-		return fmt.Errorf("trying to unmark %v, but it was never marked", v)
-	}
-
-	last := len(sb.path) - 1
-	if sb.path[last] != v {
-		return fmt.Errorf("unmarking the wrong value (got %v expected %v)", v, sb.path[last])
-	}
-	sb.path = sb.path[:last]
-	return nil
-}
-
 // A StringDict is a mapping from names to values, and represents
 // an environment such as the global variables of a module.
 // It is not a true starlark.Value.
