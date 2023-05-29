@@ -19,3 +19,12 @@ func TestTupleCreation(t *testing.T) {
 			st.keep_alive((1, "2", 3.0))
 	`)
 }
+
+func TestMakeDict(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunString(`
+		for _ in range(st.n):
+			st.keep_alive({}) # empty
+	`)
+}
