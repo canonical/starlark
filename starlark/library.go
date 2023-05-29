@@ -1229,32 +1229,26 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	}
 	defer iter.Done()
 	var values []Value
-	var preallocated bool
-	costPerN := int64(unsafe.Sizeof(Value(nil)))
+	var appender *SafeAppender
 	if n := Len(iterable); n > 0 {
-		preallocated = true
-		if err := thread.AddAllocs(int64(n) * costPerN); err != nil {
+		if err := thread.AddAllocs(EstimateMakeSize(Tuple{}, n)); err != nil {
 			return nil, err
 		}
-
 		values = make(Tuple, 0, n) // preallocate if length is known
+	} else {
+		appender = NewSafeAppender(thread, &values)
 	}
 	var x Value
 	for iter.Next(&x) {
-		if !preallocated {
-			if err := thread.AddAllocs(costPerN); err != nil {
+		if appender != nil {
+			if err := appender.Append(x); err != nil {
 				return nil, err
 			}
+			continue
 		}
-
 		values = append(values, x)
 	}
 	if err := iter.Err(); err != nil {
-		return nil, err
-	}
-
-	overhead := RoundAllocSize(int64(cap(values))*costPerN) - int64(len(values))*costPerN
-	if err := thread.AddAllocs(overhead); err != nil {
 		return nil, err
 	}
 
