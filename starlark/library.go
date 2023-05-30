@@ -1117,7 +1117,8 @@ func (it *rangeIterator) Next(p *Value) bool {
 	}
 
 	if it.i < it.r.len {
-		value := it.r.Index(it.i).(Int)
+		// value will always be an Int
+		value := it.r.Index(it.i)
 
 		if it.thread != nil {
 			if err := it.thread.AddAllocs(EstimateSize(value)); err != nil {
@@ -1134,8 +1135,14 @@ func (it *rangeIterator) Next(p *Value) bool {
 }
 func (*rangeIterator) Done() {}
 
-func (it *rangeIterator) Err() error     { return it.err }
-func (it *rangeIterator) Safety() Safety { return MemSafe }
+func (it *rangeIterator) Err() error { return it.err }
+func (it *rangeIterator) Safety() Safety {
+	if it.thread != nil {
+		return MemSafe
+	} else {
+		return NotSafe
+	}
+}
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#repr
 func repr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
