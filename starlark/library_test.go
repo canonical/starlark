@@ -284,12 +284,10 @@ func TestRangeAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(10000), starlark.MakeInt(1)}
-
 				result, err := starlark.Call(thread, range_, args, nil)
 				if err != nil {
 					st.Error(err)
 				}
-
 				st.KeepAlive(result)
 			}
 		})
@@ -301,12 +299,10 @@ func TestRangeAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			args := starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(st.N), starlark.MakeInt(1)}
-
 			result, err := starlark.Call(thread, range_, args, nil)
 			if err != nil {
 				st.Error(err)
 			}
-
 			st.KeepAlive(result)
 
 			iter, err := starlark.SafeIterate(thread, result)

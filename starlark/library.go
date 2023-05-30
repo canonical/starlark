@@ -999,7 +999,6 @@ func range_(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := thread.AddAllocs(EstimateSize(rangeValue{})); err != nil {
 		return nil, err
 	}
-
 	return rangeValue{start: start, stop: stop, step: step, len: rangeLen(start, stop, step)}, nil
 }
 
