@@ -1229,24 +1229,18 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	}
 	defer iter.Done()
 	var values []Value
-	var appender *SafeAppender
 	if n := Len(iterable); n > 0 {
 		if err := thread.AddAllocs(EstimateMakeSize(Tuple{}, n)); err != nil {
 			return nil, err
 		}
 		values = make(Tuple, 0, n) // preallocate if length is known
-	} else {
-		appender = NewSafeAppender(thread, &values)
 	}
+	appender := NewSafeAppender(thread, &values)
 	var x Value
 	for iter.Next(&x) {
-		if appender != nil {
-			if err := appender.Append(x); err != nil {
-				return nil, err
-			}
-			continue
+		if err := appender.Append(x); err != nil {
+			return nil, err
 		}
-		values = append(values, x)
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
