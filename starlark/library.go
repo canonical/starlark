@@ -104,7 +104,7 @@ func init() {
 		"str":       NotSafe,
 		"tuple":     NotSafe,
 		"type":      NotSafe,
-		"zip":       NotSafe,
+		"zip":       MemSafe,
 	}
 
 	for name, flags := range universeSafeties {
@@ -1367,10 +1367,12 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		}
 	}()
 	for i, seq := range args {
-		// TODO: use SafeIterate
-		it := Iterate(seq)
-		if it == nil {
-			return nil, fmt.Errorf("zip: argument #%d is not iterable: %s", i+1, seq.Type())
+		it, err := SafeIterate(thread, seq)
+		if err != nil {
+			if err == ErrUnsupported {
+				return nil, fmt.Errorf("zip: argument #%d is not iterable: %s", i+1, seq.Type())
+			}
+			return nil, err
 		}
 		iters[i] = it
 		n := Len(seq)
@@ -1381,28 +1383,53 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	var result []Value
 	if rows >= 0 {
 		// length known
+		resultSize := EstimateMakeSize([]Value{Tuple{}}, rows)
+		arraySize := EstimateMakeSize(Tuple{}, cols*rows)
+		if err := thread.AddAllocs(resultSize + arraySize); err != nil {
+			return nil, err
+		}
 		result = make([]Value, rows)
 		array := make(Tuple, cols*rows) // allocate a single backing array
 		for i := 0; i < rows; i++ {
 			tuple := array[:cols:cols]
 			array = array[cols:]
 			for j, iter := range iters {
-				iter.Next(&tuple[j])
+				if !iter.Next(&tuple[j]) {
+					if err := iter.Err(); err != nil {
+						return nil, err
+					}
+					return nil, fmt.Errorf("zip: iteration stopped earlier than reported length")
+				}
 			}
 			result[i] = tuple
 		}
 	} else {
 		// length not known
+		tupleSize := EstimateMakeSize(Tuple{}, cols)
+		valueSize := EstimateSize(Tuple{})
+		appender := NewSafeAppender(thread, &result)
 	outer:
 		for {
+			if err := thread.AddAllocs(tupleSize + valueSize); err != nil {
+				return nil, err
+			}
 			tuple := make(Tuple, cols)
 			for i, iter := range iters {
 				if !iter.Next(&tuple[i]) {
+					if err := iter.Err(); err != nil {
+						return nil, err
+					}
 					break outer
 				}
 			}
-			result = append(result, tuple)
+			if err := appender.Append(tuple); err != nil {
+				return nil, err
+			}
 		}
+	}
+
+	if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
+		return nil, err
 	}
 	return NewList(result), nil
 }

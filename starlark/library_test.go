@@ -583,6 +583,73 @@ func TestTypeAllocs(t *testing.T) {
 }
 
 func TestZipAllocs(t *testing.T) {
+	zip := starlark.Universe["zip"]
+
+	t.Run("populated", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			tuple := make(starlark.Tuple, st.N)
+
+			result, err := starlark.Call(thread, zip, starlark.Tuple{tuple, tuple}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(result)
+		})
+	})
+
+	nth := func(*starlark.Thread, int) (starlark.Value, error) {
+		return starlark.True, nil
+	}
+
+	t.Run("lazy-sequence", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			sequence := &testSequence{st.N, nth}
+
+			result, err := starlark.Call(thread, zip, starlark.Tuple{sequence, sequence}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("lazy-iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			iterable := &testIterable{st.N, nth}
+
+			result, err := starlark.Call(thread, zip, starlark.Tuple{iterable, iterable}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("mixed", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			tuple := make(starlark.Tuple, st.N)
+			iterable := &testIterable{st.N, nth}
+			sequence := &testSequence{st.N * 2, nth}
+
+			result, err := starlark.Call(thread, zip, starlark.Tuple{iterable, sequence, tuple}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(result)
+		})
+	})
 }
 
 func TestBytesElemsAllocs(t *testing.T) {
