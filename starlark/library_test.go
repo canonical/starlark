@@ -104,7 +104,12 @@ type testIterator struct {
 var _ starlark.SafeIterator = &testIterator{}
 
 func (it *testIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
-func (it *testIterator) Safety() starlark.Safety            { return starlark.Safe }
+func (it *testIterator) Safety() starlark.Safety {
+	if it.thread == nil {
+		return starlark.NotSafe
+	}
+	return starlark.Safe
+}
 func (it *testIterator) Next(p *starlark.Value) bool {
 	it.n++
 	if it.nth == nil {
@@ -1187,7 +1192,12 @@ var _ starlark.SafeIterator = &allocatingIterator{}
 func (it *allocatingIterator) Done()                              {}
 func (it *allocatingIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
 func (it *allocatingIterator) Err() error                         { return it.err }
-func (it *allocatingIterator) Safety() starlark.Safety            { return starlark.MemSafe }
+func (it *allocatingIterator) Safety() starlark.Safety {
+	if it.thread == nil {
+		return starlark.NotSafe
+	}
+	return starlark.MemSafe
+}
 
 func (it *allocatingIterator) Next(p *starlark.Value) bool {
 	list := starlark.NewList(make([]starlark.Value, 0, it.size))
