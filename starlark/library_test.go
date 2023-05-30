@@ -439,7 +439,6 @@ func TestStringReplaceAllocs(t *testing.T) {
 		if err != nil {
 			st.Error(err)
 		}
-
 		st.KeepAlive(result)
 	})
 }

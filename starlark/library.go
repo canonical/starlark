@@ -2098,8 +2098,7 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 	if err := thread.CheckAllocs(int64(len(recv) * len(new) / len(old))); err != nil {
 		return nil, err
 	}
-
-	var result Value = String(strings.Replace(recv, old, new, count))
+	result := Value(String(strings.Replace(recv, old, new, count)))
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
 	}
