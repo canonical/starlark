@@ -88,7 +88,7 @@ func init() {
 		"float":     MemSafe,
 		"getattr":   NotSafe,
 		"hasattr":   NotSafe,
-		"hash":      NotSafe,
+		"hash":      MemSafe,
 		"int":       MemSafe,
 		"len":       NotSafe,
 		"list":      NotSafe,
@@ -706,7 +706,11 @@ func hash(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	default:
 		return nil, fmt.Errorf("hash: got %s, want string or bytes", x.Type())
 	}
-	return MakeInt64(h), nil
+	ret := Value(MakeInt64(h))
+	if err := thread.AddAllocs(EstimateSize(ret)); err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 // javaStringHash returns the same hash as would be produced by
