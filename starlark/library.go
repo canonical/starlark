@@ -1177,24 +1177,18 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	}
 	defer iter.Done()
 	var elems []Value
-	var appender *SafeAppender
 	if n := Len(args[0]); n >= 0 {
 		if err := thread.AddAllocs(EstimateMakeSize([]Value{}, n)); err != nil {
 			return nil, err
 		}
 		elems = make([]Value, 0, n) // preallocate if length known
-	} else {
-		appender = NewSafeAppender(thread, &elems)
 	}
+	appender := NewSafeAppender(thread, &elems)
 	var x Value
 	for iter.Next(&x) {
-		if appender != nil {
-			if err := appender.Append(x); err != nil {
-				return nil, err
-			}
-			continue
+		if err := appender.Append(x); err != nil {
+			return nil, err
 		}
-		elems = append(elems, x)
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
