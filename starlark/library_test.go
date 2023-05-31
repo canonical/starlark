@@ -358,7 +358,8 @@ func TestStringCapitalizeAllocs(t *testing.T) {
 func TestStringCodepointOrdsAllocs(t *testing.T) {
 	string_codepoint_ords, _ := starlark.String("pancakes").Attr("codepoint_ords")
 	if string_codepoint_ords == nil {
-		t.Fatal("no such method: string.codepoint_ords")
+		t.Errorf("no such method: string.codepoint_ords")
+		return
 	}
 
 	st := startest.From(t)
@@ -379,7 +380,8 @@ func TestStringCodepointOrdsAllocs(t *testing.T) {
 func TestStringCodepointsAllocs(t *testing.T) {
 	string_codepoints, _ := starlark.String("pancakes").Attr("codepoints")
 	if string_codepoints == nil {
-		t.Fatalf("no such method: string.codepoints")
+		t.Errorf("no such method: string.codepoints")
+		return
 	}
 
 	st := startest.From(t)
@@ -403,7 +405,8 @@ func TestStringCountAllocs(t *testing.T) {
 func TestStringElemOrdsAllocs(t *testing.T) {
 	string_elem_ords, _ := starlark.String("pancakes").Attr("elem_ords")
 	if string_elem_ords == nil {
-		t.Fatalf("no such method: string.elem_ords")
+		t.Errorf("no such method: string.elem_ords")
+		return
 	}
 
 	st := startest.From(t)
@@ -424,7 +427,8 @@ func TestStringElemOrdsAllocs(t *testing.T) {
 func TestStringElemsAllocs(t *testing.T) {
 	string_elems, _ := starlark.String("pancakes").Attr("elems")
 	if string_elems == nil {
-		t.Fatalf("no such method: string.elems")
+		t.Errorf("no such method: string.elems")
+		return
 	}
 
 	st := startest.From(t)
