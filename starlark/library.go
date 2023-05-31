@@ -84,7 +84,7 @@ func init() {
 		"dict":      NotSafe,
 		"dir":       NotSafe,
 		"enumerate": MemSafe,
-		"fail":      NotSafe,
+		"fail":      MemSafe,
 		"float":     MemSafe,
 		"getattr":   NotSafe,
 		"hasattr":   NotSafe,
@@ -95,13 +95,13 @@ func init() {
 		"max":       NotSafe,
 		"min":       NotSafe,
 		"ord":       NotSafe,
-		"print":     NotSafe,
+		"print":     MemSafe,
 		"range":     NotSafe,
-		"repr":      NotSafe,
+		"repr":      MemSafe,
 		"reversed":  NotSafe,
 		"set":       NotSafe,
 		"sorted":    NotSafe,
-		"str":       NotSafe,
+		"str":       MemSafe,
 		"tuple":     NotSafe,
 		"type":      NotSafe,
 		"zip":       MemSafe,
@@ -212,7 +212,7 @@ var (
 		"elems":          NotSafe,
 		"endswith":       NotSafe,
 		"find":           NotSafe,
-		"format":         NotSafe,
+		"format":         MemSafe,
 		"index":          NotSafe,
 		"isalnum":        MemSafe,
 		"isalpha":        MemSafe,
@@ -533,16 +533,24 @@ func fail(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if err := UnpackArgs("fail", nil, kwargs, "sep?", &sep); err != nil {
 		return nil, err
 	}
-	buf := new(strings.Builder)
-	buf.WriteString("fail: ")
+	buf := NewSafeStringBuilder(thread)
+	if _, err := buf.WriteString("fail: "); err != nil {
+		return nil, err
+	}
 	for i, v := range args {
 		if i > 0 {
-			buf.WriteString(sep)
+			if _, err := buf.WriteString(sep); err != nil {
+				return nil, err
+			}
 		}
 		if s, ok := AsString(v); ok {
-			buf.WriteString(s)
+			if _, err := buf.WriteString(s); err != nil {
+				return nil, err
+			}
 		} else {
-			writeValue(buf, v, nil)
+			if err := writeValue(buf, v, nil); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -1002,17 +1010,26 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if err := UnpackArgs("print", nil, kwargs, "sep?", &sep); err != nil {
 		return nil, err
 	}
-	buf := new(strings.Builder)
+
+	buf := NewSafeStringBuilder(thread)
 	for i, v := range args {
 		if i > 0 {
-			buf.WriteString(sep)
+			if _, err := buf.WriteString(sep); err != nil {
+				return nil, err
+			}
 		}
 		if s, ok := AsString(v); ok {
-			buf.WriteString(s)
+			if _, err := buf.WriteString(s); err != nil {
+				return nil, err
+			}
 		} else if b, ok := v.(Bytes); ok {
-			buf.WriteString(string(b))
+			if _, err := buf.WriteString(string(b)); err != nil {
+				return nil, err
+			}
 		} else {
-			writeValue(buf, v, nil)
+			if err := writeValue(buf, v, nil); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -1020,6 +1037,7 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if thread.Print != nil {
 		thread.Print(thread, s)
 	} else {
+		thread.AddAllocs(-int64(buf.Allocs()))
 		fmt.Fprintln(os.Stderr, s)
 	}
 	return None, nil
@@ -1165,7 +1183,15 @@ func repr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if err := UnpackPositionalArgs("repr", args, kwargs, 1, &x); err != nil {
 		return nil, err
 	}
-	return String(x.String()), nil
+
+	if s, err := safeToString(thread, x); err != nil {
+		return nil, err
+	} else {
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
+		}
+		return String(s), nil
+	}
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#reversed
@@ -1295,12 +1321,28 @@ func str(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	}
 	switch x := args[0].(type) {
 	case String:
-		return x, nil
+		// Converting args[0] to x and then returning x as Value
+		// casues an additional allocation, so return args[0] directly.
+		return args[0], nil
 	case Bytes:
 		// Invalid encodings are replaced by that of U+FFFD.
-		return String(utf8Transcode(string(x))), nil
+		if str, err := safeUtf8Transcode(thread, string(x)); err != nil {
+			return nil, err
+		} else {
+			if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+				return nil, err
+			}
+			return String(str), nil
+		}
 	default:
-		return String(x.String()), nil
+		if str, err := safeToString(thread, x); err != nil {
+			return nil, err
+		} else {
+			if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+				return nil, err
+			}
+			return String(str), nil
+		}
 	}
 }
 
@@ -1316,6 +1358,19 @@ func utf8Transcode(s string) string {
 		out.WriteRune(r)
 	}
 	return out.String()
+}
+
+func safeUtf8Transcode(thread *Thread, s string) (string, error) {
+	if utf8.ValidString(s) {
+		return s, nil
+	}
+	out := NewSafeStringBuilder(thread)
+	for _, r := range s {
+		if _, err := out.WriteRune(r); err != nil {
+			return "", err
+		}
+	}
+	return out.String(), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#tuple
@@ -1921,10 +1976,10 @@ func string_find(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·format
-func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_format(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	format := string(b.Receiver().(String))
 	var auto, manual bool // kinds of positional indexing used
-	buf := new(strings.Builder)
+	buf := NewSafeStringBuilder(thread)
 	index := 0
 	for {
 		literal := format
@@ -1937,13 +1992,17 @@ func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 		for {
 			j := strings.IndexByte(literal, '}')
 			if j < 0 {
-				buf.WriteString(literal)
+				if _, err := buf.WriteString(literal); err != nil {
+					return nil, err
+				}
 				break
 			}
 			if len(literal) == j+1 || literal[j+1] != '}' {
 				return nil, fmt.Errorf("format: single '}' in format")
 			}
-			buf.WriteString(literal[:j+1])
+			if _, err := buf.WriteString(literal[:j+1]); err != nil {
+				return nil, err
+			}
 			literal = literal[j+2:]
 		}
 
@@ -1953,7 +2012,9 @@ func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 
 		if i+1 < len(format) && format[i+1] == '{' {
 			// "{{" means a literal '{'
-			buf.WriteByte('{')
+			if err := buf.WriteByte('{'); err != nil {
+				return nil, err
+			}
 			format = format[i+2:]
 			continue
 		}
@@ -2047,15 +2108,25 @@ func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 		switch conv {
 		case "s":
 			if str, ok := AsString(arg); ok {
-				buf.WriteString(str)
+				if _, err := buf.WriteString(str); err != nil {
+					return nil, err
+				}
 			} else {
-				writeValue(buf, arg, nil)
+				if err := writeValue(buf, arg, nil); err != nil {
+					return nil, err
+				}
 			}
 		case "r":
-			writeValue(buf, arg, nil)
+			if err := writeValue(buf, arg, nil); err != nil {
+				return nil, err
+			}
 		default:
 			return nil, fmt.Errorf("format: unknown conversion %q", conv)
 		}
+	}
+
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
 	}
 	return String(buf.String()), nil
 }

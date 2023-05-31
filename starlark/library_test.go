@@ -3,6 +3,7 @@ package starlark_test
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 
@@ -433,6 +434,37 @@ func TestEnumerateAllocs(t *testing.T) {
 }
 
 func TestFailAllocs(t *testing.T) {
+
+	listLoopContent := []starlark.Value{nil}
+	var listLoop starlark.Value = starlark.NewList(listLoopContent)
+	listLoopContent[0] = listLoop
+
+	dictLoop := starlark.NewDict(1)
+	var dictLoopValue starlark.Value = dictLoop
+	dictLoop.SetKey(starlark.MakeInt(0x1CEB00DA), dictLoopValue)
+
+	args := starlark.Tuple{
+		starlark.True,
+		listLoop,
+		dictLoop,
+		starlark.Float(math.Phi),
+		starlark.NewSet(1),
+		starlark.String(`"'{}🌋`),
+	}
+
+	st := startest.From(t)
+	fn := starlark.Universe["fail"]
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			res, err := starlark.Call(thread, fn, args, nil)
+			if err == nil {
+				st.Errorf("fail returned success %v", res)
+			}
+			st.KeepAlive(err.Error())
+			thread.AddAllocs(starlark.StringTypeOverhead)
+		}
+	})
 }
 
 func TestFloatAllocs(t *testing.T) {
@@ -556,12 +588,77 @@ func TestOrdAllocs(t *testing.T) {
 }
 
 func TestPrintAllocs(t *testing.T) {
+	listLoopContent := []starlark.Value{nil}
+	var listLoop starlark.Value = starlark.NewList(listLoopContent)
+	listLoopContent[0] = listLoop
+
+	dictLoop := starlark.NewDict(1)
+	var dictLoopValue starlark.Value = dictLoop
+	dictLoop.SetKey(starlark.MakeInt(0x1CEB00DA), dictLoopValue)
+
+	args := starlark.Tuple{
+		starlark.True,
+		listLoop,
+		dictLoop,
+		starlark.Float(math.Phi),
+		starlark.NewSet(1),
+		starlark.String(`"'{}🌋`),
+	}
+
+	st := startest.From(t)
+	fn := starlark.Universe["print"]
+	printFn := func(thread *starlark.Thread, msg string) {
+		if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
+			st.Error(err)
+		}
+		st.KeepAlive(msg)
+	}
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		thread.Print = printFn
+		for i := 0; i < st.N; i++ {
+			res, err := starlark.Call(thread, fn, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(res)
+		}
+	})
 }
 
 func TestRangeAllocs(t *testing.T) {
 }
 
 func TestReprAllocs(t *testing.T) {
+	listLoopContent := []starlark.Value{nil}
+	var listLoop starlark.Value = starlark.NewList(listLoopContent)
+	listLoopContent[0] = listLoop
+
+	dictLoop := starlark.NewDict(1)
+	var dictLoopValue starlark.Value = dictLoop
+	dictLoop.SetKey(starlark.MakeInt(0x1CEB00DA), dictLoopValue)
+
+	args := starlark.Tuple{
+		starlark.True,
+		listLoop,
+		dictLoop,
+		starlark.Float(math.Phi),
+		starlark.NewSet(1),
+		starlark.String(`"'{}🌋`),
+	}
+
+	st := startest.From(t)
+	fn := starlark.Universe["repr"]
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			res, err := starlark.Call(thread, fn, starlark.Tuple{args}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(res)
+		}
+	})
 }
 
 func TestReversedAllocs(t *testing.T) {
@@ -574,6 +671,52 @@ func TestSortedAllocs(t *testing.T) {
 }
 
 func TestStrAllocs(t *testing.T) {
+	listLoopContent := []starlark.Value{nil}
+	var listLoop starlark.Value = starlark.NewList(listLoopContent)
+	listLoopContent[0] = listLoop
+
+	dictLoop := starlark.NewDict(1)
+	var dictLoopValue starlark.Value = dictLoop
+	dictLoop.SetKey(starlark.MakeInt(0x1CEB00DA), dictLoopValue)
+
+	fn := starlark.Universe["str"]
+	args := starlark.Tuple{
+		starlark.True,
+		listLoop,
+		dictLoop,
+		starlark.Float(math.Phi),
+		starlark.NewSet(1),
+		starlark.String(`"'{}🌋`),
+	}
+
+	t.Run("no-op", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				res, err := starlark.Call(thread, fn, starlark.Tuple{starlark.String("any string `\"'")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(res)
+			}
+		})
+	})
+
+	t.Run("conversion", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				res, err := starlark.Call(thread, fn, starlark.Tuple{args}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(res)
+			}
+		})
+	})
 }
 
 func TestTupleAllocs(t *testing.T) {
@@ -728,6 +871,67 @@ func TestStringFindAllocs(t *testing.T) {
 }
 
 func TestStringFormatAllocs(t *testing.T) {
+	sample := starlark.Tuple{
+		nil, // Not a starlark value, but useful for testing
+		starlark.None,
+		starlark.True,
+		starlark.MakeInt(1),
+		starlark.MakeInt64(1 << 40),
+		starlark.String("\"test\""),
+		starlark.NewDict(0),
+		starlark.NewSet(0),
+		starlark.NewList([]starlark.Value{starlark.False}),
+	}
+
+	t.Run("args", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				format := starlark.String("{{{0!s}}}")
+				fn, err := format.Attr("format")
+				if err != nil {
+					st.Error(err)
+					return
+				}
+				if fn == nil {
+					st.Errorf("`string.format` builtin doesn't exists")
+					return
+				}
+				result, err := starlark.Call(thread, fn, starlark.Tuple{sample}, nil)
+				if err != nil {
+					st.Error(err)
+					return
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("kwargs", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				format := starlark.String("{{{a!s}}}")
+				fn, err := format.Attr("format")
+				if err != nil {
+					st.Error(err)
+					return
+				}
+				if fn == nil {
+					st.Errorf("`string.format` builtin doesn't exists")
+					return
+				}
+				result, err := starlark.Call(thread, fn, nil, []starlark.Tuple{{starlark.String("a"), sample}})
+				if err != nil {
+					st.Error(err)
+					return
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestStringIndexAllocs(t *testing.T) {
