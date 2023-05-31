@@ -233,14 +233,6 @@ func indexByte(s string, b byte) int {
 	return -1
 }
 
-type BytesWriter interface {
-	io.Writer
-	io.ByteWriter
-	io.StringWriter
-
-	WriteRune(r rune) (size int, err error)
-}
-
 // Quote returns a Starlark literal that denotes s.
 // If b, it returns a bytes literal.
 func Quote(s string, b bool) string {
