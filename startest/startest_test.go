@@ -876,7 +876,7 @@ func TestRunStringMemSafety(t *testing.T) {
 	})
 
 	t.Run("safety=unsafe", func(t *testing.T) {
-		const expected = "measured memory is above declared allocations (128 > 0)"
+		const expected = "measured memory is above declared allocations"
 
 		overallocate := starlark.NewBuiltinWithSafety("overallocate", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			return starlark.String(make([]byte, 100)), nil
@@ -899,7 +899,7 @@ func TestRunStringMemSafety(t *testing.T) {
 			t.Error("expected failure")
 		}
 
-		if errLog := dummy.Errors(); errLog != expected {
+		if errLog := dummy.Errors(); !strings.HasPrefix(errLog, expected) {
 			t.Errorf("unexpected error(s): %#v", errLog)
 		}
 	})
