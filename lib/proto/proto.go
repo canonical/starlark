@@ -952,7 +952,8 @@ func (it *repeatedFieldIterator) Done() {
 	}
 }
 
-func (*repeatedFieldIterator) Safety() starlark.Safety { return starlark.NotSafe }
+func (it *repeatedFieldIterator) Err() error              { return nil }
+func (it *repeatedFieldIterator) Safety() starlark.Safety { return starlark.NotSafe }
 
 func writeString(buf *bytes.Buffer, fdesc protoreflect.FieldDescriptor, v protoreflect.Value) {
 	// TODO(adonovan): opt: don't materialize the Starlark value.
@@ -1168,7 +1169,7 @@ func (e EnumDescriptor) CallInternal(_ *starlark.Thread, args starlark.Tuple, kw
 	}
 	return EnumValueDescriptor{Desc: v}, nil
 }
-func (EnumDescriptor) Safety() starlark.Safety { return starlark.NotSafe }
+func (e EnumDescriptor) Safety() starlark.Safety { return starlark.NotSafe }
 
 // enumValueOf converts an int, string, or enum value to a value of the specified enum type.
 func enumValueOf(enum protoreflect.EnumDescriptor, x starlark.Value) (protoreflect.EnumValueDescriptor, error) {

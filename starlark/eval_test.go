@@ -188,6 +188,8 @@ func (it *fibIterator) Next(p *starlark.Value) bool {
 }
 func (it *fibIterator) Done() {}
 
+func (*fibIterator) Err() error { return nil }
+
 // load implements the 'load' operation as used in the evaluator tests.
 func load(thread *starlark.Thread, module string) (starlark.StringDict, error) {
 	if module == "assert.star" {
@@ -1003,13 +1005,13 @@ func TestCheckExecutionSteps(t *testing.T) {
 	thread.SetMaxExecutionSteps(maxSteps)
 
 	if err := thread.CheckExecutionSteps(maxSteps / 2); err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
 
 	if err := thread.CheckExecutionSteps(2 * maxSteps); err == nil {
-		t.Errorf("Expected error")
+		t.Errorf("expected error")
 	} else if err.Error() != "too many steps" {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
@@ -1036,7 +1038,7 @@ func TestConcurrentCheckExecutionStepsUsage(t *testing.T) {
 		for i := 0; i < repetitions; i++ {
 			// Check 1000...01 not exceeded
 			if err := thread.CheckExecutionSteps(1); err != nil {
-				t.Errorf("Unexpected error: %v", err)
+				t.Errorf("unexpected error: %v", err)
 				break
 			}
 		}
@@ -1060,13 +1062,13 @@ func TestAddExecutionStepsOk(t *testing.T) {
 	thread.SetMaxExecutionSteps(2 * expectedDelta)
 
 	if err := thread.AddExecutionSteps(expectedDelta); err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	} else if actualDelta := thread.ExecutionSteps(); actualDelta != expectedDelta {
-		t.Errorf("Incorrect number of steps added: expected %d but got %d", expectedDelta, actualDelta)
+		t.Errorf("incorrect number of steps added: expected %d but got %d", expectedDelta, actualDelta)
 	}
 
 	if _, err := starlark.ExecFile(thread, "add_execution_steps", "", nil); err != nil {
-		t.Errorf("Unexpected cancellation: %v", err)
+		t.Errorf("unexpected cancellation: %v", err)
 	}
 }
 
@@ -1078,26 +1080,26 @@ func TestAddExecutionStepsFail(t *testing.T) {
 	thread.SetMaxExecutionSteps(maxSteps)
 
 	if err := thread.AddExecutionSteps(stepsToAdd); err == nil {
-		t.Errorf("Expected error")
+		t.Errorf("expected error")
 	} else if err.Error() != "too many steps" {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	} else if steps := thread.ExecutionSteps(); steps != stepsToAdd {
-		t.Errorf("Incorrect number of steps recorded: expected %v but got %v", stepsToAdd, steps)
+		t.Errorf("incorrect number of steps recorded: expected %v but got %v", stepsToAdd, steps)
 	}
 
 	if _, err := starlark.ExecFile(thread, "add_execution_steps", "", nil); err == nil {
-		t.Errorf("Expected cancellation")
+		t.Errorf("expected cancellation")
 	} else if err.Error() != "Starlark computation cancelled: too many steps" {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
 
 	const expectedStepsAfterExec = stepsToAdd + 1
 	if err := thread.AddExecutionSteps(maxSteps / 2); err == nil {
-		t.Errorf("Expected error")
+		t.Errorf("expected error")
 	} else if err.Error() != "too many steps" {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	} else if steps := thread.ExecutionSteps(); steps != expectedStepsAfterExec {
-		t.Errorf("Incorrect number of steps recorded: expected %v but got %v", expectedStepsAfterExec, steps)
+		t.Errorf("incorrect number of steps recorded: expected %v but got %v", expectedStepsAfterExec, steps)
 	}
 }
 
@@ -1112,7 +1114,7 @@ func TestConcurrentAddExecutionStepsUsage(t *testing.T) {
 	callAddExecutionSteps := func(n uint) {
 		for i := uint(0); i < n; i++ {
 			if err := thread.AddExecutionSteps(1); err != nil {
-				t.Errorf("Unexpected error %v", err)
+				t.Errorf("unexpected error %v", err)
 				break
 			}
 		}
@@ -1132,7 +1134,7 @@ func TestConcurrentAddExecutionStepsUsage(t *testing.T) {
 	}
 
 	if steps := thread.ExecutionSteps(); steps != expectedSteps {
-		t.Errorf("Concurrent thread.AddExecutionSteps contains a race, expected %d steps recorded but got %d", expectedSteps, steps)
+		t.Errorf("concurrent thread.AddExecutionSteps contains a race, expected %d steps recorded but got %d", expectedSteps, steps)
 	}
 }
 
@@ -1143,7 +1145,7 @@ func TestThreadPermits(t *testing.T) {
 		thread.RequireSafety(threadSafety)
 
 		if !thread.Permits(starlark.Safe) {
-			t.Errorf("Allowed safety not permitted")
+			t.Errorf("allowed safety not permitted")
 		}
 	})
 
@@ -1152,7 +1154,7 @@ func TestThreadPermits(t *testing.T) {
 		thread.RequireSafety(threadSafety)
 
 		if thread.Permits(threadSafety &^ starlark.MemSafe) {
-			t.Errorf("Forbidden safety allowed")
+			t.Errorf("forbidden safety allowed")
 		}
 	})
 
@@ -1161,7 +1163,7 @@ func TestThreadPermits(t *testing.T) {
 		thread.RequireSafety(threadSafety)
 
 		if thread.Permits(starlark.Safety(0xbad1091c) | threadSafety) {
-			t.Errorf("Invalid safety permitted")
+			t.Errorf("invalid safety permitted")
 		}
 	})
 
@@ -1171,7 +1173,7 @@ func TestThreadPermits(t *testing.T) {
 		thread.RequireSafety(invalidSafety)
 
 		if thread.Permits(starlark.Safe) {
-			t.Errorf("Invalid thread safety was permitted")
+			t.Errorf("invalid thread safety was permitted")
 		}
 	})
 }
@@ -1187,7 +1189,7 @@ func TestThreadCheckPermits(t *testing.T) {
 		thread.RequireSafety(threadSafety)
 
 		if err := thread.CheckPermits(allowedSafety); err != nil {
-			t.Errorf("Thread reported it did not permit acceptible safety: got unexpected error %v", err)
+			t.Errorf("thread reported it did not permit acceptible safety: got unexpected error %v", err)
 		}
 	})
 
@@ -1198,13 +1200,13 @@ func TestThreadCheckPermits(t *testing.T) {
 		thread.RequireSafety(threadSafety)
 
 		if err := thread.CheckPermits(forbiddenSafety); err == nil {
-			t.Errorf("Thread failed to report that insufficient safety is unsafe")
+			t.Errorf("thread failed to report that insufficient safety is unsafe")
 		} else if err.Error() != "feature unavailable to the sandbox" {
-			t.Errorf("Unexpected error: %v", err)
+			t.Errorf("unexpected error: %v", err)
 		} else if safetyErr, ok := err.(*starlark.SafetyError); !ok {
-			t.Errorf("Expected starlark.SafetyError, got a %T: %v", err, err)
+			t.Errorf("expected starlark.SafetyError, got a %T: %v", err, err)
 		} else if expectedMissing := threadSafety &^ forbiddenSafety; safetyErr.Missing != expectedMissing {
-			t.Errorf("Incorrect reported missing flags: expected %v but got %v", expectedMissing, safetyErr.Missing)
+			t.Errorf("incorrect reported missing flags: expected %v but got %v", expectedMissing, safetyErr.Missing)
 		}
 	})
 
@@ -1214,9 +1216,9 @@ func TestThreadCheckPermits(t *testing.T) {
 		const invalidSafety = starlark.Safety(0xbad1091c)
 
 		if err := thread.CheckPermits(invalidSafety | threadSafety); err == nil {
-			t.Errorf("Expected error checking invalid flags")
+			t.Errorf("expected error checking invalid flags")
 		} else if err.Error() != "internal error: invalid safety flags" {
-			t.Errorf("Unexpected error: %v", err)
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -1226,9 +1228,9 @@ func TestThreadCheckPermits(t *testing.T) {
 		thread.RequireSafety(invalidSafety)
 
 		if err := thread.CheckPermits(starlark.Safe); err == nil {
-			t.Errorf("Expected error checking against invalid flags")
+			t.Errorf("expected error checking against invalid flags")
 		} else if err.Error() != "thread safety: internal error: invalid safety flags" {
-			t.Errorf("Unexpected error: %v", err)
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 }
@@ -1244,6 +1246,6 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 
 	if safety := starlark.ThreadSafety(thread); safety != expectedSafety {
 		missing := safety &^ expectedSafety
-		t.Errorf("Missing safety flags %v, expected %v", missing.String(), expectedSafety.String())
+		t.Errorf("missing safety flags %v, expected %v", missing.String(), expectedSafety.String())
 	}
 }
