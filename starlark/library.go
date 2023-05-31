@@ -15,7 +15,6 @@ import (
 	"math"
 	"math/big"
 	"os"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -2326,7 +2325,10 @@ func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 			s = strings.TrimRightFunc(recv, unicode.IsSpace)
 		}
 	}
-	return String(s), thread.AddAllocs(int64(EstimateSize(reflect.StringHeader{})))
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
+	}
+	return String(s), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·title
