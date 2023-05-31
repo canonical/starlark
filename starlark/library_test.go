@@ -445,7 +445,7 @@ func TestFailAllocs(t *testing.T) {
 				st.Errorf("fail returned success %v", res)
 			}
 			st.KeepAlive(err.Error())
-			thread.AddAllocs(starlark.EstimateSize("")) // string -> interface conversion
+			thread.AddAllocs(starlark.StringTypeOverhead)
 		}
 	})
 }
@@ -558,7 +558,7 @@ func TestPrintAllocs(t *testing.T) {
 	st := startest.From(t)
 	fn := starlark.Universe["print"]
 	printFn := func(thread *starlark.Thread, msg string) {
-		if err := thread.AddAllocs(starlark.EstimateSize("")); err != nil {
+		if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
 			st.Error(err)
 		}
 		st.KeepAlive(msg)

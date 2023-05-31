@@ -250,15 +250,16 @@ func Quote(s string, b bool) string {
 	return string(buf.Bytes())
 }
 
-func QuoteWriter(w BytesWriter, s string, b bool) error {
+func QuoteWriter(w io.Writer, s string, b bool) error {
 	const hex = "0123456789abcdef"
+	buffer := make([]byte, utf8.UTFMax)
 
 	if b {
-		if err := w.WriteByte('b'); err != nil {
+		if _, err := w.Write([]byte{'b'}); err != nil {
 			return err
 		}
 	}
-	if err := w.WriteByte('"'); err != nil {
+	if _, err := w.Write([]byte{'"'}); err != nil {
 		return err
 	}
 
@@ -284,7 +285,8 @@ func QuoteWriter(w BytesWriter, s string, b bool) error {
 			continue
 		}
 		if strconv.IsPrint(r) {
-			if _, err := w.WriteRune(r); err != nil {
+			runeSize := utf8.EncodeRune(buffer, r)
+			if _, err := w.Write(buffer[:runeSize]); err != nil {
 				return err
 			}
 			continue
@@ -332,7 +334,7 @@ func QuoteWriter(w BytesWriter, s string, b bool) error {
 					return err
 				}
 				for s := 12; s >= 0; s -= 4 {
-					if err := w.WriteByte(hex[r>>uint(s)&0xF]); err != nil {
+					if _, err := w.Write([]byte{hex[r>>uint(s)&0xF]}); err != nil {
 						return err
 					}
 				}
@@ -341,7 +343,7 @@ func QuoteWriter(w BytesWriter, s string, b bool) error {
 					return err
 				}
 				for s := 28; s >= 0; s -= 4 {
-					if err := w.WriteByte(hex[r>>uint(s)&0xF]); err != nil {
+					if _, err := w.Write([]byte{hex[r>>uint(s)&0xF]}); err != nil {
 						return err
 					}
 				}
@@ -349,5 +351,8 @@ func QuoteWriter(w BytesWriter, s string, b bool) error {
 		}
 	}
 
-	return w.WriteByte('"')
+	if _, err := w.Write([]byte{'"'}); err != nil {
+		return err
+	}
+	return nil
 }

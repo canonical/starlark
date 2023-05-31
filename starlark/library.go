@@ -1179,7 +1179,7 @@ func repr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if s, err := safeToString(thread, x); err != nil {
 		return nil, err
 	} else {
-		if err := thread.AddAllocs(EstimateSize("")); err != nil {
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
 			return nil, err
 		}
 		return String(s), nil
@@ -1313,13 +1313,15 @@ func str(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	}
 	switch x := args[0].(type) {
 	case String:
+		// Converting args[0] to x and then returning x as Value
+		// casues an additional allocation, so return args[0] directly.
 		return args[0], nil
 	case Bytes:
 		// Invalid encodings are replaced by that of U+FFFD.
 		if str, err := safeUtf8Transcode(thread, string(x)); err != nil {
 			return nil, err
 		} else {
-			if err := thread.AddAllocs(EstimateSize("")); err != nil {
+			if err := thread.AddAllocs(StringTypeOverhead); err != nil {
 				return nil, err
 			}
 			return String(str), nil
@@ -1328,7 +1330,7 @@ func str(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		if str, err := safeToString(thread, x); err != nil {
 			return nil, err
 		} else {
-			if err := thread.AddAllocs(EstimateSize("")); err != nil {
+			if err := thread.AddAllocs(StringTypeOverhead); err != nil {
 				return nil, err
 			}
 			return String(str), nil
@@ -2088,7 +2090,7 @@ func string_format(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Valu
 		}
 	}
 
-	if err := thread.AddAllocs(EstimateSize("")); err != nil {
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
 		return nil, err
 	}
 	return String(buf.String()), nil
