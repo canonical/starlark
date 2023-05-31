@@ -55,6 +55,15 @@ func (i Int) get() (int64, *big.Int) {
 	return 0, (*big.Int)(i.impl)
 }
 
+func (i Int) EstimateSize() int64 {
+	size := int64(unsafe.Sizeof(Int{}))
+	if _, iBig := i.get(); iBig != nil {
+		size += EstimateSize(iBig)
+	}
+
+	return int64(size)
+}
+
 // Precondition: math.MinInt32 <= x && x <= math.MaxInt32
 func makeSmallInt(x int64) Int {
 	return Int{intImpl(uintptr(x-math.MinInt32) + smallints)}

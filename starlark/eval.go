@@ -240,6 +240,113 @@ func (thread *Thread) CallStack() CallStack {
 // CallStackDepth returns the number of frames in the current call stack.
 func (thread *Thread) CallStackDepth() int { return len(thread.stack) }
 
+type StringBuilder interface {
+	io.ByteWriter
+	io.Writer
+	io.StringWriter
+	fmt.Stringer
+
+	WriteRune(r rune) (size int, err error)
+	Grow(n int)
+	Cap() int
+	Len() int
+}
+
+// SafeStringBuilder is a StringBuilder which is bound to a thread
+// and which abides by sandboxing limits. Errors prevent subsequent
+// operations.
+type SafeStringBuilder struct {
+	builder strings.Builder
+	thread  *Thread
+	allocs  uint64
+	err     error
+}
+
+var _ StringBuilder = &SafeStringBuilder{}
+
+// NewSafeStringBuilder returns a StringBuilder which abides by
+// the sandbox limits of this thread.
+func NewSafeStringBuilder(thread *Thread) *SafeStringBuilder {
+	return &SafeStringBuilder{thread: thread}
+}
+
+// Allocs returns the total allocations reported to this SafeStringBuilder's
+// thread.
+func (tb *SafeStringBuilder) Allocs() uint64 {
+	return tb.allocs
+}
+
+func (tb *SafeStringBuilder) safeGrow(n int) error {
+	if tb.err != nil {
+		return tb.err
+	}
+
+	if tb.Cap()-tb.Len() < n {
+		// Make sure that we can allocate more
+		newCap := tb.Cap()*2 + n
+		newBufferSize := EstimateMakeSize([]byte{}, newCap)
+		if err := tb.thread.AddAllocs(newBufferSize - int64(tb.allocs)); err != nil {
+			tb.err = err
+			return err
+		}
+		// The real size of the allocated buffer might be
+		// bigger than expected. For this reason, add the
+		// difference between the real buffer size and the
+		// target capacity, so that every allocated byte
+		// is available to the user.
+		tb.builder.Grow(n + int(newBufferSize) - newCap)
+		tb.allocs = uint64(newBufferSize)
+	}
+	return nil
+}
+
+func (tb *SafeStringBuilder) Grow(n int) {
+	tb.safeGrow(n)
+}
+
+func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
+	if err := tb.safeGrow(len(b)); err != nil {
+		return 0, err
+	}
+
+	return tb.builder.Write(b)
+}
+
+func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
+	if err := tb.safeGrow(len(s)); err != nil {
+		return 0, err
+	}
+
+	return tb.builder.WriteString(s)
+}
+
+func (tb *SafeStringBuilder) WriteByte(b byte) error {
+	if err := tb.safeGrow(1); err != nil {
+		return err
+	}
+
+	return tb.builder.WriteByte(b)
+}
+
+func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
+	var growAmount int
+	if r < utf8.RuneSelf {
+		growAmount = 1
+	} else {
+		growAmount = utf8.UTFMax
+	}
+	if err := tb.safeGrow(growAmount); err != nil {
+		return 0, err
+	}
+
+	return tb.builder.WriteRune(r)
+}
+
+func (tb *SafeStringBuilder) Cap() int       { return tb.builder.Cap() }
+func (tb *SafeStringBuilder) Len() int       { return tb.builder.Len() }
+func (tb *SafeStringBuilder) String() string { return tb.builder.String() }
+func (tb *SafeStringBuilder) Err() error     { return tb.err }
+
 // A StringDict is a mapping from names to values, and represents
 // an environment such as the global variables of a module.
 // It is not a true starlark.Value.
@@ -677,6 +784,7 @@ func listExtend(x *List, y Iterable) {
 		// fast path: list += list
 		x.elems = append(x.elems, ylist.elems...)
 	} else {
+		// TODO: use SafeIterate
 		iter := y.Iterate()
 		defer iter.Done()
 		var z Value
@@ -1141,6 +1249,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *Set: // union
 			if y, ok := y.(*Set); ok {
+				// TODO: use SafeIterate
 				iter := Iterate(y)
 				defer iter.Done()
 				return x.Union(iter)
@@ -1218,6 +1327,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 
 	// user-defined types
 	// (nil, nil) => unhandled
+	// TODO: use SafeIterate (SafeBinary?)
 	if x, ok := x.(HasBinary); ok {
 		z, err := x.Binary(op, y, Left)
 		if z != nil || err != nil {

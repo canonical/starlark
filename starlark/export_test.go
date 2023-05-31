@@ -5,6 +5,9 @@ func ThreadSafety(thread *Thread) Safety {
 }
 
 func (thread *Thread) SubtractExecutionSteps(delta uint64) {
+	thread.stepsLock.Lock()
+	defer thread.stepsLock.Unlock()
+
 	thread.steps -= delta
 }
 
