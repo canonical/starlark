@@ -15,14 +15,12 @@ import (
 	"math"
 	"math/big"
 	"os"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/canonical/starlark/syntax"
 )
@@ -2229,7 +2227,10 @@ func string_removefix(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 	} else {
 		recv = strings.TrimSuffix(recv, fix)
 	}
-	return String(recv), thread.AddAllocs(int64(unsafe.Sizeof(reflect.StringHeader{})))
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
+	}
+	return String(recv), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·replace
