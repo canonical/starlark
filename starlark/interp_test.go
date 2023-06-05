@@ -7,7 +7,7 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
-func TestMakeTuple(t *testing.T) {
+func TestTupleCreation(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunString(`
