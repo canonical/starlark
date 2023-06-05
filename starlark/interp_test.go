@@ -7,12 +7,12 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
-func TestMakeList(t *testing.T) {
+func TestListCreation(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunString(`
 		for _ in range(st.n):
 			st.keep_alive([]) # empty
-			st.keep_alive([ False, 1, "2", 3.0 ]) # empty
+			st.keep_alive([ False, 1, "2", 3.0 ])
 	`)
 }
