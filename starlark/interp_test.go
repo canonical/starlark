@@ -20,7 +20,7 @@ func TestTupleCreation(t *testing.T) {
 	`)
 }
 
-func TestMakeDict(t *testing.T) {
+func TestDictCreation(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunString(`
