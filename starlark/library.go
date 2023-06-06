@@ -96,7 +96,7 @@ func init() {
 		"min":       NotSafe,
 		"ord":       NotSafe,
 		"print":     MemSafe,
-		"range":     NotSafe,
+		"range":     MemSafe,
 		"repr":      MemSafe,
 		"reversed":  NotSafe,
 		"set":       NotSafe,
@@ -1060,7 +1060,11 @@ func range_(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		return nil, nameErr(b, "step argument must not be zero")
 	}
 
-	return rangeValue{start: start, stop: stop, step: step, len: rangeLen(start, stop, step)}, nil
+	result := Value(rangeValue{start: start, stop: stop, step: step, len: rangeLen(start, stop, step)})
+	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // A rangeValue is a comparable, immutable, indexable sequence of integers
@@ -1077,7 +1081,7 @@ var (
 
 func (r rangeValue) Len() int          { return r.len }
 func (r rangeValue) Index(i int) Value { return MakeInt(r.start + i*r.step) }
-func (r rangeValue) Iterate() Iterator { return &rangeIterator{r, 0} }
+func (r rangeValue) Iterate() Iterator { return &rangeIterator{r: r} }
 
 // rangeLen calculates the length of a range with the provided start, stop, and step.
 // caller must ensure that step is non-zero.
@@ -1160,13 +1164,35 @@ func (r rangeValue) contains(x Int) bool {
 }
 
 type rangeIterator struct {
-	r rangeValue
-	i int
+	r      rangeValue
+	i      int
+	thread *Thread
+	err    error
+}
+
+var _ SafeIterator = &rangeIterator{}
+
+func (it *rangeIterator) BindThread(thread *Thread) {
+	it.thread = thread
 }
 
 func (it *rangeIterator) Next(p *Value) bool {
+	if it.err != nil {
+		return false
+	}
+
 	if it.i < it.r.len {
-		*p = it.r.Index(it.i)
+		// value will always be an Int
+		value := it.r.Index(it.i)
+
+		if it.thread != nil {
+			if err := it.thread.AddAllocs(EstimateSize(value)); err != nil {
+				it.err = err
+				return false
+			}
+		}
+
+		*p = value
 		it.i++
 		return true
 	}
@@ -1174,8 +1200,13 @@ func (it *rangeIterator) Next(p *Value) bool {
 }
 func (*rangeIterator) Done() {}
 
-func (it *rangeIterator) Err() error     { return nil }
-func (it *rangeIterator) Safety() Safety { return NotSafe }
+func (it *rangeIterator) Err() error { return it.err }
+func (it *rangeIterator) Safety() Safety {
+	if it.thread == nil {
+		return NotSafe
+	}
+	return MemSafe
+}
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#repr
 func repr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
