@@ -374,7 +374,7 @@ func roundAllocSize(size uintptr) uintptr {
 	if size == 0 {
 		return 0
 	} else if size < tinyAllocMaxSize {
-		return 16
+		return tinyAllocMaxSize
 	} else {
 		return roundupsize(size)
 	}
