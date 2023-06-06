@@ -382,7 +382,7 @@ func TestStringCodepointOrdsAllocs(t *testing.T) {
 }
 
 func TestStringCodepointsAllocs(t *testing.T) {
-	testStringIterable(t, "codepoint_ords")
+	testStringIterable(t, "codepoints")
 }
 
 func TestStringCountAllocs(t *testing.T) {
