@@ -122,7 +122,6 @@ func (it *testIterator) Next(p *starlark.Value) bool {
 		it.err = err
 		return false
 	}
-
 	*p = ret
 	return true
 }
