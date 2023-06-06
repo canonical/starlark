@@ -122,6 +122,7 @@ func (it *testIterator) Next(p *starlark.Value) bool {
 		it.err = err
 		return false
 	}
+
 	*p = ret
 	return true
 }
@@ -261,7 +262,6 @@ func TestBoolAllocs(t *testing.T) {
 				if err != nil {
 					st.Error(err)
 				}
-
 				st.KeepAlive(value)
 			}
 		})
