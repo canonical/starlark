@@ -1060,10 +1060,11 @@ func range_(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		return nil, nameErr(b, "step argument must not be zero")
 	}
 
-	if err := thread.AddAllocs(EstimateSize(rangeValue{})); err != nil {
+	result := Value(rangeValue{start: start, stop: stop, step: step, len: rangeLen(start, stop, step)})
+	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
 	}
-	return rangeValue{start: start, stop: stop, step: step, len: rangeLen(start, stop, step)}, nil
+	return result, nil
 }
 
 // A rangeValue is a comparable, immutable, indexable sequence of integers
