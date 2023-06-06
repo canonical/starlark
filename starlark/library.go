@@ -78,7 +78,7 @@ func init() {
 		"abs":       NotSafe,
 		"any":       NotSafe,
 		"all":       MemSafe,
-		"bool":      NotSafe,
+		"bool":      MemSafe,
 		"bytes":     NotSafe,
 		"chr":       MemSafe,
 		"dict":      NotSafe,
