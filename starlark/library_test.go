@@ -355,10 +355,10 @@ func TestListRemoveAllocs(t *testing.T) {
 func TestStringCapitalizeAllocs(t *testing.T) {
 }
 
-func TestStringCodepointOrdsAllocs(t *testing.T) {
-	string_codepoint_ords, _ := starlark.String("pancakes").Attr("codepoint_ords")
-	if string_codepoint_ords == nil {
-		t.Errorf("no such method: string.codepoint_ords")
+func testStringIterable(t *testing.T, methodName string) {
+	method, _ := starlark.String("arbitrary-string").Attr(methodName)
+	if method == nil {
+		t.Errorf("no such method: string.%s", methodName)
 		return
 	}
 
@@ -368,7 +368,7 @@ func TestStringCodepointOrdsAllocs(t *testing.T) {
 
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, string_codepoint_ords, nil, nil)
+			result, err := starlark.Call(thread, method, nil, nil)
 			if err != nil {
 				st.Error(err)
 			}
@@ -377,73 +377,23 @@ func TestStringCodepointOrdsAllocs(t *testing.T) {
 	})
 }
 
+func TestStringCodepointOrdsAllocs(t *testing.T) {
+	testStringIterable(t, "codepoint_ords")
+}
+
 func TestStringCodepointsAllocs(t *testing.T) {
-	string_codepoints, _ := starlark.String("pancakes").Attr("codepoints")
-	if string_codepoints == nil {
-		t.Errorf("no such method: string.codepoints")
-		return
-	}
-
-	st := startest.From(t)
-
-	st.RequireSafety(starlark.MemSafe)
-
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, string_codepoints, nil, nil)
-			if err != nil {
-				st.Error(err)
-			}
-			st.KeepAlive(result)
-		}
-	})
+	testStringIterable(t, "codepoint_ords")
 }
 
 func TestStringCountAllocs(t *testing.T) {
 }
 
 func TestStringElemOrdsAllocs(t *testing.T) {
-	string_elem_ords, _ := starlark.String("pancakes").Attr("elem_ords")
-	if string_elem_ords == nil {
-		t.Errorf("no such method: string.elem_ords")
-		return
-	}
-
-	st := startest.From(t)
-
-	st.RequireSafety(starlark.MemSafe)
-
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, string_elem_ords, nil, nil)
-			if err != nil {
-				st.Error(err)
-			}
-			st.KeepAlive(result)
-		}
-	})
+	testStringIterable(t, "elem_ords")
 }
 
 func TestStringElemsAllocs(t *testing.T) {
-	string_elems, _ := starlark.String("pancakes").Attr("elems")
-	if string_elems == nil {
-		t.Errorf("no such method: string.elems")
-		return
-	}
-
-	st := startest.From(t)
-
-	st.RequireSafety(starlark.MemSafe)
-
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, string_elems, nil, nil)
-			if err != nil {
-				st.Error(err)
-			}
-			st.KeepAlive(result)
-		}
-	})
+	testStringIterable(t, "elems")
 }
 
 func TestStringEndswithAllocs(t *testing.T) {
