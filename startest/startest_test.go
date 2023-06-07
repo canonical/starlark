@@ -226,7 +226,7 @@ func TestStepBounding(t *testing.T) {
 		st.AddBuiltin(safeRange)
 
 		st.RunString(`
-			for _ in range(st.n):
+			for _ in st.ntimes():
 				pass
 		`)
 	})
@@ -239,7 +239,7 @@ func TestStepBounding(t *testing.T) {
 		st.SetMaxExecutionSteps(1)
 		st.AddBuiltin(safeRange)
 		st.RunString(`
-			for _ in range(st.n):
+			for _ in st.ntimes():
 				for _ in range(2):
 					pass
 		`)
@@ -867,7 +867,7 @@ func TestRunStringMemSafety(t *testing.T) {
 		st.AddBuiltin(allocate)
 		st.AddBuiltin(safeRange)
 		ok := st.RunString(`
-			for _ in range(st.n):
+			for _ in st.ntimes():
 				st.keep_alive(allocate())
 		`)
 		if !ok {
@@ -888,7 +888,7 @@ func TestRunStringMemSafety(t *testing.T) {
 		st.AddBuiltin(overallocate)
 		st.AddBuiltin(safeRange)
 		ok := st.RunString(`
-			for _ in range(st.n):
+			for _ in st.ntimes():
 				st.keep_alive(overallocate())
 		`)
 		if !ok {
@@ -914,7 +914,7 @@ func TestRunStringMemSafety(t *testing.T) {
 		st.AddBuiltin(overallocate)
 		st.AddBuiltin(safeRange)
 		ok := st.RunString(`
-			for _ in range(st.n):
+			for _ in st.ntimes():
 				st.keep_alive(overallocate())
 		`)
 		if !ok {
