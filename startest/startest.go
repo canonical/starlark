@@ -325,7 +325,7 @@ func (st *ST) Hash() (uint32, error) { return 0, errors.New("unhashable type: st
 var errorMethod = starlark.NewBuiltinWithSafety("error", stSafe, st_error)
 var fatalMethod = starlark.NewBuiltinWithSafety("fatal", stSafe, st_fatal)
 var keepAliveMethod = starlark.NewBuiltinWithSafety("keep_alive", stSafe, st_keep_alive)
-var ntimes = starlark.NewBuiltinWithSafety("ntimes", stSafe, st_ntimes)
+var ntimesMethod = starlark.NewBuiltinWithSafety("ntimes", stSafe, st_ntimes)
 
 func (st *ST) Attr(name string) (starlark.Value, error) {
 	switch name {
@@ -336,7 +336,7 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 	case "keep_alive":
 		return keepAliveMethod.BindReceiver(st), nil
 	case "ntimes":
-		return ntimes.BindReceiver(st), nil
+		return ntimesMethod.BindReceiver(st), nil
 	case "n":
 		return starlark.MakeInt(st.N), nil
 	}
@@ -405,41 +405,45 @@ func st_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple,
 }
 
 func st_ntimes(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("%s: unexpected positional arguments", b.Name())
+	}
 	if len(kwargs) > 0 {
 		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
 	}
+
 	recv := b.Receiver().(*ST)
-	return &st_ntimes_iterable{recv.N}, nil
+	return &ntimes_iterable{recv.N}, nil
 }
 
-type st_ntimes_iterable struct {
+type ntimes_iterable struct {
 	n int
 }
 
-var _ starlark.Iterable = &st_ntimes_iterable{}
+var _ starlark.Iterable = &ntimes_iterable{}
 
-func (it *st_ntimes_iterable) Freeze() {}
-func (it *st_ntimes_iterable) Hash() (uint32, error) {
+func (it *ntimes_iterable) Freeze() {}
+func (it *ntimes_iterable) Hash() (uint32, error) {
 	return 0, fmt.Errorf("unhashable: %s", it.Type())
 }
-func (it *st_ntimes_iterable) String() string       { return "<st.ntimes>" }
-func (it *st_ntimes_iterable) Truth() starlark.Bool { return true }
-func (it *st_ntimes_iterable) Type() string         { return "st.ntimes" }
-func (it *st_ntimes_iterable) Iterate() starlark.Iterator {
-	return &st_ntimes_iterator{it.n}
+func (it *ntimes_iterable) String() string       { return "st.ntimes()" }
+func (it *ntimes_iterable) Truth() starlark.Bool { return true }
+func (it *ntimes_iterable) Type() string         { return "st.ntimes" }
+func (it *ntimes_iterable) Iterate() starlark.Iterator {
+	return &ntimes_iterator{it.n}
 }
 
-type st_ntimes_iterator struct {
+type ntimes_iterator struct {
 	n int
 }
 
-var _ starlark.SafeIterator = &st_ntimes_iterator{}
+var _ starlark.SafeIterator = &ntimes_iterator{}
 
-func (it *st_ntimes_iterator) Safety() starlark.Safety            { return stSafe }
-func (it *st_ntimes_iterator) BindThread(thread *starlark.Thread) {}
-func (it *st_ntimes_iterator) Done()                              {}
-func (it *st_ntimes_iterator) Err() error                         { return nil }
-func (it *st_ntimes_iterator) Next(p *starlark.Value) bool {
+func (it *ntimes_iterator) Safety() starlark.Safety            { return stSafe }
+func (it *ntimes_iterator) BindThread(thread *starlark.Thread) {}
+func (it *ntimes_iterator) Done()                              {}
+func (it *ntimes_iterator) Err() error                         { return nil }
+func (it *ntimes_iterator) Next(p *starlark.Value) bool {
 	if it.n > 0 {
 		it.n--
 		*p = starlark.None
