@@ -237,8 +237,9 @@ func TestStepBounding(t *testing.T) {
 		st.SetMaxExecutionSteps(1)
 		st.RunString(`
 			for _ in st.ntimes():
-				for _ in range(2):
-					pass
+				pass
+			for _ in st.ntimes():
+				pass
 		`)
 
 		if !st.Failed() {
