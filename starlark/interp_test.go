@@ -24,7 +24,7 @@ func TestDictCreation(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunString(`
-		for _ in range(st.n):
-			st.keep_alive({}) # empty
+		for _ in st.ntimes():
+			st.keep_alive({})
 	`)
 }
