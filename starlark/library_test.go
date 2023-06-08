@@ -244,6 +244,33 @@ func TestAllAllocs(t *testing.T) {
 }
 
 func TestBoolAllocs(t *testing.T) {
+	bool_ := starlark.Universe["bool"]
+	values := []starlark.Value{
+		starlark.None,
+		starlark.True,
+		starlark.MakeInt(0),
+		starlark.MakeInt64(1 << 40),
+		starlark.String("deadbeef"),
+		starlark.NewSet(10),
+		starlark.NewDict(10),
+		starlark.NewList(nil),
+		starlark.Float(0.5),
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(0)
+	st.RequireSafety(starlark.MemSafe)
+	for _, value := range values {
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				value, err := starlark.Call(thread, bool_, starlark.Tuple{value}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(value)
+			}
+		})
+	}
 }
 
 func TestBytesAllocs(t *testing.T) {
@@ -1129,6 +1156,25 @@ func TestStringRemovesuffixAllocs(t *testing.T) {
 }
 
 func TestStringReplaceAllocs(t *testing.T) {
+	st := startest.From(t)
+
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		str := starlark.String(strings.Repeat("deadbeef", st.N))
+		toReplace := starlark.String("beef")
+		replacement := starlark.String("🍖")
+
+		fn, _ := str.Attr("replace")
+		if fn == nil {
+			st.Fatal("no such method: string.replace")
+		}
+
+		result, err := starlark.Call(thread, fn, starlark.Tuple{toReplace, replacement}, nil)
+		if err != nil {
+			st.Error(err)
+		}
+		st.KeepAlive(result)
+	})
 }
 
 func TestStringRfindAllocs(t *testing.T) {
