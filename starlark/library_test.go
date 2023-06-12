@@ -1148,7 +1148,6 @@ func TestStringLowerAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("dEaDbEeF", st.N))
 			fn, err := str.Attr("lower")
-
 			if err != nil {
 				st.Error(err)
 				return
@@ -1160,12 +1159,10 @@ func TestStringLowerAllocs(t *testing.T) {
 			}
 
 			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
-
 			if err != nil {
 				st.Error(err)
 				return
 			}
-
 			st.KeepAlive(result)
 		})
 	})
@@ -1177,7 +1174,6 @@ func TestStringLowerAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("ΔΗΑΔΒΗΗΦ", st.N))
 			fn, err := str.Attr("lower")
-
 			if err != nil {
 				st.Error(err)
 				return
@@ -1189,31 +1185,26 @@ func TestStringLowerAllocs(t *testing.T) {
 			}
 
 			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
-
 			if err != nil {
 				st.Error(err)
 				return
 			}
-
 			st.KeepAlive(result)
 		})
 
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("a", st.N) + "ȺȾȺȾ")
 			fn, err := str.Attr("upper")
-
 			if err != nil {
 				st.Error(err)
 				return
 			}
 
 			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
-
 			if err != nil {
 				st.Error(err)
 				return
 			}
-
 			st.KeepAlive(result)
 		})
 
@@ -1225,19 +1216,16 @@ func TestStringLowerAllocs(t *testing.T) {
 			// it should be safe ("just" wasting a 2/3 of the space).
 			str := starlark.String(strings.Repeat("K", st.N))
 			fn, err := str.Attr("upper")
-
 			if err != nil {
 				st.Error(err)
 				return
 			}
 
 			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
-
 			if err != nil {
 				st.Error(err)
 				return
 			}
-
 			st.KeepAlive(result)
 		})
 	})
@@ -1249,7 +1237,6 @@ func TestStringLowerAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("Φ")
 			fn, err := str.Attr("lower")
-
 			if err != nil {
 				st.Error(err)
 				return
@@ -1262,12 +1249,10 @@ func TestStringLowerAllocs(t *testing.T) {
 
 			for i := 0; i < st.N; i++ {
 				result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
-
 				if err != nil {
 					st.Error(err)
 					return
 				}
-
 				st.KeepAlive(result)
 			}
 		})
@@ -1346,19 +1331,16 @@ func TestStringUpperAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("dEaDbEeF", st.N))
 			fn, err := str.Attr("upper")
-
 			if err != nil {
 				st.Error(err)
 				return
 			}
 
 			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
-
 			if err != nil {
 				st.Error(err)
 				return
 			}
-
 			st.KeepAlive(result)
 		})
 	})
@@ -1373,19 +1355,16 @@ func TestStringUpperAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("δηαδβηηφ", st.N))
 			fn, err := str.Attr("upper")
-
 			if err != nil {
 				st.Error(err)
 				return
 			}
 
 			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
-
 			if err != nil {
 				st.Error(err)
 				return
 			}
-
 			st.KeepAlive(result)
 		})
 
@@ -1401,19 +1380,16 @@ func TestStringUpperAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("a", st.N) + "ɥɐɥɐ")
 			fn, err := str.Attr("upper")
-
 			if err != nil {
 				st.Error(err)
 				return
 			}
 
 			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
-
 			if err != nil {
 				st.Error(err)
 				return
 			}
-
 			st.KeepAlive(result)
 		})
 
@@ -1424,19 +1400,16 @@ func TestStringUpperAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("ı", st.N))
 			fn, err := str.Attr("upper")
-
 			if err != nil {
 				st.Error(err)
 				return
 			}
 
 			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
-
 			if err != nil {
 				st.Error(err)
 				return
 			}
-
 			st.KeepAlive(result)
 		})
 	})
@@ -1448,7 +1421,6 @@ func TestStringUpperAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("φ")
 			fn, err := str.Attr("upper")
-
 			if err != nil {
 				st.Error(err)
 				return
@@ -1456,12 +1428,10 @@ func TestStringUpperAllocs(t *testing.T) {
 
 			for i := 0; i < st.N; i++ {
 				result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
-
 				if err != nil {
 					st.Error(err)
 					return
 				}
-
 				st.KeepAlive(result)
 			}
 		})
