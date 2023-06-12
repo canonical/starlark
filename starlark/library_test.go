@@ -926,19 +926,45 @@ func TestListRemoveAllocs(t *testing.T) {
 func TestStringCapitalizeAllocs(t *testing.T) {
 }
 
-func TestStringCodepoint_ordsAllocs(t *testing.T) {
+func testStringIterable(t *testing.T, methodName string) {
+	method, _ := starlark.String("arbitrary-string").Attr(methodName)
+	if method == nil {
+		t.Errorf("no such method: string.%s", methodName)
+		return
+	}
+
+	st := startest.From(t)
+
+	st.RequireSafety(starlark.MemSafe)
+
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, method, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
+}
+
+func TestStringCodepointOrdsAllocs(t *testing.T) {
+	testStringIterable(t, "codepoint_ords")
 }
 
 func TestStringCodepointsAllocs(t *testing.T) {
+	testStringIterable(t, "codepoints")
 }
 
 func TestStringCountAllocs(t *testing.T) {
 }
 
-func TestStringElem_ordsAllocs(t *testing.T) {
+func TestStringElemOrdsAllocs(t *testing.T) {
+	testStringIterable(t, "elem_ords")
 }
 
 func TestStringElemsAllocs(t *testing.T) {
+	testStringIterable(t, "elems")
 }
 
 func TestStringEndswithAllocs(t *testing.T) {

@@ -205,11 +205,11 @@ var (
 	}
 	stringMethodSafeties = map[string]Safety{
 		"capitalize":     NotSafe,
-		"codepoint_ords": NotSafe,
-		"codepoints":     NotSafe,
+		"codepoint_ords": MemSafe,
+		"codepoints":     MemSafe,
 		"count":          NotSafe,
-		"elem_ords":      NotSafe,
-		"elems":          NotSafe,
+		"elem_ords":      MemSafe,
+		"elems":          MemSafe,
 		"endswith":       NotSafe,
 		"find":           NotSafe,
 		"format":         MemSafe,
@@ -1805,7 +1805,7 @@ func string_capitalize(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 // - codepoints: successive substrings that encode a single Unicode code point.
 // - elem_ords: numeric values of successive bytes
 // - codepoint_ords: numeric values of successive Unicode code points
-func string_iterable(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_iterable(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
@@ -1813,8 +1813,14 @@ func string_iterable(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 	ords := b.Name()[len(b.Name())-2] == 'd'
 	codepoints := b.Name()[0] == 'c'
 	if codepoints {
+		if err := thread.AddAllocs(EstimateSize(stringCodepoints{})); err != nil {
+			return nil, err
+		}
 		return stringCodepoints{s, ords}, nil
 	} else {
+		if err := thread.AddAllocs(EstimateSize(stringElems{})); err != nil {
+			return nil, err
+		}
 		return stringElems{s, ords}, nil
 	}
 }
