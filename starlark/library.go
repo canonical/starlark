@@ -2229,6 +2229,7 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	}
 
 	var res []string
+
 	if sep_ == nil || sep_ == None {
 		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/2+1)); err != nil {
 			return nil, err
