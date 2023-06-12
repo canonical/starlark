@@ -1436,10 +1436,9 @@ func type_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		return nil, fmt.Errorf("type: got %d arguments, want exactly 1", len(args))
 	}
 
-	if err := thread.AddAllocs(EstimateSize("")); err != nil {
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
 		return nil, err
 	}
-
 	return String(args[0].Type()), nil
 }
 
