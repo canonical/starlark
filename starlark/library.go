@@ -2275,18 +2275,14 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 
 	listSize := EstimateMakeSize([]Value{String("")}, len(res))
 	resultSize := EstimateSize(&List{})
-	if err := thread.AddAllocs(resultSize + listSize); err != nil {
+	if err := thread.AddAllocs(listSize + resultSize); err != nil {
 		return nil, err
 	}
-
 	list := make([]Value, len(res))
-	var result Value = NewList(list)
-
 	for i, x := range res {
 		list[i] = String(x)
 	}
-
-	return result, nil
+	return NewList(list), nil
 }
 
 // Precondition: max >= 0.
