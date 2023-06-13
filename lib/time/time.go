@@ -93,11 +93,13 @@ var NowFunc = time.Now
 
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var d Duration
-	err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &d)
-	if err == nil {
-		err = thread.AddAllocs(int64(starlark.EstimateSize(d)))
+	if err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &d); err != nil {
+		return nil, err
 	}
-	return d, err
+	if err := thread.AddAllocs(starlark.EstimateSize(Duration(0))); err != nil {
+		return nil, err
+	}
+	return d, nil
 }
 
 func isValidTimezone(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
