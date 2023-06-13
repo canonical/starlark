@@ -91,6 +91,12 @@ func init() {
 // Starlark scripts to be fully deterministic.
 var NowFunc = time.Now
 
+// NowFuncAllocs is a function which returns the number of allocations which
+// can be made by the next call to NowFunc.
+var NowFuncAllocs = func() int64 {
+	return starlark.EstimateSize(Time{})
+}
+
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var d Duration
 	err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &d)
@@ -147,7 +153,10 @@ func fromTimestamp(thread *starlark.Thread, _ *starlark.Builtin, args starlark.T
 }
 
 func now(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	return Time(NowFunc()), thread.AddAllocs(int64(starlark.EstimateSize(Time{})))
+	if err := thread.AddAllocs(NowFuncAllocs()); err != nil {
+		return nil, err
+	}
+	return Time(NowFunc()), nil
 }
 
 // Duration is a Starlark representation of a duration.
