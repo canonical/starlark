@@ -177,6 +177,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 		case starlark.Iterable:
 			// e.g. tuple, list
 			buf.WriteByte('[')
+			// In this case, iteration results are transient, so it shouldn't be counted.
 			iter := x.Iterate()
 			defer iter.Done()
 			var elem starlark.Value
