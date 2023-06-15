@@ -2260,13 +2260,17 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 			res = strings.SplitN(recv, sep, maxsplit+1)
 		} else { // rsplit
 			res = strings.Split(recv, sep)
+			// If maxsplit is less than len(res), the first len(res) - maxsplit
+			// should be joined back together. Instead of joining them back,
+			// however, it is possible to take a slice of  the original string.
+			// If the excess is only one, it is also possible to skip this process.
 			if excess := len(res) - maxsplit; excess > 1 {
 				size := len(res[0])
 				for _, s := range res[1:excess] {
 					size += len(s) + len(sep)
 				}
-				res[0] = recv[0:size]
-				res = append(res[:1], res[excess:]...)
+				res[excess-1] = recv[0:size]
+				res = res[excess-1:]
 			}
 		}
 
