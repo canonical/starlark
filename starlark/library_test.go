@@ -1169,20 +1169,19 @@ func TestStringJoinAllocs(t *testing.T) {
 func TestStringLowerAllocs(t *testing.T) {
 }
 
-func TestStringLstripAllocs(t *testing.T) {
-	string_lstrip, _ := starlark.String("    library").Attr("lstrip")
-	if string_lstrip == nil {
-		t.Errorf("no such method: string.lstrip")
+func testStringStripAllocs(t *testing.T, method_name string) {
+	method, _ := starlark.String("ababaZZZZZababa").Attr(method_name)
+	if method == nil {
+		t.Errorf("no such method: string.%s", method_name)
 		return
 	}
 
 	t.Run("with-cutset=no", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(16)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, string_lstrip, nil, nil)
+				result, err := starlark.Call(thread, method, nil, nil)
 				if err != nil {
 					st.Error(err)
 				}
@@ -1194,11 +1193,12 @@ func TestStringLstripAllocs(t *testing.T) {
 	t.Run("with-cutset=yes", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(16)
+
+		cutset := starlark.String("ab")
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				cutset := starlark.String("lint ")
-				result, err := starlark.Call(thread, string_lstrip, starlark.Tuple{cutset}, nil)
+				args := starlark.Tuple{cutset}
+				result, err := starlark.Call(thread, method, args, nil)
 				if err != nil {
 					st.Error(err)
 				}
@@ -1206,6 +1206,10 @@ func TestStringLstripAllocs(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestStringLstripAllocs(t *testing.T) {
+	testStringStripAllocs(t, "lstrip")
 }
 
 func TestStringPartitionAllocs(t *testing.T) {
@@ -1298,42 +1302,7 @@ func TestStringRsplitAllocs(t *testing.T) {
 }
 
 func TestStringRstripAllocs(t *testing.T) {
-	string_lstrip, _ := starlark.String("bamboo   ").Attr("rstrip")
-	if string_lstrip == nil {
-		t.Errorf("no such method: string.rstrip")
-		return
-	}
-
-	t.Run("with-cutset=no", func(t *testing.T) {
-		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(16)
-		st.RunThread(func(thread *starlark.Thread) {
-			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, string_lstrip, nil, nil)
-				if err != nil {
-					st.Error(err)
-				}
-				st.KeepAlive(result)
-			}
-		})
-	})
-
-	t.Run("with-cutset=yes", func(t *testing.T) {
-		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(16)
-		st.RunThread(func(thread *starlark.Thread) {
-			for i := 0; i < st.N; i++ {
-				cutset := starlark.String("roots ")
-				result, err := starlark.Call(thread, string_lstrip, starlark.Tuple{cutset}, nil)
-				if err != nil {
-					st.Error(err)
-				}
-				st.KeepAlive(result)
-			}
-		})
-	})
+	testStringStripAllocs(t, "rstrip")
 }
 
 func TestStringSplitAllocs(t *testing.T) {
