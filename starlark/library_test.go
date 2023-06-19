@@ -1194,10 +1194,9 @@ func testStringStripAllocs(t *testing.T, method_name string) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 
-		cutset := starlark.String("ab")
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				args := starlark.Tuple{cutset}
+				args := starlark.Tuple{starlark.String("ab")}
 				result, err := starlark.Call(thread, method, args, nil)
 				if err != nil {
 					st.Error(err)
