@@ -394,12 +394,10 @@ func TestStringElem_ordsAllocs(t *testing.T) {
 func TestStringElemsAllocs(t *testing.T) {
 }
 
-func TestStringEndswithAllocs(t *testing.T) {
-	string_endswith, _ := starlark.String("every good meal").Attr("endswith")
-	suffix := starlark.String("cake")
-
-	if string_endswith == nil {
-		t.Errorf("no such method: string.endswith")
+func testStringFixAllocs(t *testing.T, method_name string) {
+	method, _ := starlark.String("foo-bar-foo").Attr(method_name)
+	if method == nil {
+		t.Errorf("no such method: %s", method)
 		return
 	}
 
@@ -408,14 +406,18 @@ func TestStringEndswithAllocs(t *testing.T) {
 	st.SetMaxAllocs(0)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			args := starlark.Tuple{suffix}
-			result, err := starlark.Call(thread, string_endswith, args, nil)
+			args := starlark.Tuple{starlark.String("foo")}
+			result, err := starlark.Call(thread, method, args, nil)
 			if err != nil {
 				st.Error(err)
 			}
 			st.KeepAlive(result)
 		}
 	})
+}
+
+func TestStringEndswithAllocs(t *testing.T) {
+	testStringFixAllocs(t, "endswith")
 }
 
 func TestStringFindAllocs(t *testing.T) {
@@ -491,27 +493,7 @@ func TestStringSplitlinesAllocs(t *testing.T) {
 }
 
 func TestStringStartswithAllocs(t *testing.T) {
-	string_startswith, _ := starlark.String("a journey of a thousand miles").Attr("startswith")
-	prefix := starlark.String("a single step")
-
-	if string_startswith == nil {
-		t.Errorf("no such method: string.startswith")
-		return
-	}
-
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.SetMaxAllocs(0)
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			args := starlark.Tuple{prefix}
-			result, err := starlark.Call(thread, string_startswith, args, nil)
-			if err != nil {
-				st.Error(err)
-			}
-			st.KeepAlive(result)
-		}
-	})
+	testStringFixAllocs(t, "startswith")
 }
 
 func TestStringStripAllocs(t *testing.T) {
