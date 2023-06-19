@@ -45,8 +45,8 @@ func TestTimeFromTimestampAllocs(t *testing.T) {
 }
 
 func TestTimeIsValidTimezoneAllocs(t *testing.T) {
-	is_valid_timezone, _ := time.Module.Members["is_valid_timezone"]
-	if is_valid_timezone == nil {
+	is_valid_timezone, ok := time.Module.Members["is_valid_timezone"]
+	if !ok {
 		t.Error("no such builtin: time.is_valid_timezone")
 		return
 	}
