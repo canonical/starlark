@@ -43,6 +43,10 @@ func TestMethodSafetiesExist(t *testing.T) {
 
 func TestTimeFromTimestampAllocs(t *testing.T) {
 	from_timestamp, _ := time.Module.Members["from_timestamp"]
+	if from_timestamp == nil {
+		t.Error("no such builtin: time.from_timestamp")
+		return
+	}
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
