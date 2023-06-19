@@ -42,8 +42,8 @@ func TestMethodSafetiesExist(t *testing.T) {
 }
 
 func TestTimeFromTimestampAllocs(t *testing.T) {
-	from_timestamp, _ := time.Module.Members["from_timestamp"]
-	if from_timestamp == nil {
+	from_timestamp, ok := time.Module.Members["from_timestamp"]
+	if !ok {
 		t.Error("no such builtin: time.from_timestamp")
 		return
 	}
