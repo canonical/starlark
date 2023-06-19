@@ -231,9 +231,9 @@ var (
 		"rfind":          NotSafe,
 		"rindex":         NotSafe,
 		"rpartition":     NotSafe,
-		"rsplit":         NotSafe,
+		"rsplit":         MemSafe,
 		"rstrip":         NotSafe,
-		"split":          NotSafe,
+		"split":          MemSafe,
 		"splitlines":     NotSafe,
 		"startswith":     NotSafe,
 		"strip":          NotSafe,
@@ -2409,7 +2409,7 @@ func string_upper(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·split
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·rsplit
-func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := string(b.Receiver().(String))
 	var sep_ Value
 	maxsplit := -1
@@ -2420,6 +2420,10 @@ func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	var res []string
 
 	if sep_ == nil || sep_ == None {
+		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/2+1)); err != nil {
+			return nil, err
+		}
+
 		// special case: split on whitespace
 		if maxsplit < 0 {
 			res = strings.Fields(recv)
@@ -2433,6 +2437,11 @@ func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 		if sep == "" {
 			return nil, fmt.Errorf("split: empty separator")
 		}
+
+		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/len(sep)+1)); err != nil {
+			return nil, err
+		}
+
 		// usual case: split on non-empty separator
 		if maxsplit < 0 {
 			res = strings.Split(recv, sep)
@@ -2440,9 +2449,17 @@ func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 			res = strings.SplitN(recv, sep, maxsplit+1)
 		} else { // rsplit
 			res = strings.Split(recv, sep)
-			if excess := len(res) - maxsplit; excess > 0 {
-				res[0] = strings.Join(res[:excess], sep)
-				res = append(res[:1], res[excess:]...)
+			// If maxsplit is less than len(res), the first len(res) - maxsplit
+			// should be joined back together. Instead of joining them back,
+			// however, it is possible to take a slice of  the original string.
+			// If the excess is only one, it is also possible to skip this process.
+			if excess := len(res) - maxsplit; excess > 1 {
+				size := len(res[0])
+				for _, s := range res[1:excess] {
+					size += len(s) + len(sep)
+				}
+				res[excess-1] = recv[0:size]
+				res = res[excess-1:]
 			}
 		}
 
@@ -2450,6 +2467,11 @@ func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 		return nil, fmt.Errorf("split: got %s for separator, want string", sep_.Type())
 	}
 
+	listSize := EstimateMakeSize([]Value{String("")}, len(res))
+	resultSize := EstimateSize(&List{})
+	if err := thread.AddAllocs(listSize + resultSize); err != nil {
+		return nil, err
+	}
 	list := make([]Value, len(res))
 	for i, x := range res {
 		list[i] = String(x)
