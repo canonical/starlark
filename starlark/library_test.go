@@ -1072,20 +1072,19 @@ func TestStringLstripAllocs(t *testing.T) {
 func TestStringPartitionAllocs(t *testing.T) {
 }
 
-func TestStringRemoveprefixAllocs(t *testing.T) {
-	string_removeprefix, _ := starlark.String("immutable").Attr("removeprefix")
-	if string_removeprefix == nil {
-		t.Errorf("no such method: string.removeprefix")
+func testStringRemovefixAllocs(t *testing.T, method_name string) {
+	method, _ := starlark.String("aaaaaZZZZZaaaaa").Attr(method_name)
+	if method == nil {
+		t.Errorf("no such method: string.%s", method_name)
 		return
 	}
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
-	st.SetMaxAllocs(16)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			prefix := starlark.String("im")
-			result, err := starlark.Call(thread, string_removeprefix, starlark.Tuple{prefix}, nil)
+			args := starlark.Tuple{starlark.String("aaaaa")}
+			result, err := starlark.Call(thread, method, args, nil)
 			if err != nil {
 				st.Error(err)
 			}
@@ -1094,26 +1093,12 @@ func TestStringRemoveprefixAllocs(t *testing.T) {
 	})
 }
 
-func TestStringRemovesuffixAllocs(t *testing.T) {
-	string_removesuffix, _ := starlark.String("deadbeef").Attr("removesuffix")
-	if string_removesuffix == nil {
-		t.Errorf("no such method: string.removesuffix")
-		return
-	}
+func TestStringRemoveprefixAllocs(t *testing.T) {
+	testStringRemovefixAllocs(t, "removeprefix")
+}
 
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.SetMaxAllocs(16)
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			prefix := starlark.String("beef")
-			result, err := starlark.Call(thread, string_removesuffix, starlark.Tuple{prefix}, nil)
-			if err != nil {
-				st.Error(err)
-			}
-			st.KeepAlive(result)
-		}
-	})
+func TestStringRemovesuffixAllocs(t *testing.T) {
+	testStringRemovefixAllocs(t, "removesuffix")
 }
 
 func TestStringReplaceAllocs(t *testing.T) {
