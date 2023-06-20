@@ -223,7 +223,7 @@ var (
 		"isupper":        NotSafe,
 		"join":           NotSafe,
 		"lower":          NotSafe,
-		"lstrip":         NotSafe,
+		"lstrip":         MemSafe,
 		"partition":      NotSafe,
 		"removeprefix":   NotSafe,
 		"removesuffix":   NotSafe,
@@ -232,11 +232,11 @@ var (
 		"rindex":         NotSafe,
 		"rpartition":     NotSafe,
 		"rsplit":         MemSafe,
-		"rstrip":         NotSafe,
+		"rstrip":         MemSafe,
 		"split":          MemSafe,
 		"splitlines":     NotSafe,
 		"startswith":     MemSafe,
-		"strip":          NotSafe,
+		"strip":          MemSafe,
 		"title":          NotSafe,
 		"upper":          NotSafe,
 	}
@@ -2343,7 +2343,7 @@ func string_startswith(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·strip
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·lstrip
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·rstrip
-func string_strip(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var chars string
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &chars); err != nil {
 		return nil, err
@@ -2369,6 +2369,9 @@ func string_strip(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 		} else {
 			s = strings.TrimRightFunc(recv, unicode.IsSpace)
 		}
+	}
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
 	}
 	return String(s), nil
 }
