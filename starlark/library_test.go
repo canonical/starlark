@@ -1169,7 +1169,45 @@ func TestStringJoinAllocs(t *testing.T) {
 func TestStringLowerAllocs(t *testing.T) {
 }
 
+func testStringStripAllocs(t *testing.T, method_name string) {
+	method, _ := starlark.String("     ababaZZZZZababa     ").Attr(method_name)
+	if method == nil {
+		t.Errorf("no such method: string.%s", method_name)
+		return
+	}
+
+	t.Run("with-cutset=no", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, method, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("with-cutset=yes", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.String("ab ")}
+				result, err := starlark.Call(thread, method, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+}
+
 func TestStringLstripAllocs(t *testing.T) {
+	testStringStripAllocs(t, "lstrip")
 }
 
 func TestStringPartitionAllocs(t *testing.T) {
@@ -1262,6 +1300,7 @@ func TestStringRsplitAllocs(t *testing.T) {
 }
 
 func TestStringRstripAllocs(t *testing.T) {
+	testStringStripAllocs(t, "rstrip")
 }
 
 func TestStringSplitAllocs(t *testing.T) {
@@ -1340,6 +1379,7 @@ func TestStringStartswithAllocs(t *testing.T) {
 }
 
 func TestStringStripAllocs(t *testing.T) {
+	testStringStripAllocs(t, "strip")
 }
 
 func TestStringTitleAllocs(t *testing.T) {
