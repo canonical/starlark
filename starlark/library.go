@@ -78,13 +78,13 @@ func init() {
 		"abs":       NotSafe,
 		"any":       NotSafe,
 		"all":       MemSafe,
-		"bool":      NotSafe,
+		"bool":      MemSafe,
 		"bytes":     NotSafe,
 		"chr":       MemSafe,
 		"dict":      NotSafe,
 		"dir":       NotSafe,
 		"enumerate": MemSafe,
-		"fail":      NotSafe,
+		"fail":      MemSafe,
 		"float":     MemSafe,
 		"getattr":   NotSafe,
 		"hasattr":   NotSafe,
@@ -95,13 +95,13 @@ func init() {
 		"max":       NotSafe,
 		"min":       NotSafe,
 		"ord":       NotSafe,
-		"print":     NotSafe,
-		"range":     NotSafe,
-		"repr":      NotSafe,
+		"print":     MemSafe,
+		"range":     MemSafe,
+		"repr":      MemSafe,
 		"reversed":  NotSafe,
 		"set":       NotSafe,
 		"sorted":    NotSafe,
-		"str":       NotSafe,
+		"str":       MemSafe,
 		"tuple":     NotSafe,
 		"type":      NotSafe,
 		"zip":       MemSafe,
@@ -205,14 +205,14 @@ var (
 	}
 	stringMethodSafeties = map[string]Safety{
 		"capitalize":     NotSafe,
-		"codepoint_ords": NotSafe,
-		"codepoints":     NotSafe,
+		"codepoint_ords": MemSafe,
+		"codepoints":     MemSafe,
 		"count":          NotSafe,
-		"elem_ords":      NotSafe,
-		"elems":          NotSafe,
+		"elem_ords":      MemSafe,
+		"elems":          MemSafe,
 		"endswith":       MemSafe,
 		"find":           NotSafe,
-		"format":         NotSafe,
+		"format":         MemSafe,
 		"index":          NotSafe,
 		"isalnum":        MemSafe,
 		"isalpha":        MemSafe,
@@ -227,13 +227,13 @@ var (
 		"partition":      NotSafe,
 		"removeprefix":   NotSafe,
 		"removesuffix":   NotSafe,
-		"replace":        NotSafe,
+		"replace":        MemSafe,
 		"rfind":          NotSafe,
 		"rindex":         NotSafe,
 		"rpartition":     NotSafe,
-		"rsplit":         NotSafe,
+		"rsplit":         MemSafe,
 		"rstrip":         NotSafe,
-		"split":          NotSafe,
+		"split":          MemSafe,
 		"splitlines":     NotSafe,
 		"startswith":     MemSafe,
 		"strip":          NotSafe,
@@ -533,16 +533,24 @@ func fail(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if err := UnpackArgs("fail", nil, kwargs, "sep?", &sep); err != nil {
 		return nil, err
 	}
-	buf := new(strings.Builder)
-	buf.WriteString("fail: ")
+	buf := NewSafeStringBuilder(thread)
+	if _, err := buf.WriteString("fail: "); err != nil {
+		return nil, err
+	}
 	for i, v := range args {
 		if i > 0 {
-			buf.WriteString(sep)
+			if _, err := buf.WriteString(sep); err != nil {
+				return nil, err
+			}
 		}
 		if s, ok := AsString(v); ok {
-			buf.WriteString(s)
+			if _, err := buf.WriteString(s); err != nil {
+				return nil, err
+			}
 		} else {
-			writeValue(buf, v, nil)
+			if err := writeValue(buf, v, nil); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -1002,17 +1010,26 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if err := UnpackArgs("print", nil, kwargs, "sep?", &sep); err != nil {
 		return nil, err
 	}
-	buf := new(strings.Builder)
+
+	buf := NewSafeStringBuilder(thread)
 	for i, v := range args {
 		if i > 0 {
-			buf.WriteString(sep)
+			if _, err := buf.WriteString(sep); err != nil {
+				return nil, err
+			}
 		}
 		if s, ok := AsString(v); ok {
-			buf.WriteString(s)
+			if _, err := buf.WriteString(s); err != nil {
+				return nil, err
+			}
 		} else if b, ok := v.(Bytes); ok {
-			buf.WriteString(string(b))
+			if _, err := buf.WriteString(string(b)); err != nil {
+				return nil, err
+			}
 		} else {
-			writeValue(buf, v, nil)
+			if err := writeValue(buf, v, nil); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -1020,6 +1037,7 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if thread.Print != nil {
 		thread.Print(thread, s)
 	} else {
+		thread.AddAllocs(-int64(buf.Allocs()))
 		fmt.Fprintln(os.Stderr, s)
 	}
 	return None, nil
@@ -1042,7 +1060,11 @@ func range_(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		return nil, nameErr(b, "step argument must not be zero")
 	}
 
-	return rangeValue{start: start, stop: stop, step: step, len: rangeLen(start, stop, step)}, nil
+	result := Value(rangeValue{start: start, stop: stop, step: step, len: rangeLen(start, stop, step)})
+	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // A rangeValue is a comparable, immutable, indexable sequence of integers
@@ -1059,7 +1081,7 @@ var (
 
 func (r rangeValue) Len() int          { return r.len }
 func (r rangeValue) Index(i int) Value { return MakeInt(r.start + i*r.step) }
-func (r rangeValue) Iterate() Iterator { return &rangeIterator{r, 0} }
+func (r rangeValue) Iterate() Iterator { return &rangeIterator{r: r} }
 
 // rangeLen calculates the length of a range with the provided start, stop, and step.
 // caller must ensure that step is non-zero.
@@ -1142,13 +1164,35 @@ func (r rangeValue) contains(x Int) bool {
 }
 
 type rangeIterator struct {
-	r rangeValue
-	i int
+	r      rangeValue
+	i      int
+	thread *Thread
+	err    error
+}
+
+var _ SafeIterator = &rangeIterator{}
+
+func (it *rangeIterator) BindThread(thread *Thread) {
+	it.thread = thread
 }
 
 func (it *rangeIterator) Next(p *Value) bool {
+	if it.err != nil {
+		return false
+	}
+
 	if it.i < it.r.len {
-		*p = it.r.Index(it.i)
+		// value will always be an Int
+		value := it.r.Index(it.i)
+
+		if it.thread != nil {
+			if err := it.thread.AddAllocs(EstimateSize(value)); err != nil {
+				it.err = err
+				return false
+			}
+		}
+
+		*p = value
 		it.i++
 		return true
 	}
@@ -1156,8 +1200,13 @@ func (it *rangeIterator) Next(p *Value) bool {
 }
 func (*rangeIterator) Done() {}
 
-func (it *rangeIterator) Err() error     { return nil }
-func (it *rangeIterator) Safety() Safety { return NotSafe }
+func (it *rangeIterator) Err() error { return it.err }
+func (it *rangeIterator) Safety() Safety {
+	if it.thread == nil {
+		return NotSafe
+	}
+	return MemSafe
+}
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#repr
 func repr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
@@ -1165,7 +1214,15 @@ func repr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if err := UnpackPositionalArgs("repr", args, kwargs, 1, &x); err != nil {
 		return nil, err
 	}
-	return String(x.String()), nil
+
+	if s, err := safeToString(thread, x); err != nil {
+		return nil, err
+	} else {
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
+		}
+		return String(s), nil
+	}
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#reversed
@@ -1295,12 +1352,28 @@ func str(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	}
 	switch x := args[0].(type) {
 	case String:
-		return x, nil
+		// Converting args[0] to x and then returning x as Value
+		// casues an additional allocation, so return args[0] directly.
+		return args[0], nil
 	case Bytes:
 		// Invalid encodings are replaced by that of U+FFFD.
-		return String(utf8Transcode(string(x))), nil
+		if str, err := safeUtf8Transcode(thread, string(x)); err != nil {
+			return nil, err
+		} else {
+			if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+				return nil, err
+			}
+			return String(str), nil
+		}
 	default:
-		return String(x.String()), nil
+		if str, err := safeToString(thread, x); err != nil {
+			return nil, err
+		} else {
+			if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+				return nil, err
+			}
+			return String(str), nil
+		}
 	}
 }
 
@@ -1316,6 +1389,19 @@ func utf8Transcode(s string) string {
 		out.WriteRune(r)
 	}
 	return out.String()
+}
+
+func safeUtf8Transcode(thread *Thread, s string) (string, error) {
+	if utf8.ValidString(s) {
+		return s, nil
+	}
+	out := NewSafeStringBuilder(thread)
+	for _, r := range s {
+		if _, err := out.WriteRune(r); err != nil {
+			return "", err
+		}
+	}
+	return out.String(), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#tuple
@@ -1719,7 +1805,7 @@ func string_capitalize(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 // - codepoints: successive substrings that encode a single Unicode code point.
 // - elem_ords: numeric values of successive bytes
 // - codepoint_ords: numeric values of successive Unicode code points
-func string_iterable(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_iterable(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
@@ -1727,8 +1813,14 @@ func string_iterable(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 	ords := b.Name()[len(b.Name())-2] == 'd'
 	codepoints := b.Name()[0] == 'c'
 	if codepoints {
+		if err := thread.AddAllocs(EstimateSize(stringCodepoints{})); err != nil {
+			return nil, err
+		}
 		return stringCodepoints{s, ords}, nil
 	} else {
+		if err := thread.AddAllocs(EstimateSize(stringElems{})); err != nil {
+			return nil, err
+		}
 		return stringElems{s, ords}, nil
 	}
 }
@@ -1921,10 +2013,10 @@ func string_find(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·format
-func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_format(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	format := string(b.Receiver().(String))
 	var auto, manual bool // kinds of positional indexing used
-	buf := new(strings.Builder)
+	buf := NewSafeStringBuilder(thread)
 	index := 0
 	for {
 		literal := format
@@ -1937,13 +2029,17 @@ func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 		for {
 			j := strings.IndexByte(literal, '}')
 			if j < 0 {
-				buf.WriteString(literal)
+				if _, err := buf.WriteString(literal); err != nil {
+					return nil, err
+				}
 				break
 			}
 			if len(literal) == j+1 || literal[j+1] != '}' {
 				return nil, fmt.Errorf("format: single '}' in format")
 			}
-			buf.WriteString(literal[:j+1])
+			if _, err := buf.WriteString(literal[:j+1]); err != nil {
+				return nil, err
+			}
 			literal = literal[j+2:]
 		}
 
@@ -1953,7 +2049,9 @@ func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 
 		if i+1 < len(format) && format[i+1] == '{' {
 			// "{{" means a literal '{'
-			buf.WriteByte('{')
+			if err := buf.WriteByte('{'); err != nil {
+				return nil, err
+			}
 			format = format[i+2:]
 			continue
 		}
@@ -2047,15 +2145,25 @@ func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 		switch conv {
 		case "s":
 			if str, ok := AsString(arg); ok {
-				buf.WriteString(str)
+				if _, err := buf.WriteString(str); err != nil {
+					return nil, err
+				}
 			} else {
-				writeValue(buf, arg, nil)
+				if err := writeValue(buf, arg, nil); err != nil {
+					return nil, err
+				}
 			}
 		case "r":
-			writeValue(buf, arg, nil)
+			if err := writeValue(buf, arg, nil); err != nil {
+				return nil, err
+			}
 		default:
 			return nil, fmt.Errorf("format: unknown conversion %q", conv)
 		}
+	}
+
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
 	}
 	return String(buf.String()), nil
 }
@@ -2160,14 +2268,22 @@ func string_removefix(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·replace
-func string_replace(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := string(b.Receiver().(String))
 	var old, new string
 	count := -1
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 2, &old, &new, &count); err != nil {
 		return nil, err
 	}
-	return String(strings.Replace(recv, old, new, count)), nil
+
+	if err := thread.CheckAllocs(int64(len(recv) * len(new) / len(old))); err != nil {
+		return nil, err
+	}
+	result := Value(String(strings.Replace(recv, old, new, count)))
+	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·rfind
@@ -2293,7 +2409,7 @@ func string_upper(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·split
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·rsplit
-func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := string(b.Receiver().(String))
 	var sep_ Value
 	maxsplit := -1
@@ -2304,6 +2420,10 @@ func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	var res []string
 
 	if sep_ == nil || sep_ == None {
+		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/2+1)); err != nil {
+			return nil, err
+		}
+
 		// special case: split on whitespace
 		if maxsplit < 0 {
 			res = strings.Fields(recv)
@@ -2317,6 +2437,11 @@ func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 		if sep == "" {
 			return nil, fmt.Errorf("split: empty separator")
 		}
+
+		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/len(sep)+1)); err != nil {
+			return nil, err
+		}
+
 		// usual case: split on non-empty separator
 		if maxsplit < 0 {
 			res = strings.Split(recv, sep)
@@ -2324,9 +2449,17 @@ func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 			res = strings.SplitN(recv, sep, maxsplit+1)
 		} else { // rsplit
 			res = strings.Split(recv, sep)
-			if excess := len(res) - maxsplit; excess > 0 {
-				res[0] = strings.Join(res[:excess], sep)
-				res = append(res[:1], res[excess:]...)
+			// If maxsplit is less than len(res), the first len(res) - maxsplit
+			// should be joined back together. Instead of joining them back,
+			// however, it is possible to take a slice of  the original string.
+			// If the excess is only one, it is also possible to skip this process.
+			if excess := len(res) - maxsplit; excess > 1 {
+				size := len(res[0])
+				for _, s := range res[1:excess] {
+					size += len(s) + len(sep)
+				}
+				res[excess-1] = recv[0:size]
+				res = res[excess-1:]
 			}
 		}
 
@@ -2334,6 +2467,11 @@ func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 		return nil, fmt.Errorf("split: got %s for separator, want string", sep_.Type())
 	}
 
+	listSize := EstimateMakeSize([]Value{String("")}, len(res))
+	resultSize := EstimateSize(&List{})
+	if err := thread.AddAllocs(listSize + resultSize); err != nil {
+		return nil, err
+	}
 	list := make([]Value, len(res))
 	for i, x := range res {
 		list[i] = String(x)
