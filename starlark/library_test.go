@@ -1170,7 +1170,7 @@ func TestStringLowerAllocs(t *testing.T) {
 }
 
 func testStringStripAllocs(t *testing.T, method_name string) {
-	method, _ := starlark.String("ababaZZZZZababa").Attr(method_name)
+	method, _ := starlark.String("     ababaZZZZZababa     ").Attr(method_name)
 	if method == nil {
 		t.Errorf("no such method: string.%s", method_name)
 		return
@@ -1193,10 +1193,9 @@ func testStringStripAllocs(t *testing.T, method_name string) {
 	t.Run("with-cutset=yes", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				args := starlark.Tuple{starlark.String("ab")}
+				args := starlark.Tuple{starlark.String("ab ")}
 				result, err := starlark.Call(thread, method, args, nil)
 				if err != nil {
 					st.Error(err)
@@ -1380,42 +1379,7 @@ func TestStringStartswithAllocs(t *testing.T) {
 }
 
 func TestStringStripAllocs(t *testing.T) {
-	string_strip, _ := starlark.String("    airship    ").Attr("strip")
-	if string_strip == nil {
-		t.Errorf("no such method: string.strip")
-		return
-	}
-
-	t.Run("with-cutset=no", func(t *testing.T) {
-		st := startest.From(t)
-		st.SetMaxAllocs(16)
-		st.RequireSafety(starlark.MemSafe)
-		st.RunThread(func(thread *starlark.Thread) {
-			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, string_strip, nil, nil)
-				if err != nil {
-					st.Error(err)
-				}
-				st.KeepAlive(result)
-			}
-		})
-	})
-
-	t.Run("with-cutset=yes", func(t *testing.T) {
-		st := startest.From(t)
-		st.SetMaxAllocs(16)
-		st.RequireSafety(starlark.MemSafe)
-		st.RunThread(func(thread *starlark.Thread) {
-			for i := 0; i < st.N; i++ {
-				cutset := starlark.String("paint ")
-				result, err := starlark.Call(thread, string_strip, starlark.Tuple{cutset}, nil)
-				if err != nil {
-					st.Error(err)
-				}
-				st.KeepAlive(result)
-			}
-		})
-	})
+	testStringStripAllocs(t, "strip")
 }
 
 func TestStringTitleAllocs(t *testing.T) {
