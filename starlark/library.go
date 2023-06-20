@@ -80,15 +80,15 @@ func init() {
 		"all":       MemSafe,
 		"bool":      NotSafe,
 		"bytes":     NotSafe,
-		"chr":       NotSafe,
+		"chr":       MemSafe,
 		"dict":      NotSafe,
 		"dir":       NotSafe,
-		"enumerate": NotSafe,
+		"enumerate": MemSafe,
 		"fail":      NotSafe,
 		"float":     MemSafe,
 		"getattr":   NotSafe,
 		"hasattr":   NotSafe,
-		"hash":      NotSafe,
+		"hash":      MemSafe,
 		"int":       MemSafe,
 		"len":       NotSafe,
 		"list":      NotSafe,
@@ -104,7 +104,7 @@ func init() {
 		"str":       NotSafe,
 		"tuple":     NotSafe,
 		"type":      NotSafe,
-		"zip":       NotSafe,
+		"zip":       MemSafe,
 	}
 
 	for name, flags := range universeSafeties {
@@ -214,12 +214,12 @@ var (
 		"find":           NotSafe,
 		"format":         NotSafe,
 		"index":          NotSafe,
-		"isalnum":        NotSafe,
-		"isalpha":        NotSafe,
-		"isdigit":        NotSafe,
-		"islower":        NotSafe,
-		"isspace":        NotSafe,
-		"istitle":        NotSafe,
+		"isalnum":        MemSafe,
+		"isalpha":        MemSafe,
+		"isdigit":        MemSafe,
+		"islower":        MemSafe,
+		"isspace":        MemSafe,
+		"istitle":        MemSafe,
 		"isupper":        NotSafe,
 		"join":           NotSafe,
 		"lower":          NotSafe,
@@ -428,7 +428,11 @@ func chr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if i > unicode.MaxRune {
 		return nil, fmt.Errorf("chr: Unicode code point U+%X out of range (>0x10FFFF)", i)
 	}
-	return String(string(rune(i))), nil
+	ret := Value(String(string(rune(i))))
+	if err := thread.AddAllocs(EstimateSize(ret)); err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict
@@ -473,8 +477,10 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 
-	// TODO: use SafeIterate
-	iter := iterable.Iterate()
+	iter, err := SafeIterate(thread, iterable)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 
 	var pairs []Value
@@ -482,6 +488,12 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 
 	if n := Len(iterable); n >= 0 {
 		// common case: known length
+		overhead := EstimateMakeSize([]Value{Tuple{}}, n) +
+			EstimateMakeSize([][2]Value{{MakeInt(0), nil}}, n)
+		if err := thread.AddAllocs(overhead); err != nil {
+			return nil, err
+		}
+
 		pairs = make([]Value, 0, n)
 		array := make(Tuple, 2*n) // allocate a single backing array
 		for i := 0; iter.Next(&x); i++ {
@@ -493,12 +505,25 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		}
 	} else {
 		// non-sequence (unknown length)
+		pairCost := EstimateSize(Tuple{MakeInt(0), nil})
+		pairsAppender := NewSafeAppender(thread, &pairs)
 		for i := 0; iter.Next(&x); i++ {
+			if err := thread.AddAllocs(pairCost); err != nil {
+				return nil, err
+			}
 			pair := Tuple{MakeInt(start + i), x}
-			pairs = append(pairs, pair)
+			if err := pairsAppender.Append(pair); err != nil {
+				return nil, err
+			}
 		}
 	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
 
+	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
+		return nil, err
+	}
 	return NewList(pairs), nil
 }
 
@@ -681,7 +706,11 @@ func hash(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	default:
 		return nil, fmt.Errorf("hash: got %s, want string or bytes", x.Type())
 	}
-	return MakeInt64(h), nil
+	ret := Value(MakeInt64(h))
+	if err := thread.AddAllocs(EstimateSize(ret)); err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 // javaStringHash returns the same hash as would be produced by
@@ -1338,10 +1367,12 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		}
 	}()
 	for i, seq := range args {
-		// TODO: use SafeIterate
-		it := Iterate(seq)
-		if it == nil {
-			return nil, fmt.Errorf("zip: argument #%d is not iterable: %s", i+1, seq.Type())
+		it, err := SafeIterate(thread, seq)
+		if err != nil {
+			if err == ErrUnsupported {
+				return nil, fmt.Errorf("zip: argument #%d is not iterable: %s", i+1, seq.Type())
+			}
+			return nil, err
 		}
 		iters[i] = it
 		n := Len(seq)
@@ -1352,28 +1383,53 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	var result []Value
 	if rows >= 0 {
 		// length known
+		resultSize := EstimateMakeSize([]Value{Tuple{}}, rows)
+		arraySize := EstimateMakeSize(Tuple{}, cols*rows)
+		if err := thread.AddAllocs(resultSize + arraySize); err != nil {
+			return nil, err
+		}
 		result = make([]Value, rows)
 		array := make(Tuple, cols*rows) // allocate a single backing array
 		for i := 0; i < rows; i++ {
 			tuple := array[:cols:cols]
 			array = array[cols:]
 			for j, iter := range iters {
-				iter.Next(&tuple[j])
+				if !iter.Next(&tuple[j]) {
+					if err := iter.Err(); err != nil {
+						return nil, err
+					}
+					return nil, fmt.Errorf("zip: iteration stopped earlier than reported length")
+				}
 			}
 			result[i] = tuple
 		}
 	} else {
 		// length not known
+		tupleSize := EstimateMakeSize(Tuple{}, cols)
+		valueSize := EstimateSize(Tuple{})
+		appender := NewSafeAppender(thread, &result)
 	outer:
 		for {
+			if err := thread.AddAllocs(tupleSize + valueSize); err != nil {
+				return nil, err
+			}
 			tuple := make(Tuple, cols)
 			for i, iter := range iters {
 				if !iter.Next(&tuple[i]) {
+					if err := iter.Err(); err != nil {
+						return nil, err
+					}
 					break outer
 				}
 			}
-			result = append(result, tuple)
+			if err := appender.Append(tuple); err != nil {
+				return nil, err
+			}
 		}
+	}
+
+	if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
+		return nil, err
 	}
 	return NewList(result), nil
 }
