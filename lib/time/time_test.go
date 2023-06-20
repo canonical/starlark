@@ -42,6 +42,23 @@ func TestMethodSafetiesExist(t *testing.T) {
 }
 
 func TestTimeFromTimestampAllocs(t *testing.T) {
+	from_timestamp, ok := time.Module.Members["from_timestamp"]
+	if !ok {
+		t.Error("no such builtin: time.from_timestamp")
+		return
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, from_timestamp, starlark.Tuple{starlark.MakeInt(10000)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestTimeIsValidTimezoneAllocs(t *testing.T) {
