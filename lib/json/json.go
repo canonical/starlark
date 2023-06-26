@@ -289,7 +289,7 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	if err := json.Indent(buf, []byte(str), prefix, indent); err != nil {
 		return nil, fmt.Errorf("%s: %v", b.Name(), err)
 	}
-	if err := thread.AddAllocs(int64(buf.Cap())); err != nil {
+	if err := thread.AddAllocs(int64(buf.Cap()) + starlark.StringTypeOverhead); err != nil {
 		return nil, err
 	}
 	return starlark.String(buf.String()), nil

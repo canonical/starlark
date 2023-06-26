@@ -40,15 +40,14 @@ func TestJsonIndentAllocs(t *testing.T) {
 
 	obj := starlark.String(`{"l":[[[[[[{"i":10,"n":null}]]]]]]}`)
 	fn := json.Module.Members["indent"]
-
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
-		result, err := starlark.Call(thread, fn, starlark.Tuple{obj}, nil)
-
-		if err != nil {
-			st.Error(err)
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, fn, starlark.Tuple{obj}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
 		}
-
-		st.KeepAlive(result)
 	})
 }
