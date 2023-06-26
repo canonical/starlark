@@ -54,11 +54,9 @@ func (ht *hashtable) init(size int) {
 
 func (ht *hashtable) estimateSize() int64 {
 	size := EstimateSize(&hashtable{})
-
 	if ht.table != nil && &ht.bucket0[0] != &ht.table[0] {
 		size += EstimateMakeSize([]bucket{}, cap(ht.table))
 	}
-
 	return size
 }
 

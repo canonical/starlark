@@ -444,7 +444,6 @@ func dict(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if err := thread.AddAllocs(EstimateSize(dict)); err != nil {
 		return nil, err
 	}
-
 	if err := updateDict(thread, dict, args, kwargs); err != nil {
 		return nil, fmt.Errorf("dict: %v", err)
 	}
@@ -1527,10 +1526,8 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·get
 func dict_get(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
-
-	// The only way this function allocates is during hashing and comparrisons
+	// The only way this function allocates is during hashing and comparisons
 	// (see `Int` type comparisons for an example).
-
 	var key, dflt Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &key, &dflt); err != nil {
 		return nil, err
@@ -1565,7 +1562,6 @@ func dict_items(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 	}
 	receiver := b.Receiver().(*Dict)
 	len := receiver.Len()
-
 	// dict.Items() allocates a single backing array for the tuples.
 	backingArraySize := EstimateMakeSize([]Value{}, len*2)
 	resSize := EstimateMakeSize([]Value{Tuple{}}, len)
@@ -1573,20 +1569,15 @@ func dict_items(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 	if err := thread.AddAllocs(resSize + backingArraySize + resultSize); err != nil {
 		return nil, err
 	}
-
-	// There is also a transient allocation for the items
 	itemsSize := EstimateMakeSize([]Tuple{}, len)
 	if err := thread.CheckAllocs(itemsSize); err != nil {
 		return nil, err
 	}
-
 	items := receiver.Items()
 	res := make([]Value, len)
-
 	for i, item := range items {
 		res[i] = item
 	}
-
 	return NewList(res), nil
 }
 
@@ -1595,15 +1586,12 @@ func dict_keys(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-
 	dict := b.Receiver().(*Dict)
-
 	resultSize := EstimateSize(&List{})
 	keysSize := EstimateMakeSize([]Value{}, dict.Len())
 	if err := thread.AddAllocs(resultSize + keysSize); err != nil {
 		return nil, err
 	}
-
 	return NewList(dict.Keys()), nil
 }
 
@@ -1638,11 +1626,10 @@ func dict_popitem(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if err != nil {
 		return nil, nameErr(b, err) // dict is frozen
 	}
-
-	if err := thread.AddAllocs(EstimateSize(Tuple{nil, nil})); err != nil {
+	resultSize := EstimateMakeSize(Tuple{}, 2) + EstimateSize(Tuple{})
+	if err := thread.AddAllocs(resultSize); err != nil {
 		return nil, err
 	}
-
 	return Tuple{k, v}, nil
 }
 
@@ -1685,15 +1672,12 @@ func dict_values(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-
 	dict := b.Receiver().(*Dict)
-
 	resultSize := EstimateSize(&List{})
 	valuesSize := EstimateMakeSize([]Value{}, dict.Len())
 	if err := thread.AddAllocs(resultSize + valuesSize); err != nil {
 		return nil, err
 	}
-
 	return NewList(dict.Values()), nil
 }
 
