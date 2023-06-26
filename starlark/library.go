@@ -312,22 +312,20 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			return x, nil
 		}
 
-		result := Float(math.Abs(float64(tx)))
+		result := Value(Float(math.Abs(float64(tx))))
 		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
 		}
-
 		return result, nil
 	case Int:
 		if tx.Sign() >= 0 {
 			return x, nil
 		}
 
-		result := zero.Sub(tx)
+		result := Value(zero.Sub(tx))
 		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
 		}
-
 		return result, nil
 	default:
 		return nil, fmt.Errorf("got %s, want int or float", x.Type())
