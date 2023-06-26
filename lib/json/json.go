@@ -254,7 +254,6 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	if err := starlark.UnpackPositionalArgs(b.Name(), args, nil, 1, &str); err != nil {
 		return nil, err
 	}
-
 	buf := new(bytes.Buffer)
 	buf.Grow(len(str)) // Preallocate since that's the least amount of bytes written
 
@@ -287,17 +286,13 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	if err := thread.CheckAllocs(int64(len(str) + worstCase*2)); err != nil {
 		return nil, err
 	}
-
 	if err := json.Indent(buf, []byte(str), prefix, indent); err != nil {
 		return nil, fmt.Errorf("%s: %v", b.Name(), err)
 	}
-
-	var result starlark.Value = starlark.String(buf.String())
 	if err := thread.AddAllocs(int64(buf.Cap())); err != nil {
 		return nil, err
 	}
-
-	return result, nil
+	return starlark.String(buf.String()), nil
 }
 
 func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (_ starlark.Value, err error) {
