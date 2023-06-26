@@ -827,7 +827,7 @@ func len_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		return nil, fmt.Errorf("len: value of type %s has no len", x.Type())
 	}
 
-	result := MakeInt(len)
+	result := Value(MakeInt(len))
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
 	}
