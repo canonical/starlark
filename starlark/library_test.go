@@ -926,19 +926,45 @@ func TestListRemoveAllocs(t *testing.T) {
 func TestStringCapitalizeAllocs(t *testing.T) {
 }
 
-func TestStringCodepoint_ordsAllocs(t *testing.T) {
+func testStringIterable(t *testing.T, methodName string) {
+	method, _ := starlark.String("arbitrary-string").Attr(methodName)
+	if method == nil {
+		t.Errorf("no such method: string.%s", methodName)
+		return
+	}
+
+	st := startest.From(t)
+
+	st.RequireSafety(starlark.MemSafe)
+
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, method, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
+}
+
+func TestStringCodepointOrdsAllocs(t *testing.T) {
+	testStringIterable(t, "codepoint_ords")
 }
 
 func TestStringCodepointsAllocs(t *testing.T) {
+	testStringIterable(t, "codepoints")
 }
 
 func TestStringCountAllocs(t *testing.T) {
 }
 
-func TestStringElem_ordsAllocs(t *testing.T) {
+func TestStringElemOrdsAllocs(t *testing.T) {
+	testStringIterable(t, "elem_ords")
 }
 
 func TestStringElemsAllocs(t *testing.T) {
+	testStringIterable(t, "elems")
 }
 
 func TestStringEndswithAllocs(t *testing.T) {
@@ -1259,7 +1285,45 @@ func TestStringLowerAllocs(t *testing.T) {
 	})
 }
 
+func testStringStripAllocs(t *testing.T, method_name string) {
+	method, _ := starlark.String("     ababaZZZZZababa     ").Attr(method_name)
+	if method == nil {
+		t.Errorf("no such method: string.%s", method_name)
+		return
+	}
+
+	t.Run("with-cutset=no", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, method, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("with-cutset=yes", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.String("ab ")}
+				result, err := starlark.Call(thread, method, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+}
+
 func TestStringLstripAllocs(t *testing.T) {
+	testStringStripAllocs(t, "lstrip")
 }
 
 func TestStringPartitionAllocs(t *testing.T) {
@@ -1303,12 +1367,125 @@ func TestStringRpartitionAllocs(t *testing.T) {
 }
 
 func TestStringRsplitAllocs(t *testing.T) {
+	t.Run("delimiter", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			delimiter := starlark.String("beef")
+			// I must count the string content as well since it will
+			// be kept alive by the slices taken by the delimeter.
+			str := starlark.String(strings.Repeat("deadbeef", st.N))
+			if err := thread.AddAllocs(int64(len(str))); err != nil {
+				st.Error(err)
+			}
+
+			string_rsplit, _ := str.Attr("rsplit")
+			if string_rsplit == nil {
+				st.Fatal("no such method: string.rsplit")
+			}
+
+			result, err := starlark.Call(thread, string_rsplit, starlark.Tuple{delimiter, starlark.MakeInt(st.N)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("empty-delimiter", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("go    go", st.N))
+			if err := thread.AddAllocs(int64(len(str))); err != nil {
+				st.Error(err)
+			}
+
+			string_split, _ := str.Attr("rsplit")
+			if string_split == nil {
+				st.Fatal("no such method: string.rsplit")
+			}
+
+			result, err := starlark.Call(thread, string_split, starlark.Tuple{starlark.None, starlark.MakeInt(st.N)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
 }
 
 func TestStringRstripAllocs(t *testing.T) {
+	testStringStripAllocs(t, "rstrip")
 }
 
 func TestStringSplitAllocs(t *testing.T) {
+	t.Run("delimiter", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			delimiter := starlark.String("beef")
+			// I must count the string content as well since it will
+			// be kept alive by the slices taken by the delimeter.
+			str := starlark.String(strings.Repeat("deadbeef", st.N))
+			if err := thread.AddAllocs(int64(len(str))); err != nil {
+				st.Error(err)
+			}
+
+			string_split, _ := str.Attr("split")
+			if string_split == nil {
+				st.Fatal("no such method: string.split")
+			}
+
+			result, err := starlark.Call(thread, string_split, starlark.Tuple{delimiter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("empty-delimiter", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("go    go", st.N))
+			if err := thread.AddAllocs(int64(len(str))); err != nil {
+				st.Error(err)
+			}
+
+			string_split, _ := str.Attr("split")
+			if string_split == nil {
+				st.Fatal("no such method: string.split")
+			}
+
+			result, err := starlark.Call(thread, string_split, starlark.Tuple{}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("small", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String("g g g")
+			string_split, _ := str.Attr("split")
+			if string_split == nil {
+				st.Fatal("no such method: string.split")
+			}
+
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, string_split, starlark.Tuple{}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestStringSplitlinesAllocs(t *testing.T) {
@@ -1318,6 +1495,7 @@ func TestStringStartswithAllocs(t *testing.T) {
 }
 
 func TestStringStripAllocs(t *testing.T) {
+	testStringStripAllocs(t, "strip")
 }
 
 func TestStringTitleAllocs(t *testing.T) {

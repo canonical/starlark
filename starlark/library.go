@@ -205,11 +205,11 @@ var (
 	}
 	stringMethodSafeties = map[string]Safety{
 		"capitalize":     NotSafe,
-		"codepoint_ords": NotSafe,
-		"codepoints":     NotSafe,
+		"codepoint_ords": MemSafe,
+		"codepoints":     MemSafe,
 		"count":          NotSafe,
-		"elem_ords":      NotSafe,
-		"elems":          NotSafe,
+		"elem_ords":      MemSafe,
+		"elems":          MemSafe,
 		"endswith":       NotSafe,
 		"find":           NotSafe,
 		"format":         MemSafe,
@@ -223,7 +223,7 @@ var (
 		"isupper":        NotSafe,
 		"join":           NotSafe,
 		"lower":          MemSafe,
-		"lstrip":         NotSafe,
+		"lstrip":         MemSafe,
 		"partition":      NotSafe,
 		"removeprefix":   NotSafe,
 		"removesuffix":   NotSafe,
@@ -231,12 +231,12 @@ var (
 		"rfind":          NotSafe,
 		"rindex":         NotSafe,
 		"rpartition":     NotSafe,
-		"rsplit":         NotSafe,
-		"rstrip":         NotSafe,
-		"split":          NotSafe,
+		"rsplit":         MemSafe,
+		"rstrip":         MemSafe,
+		"split":          MemSafe,
 		"splitlines":     NotSafe,
 		"startswith":     NotSafe,
-		"strip":          NotSafe,
+		"strip":          MemSafe,
 		"title":          NotSafe,
 		"upper":          MemSafe,
 	}
@@ -1805,7 +1805,7 @@ func string_capitalize(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 // - codepoints: successive substrings that encode a single Unicode code point.
 // - elem_ords: numeric values of successive bytes
 // - codepoint_ords: numeric values of successive Unicode code points
-func string_iterable(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_iterable(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
@@ -1813,8 +1813,14 @@ func string_iterable(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 	ords := b.Name()[len(b.Name())-2] == 'd'
 	codepoints := b.Name()[0] == 'c'
 	if codepoints {
+		if err := thread.AddAllocs(EstimateSize(stringCodepoints{})); err != nil {
+			return nil, err
+		}
 		return stringCodepoints{s, ords}, nil
 	} else {
+		if err := thread.AddAllocs(EstimateSize(stringElems{})); err != nil {
+			return nil, err
+		}
 		return stringElems{s, ords}, nil
 	}
 }
@@ -2349,7 +2355,7 @@ func string_startswith(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·strip
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·lstrip
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·rstrip
-func string_strip(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var chars string
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &chars); err != nil {
 		return nil, err
@@ -2375,6 +2381,9 @@ func string_strip(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 		} else {
 			s = strings.TrimRightFunc(recv, unicode.IsSpace)
 		}
+	}
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
 	}
 	return String(s), nil
 }
@@ -2423,7 +2432,7 @@ func string_upper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·split
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·rsplit
-func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := string(b.Receiver().(String))
 	var sep_ Value
 	maxsplit := -1
@@ -2434,6 +2443,10 @@ func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	var res []string
 
 	if sep_ == nil || sep_ == None {
+		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/2+1)); err != nil {
+			return nil, err
+		}
+
 		// special case: split on whitespace
 		if maxsplit < 0 {
 			res = strings.Fields(recv)
@@ -2447,6 +2460,11 @@ func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 		if sep == "" {
 			return nil, fmt.Errorf("split: empty separator")
 		}
+
+		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/len(sep)+1)); err != nil {
+			return nil, err
+		}
+
 		// usual case: split on non-empty separator
 		if maxsplit < 0 {
 			res = strings.Split(recv, sep)
@@ -2454,9 +2472,17 @@ func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 			res = strings.SplitN(recv, sep, maxsplit+1)
 		} else { // rsplit
 			res = strings.Split(recv, sep)
-			if excess := len(res) - maxsplit; excess > 0 {
-				res[0] = strings.Join(res[:excess], sep)
-				res = append(res[:1], res[excess:]...)
+			// If maxsplit is less than len(res), the first len(res) - maxsplit
+			// should be joined back together. Instead of joining them back,
+			// however, it is possible to take a slice of  the original string.
+			// If the excess is only one, it is also possible to skip this process.
+			if excess := len(res) - maxsplit; excess > 1 {
+				size := len(res[0])
+				for _, s := range res[1:excess] {
+					size += len(s) + len(sep)
+				}
+				res[excess-1] = recv[0:size]
+				res = res[excess-1:]
 			}
 		}
 
@@ -2464,6 +2490,11 @@ func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 		return nil, fmt.Errorf("split: got %s for separator, want string", sep_.Type())
 	}
 
+	listSize := EstimateMakeSize([]Value{String("")}, len(res))
+	resultSize := EstimateSize(&List{})
+	if err := thread.AddAllocs(listSize + resultSize); err != nil {
+		return nil, err
+	}
 	list := make([]Value, len(res))
 	for i, x := range res {
 		list[i] = String(x)
