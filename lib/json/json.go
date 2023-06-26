@@ -293,7 +293,7 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	}
 
 	var result starlark.Value = starlark.String(buf.String())
-	if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+	if err := thread.AddAllocs(int64(buf.Cap())); err != nil {
 		return nil, err
 	}
 
