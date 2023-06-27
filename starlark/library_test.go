@@ -967,7 +967,30 @@ func TestStringElemsAllocs(t *testing.T) {
 	testStringIterable(t, "elems")
 }
 
+func testStringFixAllocs(t *testing.T, method_name string) {
+	method, _ := starlark.String("foo-bar-foo").Attr(method_name)
+	if method == nil {
+		t.Errorf("no such method: %s", method)
+		return
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			args := starlark.Tuple{starlark.String("foo")}
+			result, err := starlark.Call(thread, method, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
+}
+
 func TestStringEndswithAllocs(t *testing.T) {
+	testStringFixAllocs(t, "endswith")
 }
 
 func TestStringFindAllocs(t *testing.T) {
@@ -1376,6 +1399,7 @@ func TestStringSplitlinesAllocs(t *testing.T) {
 }
 
 func TestStringStartswithAllocs(t *testing.T) {
+	testStringFixAllocs(t, "startswith")
 }
 
 func TestStringStripAllocs(t *testing.T) {
