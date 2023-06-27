@@ -1435,11 +1435,11 @@ func type_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if len(args) != 1 {
 		return nil, fmt.Errorf("type: got %d arguments, want exactly 1", len(args))
 	}
-
-	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+	result := Value(String(args[0].Type()))
+	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
 	}
-	return String(args[0].Type()), nil
+	return result, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#zip
