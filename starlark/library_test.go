@@ -185,6 +185,97 @@ func (iter *testSequenceIterator) Next(p *starlark.Value) bool {
 }
 
 func TestAbsAllocs(t *testing.T) {
+	abs := starlark.Universe["abs"]
+
+	t.Run("positive-ints", func(t *testing.T) {
+		st := startest.From(t)
+
+		var one starlark.Value = starlark.MakeInt(1)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(th *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(th, abs, starlark.Tuple{one}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("small-ints", func(t *testing.T) {
+		st := startest.From(t)
+
+		var speedOfLightInVacuum starlark.Value = starlark.MakeInt(-299792458)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(th *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(th, abs, starlark.Tuple{speedOfLightInVacuum}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("big-ints", func(t *testing.T) {
+		st := startest.From(t)
+
+		var electrostaticConstant starlark.Value = starlark.MakeInt64(-8987551792)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(th *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(th, abs, starlark.Tuple{electrostaticConstant}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("positive-floats", func(t *testing.T) {
+		st := startest.From(t)
+
+		var pi starlark.Value = starlark.Float(math.Pi)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(th *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(th, abs, starlark.Tuple{pi}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("floats", func(t *testing.T) {
+		st := startest.From(t)
+
+		var electronElementaryCharge starlark.Value = starlark.Float(-1.602176634e-19)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(th *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(th, abs, starlark.Tuple{electronElementaryCharge}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestAnyAllocs(t *testing.T) {

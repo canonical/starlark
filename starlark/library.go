@@ -75,7 +75,7 @@ func init() {
 	}
 
 	universeSafeties = map[string]Safety{
-		"abs":       NotSafe,
+		"abs":       MemSafe,
 		"any":       NotSafe,
 		"all":       MemSafe,
 		"bool":      MemSafe,
@@ -306,14 +306,27 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if err := UnpackPositionalArgs("abs", args, kwargs, 1, &x); err != nil {
 		return nil, err
 	}
-	switch x := x.(type) {
+	switch tx := x.(type) {
 	case Float:
-		return Float(math.Abs(float64(x))), nil
-	case Int:
-		if x.Sign() >= 0 {
+		if tx >= 0 {
 			return x, nil
 		}
-		return zero.Sub(x), nil
+
+		result := Value(Float(math.Abs(float64(tx))))
+		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+			return nil, err
+		}
+		return result, nil
+	case Int:
+		if tx.Sign() >= 0 {
+			return x, nil
+		}
+
+		result := Value(zero.Sub(tx))
+		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+			return nil, err
+		}
+		return result, nil
 	default:
 		return nil, fmt.Errorf("got %s, want int or float", x.Type())
 	}
