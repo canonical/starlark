@@ -605,6 +605,20 @@ func TestIntAllocs(t *testing.T) {
 }
 
 func TestLenAllocs(t *testing.T) {
+	len_ := starlark.Universe["len"]
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, len_, starlark.Tuple{starlark.String("test")}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestListAllocs(t *testing.T) {
