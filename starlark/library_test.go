@@ -1295,6 +1295,122 @@ func TestStringJoinAllocs(t *testing.T) {
 }
 
 func TestStringLowerAllocs(t *testing.T) {
+	t.Run("ASCII", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("dEaDbEeF", st.N))
+			fn, err := str.Attr("lower")
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			if fn == nil {
+				st.Errorf("`string.lower` builtin doesn't exists")
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			if err != nil {
+				st.Error(err)
+				return
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("Unicode", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("ΔΗΑΔΒΗΗΦ", st.N))
+			fn, err := str.Attr("lower")
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			if fn == nil {
+				st.Errorf("`string.lower` builtin doesn't exists")
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			if err != nil {
+				st.Error(err)
+				return
+			}
+			st.KeepAlive(result)
+		})
+
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("a", st.N) + "ȺȾȺȾ")
+			fn, err := str.Attr("upper")
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			if err != nil {
+				st.Error(err)
+				return
+			}
+			st.KeepAlive(result)
+		})
+
+		st.RunThread(func(thread *starlark.Thread) {
+			// This is the only case where the difference is 2
+			// e.g. the lowercase version takes 1 byte, this
+			// special char takes 3. However, since the computation
+			// is done through the length of the original string,
+			// it should be safe ("just" wasting a 2/3 of the space).
+			str := starlark.String(strings.Repeat("K", st.N))
+			fn, err := str.Attr("upper")
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			if err != nil {
+				st.Error(err)
+				return
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("Unicode-single", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String("Φ")
+			fn, err := str.Attr("lower")
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			if fn == nil {
+				st.Errorf("`string.lower` builtin doesn't exists")
+				return
+			}
+
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+				if err != nil {
+					st.Error(err)
+					return
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func testStringStripAllocs(t *testing.T, method_name string) {
@@ -1515,6 +1631,118 @@ func TestStringTitleAllocs(t *testing.T) {
 }
 
 func TestStringUpperAllocs(t *testing.T) {
+	t.Run("ASCII", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("dEaDbEeF", st.N))
+			fn, err := str.Attr("upper")
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			if err != nil {
+				st.Error(err)
+				return
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("Unicode", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+
+		// In this case, the characters are not ascii, but the length
+		// of each character remains stable for each character.
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("δηαδβηηφ", st.N))
+			fn, err := str.Attr("upper")
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			if err != nil {
+				st.Error(err)
+				return
+			}
+			st.KeepAlive(result)
+		})
+
+		// In this case, the characters at the end of the string
+		// have a bigger representations after conversion thus
+		// triggering a growth operation which is rather badly
+		// implemented leading to an allocation which is double
+		// the size it actually needs. In go 1.20, while the
+		// growth operation is still flawed, it will not be used
+		// during rune encoding, thus reducing the size of this
+		// allocation to about 20% (except for small strings, where
+		// the problem persists)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("a", st.N) + "ɥɐɥɐ")
+			fn, err := str.Attr("upper")
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			if err != nil {
+				st.Error(err)
+				return
+			}
+			st.KeepAlive(result)
+		})
+
+		// In this case, the size of the translated rule is
+		// smaller than the original one. But even so, go
+		// will proceed to allocate a very big buffer, about
+		// twice the size of the original string.
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("ı", st.N))
+			fn, err := str.Attr("upper")
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			if err != nil {
+				st.Error(err)
+				return
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("Unicode-single", func(t *testing.T) {
+		st := startest.From(t)
+
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String("φ")
+			fn, err := str.Attr("upper")
+			if err != nil {
+				st.Error(err)
+				return
+			}
+
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+				if err != nil {
+					st.Error(err)
+					return
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestSetUnionAllocs(t *testing.T) {
