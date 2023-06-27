@@ -221,7 +221,7 @@ func TestKeepAlive(t *testing.T) {
 func TestStepBounding(t *testing.T) {
 	t.Run("steps=safe", func(t *testing.T) {
 		st := startest.From(t)
-		st.SetMaxExecutionSteps(1000)
+		st.SetMaxExecutionSteps(10)
 
 		st.RunString(`
 			for _ in st.ntimes():
@@ -236,10 +236,10 @@ func TestStepBounding(t *testing.T) {
 		st := startest.From(dummy)
 		st.SetMaxExecutionSteps(1)
 		st.RunString(`
+			i = 0
 			for _ in st.ntimes():
-				pass
-			for _ in st.ntimes():
-				pass
+				i += 1
+				i += 1
 		`)
 
 		if !st.Failed() {
