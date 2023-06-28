@@ -858,10 +858,6 @@ func (x *Dict) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, erro
 	}
 }
 
-func (x *Dict) EstimateSize() int64 {
-	return x.ht.estimateSize()
-}
-
 func dictsEqual(x, y *Dict, depth int) (bool, error) {
 	if x.Len() != y.Len() {
 		return false, nil

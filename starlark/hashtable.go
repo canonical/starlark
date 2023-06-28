@@ -52,8 +52,10 @@ func (ht *hashtable) init(size int) {
 	ht.tailLink = &ht.head
 }
 
-func (ht *hashtable) estimateSize() int64 {
-	size := EstimateSize(&hashtable{})
+var hashtableTypeSize = EstimateSize(&hashtable{})
+
+func (ht *hashtable) estimateTypeSize() int64 {
+	size := hashtableTypeSize
 	if ht.table != nil && &ht.bucket0[0] != &ht.table[0] {
 		size += EstimateMakeSize([]bucket{}, cap(ht.table))
 	}

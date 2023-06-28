@@ -441,7 +441,7 @@ func dict(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		return nil, fmt.Errorf("dict: got %d arguments, want at most 1", len(args))
 	}
 	dict := new(Dict)
-	if err := thread.AddAllocs(EstimateSize(dict)); err != nil {
+	if err := thread.AddAllocs(dict.ht.estimateTypeSize()); err != nil {
 		return nil, err
 	}
 	if err := updateDict(thread, dict, args, kwargs); err != nil {
@@ -1643,10 +1643,10 @@ func dict_setdefault(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Va
 	} else if ok {
 		return v, nil
 	} else {
-		before := EstimateSize(dict)
+		before := dict.ht.estimateTypeSize()
 		if err := dict.SetKey(key, dflt); err != nil {
 			return nil, nameErr(b, err)
-		} else if err := thread.AddAllocs(EstimateSize(dict) - before); err != nil {
+		} else if err := thread.AddAllocs(dict.ht.estimateTypeSize() - before); err != nil {
 			return nil, err
 		} else {
 			return dflt, nil
@@ -2649,7 +2649,7 @@ func string_find_impl(b *Builtin, args Tuple, kwargs []Tuple, allowError, last b
 // Common implementation of builtin dict function and dict.update method.
 // Precondition: len(updates) == 0 or 1.
 func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error {
-	sizeBefore := EstimateSize(dict)
+	sizeBefore := dict.ht.estimateTypeSize()
 
 	if len(updates) == 1 {
 		switch updates := updates[0].(type) {
@@ -2725,7 +2725,7 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 		}
 	}
 
-	sizeAfter := EstimateSize(dict)
+	sizeAfter := dict.ht.estimateTypeSize()
 	if sizeAfter > sizeBefore {
 		if err := thread.AddAllocs(sizeAfter - sizeBefore); err != nil {
 			return err
