@@ -448,7 +448,11 @@ loop:
 			elem := stack[sp-1]
 			list := stack[sp-2].(*List)
 			sp -= 2
-			list.elems = append(list.elems, elem)
+			listAppender := NewSafeAppender(thread, &list.elems)
+			if err2 := listAppender.Append(elem); err2 != nil {
+				err = err2
+				break loop
+			}
 
 		case compile.SLICE:
 			x := stack[sp-4]
