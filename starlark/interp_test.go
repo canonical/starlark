@@ -40,6 +40,22 @@ func TestDictCreation(t *testing.T) {
 		for _ in st.ntimes():
 			st.keep_alive({})
 	`)
+	st.RunString(`
+		for _ in st.ntimes():
+			st.keep_alive({ 1: False, 2: "2", 3: 3.0 })
+	`)
+}
+
+func TestDictComprehension(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunString(`
+		for _ in st.ntimes():
+			st.keep_alive({i:i for i in range(10)})
+	`)
+	st.RunString(`
+		st.keep_alive({i:i for i in range(st.n)})
+	`)
 }
 
 func TestIterate(t *testing.T) {

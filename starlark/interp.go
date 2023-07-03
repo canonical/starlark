@@ -435,7 +435,7 @@ loop:
 			v := stack[sp-1]
 			sp -= 3
 			oldlen := dict.Len()
-			if err2 := dict.SetKey(k, v); err2 != nil {
+			if err2 := dict.SafeSetKey(thread, k, v); err2 != nil {
 				err = err2
 				break loop
 			}
