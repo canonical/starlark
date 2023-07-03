@@ -2676,7 +2676,7 @@ func set_union(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, nameErr(b, err)
 	}
 
-	if err := thread.AddAllocs(EstimateSize(union)); err != nil {
+	if err := thread.AddAllocs(union.(*Set).ht.estimateTypeSize()); err != nil {
 		return nil, err
 	}
 

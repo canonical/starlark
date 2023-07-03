@@ -1136,10 +1136,6 @@ func (x *Set) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error
 	}
 }
 
-func (x *Set) EstimateSize() int64 {
-	return x.ht.estimateSize()
-}
-
 func setsEqual(x, y *Set, depth int) (bool, error) {
 	if x.Len() != y.Len() {
 		return false, nil
