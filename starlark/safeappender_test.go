@@ -529,3 +529,53 @@ func TestSafeAppenderNil(t *testing.T) {
 		})
 	}
 }
+
+func TestSafeAppenderAllocCounting(t *testing.T) {
+	t.Run("Append", func(t *testing.T) {
+		st := startest.From(t)
+		st.RunThread(func(thread *starlark.Thread) {
+			if err := thread.AddAllocs(100); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			initial := thread.Allocs()
+
+			slice := []byte{}
+			sa := starlark.NewSafeAppender(thread, &slice)
+			for i := 0; i < st.N; i++ {
+				if err := sa.Append(byte(1)); err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			}
+
+			expected := thread.Allocs() - initial
+			if actual := sa.Allocs(); actual != expected {
+				t.Errorf("incorrect number of allocations reported: expected %d but got %d", expected, actual)
+			}
+		})
+	})
+
+	t.Run("AppendSlice", func(t *testing.T) {
+		st := startest.From(t)
+		st.RunThread(func(thread *starlark.Thread) {
+			if err := thread.AddAllocs(100); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			initial := thread.Allocs()
+
+			slice := []byte{}
+			sa := starlark.NewSafeAppender(thread, &slice)
+			toAppend := []byte{}
+			for i := 0; i < st.N; i++ {
+				toAppend = append(toAppend, byte(i))
+			}
+			if err := sa.AppendSlice(toAppend); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			expected := thread.Allocs() - initial
+			if actual := sa.Allocs(); actual != expected {
+				t.Errorf("incorrect number of allocations reported: expected %d but got %d", expected, actual)
+			}
+		})
+	})
+}
