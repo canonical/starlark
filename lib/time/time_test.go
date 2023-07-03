@@ -42,6 +42,23 @@ func TestMethodSafetiesExist(t *testing.T) {
 }
 
 func TestTimeFromTimestampAllocs(t *testing.T) {
+	from_timestamp, ok := time.Module.Members["from_timestamp"]
+	if !ok {
+		t.Error("no such builtin: time.from_timestamp")
+		return
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, from_timestamp, starlark.Tuple{starlark.MakeInt(10000)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestTimeIsValidTimezoneAllocs(t *testing.T) {
@@ -86,6 +103,39 @@ func TestTimeNowAllocs(t *testing.T) {
 }
 
 func TestTimeParseDurationAllocs(t *testing.T) {
+	parse_duration, ok := time.Module.Members["parse_duration"]
+	if !ok {
+		t.Errorf("no such builtin: parse_duration")
+		return
+	}
+
+	t.Run("arg=duration", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			result, err := starlark.Call(thread, parse_duration, starlark.Tuple{time.Duration(10)}, nil)
+			if err != nil {
+				t.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("arg=string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(16)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, parse_duration, starlark.Tuple{starlark.String("10h47m")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestTimeParseTimeAllocs(t *testing.T) {

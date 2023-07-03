@@ -68,10 +68,10 @@ var Module = &starlarkstruct.Module{
 	},
 }
 var safeties = map[string]starlark.Safety{
-	"from_timestamp":    starlark.NotSafe,
+	"from_timestamp":    starlark.MemSafe,
 	"is_valid_timezone": starlark.MemSafe,
 	"now":               starlark.NotSafe,
-	"parse_duration":    starlark.NotSafe,
+	"parse_duration":    starlark.MemSafe,
 	"parse_time":        starlark.NotSafe,
 	"time":              starlark.NotSafe,
 }
@@ -93,8 +93,13 @@ var NowFunc = time.Now
 
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var d Duration
-	err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &d)
-	return d, err
+	if err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &d); err != nil {
+		return nil, err
+	}
+	if err := thread.AddAllocs(starlark.EstimateSize(Duration(0))); err != nil {
+		return nil, err
+	}
+	return d, nil
 }
 
 func isValidTimezone(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
@@ -141,6 +146,9 @@ func fromTimestamp(thread *starlark.Thread, _ *starlark.Builtin, args starlark.T
 		nsec int64 = 0
 	)
 	if err := starlark.UnpackPositionalArgs("from_timestamp", args, kwargs, 1, &sec, &nsec); err != nil {
+		return nil, err
+	}
+	if err := thread.AddAllocs(starlark.EstimateSize(Time{})); err != nil {
 		return nil, err
 	}
 	return Time(time.Unix(sec, nsec)), nil
