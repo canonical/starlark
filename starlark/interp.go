@@ -492,9 +492,8 @@ loop:
 
 		case compile.MAKETUPLE:
 			n := int(arg)
-			tupleSize := EstimateMakeSize(Tuple{}, n)
-			overhead := EstimateSize(Tuple{})
-			if err2 := thread.AddAllocs(tupleSize + overhead); err2 != nil {
+			tupleSize := EstimateMakeSize(Tuple{}, n) + SliceTypeOverhead
+			if err2 := thread.AddAllocs(tupleSize); err2 != nil {
 				err = err2
 				break loop
 			}
