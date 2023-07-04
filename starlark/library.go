@@ -1510,12 +1510,11 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		}
 	} else {
 		// length not known
-		tupleSize := EstimateMakeSize(Tuple{}, cols)
-		valueSize := EstimateSize(Tuple{})
+		tupleSize := EstimateMakeSize(Tuple{}, cols) + SliceTypeOverhead
 		appender := NewSafeAppender(thread, &result)
 	outer:
 		for {
-			if err := thread.AddAllocs(tupleSize + valueSize); err != nil {
+			if err := thread.AddAllocs(tupleSize); err != nil {
 				return nil, err
 			}
 			tuple := make(Tuple, cols)
@@ -1641,7 +1640,7 @@ func dict_popitem(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if err != nil {
 		return nil, nameErr(b, err) // dict is frozen
 	}
-	resultSize := EstimateMakeSize(Tuple{}, 2) + EstimateSize(Tuple{})
+	resultSize := EstimateMakeSize(Tuple{}, 2) + SliceTypeOverhead
 	if err := thread.AddAllocs(resultSize); err != nil {
 		return nil, err
 	}
