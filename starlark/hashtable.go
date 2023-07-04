@@ -240,11 +240,11 @@ func (ht *hashtable) keys() []Value {
 }
 
 func (ht *hashtable) values() []Value {
-	keys := make([]Value, 0, ht.len)
+	values := make([]Value, 0, ht.len)
 	for e := ht.head; e != nil; e = e.next {
-		keys = append(keys, e.value)
+		values = append(values, e.value)
 	}
-	return keys
+	return values
 }
 
 func (ht *hashtable) delete(k Value) (v Value, found bool, err error) {

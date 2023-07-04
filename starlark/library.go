@@ -2662,13 +2662,11 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 			}
 		default:
 			// all other sequences
-			// FIXME how to count for steps and time without counting transient memory?
 			iter, err := SafeIterate(thread, updates)
 			if err != nil {
 				if err == ErrUnsupported {
-					return fmt.Errorf("got %s, want iterable", updates.Type())
+					return fmt.Errorf("dictionary update value is not iterable (%s)", updates.Type())
 				}
-
 				return err
 			}
 			defer iter.Done()
@@ -2698,7 +2696,6 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 					return err
 				}
 			}
-
 			if err := iter.Err(); err != nil {
 				return err
 			}
