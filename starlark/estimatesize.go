@@ -35,6 +35,9 @@ import (
 // EstimateSizeShallow has been removed for now since there was no agreement of how
 // to make it consistent.
 
+var StringTypeOverhead = EstimateSize("")
+var SliceTypeOverhead = EstimateSize([]struct{}{})
+
 // EstimateSize returns the estimated size of the
 // value pointed by obj, taking into account the whole
 // object tree.

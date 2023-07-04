@@ -75,7 +75,7 @@ func init() {
 	}
 
 	universeSafeties = map[string]Safety{
-		"abs":       NotSafe,
+		"abs":       MemSafe,
 		"any":       NotSafe,
 		"all":       MemSafe,
 		"bool":      MemSafe,
@@ -90,7 +90,7 @@ func init() {
 		"hasattr":   NotSafe,
 		"hash":      MemSafe,
 		"int":       MemSafe,
-		"len":       NotSafe,
+		"len":       MemSafe,
 		"list":      NotSafe,
 		"max":       NotSafe,
 		"min":       NotSafe,
@@ -210,7 +210,7 @@ var (
 		"count":          NotSafe,
 		"elem_ords":      MemSafe,
 		"elems":          MemSafe,
-		"endswith":       NotSafe,
+		"endswith":       MemSafe,
 		"find":           NotSafe,
 		"format":         MemSafe,
 		"index":          NotSafe,
@@ -222,7 +222,7 @@ var (
 		"istitle":        MemSafe,
 		"isupper":        NotSafe,
 		"join":           NotSafe,
-		"lower":          NotSafe,
+		"lower":          MemSafe,
 		"lstrip":         MemSafe,
 		"partition":      NotSafe,
 		"removeprefix":   NotSafe,
@@ -235,10 +235,10 @@ var (
 		"rstrip":         MemSafe,
 		"split":          MemSafe,
 		"splitlines":     NotSafe,
-		"startswith":     NotSafe,
+		"startswith":     MemSafe,
 		"strip":          MemSafe,
 		"title":          NotSafe,
-		"upper":          NotSafe,
+		"upper":          MemSafe,
 	}
 
 	setMethods = map[string]*Builtin{
@@ -306,14 +306,27 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if err := UnpackPositionalArgs("abs", args, kwargs, 1, &x); err != nil {
 		return nil, err
 	}
-	switch x := x.(type) {
+	switch tx := x.(type) {
 	case Float:
-		return Float(math.Abs(float64(x))), nil
-	case Int:
-		if x.Sign() >= 0 {
+		if tx >= 0 {
 			return x, nil
 		}
-		return zero.Sub(x), nil
+
+		result := Value(Float(math.Abs(float64(tx))))
+		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+			return nil, err
+		}
+		return result, nil
+	case Int:
+		if tx.Sign() >= 0 {
+			return x, nil
+		}
+
+		result := Value(zero.Sub(tx))
+		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+			return nil, err
+		}
+		return result, nil
 	default:
 		return nil, fmt.Errorf("got %s, want int or float", x.Type())
 	}
@@ -882,7 +895,11 @@ func len_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if len < 0 {
 		return nil, fmt.Errorf("len: value of type %s has no len", x.Type())
 	}
-	return MakeInt(len), nil
+	result := Value(MakeInt(len))
+	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list
@@ -2251,11 +2268,23 @@ func string_join(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·lower
-func string_lower(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_lower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	return String(strings.ToLower(string(b.Receiver().(String)))), nil
+
+	recv := string(b.Receiver().(String))
+
+	// There could be actually a difference between the size of the encoded
+	// upper and the size of the encoded lower. The maximum difference among
+	// them (according to unicode.ToLower implementation) is only 1 byte,
+	// which could be expected. This means that this logic must take that
+	// into account.
+	bufferSize := EstimateMakeSize([]byte{}, len(recv)*2+utf8.UTFMax)
+	if err := thread.AddAllocs(bufferSize + StringTypeOverhead); err != nil {
+		return nil, err
+	}
+	return String(strings.ToLower(recv)), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·partition
@@ -2439,11 +2468,19 @@ func string_title(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·upper
-func string_upper(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_upper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	return String(strings.ToUpper(string(b.Receiver().(String)))), nil
+
+	recv := string(b.Receiver().(String))
+
+	// see string_lower
+	bufferSize := EstimateMakeSize([]byte{}, len(recv)*2+utf8.UTFMax)
+	if err := thread.AddAllocs(bufferSize + StringTypeOverhead); err != nil {
+		return nil, err
+	}
+	return String(strings.ToUpper(recv)), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·split

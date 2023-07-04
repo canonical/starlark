@@ -550,8 +550,6 @@ func (f Float) Unary(op syntax.Token) (Value, error) {
 // of a Starlark string as a Go string.
 type String string
 
-var StringTypeOverhead = EstimateSize(String(""))
-
 func (s String) String() string        { return syntax.Quote(string(s), false) }
 func (s String) GoString() string      { return string(s) }
 func (s String) Type() string          { return "string" }
