@@ -103,7 +103,7 @@ func init() {
 		"sorted":    NotSafe,
 		"str":       MemSafe,
 		"tuple":     NotSafe,
-		"type":      NotSafe,
+		"type":      MemSafe,
 		"zip":       MemSafe,
 	}
 
@@ -1452,7 +1452,11 @@ func type_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if len(args) != 1 {
 		return nil, fmt.Errorf("type: got %d arguments, want exactly 1", len(args))
 	}
-	return String(args[0].Type()), nil
+	result := Value(String(args[0].Type()))
+	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#zip
