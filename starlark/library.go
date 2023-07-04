@@ -1899,7 +1899,7 @@ func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		slice = recv[start:end]
 	}
 
-	result := MakeInt(strings.Count(slice, sub))
+	result := Value(MakeInt(strings.Count(slice, sub)))
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
 	}
