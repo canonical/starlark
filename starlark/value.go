@@ -327,6 +327,12 @@ type HasUnary interface {
 	Unary(op syntax.Token) (Value, error)
 }
 
+type SafeHasUnary interface {
+	Value
+	SafetyAware
+	SafeUnary(thread *Thread, op syntax.Token) (Value, error)
+}
+
 // A HasAttrs value has fields or methods that may be read by a dot expression (y = x.f).
 // Attribute names may be listed using the built-in 'dir' function.
 //
