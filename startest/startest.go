@@ -345,9 +345,6 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 }
 
 func (st *ST) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
-	if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
-		return nil, err
-	}
 	return st.Attr(name)
 }
 
