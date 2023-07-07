@@ -79,7 +79,7 @@ func TestSequenceAssignment(t *testing.T) {
 	`)
 }
 
-func TestGetAttr(t *testing.T) {
+func TestAttrAccessAllocs(t *testing.T) {
 	values := []starlark.HasAttrs{
 		starlark.NewList(nil),
 		starlark.NewDict(1),
@@ -90,7 +90,7 @@ func TestGetAttr(t *testing.T) {
 
 	for _, value := range values {
 		attr := value.AttrNames()[0]
-		t.Run(fmt.Sprintf("%s", value.Type()), func(t *testing.T) {
+		t.Run(value.Type(), func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.MemSafe)
 			st.AddValue("value", value)

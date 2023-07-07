@@ -87,7 +87,7 @@ func init() {
 		"enumerate": MemSafe,
 		"fail":      MemSafe,
 		"float":     MemSafe,
-		"getattr":   NotSafe,
+		"getattr":   MemSafe,
 		"hasattr":   MemSafe,
 		"hash":      MemSafe,
 		"int":       MemSafe,
@@ -702,25 +702,15 @@ func getattr(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	if err := UnpackPositionalArgs("getattr", args, kwargs, 2, &object, &name, &dflt); err != nil {
 		return nil, err
 	}
-	if object, ok := object.(HasAttrs); ok {
-		v, err := object.Attr(name)
-		if err != nil {
-			// An error could mean the field doesn't exist,
-			// or it exists but could not be computed.
-			if dflt != nil {
-				return dflt, nil
-			}
-			return nil, nameErr(b, err)
+
+	v, err := getAttr(thread, object, name, false)
+	if err != nil {
+		if dflt != nil {
+			return dflt, nil
 		}
-		if v != nil {
-			return v, nil
-		}
-		// (nil, nil) => no such field
+		return nil, nameErr(b, err)
 	}
-	if dflt != nil {
-		return dflt, nil
-	}
-	return nil, fmt.Errorf("getattr: %s has no .%s field or method", object.Type(), name)
+	return v, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#hasattr

@@ -963,6 +963,32 @@ func TestFloatAllocs(t *testing.T) {
 }
 
 func TestGetattrAllocs(t *testing.T) {
+	values := []starlark.HasAttrs{
+		starlark.NewList(nil),
+		starlark.NewDict(1),
+		starlark.NewSet(1),
+		starlark.String("1"),
+		starlark.Bytes("1"),
+	}
+	getattr := starlark.Universe["getattr"]
+
+	for _, value := range values {
+		attr := starlark.String(value.AttrNames()[0])
+		t.Run(value.Type(), func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					result, err := starlark.Call(thread, getattr, starlark.Tuple{value, attr}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+
+					st.KeepAlive(result)
+				}
+			})
+		})
+	}
 }
 
 func TestHasattrAllocs(t *testing.T) {
