@@ -1,6 +1,7 @@
 package starlark_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
@@ -76,4 +77,27 @@ func TestSequenceAssignment(t *testing.T) {
 			first, second = range(2)
 			st.keep_alive(first, second)
 	`)
+}
+
+func TestGetAttr(t *testing.T) {
+	values := []starlark.HasAttrs{
+		starlark.NewList(nil),
+		starlark.NewDict(1),
+		starlark.NewSet(1),
+		starlark.String("1"),
+		starlark.Bytes("1"),
+	}
+
+	for _, value := range values {
+		attr := value.AttrNames()[0]
+		t.Run(fmt.Sprintf("%s", value.Type()), func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.AddValue("value", value)
+			st.RunString(fmt.Sprintf(`
+				for _ in st.ntimes():
+					st.keep_alive(value.%s)
+			`, attr))
+		})
+	}
 }

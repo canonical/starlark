@@ -404,7 +404,7 @@ loop:
 		case compile.ATTR:
 			x := stack[sp-1]
 			name := f.Prog.Names[arg]
-			y, err2 := getAttr(x, name)
+			y, err2 := getAttr(thread, x, name)
 			if err2 != nil {
 				err = err2
 				break loop

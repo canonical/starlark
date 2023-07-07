@@ -357,11 +357,19 @@ type HasAttrs interface {
 	AttrNames() []string             // callers must not modify the result.
 }
 
+type SafeHasAttrs interface {
+	HasAttrs
+	SafetyAware
+
+	SafeAttr(thread *Thread, name string) (Value, error)
+}
+
 var (
-	_ HasAttrs = String("")
-	_ HasAttrs = new(List)
-	_ HasAttrs = new(Dict)
-	_ HasAttrs = new(Set)
+	_ SafeHasAttrs = String("")
+	_ SafeHasAttrs = Bytes("")
+	_ SafeHasAttrs = new(List)
+	_ SafeHasAttrs = new(Dict)
+	_ SafeHasAttrs = new(Set)
 )
 
 // A HasSetField value has fields that may be written by a dot expression (x.f = y).
@@ -592,6 +600,14 @@ func (s String) Slice(start, end, step int) Value {
 
 func (s String) Attr(name string) (Value, error) { return builtinAttr(s, name, stringMethods) }
 func (s String) AttrNames() []string             { return builtinAttrNames(stringMethods) }
+func (s String) Safety() Safety                  { return MemSafe }
+
+func (s String) SafeAttr(thread *Thread, name string) (Value, error) {
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
+	}
+	return safeBuiltinAttr(thread, s, name, stringMethods)
+}
 
 func (x String) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(String)
@@ -877,6 +893,11 @@ func (d *Dict) SafeSetKey(thread *Thread, k, v Value) error {
 
 func (d *Dict) Attr(name string) (Value, error) { return builtinAttr(d, name, dictMethods) }
 func (d *Dict) AttrNames() []string             { return builtinAttrNames(dictMethods) }
+func (d *Dict) Safety() Safety                  { return MemSafe }
+
+func (d *Dict) SafeAttr(thread *Thread, name string) (Value, error) {
+	return safeBuiltinAttr(thread, d, name, dictMethods)
+}
 
 func (x *Dict) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(*Dict)
@@ -965,6 +986,11 @@ func (l *List) Slice(start, end, step int) Value {
 
 func (l *List) Attr(name string) (Value, error) { return builtinAttr(l, name, listMethods) }
 func (l *List) AttrNames() []string             { return builtinAttrNames(listMethods) }
+func (l *List) Safety() Safety                  { return MemSafe }
+
+func (l *List) SafeAttr(thread *Thread, name string) (Value, error) {
+	return safeBuiltinAttr(thread, l, name, listMethods)
+}
 
 func (l *List) Iterate() Iterator {
 	if !l.frozen {
@@ -1167,6 +1193,11 @@ func (s *Set) String() string                         { return toString(s) }
 
 func (s *Set) Attr(name string) (Value, error) { return builtinAttr(s, name, setMethods) }
 func (s *Set) AttrNames() []string             { return builtinAttrNames(setMethods) }
+func (s *Set) Safety() Safety                  { return MemSafe }
+
+func (s *Set) SafeAttr(thread *Thread, name string) (Value, error) {
+	return safeBuiltinAttr(thread, s, name, setMethods)
+}
 
 func (x *Set) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(*Set)
@@ -1670,6 +1701,14 @@ func (b Bytes) Index(i int) Value     { return b[i : i+1] }
 
 func (b Bytes) Attr(name string) (Value, error) { return builtinAttr(b, name, bytesMethods) }
 func (b Bytes) AttrNames() []string             { return builtinAttrNames(bytesMethods) }
+func (b Bytes) Safety() Safety                  { return MemSafe }
+
+func (b Bytes) SafeAttr(thread *Thread, name string) (Value, error) {
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
+	}
+	return safeBuiltinAttr(thread, b, name, bytesMethods)
+}
 
 func (b Bytes) Slice(start, end, step int) Value {
 	if step == 1 {

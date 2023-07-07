@@ -35,6 +35,7 @@ var Universe StringDict
 var universeSafeties map[string]Safety
 
 var ErrUnsupported = errors.New("unsupported operation")
+var ErrNoSuchAttr = errors.New("no such attribute")
 
 func init() {
 	// https://github.com/google/starlark-go/blob/master/doc/spec.md#built-in-constants-and-functions
@@ -285,6 +286,17 @@ func builtinAttr(recv Value, name string, methods map[string]*Builtin) (Value, e
 	b := methods[name]
 	if b == nil {
 		return nil, nil // no such method
+	}
+	return b.BindReceiver(recv), nil
+}
+
+func safeBuiltinAttr(thread *Thread, recv Value, name string, methods map[string]*Builtin) (Value, error) {
+	b := methods[name]
+	if b == nil {
+		return nil, ErrNoSuchAttr
+	}
+	if err := thread.AddAllocs(EstimateSize(&Builtin{})); err != nil {
+		return nil, err
 	}
 	return b.BindReceiver(recv), nil
 }

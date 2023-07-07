@@ -316,11 +316,12 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 	return memoryUsed, nSum
 }
 
-func (st *ST) String() string        { return "<startest.ST>" }
-func (st *ST) Type() string          { return "startest.ST" }
-func (st *ST) Freeze()               { st.predecls.Freeze() }
-func (st *ST) Truth() starlark.Bool  { return starlark.True }
-func (st *ST) Hash() (uint32, error) { return 0, errors.New("unhashable type: startest.ST") }
+func (st *ST) String() string          { return "<startest.ST>" }
+func (st *ST) Type() string            { return "startest.ST" }
+func (st *ST) Freeze()                 { st.predecls.Freeze() }
+func (st *ST) Truth() starlark.Bool    { return starlark.True }
+func (st *ST) Hash() (uint32, error)   { return 0, errors.New("unhashable type: startest.ST") }
+func (st *ST) Safety() starlark.Safety { return stSafe }
 
 var errorMethod = starlark.NewBuiltinWithSafety("error", stSafe, st_error)
 var fatalMethod = starlark.NewBuiltinWithSafety("fatal", stSafe, st_fatal)
@@ -341,6 +342,13 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 		return starlark.MakeInt(st.N), nil
 	}
 	return nil, nil
+}
+
+func (st *ST) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
+		return nil, err
+	}
+	return st.Attr(name)
 }
 
 func (st *ST) AttrNames() []string {
