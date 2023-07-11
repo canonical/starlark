@@ -1577,14 +1577,14 @@ func dict_items(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 	receiver := b.Receiver().(*Dict)
 	len := receiver.Len()
 	// dict.Items() allocates a single backing array for the tuples.
-	backingArraySize := EstimateMakeSize([]Value{}, len*2)
-	resSize := EstimateMakeSize([]Value{Tuple{}}, len)
+	arraySize := EstimateMakeSize([]Value{}, len*2)
+	itemSize := EstimateMakeSize([]Value{Tuple{}}, len)
 	resultSize := EstimateSize(&List{})
-	if err := thread.AddAllocs(resSize + backingArraySize + resultSize); err != nil {
+	if err := thread.AddAllocs(itemSize + arraySize + resultSize); err != nil {
 		return nil, err
 	}
-	itemsSize := EstimateMakeSize([]Tuple{}, len)
-	if err := thread.CheckAllocs(itemsSize); err != nil {
+	tupleItemsSize := EstimateMakeSize([]Tuple{}, len)
+	if err := thread.CheckAllocs(tupleItemsSize); err != nil {
 		return nil, err
 	}
 	items := receiver.Items()
@@ -1601,8 +1601,8 @@ func dict_keys(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 	dict := b.Receiver().(*Dict)
-	resultSize := EstimateSize(&List{})
 	keysSize := EstimateMakeSize([]Value{}, dict.Len())
+	resultSize := EstimateSize(&List{})
 	if err := thread.AddAllocs(resultSize + keysSize); err != nil {
 		return nil, err
 	}
@@ -1687,8 +1687,8 @@ func dict_values(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		return nil, err
 	}
 	dict := b.Receiver().(*Dict)
-	resultSize := EstimateSize(&List{})
 	valuesSize := EstimateMakeSize([]Value{}, dict.Len())
+	resultSize := EstimateSize(&List{})
 	if err := thread.AddAllocs(resultSize + valuesSize); err != nil {
 		return nil, err
 	}
