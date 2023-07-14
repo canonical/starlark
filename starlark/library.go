@@ -993,11 +993,9 @@ func minmax(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 			extremeKey = key
 		}
 	}
-
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
-
 	return extremum, nil
 }
 
