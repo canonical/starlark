@@ -757,10 +757,41 @@ func TestLenAllocs(t *testing.T) {
 func TestListAllocs(t *testing.T) {
 }
 
+func testMinMaxAllocs(t *testing.T, name string) {
+	iterable := &testIterable{
+		nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+			res := starlark.Value(starlark.MakeInt(n))
+			if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+				return nil, err
+			}
+			return res, nil
+		},
+	}
+
+	minOrMax, ok := starlark.Universe[name]
+	if !ok {
+		t.Fatalf("no such builtin: %s", name)
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		iterable.maxN = st.N
+
+		result, err := starlark.Call(thread, minOrMax, starlark.Tuple{iterable}, nil)
+		if err != nil {
+			st.Error(err)
+		}
+		st.KeepAlive(result)
+	})
+}
+
 func TestMaxAllocs(t *testing.T) {
+	testMinMaxAllocs(t, "max")
 }
 
 func TestMinAllocs(t *testing.T) {
+	testMinMaxAllocs(t, "min")
 }
 
 func TestOrdAllocs(t *testing.T) {
