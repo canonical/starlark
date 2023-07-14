@@ -494,6 +494,11 @@ loop:
 
 		case compile.MAKETUPLE:
 			n := int(arg)
+			tupleSize := EstimateMakeSize(Tuple{}, n) + SliceTypeOverhead
+			if err2 := thread.AddAllocs(tupleSize); err2 != nil {
+				err = err2
+				break loop
+			}
 			tuple := make(Tuple, n)
 			sp -= n
 			copy(tuple, stack[sp:])
