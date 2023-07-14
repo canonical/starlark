@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
 	"unsafe"
@@ -559,5 +560,27 @@ func TestEstimateMakeSize(t *testing.T) {
 				}
 			})
 		}
+	})
+}
+
+func TestSizeConstants(t *testing.T) {
+	constantTest := func(t *testing.T, constant int64, value func() interface{}) {
+		st := startest.From(t)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				if err := thread.AddAllocs(constant); err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(value())
+			}
+		})
+	}
+
+	t.Run("string", func(t *testing.T) {
+		constantTest(t, starlark.StringTypeOverhead, func() interface{} { return reflect.StringHeader{} })
+	})
+	t.Run("slice", func(t *testing.T) {
+		constantTest(t, starlark.SliceTypeOverhead, func() interface{} { return make([]struct{}, 0, 0) })
+		constantTest(t, starlark.SliceTypeOverhead, func() interface{} { return make([][256]byte, 0, 0) })
 	})
 }

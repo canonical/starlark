@@ -8,7 +8,7 @@
 // When a test is run, the startest instance exposes an integer N which must be
 // used to scale the total resources used by the test. All checks are done in
 // terms of this N, so for example, calling SetMaxAllocs(100) on a startest
-// instance will cause it to check that no more than 100 allocations are made
+// instance will cause it to check that no more than 100 bytes are allocated
 // per given N. Tests are repeated with different values of N to reduce the
 // effect of noise on measurements.
 //

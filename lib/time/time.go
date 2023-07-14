@@ -68,10 +68,10 @@ var Module = &starlarkstruct.Module{
 	},
 }
 var safeties = map[string]starlark.Safety{
-	"from_timestamp":    starlark.NotSafe,
-	"is_valid_timezone": starlark.NotSafe,
+	"from_timestamp":    starlark.MemSafe,
+	"is_valid_timezone": starlark.MemSafe,
 	"now":               starlark.MemSafe,
-	"parse_duration":    starlark.NotSafe,
+	"parse_duration":    starlark.MemSafe,
 	"parse_time":        starlark.NotSafe,
 	"time":              starlark.NotSafe,
 }
@@ -91,16 +91,19 @@ func init() {
 // Starlark scripts to be fully deterministic.
 var NowFunc = time.Now
 
-// NowFuncAllocs is a function which returns the number of allocations which
-// can be made by the next call to NowFunc.
-var NowFuncAllocs = func() int64 {
-	return starlark.EstimateSize(Time{})
-}
+// NowFuncAllocs is the number of allocations which will be made by the next
+// call to NowFunc.
+var NowFuncAllocs = starlark.EstimateSize(Time{})
 
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var d Duration
-	err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &d)
-	return d, err
+	if err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &d); err != nil {
+		return nil, err
+	}
+	if err := thread.AddAllocs(starlark.EstimateSize(Duration(0))); err != nil {
+		return nil, err
+	}
+	return d, nil
 }
 
 func isValidTimezone(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
@@ -149,11 +152,14 @@ func fromTimestamp(thread *starlark.Thread, _ *starlark.Builtin, args starlark.T
 	if err := starlark.UnpackPositionalArgs("from_timestamp", args, kwargs, 1, &sec, &nsec); err != nil {
 		return nil, err
 	}
+	if err := thread.AddAllocs(starlark.EstimateSize(Time{})); err != nil {
+		return nil, err
+	}
 	return Time(time.Unix(sec, nsec)), nil
 }
 
 func now(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	if err := thread.AddAllocs(NowFuncAllocs()); err != nil {
+	if err := thread.AddAllocs(NowFuncAllocs); err != nil {
 		return nil, err
 	}
 	return Time(NowFunc()), nil
