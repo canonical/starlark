@@ -3,6 +3,7 @@ package startest_test
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -212,6 +213,39 @@ func TestKeepAlive(t *testing.T) {
 			t.Error("expected failure")
 		}
 		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("unexpected error(s): %s", errLog)
+		}
+	})
+}
+
+func TestStepBounding(t *testing.T) {
+	t.Run("steps=safe", func(t *testing.T) {
+		st := startest.From(t)
+		st.SetMaxExecutionSteps(10)
+
+		st.RunString(`
+			for _ in st.ntimes():
+				pass
+		`)
+	})
+
+	t.Run("steps=not-safe", func(t *testing.T) {
+		expected := regexp.MustCompile(`execution steps are above maximum \(\d+ > 1\)`)
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+		st.SetMaxExecutionSteps(1)
+		st.RunString(`
+			i = 0
+			for _ in st.ntimes():
+				i += 1
+				i += 1
+		`)
+
+		if !st.Failed() {
+			t.Error("expected failure")
+		}
+		if errLog := dummy.Errors(); !expected.Match([]byte(errLog)) {
 			t.Errorf("unexpected error(s): %s", errLog)
 		}
 	})
@@ -784,11 +818,11 @@ var _ starlark.Value = &dummyRange{}
 var _ starlark.Iterable = &dummyRange{}
 var _ starlark.Iterator = &dummyRangeIterator{}
 
-func (*dummyRange) String() string                { return "dummyRange" }
-func (*dummyRange) Type() string                  { return "dummyRange" }
-func (*dummyRange) Freeze()                       {}
-func (*dummyRange) Truth() starlark.Bool          { return starlark.True }
-func (*dummyRange) Hash() (uint32, error)         { return 0, errors.New("unhashable type: dummyRange") }
+func (dr *dummyRange) String() string             { return "dummyRange" }
+func (dr *dummyRange) Type() string               { return "dummyRange" }
+func (dr *dummyRange) Freeze()                    {}
+func (dr *dummyRange) Truth() starlark.Bool       { return starlark.True }
+func (dr *dummyRange) Hash() (uint32, error)      { return 0, errors.New("unhashable type: dummyRange") }
 func (dr *dummyRange) Iterate() starlark.Iterator { return &dummyRangeIterator{0, *dr} }
 
 func (iter *dummyRangeIterator) Next(p *starlark.Value) bool {
@@ -799,24 +833,9 @@ func (iter *dummyRangeIterator) Next(p *starlark.Value) bool {
 	}
 	return false
 }
-func (iter *dummyRangeIterator) Done() {}
 
-var safeRange *starlark.Builtin
-
-func init() {
-	rangeValue, ok := starlark.Universe["range"]
-	if !ok {
-		panic("range builtin not defined")
-	}
-	rangeBuiltin, ok := rangeValue.(*starlark.Builtin)
-	if !ok {
-		panic("range is not a builtin")
-	}
-
-	s := *rangeBuiltin
-	safeRange = &s
-	safeRange.DeclareSafety(startest.STSafe)
-}
+func (iter *dummyRangeIterator) Done()      {}
+func (iter *dummyRangeIterator) Err() error { return nil }
 
 func TestRunStringMemSafety(t *testing.T) {
 	t.Run("safety=safe", func(t *testing.T) {
@@ -827,9 +846,8 @@ func TestRunStringMemSafety(t *testing.T) {
 		st := startest.From(t)
 		st.SetMaxAllocs(128)
 		st.AddBuiltin(allocate)
-		st.AddBuiltin(safeRange)
 		ok := st.RunString(`
-			for _ in range(st.n):
+			for _ in st.ntimes():
 				st.keep_alive(allocate())
 		`)
 		if !ok {
@@ -838,7 +856,7 @@ func TestRunStringMemSafety(t *testing.T) {
 	})
 
 	t.Run("safety=unsafe", func(t *testing.T) {
-		const expected = "measured memory is above declared allocations (128 > 0)"
+		const expected = "measured memory is above declared allocations"
 
 		overallocate := starlark.NewBuiltinWithSafety("overallocate", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			return starlark.String(make([]byte, 100)), nil
@@ -848,9 +866,8 @@ func TestRunStringMemSafety(t *testing.T) {
 		st := startest.From(dummy)
 		st.SetMaxAllocs(128)
 		st.AddBuiltin(overallocate)
-		st.AddBuiltin(safeRange)
 		ok := st.RunString(`
-			for _ in range(st.n):
+			for _ in st.ntimes():
 				st.keep_alive(overallocate())
 		`)
 		if !ok {
@@ -861,7 +878,7 @@ func TestRunStringMemSafety(t *testing.T) {
 			t.Error("expected failure")
 		}
 
-		if errLog := dummy.Errors(); errLog != expected {
+		if errLog := dummy.Errors(); !strings.HasPrefix(errLog, expected) {
 			t.Errorf("unexpected error(s): %#v", errLog)
 		}
 	})
@@ -874,9 +891,8 @@ func TestRunStringMemSafety(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.NotSafe)
 		st.AddBuiltin(overallocate)
-		st.AddBuiltin(safeRange)
 		ok := st.RunString(`
-			for _ in range(st.n):
+			for _ in st.ntimes():
 				st.keep_alive(overallocate())
 		`)
 		if !ok {
