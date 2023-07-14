@@ -744,12 +744,12 @@ func testMinMaxAllocs(t *testing.T, name string) {
 	})
 }
 
-func TestMinAllocs(t *testing.T) {
-	testMinMaxAllocs(t, "min")
-}
-
 func TestMaxAllocs(t *testing.T) {
 	testMinMaxAllocs(t, "max")
+}
+
+func TestMinAllocs(t *testing.T) {
+	testMinMaxAllocs(t, "min")
 }
 
 func TestOrdAllocs(t *testing.T) {
