@@ -728,7 +728,7 @@ func testMinMaxAllocs(t *testing.T, name string) {
 
 	minOrMax, ok := starlark.Universe[name]
 	if !ok {
-		t.Fatal("no such builtin: " + name)
+		t.Fatalf("no such builtin: %s", name)
 	}
 
 	st := startest.From(t)
