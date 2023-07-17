@@ -899,7 +899,7 @@ func TestReversedAllocs(t *testing.T) {
 			st.RequireSafety(starlark.MemSafe)
 
 			st.RunThread(func(thread *starlark.Thread) {
-				iter := &testIterable{
+				iter := &testSequence{
 					maxN: st.N,
 					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
 						return starlark.None, nil
