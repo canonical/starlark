@@ -917,7 +917,6 @@ func TestReversedAllocs(t *testing.T) {
 
 		t.Run("iterable", func(t *testing.T) {
 			st := startest.From(t)
-
 			st.RequireSafety(starlark.MemSafe)
 			st.SetMaxAllocs(maxAllocs)
 			st.RunThread(func(thread *starlark.Thread) {
@@ -948,7 +947,6 @@ func TestReversedAllocs(t *testing.T) {
 
 		t.Run("sequence", func(t *testing.T) {
 			st := startest.From(t)
-
 			st.RequireSafety(starlark.MemSafe)
 			st.SetMaxAllocs(maxAllocs)
 			st.RunThread(func(thread *starlark.Thread) {
