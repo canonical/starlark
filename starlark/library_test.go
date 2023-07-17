@@ -874,9 +874,7 @@ func TestReversedAllocs(t *testing.T) {
 	t.Run("large-result", func(t *testing.T) {
 		t.Run("iterable", func(t *testing.T) {
 			st := startest.From(t)
-
 			st.RequireSafety(starlark.MemSafe)
-
 			st.RunThread(func(thread *starlark.Thread) {
 				iter := &testIterable{
 					maxN: st.N,
@@ -895,9 +893,7 @@ func TestReversedAllocs(t *testing.T) {
 
 		t.Run("sequence", func(t *testing.T) {
 			st := startest.From(t)
-
 			st.RequireSafety(starlark.MemSafe)
-
 			st.RunThread(func(thread *starlark.Thread) {
 				iter := &testSequence{
 					maxN: st.N,
@@ -924,7 +920,6 @@ func TestReversedAllocs(t *testing.T) {
 
 			st.RequireSafety(starlark.MemSafe)
 			st.SetMaxAllocs(maxAllocs)
-
 			st.RunThread(func(thread *starlark.Thread) {
 				thread.SetMaxAllocs(maxAllocs)
 
@@ -946,7 +941,6 @@ func TestReversedAllocs(t *testing.T) {
 				if nReached > 1 && iter.maxN > 1 {
 					st.Errorf("iteration was not terminated early enough")
 				}
-
 				st.KeepAlive(result)
 			})
 		})
@@ -956,7 +950,6 @@ func TestReversedAllocs(t *testing.T) {
 
 			st.RequireSafety(starlark.MemSafe)
 			st.SetMaxAllocs(maxAllocs)
-
 			st.RunThread(func(thread *starlark.Thread) {
 				thread.SetMaxAllocs(maxAllocs)
 
@@ -978,7 +971,6 @@ func TestReversedAllocs(t *testing.T) {
 				if nReached > 0 {
 					st.Errorf("iteration was not terminated early enough")
 				}
-
 				st.KeepAlive(result)
 			})
 		})
