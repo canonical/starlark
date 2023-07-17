@@ -1261,10 +1261,10 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 		}
 		elems = make([]Value, 0, n) // preallocate if length known
 	}
-	appender := NewSafeAppender(thread, &elems)
+	elemsAppender := NewSafeAppender(thread, &elems)
 	var x Value
 	for iter.Next(&x) {
-		if err := appender.Append(x); err != nil {
+		if err := elemsAppender.Append(x); err != nil {
 			return nil, err
 		}
 	}
