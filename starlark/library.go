@@ -2315,14 +2315,13 @@ func string_partition(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 		i = strings.LastIndex(recv, sep) // rpartition
 	}
 
-	tupleSize := EstimateMakeSize(Tuple{String("")}, 3)
-	resultSize := EstimateSize(Tuple{})
-	if err := thread.AddAllocs(tupleSize + resultSize); err != nil {
+	var subStringTemplate String
+	resultSize := EstimateMakeSize(Tuple{subStringTemplate}, 3) +
+		EstimateSize(Tuple{})
+	if err := thread.AddAllocs(resultSize); err != nil {
 		return nil, err
 	}
-
 	tuple := make(Tuple, 0, 3)
-
 	if i < 0 {
 		if b.Name()[0] == 'p' {
 			tuple = append(tuple, String(recv), String(""), String(""))
@@ -2332,7 +2331,6 @@ func string_partition(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 	} else {
 		tuple = append(tuple, String(recv[:i]), String(recv[i:i+len(sep)]), String(recv[i+len(sep):]))
 	}
-
 	return tuple, nil
 }
 

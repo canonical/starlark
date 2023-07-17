@@ -1901,26 +1901,32 @@ func testStringPartitionRpartitionAllocs(t *testing.T, name string) {
 		t.Fatalf("no such method: string.%s", name)
 	}
 
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, string_partition, starlark.Tuple{starlark.String("channel")}, nil)
-			if err != nil {
-				st.Error(err)
+	t.Run("not-present", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, string_partition, starlark.Tuple{starlark.String("channel")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
 			}
-			st.KeepAlive(result)
-		}
+		})
 	})
 
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, string_partition, starlark.Tuple{starlark.String("memory")}, nil)
-			if err != nil {
-				st.Error(err)
+	t.Run("present", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, string_partition, starlark.Tuple{starlark.String("memory")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
 			}
-			st.KeepAlive(result)
-		}
+		})
 	})
 }
 
