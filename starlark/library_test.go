@@ -938,10 +938,11 @@ func TestReversedAllocs(t *testing.T) {
 				} else if err.Error() != expected {
 					st.Errorf("unexpected error: %v", err)
 				}
+				st.KeepAlive(result)
+
 				if nReached > 1 && iter.maxN > 1 {
 					st.Errorf("iteration was not terminated early enough")
 				}
-				st.KeepAlive(result)
 			})
 		})
 
@@ -968,10 +969,11 @@ func TestReversedAllocs(t *testing.T) {
 				} else if err.Error() != expected {
 					st.Errorf("unexpected error: %v", err)
 				}
+				st.KeepAlive(result)
+
 				if nReached > 0 {
 					st.Errorf("iteration was not terminated early enough")
 				}
-				st.KeepAlive(result)
 			})
 		})
 	})
