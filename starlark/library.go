@@ -207,7 +207,7 @@ var (
 		"capitalize":     NotSafe,
 		"codepoint_ords": MemSafe,
 		"codepoints":     MemSafe,
-		"count":          NotSafe,
+		"count":          MemSafe,
 		"elem_ords":      MemSafe,
 		"elems":          MemSafe,
 		"endswith":       MemSafe,
@@ -1928,7 +1928,7 @@ func (it *bytesIterator) Err() error     { return nil }
 func (it *bytesIterator) Safety() Safety { return NotSafe }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·count
-func string_count(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var sub string
 	var start_, end_ Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &sub, &start_, &end_); err != nil {
@@ -1945,7 +1945,12 @@ func string_count(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	if start < end {
 		slice = recv[start:end]
 	}
-	return MakeInt(strings.Count(slice, sub)), nil
+
+	result := Value(MakeInt(strings.Count(slice, sub)))
+	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·isalnum
