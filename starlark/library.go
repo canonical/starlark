@@ -1903,7 +1903,6 @@ func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
 	}
-
 	return result, nil
 }
 
