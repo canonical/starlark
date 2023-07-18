@@ -1894,7 +1894,7 @@ func TestStringLstripAllocs(t *testing.T) {
 	testStringStripAllocs(t, "lstrip")
 }
 
-func testStringPartitionMethodsAllocs(t *testing.T, name string) {
+func testStringPartitionMethodAllocs(t *testing.T, name string) {
 	recv := starlark.String("don't communicate by sharing memory, share memory by communicating.")
 	string_partition, _ := recv.Attr(name)
 	if string_partition == nil {
@@ -1931,7 +1931,7 @@ func testStringPartitionMethodsAllocs(t *testing.T, name string) {
 }
 
 func TestStringPartitionAllocs(t *testing.T) {
-	testStringPartitionRpartitionAllocs(t, "partition")
+	testStringPartitionMethodAllocs(t, "partition")
 }
 
 func TestStringRemoveprefixAllocs(t *testing.T) {
@@ -1968,7 +1968,7 @@ func TestStringRindexAllocs(t *testing.T) {
 }
 
 func TestStringRpartitionAllocs(t *testing.T) {
-	testStringPartitionRpartitionAllocs(t, "rpartition")
+	testStringPartitionMethodAllocs(t, "rpartition")
 }
 
 func TestStringRsplitAllocs(t *testing.T) {
