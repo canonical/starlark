@@ -1561,7 +1561,30 @@ func TestStringEndswithAllocs(t *testing.T) {
 	testStringFixAllocs(t, "endswith")
 }
 
+func testStringFindMethodAllocs(t *testing.T, name string) {
+	haystack := starlark.String("Better safe than sorry")
+	needle := starlark.String("safe")
+
+	string_find, _ := haystack.Attr(name)
+	if string_find == nil {
+		t.Fatalf("no such method: string.%s", name)
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, string_find, starlark.Tuple{needle}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
+}
+
 func TestStringFindAllocs(t *testing.T) {
+	testStringFindMethodAllocs(t, "find")
 }
 
 func TestStringFormatAllocs(t *testing.T) {
@@ -1629,6 +1652,7 @@ func TestStringFormatAllocs(t *testing.T) {
 }
 
 func TestStringIndexAllocs(t *testing.T) {
+	testStringFindMethodAllocs(t, "index")
 }
 
 func TestStringIsalnumAllocs(t *testing.T) {
@@ -1982,9 +2006,11 @@ func TestStringReplaceAllocs(t *testing.T) {
 }
 
 func TestStringRfindAllocs(t *testing.T) {
+	testStringFindMethodAllocs(t, "rfind")
 }
 
 func TestStringRindexAllocs(t *testing.T) {
+	testStringFindMethodAllocs(t, "rindex")
 }
 
 func TestStringRpartitionAllocs(t *testing.T) {
