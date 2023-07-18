@@ -71,7 +71,10 @@ func TestMathFloorAllocs(t *testing.T) {
 	})
 
 	t.Run("type=int", func(t *testing.T) {
-		floor := starlarkmath.Module.Members["floor"]
+		floor, ok := starlarkmath.Module.Members["floor"]
+		if !ok {
+			t.Fatal("no such builtin: math.floor")
+		}
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
