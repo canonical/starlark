@@ -856,7 +856,11 @@ func TestReversedAllocs(t *testing.T) {
 		iter := &testIterable{
 			maxN: 10,
 			nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-				return starlark.None, nil
+				res := starlark.Value(starlark.Tuple(make([]starlark.Value, 100)))
+				if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+					return nil, err
+				}
+				return res, nil
 			},
 		}
 		st.RunThread(func(thread *starlark.Thread) {
@@ -879,7 +883,11 @@ func TestReversedAllocs(t *testing.T) {
 				iter := &testIterable{
 					maxN: st.N,
 					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-						return starlark.None, nil
+						res := starlark.Value(starlark.Tuple(make([]starlark.Value, 100)))
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
+						return res, nil
 					},
 				}
 
@@ -898,7 +906,11 @@ func TestReversedAllocs(t *testing.T) {
 				iter := &testSequence{
 					maxN: st.N,
 					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-						return starlark.None, nil
+						res := starlark.Value(starlark.Tuple(make([]starlark.Value, 100)))
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
+						return res, nil
 					},
 				}
 
@@ -913,7 +925,7 @@ func TestReversedAllocs(t *testing.T) {
 
 	t.Run("early-termination", func(t *testing.T) {
 		const expected = "exceeded memory allocation limits"
-		maxAllocs := uint64(1)
+		maxAllocs := uint64(50)
 
 		t.Run("iterable", func(t *testing.T) {
 			st := startest.From(t)
@@ -926,8 +938,12 @@ func TestReversedAllocs(t *testing.T) {
 				iter := &testIterable{
 					maxN: st.N,
 					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						res := starlark.Value(starlark.Tuple(make([]starlark.Value, maxAllocs/2)))
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
 						nReached = n
-						return starlark.None, nil
+						return res, nil
 					},
 				}
 
@@ -956,8 +972,12 @@ func TestReversedAllocs(t *testing.T) {
 				iter := &testSequence{
 					maxN: st.N,
 					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						res := starlark.Value(starlark.Tuple(make([]starlark.Value, maxAllocs/2)))
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
 						nReached = n
-						return starlark.None, nil
+						return res, nil
 					},
 				}
 
