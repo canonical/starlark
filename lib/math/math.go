@@ -235,6 +235,7 @@ func floor(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kw
 	case starlark.Int:
 		return x, nil
 	case starlark.Float:
+		var ret starlark.Value // Avoid transient allocation
 		ret, err := starlark.NumberToInt(starlark.Float(math.Floor(float64(t))))
 		if err != nil {
 			return nil, err
