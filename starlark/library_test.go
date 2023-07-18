@@ -1914,7 +1914,44 @@ func TestStringLstripAllocs(t *testing.T) {
 	testStringStripAllocs(t, "lstrip")
 }
 
+func testStringPartitionMethodAllocs(t *testing.T, name string) {
+	recv := starlark.String("don't communicate by sharing memory, share memory by communicating.")
+	string_partition, _ := recv.Attr(name)
+	if string_partition == nil {
+		t.Fatalf("no such method: string.%s", name)
+	}
+
+	t.Run("not-present", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, string_partition, starlark.Tuple{starlark.String("channel")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("present", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, string_partition, starlark.Tuple{starlark.String("memory")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+}
+
 func TestStringPartitionAllocs(t *testing.T) {
+	testStringPartitionMethodAllocs(t, "partition")
 }
 
 func TestStringRemoveprefixAllocs(t *testing.T) {
@@ -1951,6 +1988,7 @@ func TestStringRindexAllocs(t *testing.T) {
 }
 
 func TestStringRpartitionAllocs(t *testing.T) {
+	testStringPartitionMethodAllocs(t, "rpartition")
 }
 
 func TestStringRsplitAllocs(t *testing.T) {
