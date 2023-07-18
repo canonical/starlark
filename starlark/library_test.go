@@ -1479,8 +1479,7 @@ func TestStringCapitalizeAllocs(t *testing.T) {
 func testStringIterable(t *testing.T, methodName string) {
 	method, _ := starlark.String("arbitrary-string").Attr(methodName)
 	if method == nil {
-		t.Errorf("no such method: string.%s", methodName)
-		return
+		t.Fatalf("no such method: string.%s", methodName)
 	}
 
 	st := startest.From(t)
