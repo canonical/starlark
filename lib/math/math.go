@@ -107,7 +107,7 @@ var Module = &starlarkstruct.Module{
 	},
 }
 var safeties = map[string]starlark.Safety{
-	"ceil":      starlark.NotSafe,
+	"ceil":      starlark.MemSafe,
 	"copysign":  starlark.NotSafe,
 	"fabs":      starlark.MemSafe,
 	"floor":     starlark.MemSafe,
@@ -216,9 +216,17 @@ func ceil(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwa
 
 	switch t := x.(type) {
 	case starlark.Int:
-		return t, nil
+		return x, nil
 	case starlark.Float:
-		return starlark.NumberToInt(starlark.Float(math.Ceil(float64(t))))
+		var res starlark.Value // Avoid transient allocation
+		res, err := starlark.NumberToInt(starlark.Float(math.Ceil(float64(t))))
+		if err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+			return nil, err
+		}
+		return res, nil
 	}
 
 	return nil, fmt.Errorf("got %s, want float or int", x.Type())
