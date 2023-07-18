@@ -550,8 +550,6 @@ func (f Float) Unary(op syntax.Token) (Value, error) {
 // of a Starlark string as a Go string.
 type String string
 
-var StringTypeOverhead = EstimateSize(String(""))
-
 func (s String) String() string        { return syntax.Quote(string(s), false) }
 func (s String) GoString() string      { return string(s) }
 func (s String) Type() string          { return "string" }
@@ -831,6 +829,7 @@ func (d *Dict) Delete(k Value) (v Value, found bool, err error) { return d.ht.de
 func (d *Dict) Get(k Value) (v Value, found bool, err error)    { return d.ht.lookup(k) }
 func (d *Dict) Items() []Tuple                                  { return d.ht.items() }
 func (d *Dict) Keys() []Value                                   { return d.ht.keys() }
+func (d *Dict) Values() []Value                                 { return d.ht.values() }
 func (d *Dict) Len() int                                        { return int(d.ht.len) }
 func (d *Dict) Iterate() Iterator                               { return d.ht.iterate() }
 func (d *Dict) SetKey(k, v Value) error                         { return d.ht.insert(k, v) }
@@ -1576,12 +1575,11 @@ func SafeIterate(thread *Thread, x Value) (Iterator, error) {
 
 		if thread != nil {
 			if safeIter, ok := iter.(SafeIterator); ok {
+				safeIter.BindThread(thread)
+
 				if err := thread.CheckPermits(safeIter); err != nil {
 					return nil, err
 				}
-
-				safeIter.BindThread(thread)
-
 				return safeIter, nil
 			} else if err := thread.CheckPermits(NotSafe); err != nil {
 				return nil, err
