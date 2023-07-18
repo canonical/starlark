@@ -1479,7 +1479,8 @@ func TestStringCapitalizeAllocs(t *testing.T) {
 func testStringIterable(t *testing.T, methodName string) {
 	method, _ := starlark.String("arbitrary-string").Attr(methodName)
 	if method == nil {
-		t.Fatalf("no such method: string.%s", methodName)
+		t.Errorf("no such method: string.%s", methodName)
+		return
 	}
 
 	st := startest.From(t)
@@ -1980,8 +1981,7 @@ func TestStringPartitionAllocs(t *testing.T) {
 func testStringRemovefixAllocs(t *testing.T, method_name string) {
 	method, _ := starlark.String("aaaaaZZZZZaaaaa").Attr(method_name)
 	if method == nil {
-		t.Errorf("no such method: string.%s", method_name)
-		return
+		t.Fatalf("no such method: string.%s", method_name)
 	}
 
 	st := startest.From(t)
