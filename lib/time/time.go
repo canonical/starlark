@@ -90,13 +90,15 @@ func init() {
 // so that it can be overridden, for example by applications that require their
 // Starlark scripts to be fully deterministic.
 var NowFunc = time.Now
+var safeNowFunc func(thread *starlark.Thread) (Time, error)
+var safeNowFuncSafety starlark.Safety
 
-// SafeNowFunc is a function that generates the current time, taking into
-// account resource usage. Intentionally exported so that it can be overridden,
-// for example by applications that require their Starlark scripts to be fully
-// deterministic. If SafeNowFunc is nil, Starlark uses NowFunc as a fallback.
-var SafeNowFunc func(thread *starlark.Thread) (Time, error)
-var SafeNowFuncSafety starlark.Safety
+// SetSafeNowFunc sets a safe function which is analogous to NowFunc. If
+// SetSafeNowFunc is not called, Starlark will try to fallback on NowFunc.
+func SetSafeNowFunc(safety starlark.Safety, fn func(thread *starlark.Thread) (Time, error)) {
+	safeNowFunc = fn
+	safeNowFuncSafety = safety
+}
 
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var d Duration
@@ -162,11 +164,19 @@ func fromTimestamp(thread *starlark.Thread, _ *starlark.Builtin, args starlark.T
 }
 
 func now(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	if SafeNowFunc != nil {
-		if err := thread.CheckPermits(SafeNowFuncSafety); err != nil {
+	if safeNowFunc != nil {
+		if err := thread.CheckPermits(safeNowFuncSafety); err != nil {
 			return nil, err
 		}
-		return SafeNowFunc(thread)
+
+		res, err := safeNowFunc(thread)
+		if err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+			return nil, err
+		}
+		return res, nil
 	}
 
 	if err := thread.CheckPermits(starlark.NotSafe); err != nil {
