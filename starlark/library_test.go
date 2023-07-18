@@ -1894,7 +1894,7 @@ func TestStringLstripAllocs(t *testing.T) {
 	testStringStripAllocs(t, "lstrip")
 }
 
-func testStringPartitionRpartitionAllocs(t *testing.T, name string) {
+func testStringPartitionMethodsAllocs(t *testing.T, name string) {
 	recv := starlark.String("don't communicate by sharing memory, share memory by communicating.")
 	string_partition, _ := recv.Attr(name)
 	if string_partition == nil {
