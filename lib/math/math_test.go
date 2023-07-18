@@ -74,10 +74,8 @@ func TestMathFloorAllocs(t *testing.T) {
 		floor := starlarkmath.Module.Members["floor"]
 
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
-
 		args := starlark.Tuple{starlark.MakeInt(100)}
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
