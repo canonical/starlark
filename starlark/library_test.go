@@ -1978,10 +1978,32 @@ func TestStringPartitionAllocs(t *testing.T) {
 	testStringPartitionMethodAllocs(t, "partition")
 }
 
+func testStringRemovefixAllocs(t *testing.T, method_name string) {
+	method, _ := starlark.String("aaaaaZZZZZaaaaa").Attr(method_name)
+	if method == nil {
+		t.Fatalf("no such method: string.%s", method_name)
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			args := starlark.Tuple{starlark.String("aaaaa")}
+			result, err := starlark.Call(thread, method, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
+}
+
 func TestStringRemoveprefixAllocs(t *testing.T) {
+	testStringRemovefixAllocs(t, "removeprefix")
 }
 
 func TestStringRemovesuffixAllocs(t *testing.T) {
+	testStringRemovefixAllocs(t, "removesuffix")
 }
 
 func TestStringReplaceAllocs(t *testing.T) {
