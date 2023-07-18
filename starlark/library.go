@@ -207,7 +207,7 @@ var (
 		"capitalize":     NotSafe,
 		"codepoint_ords": MemSafe,
 		"codepoints":     MemSafe,
-		"count":          NotSafe,
+		"count":          MemSafe,
 		"elem_ords":      MemSafe,
 		"elems":          MemSafe,
 		"endswith":       MemSafe,
@@ -224,13 +224,13 @@ var (
 		"join":           NotSafe,
 		"lower":          MemSafe,
 		"lstrip":         MemSafe,
-		"partition":      NotSafe,
+		"partition":      MemSafe,
 		"removeprefix":   NotSafe,
 		"removesuffix":   NotSafe,
 		"replace":        MemSafe,
 		"rfind":          MemSafe,
 		"rindex":         MemSafe,
-		"rpartition":     NotSafe,
+		"rpartition":     MemSafe,
 		"rsplit":         MemSafe,
 		"rstrip":         MemSafe,
 		"split":          MemSafe,
@@ -1928,7 +1928,7 @@ func (it *bytesIterator) Err() error     { return nil }
 func (it *bytesIterator) Safety() Safety { return NotSafe }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·count
-func string_count(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var sub string
 	var start_, end_ Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &sub, &start_, &end_); err != nil {
@@ -1945,7 +1945,12 @@ func string_count(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	if start < end {
 		slice = recv[start:end]
 	}
-	return MakeInt(strings.Count(slice, sub)), nil
+
+	result := Value(MakeInt(strings.Count(slice, sub)))
+	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·isalnum
@@ -2299,7 +2304,7 @@ func string_lower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·partition
-func string_partition(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_partition(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := string(b.Receiver().(String))
 	var sep string
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &sep); err != nil {
@@ -2314,6 +2319,13 @@ func string_partition(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	} else {
 		i = strings.LastIndex(recv, sep) // rpartition
 	}
+
+	var subStringTemplate String
+	resultSize := EstimateMakeSize(Tuple{subStringTemplate}, 3) +
+		EstimateSize(Tuple{})
+	if err := thread.AddAllocs(resultSize); err != nil {
+		return nil, err
+	}
 	tuple := make(Tuple, 0, 3)
 	if i < 0 {
 		if b.Name()[0] == 'p' {
@@ -2322,7 +2334,7 @@ func string_partition(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 			tuple = append(tuple, String(""), String(""), String(recv))
 		}
 	} else {
-		tuple = append(tuple, String(recv[:i]), String(sep), String(recv[i+len(sep):]))
+		tuple = append(tuple, String(recv[:i]), String(recv[i:i+len(sep)]), String(recv[i+len(sep):]))
 	}
 	return tuple, nil
 }
