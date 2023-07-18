@@ -97,7 +97,7 @@ func testMathRoundingAllocs(t *testing.T, name string) {
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
-			big := starlark.MakeInt64(1<<32 + 1)
+			big := starlark.Value(starlark.MakeInt64(1<<32 + 1))
 			for i := 0; i < st.N; i++ {
 				result, err := starlark.Call(thread, fn, starlark.Tuple{big}, nil)
 				if err != nil {
