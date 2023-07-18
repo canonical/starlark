@@ -52,6 +52,16 @@ func (ht *hashtable) init(size int) {
 	ht.tailLink = &ht.head
 }
 
+var hashtableTypeSize = EstimateSize(&hashtable{})
+
+func (ht *hashtable) estimateTypeSize() int64 {
+	size := hashtableTypeSize
+	if ht.table != nil && &ht.bucket0[0] != &ht.table[0] {
+		size += EstimateMakeSize([]bucket{}, cap(ht.table))
+	}
+	return size
+}
+
 func (ht *hashtable) freeze() {
 	if !ht.frozen {
 		ht.frozen = true
@@ -227,6 +237,14 @@ func (ht *hashtable) keys() []Value {
 		keys = append(keys, e.key)
 	}
 	return keys
+}
+
+func (ht *hashtable) values() []Value {
+	values := make([]Value, 0, ht.len)
+	for e := ht.head; e != nil; e = e.next {
+		values = append(values, e.value)
+	}
+	return values
 }
 
 func (ht *hashtable) delete(k Value) (v Value, found bool, err error) {
