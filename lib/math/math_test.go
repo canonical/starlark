@@ -67,7 +67,7 @@ func TestMathFabsAllocs(t *testing.T) {
 }
 
 func testMathRoundingAllocs(t *testing.T, name string) {
-	math_round, ok := starlarkmath.Module.Members[name]
+	fn, ok := starlarkmath.Module.Members[name]
 	if !ok {
 		t.Fatalf("no such builtin: math.%s", name)
 	}
@@ -83,7 +83,7 @@ func testMathRoundingAllocs(t *testing.T, name string) {
 		st.RunThread(func(thread *starlark.Thread) {
 			args := starlark.Tuple{starlark.MakeInt(100)}
 			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, math_round, args, nil)
+				result, err := starlark.Call(thread, fn, args, nil)
 				if err != nil {
 					st.Error(err)
 				}
@@ -99,7 +99,7 @@ func testMathRoundingAllocs(t *testing.T, name string) {
 		st.RunThread(func(thread *starlark.Thread) {
 			big := starlark.MakeInt64(1<<32 + 1)
 			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, math_round, starlark.Tuple{big}, nil)
+				result, err := starlark.Call(thread, fn, starlark.Tuple{big}, nil)
 				if err != nil {
 					st.Error(err)
 				}
