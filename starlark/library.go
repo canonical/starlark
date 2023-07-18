@@ -2694,11 +2694,9 @@ func string_find_impl(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple, al
 	} else {
 		result = MakeInt(i + start)
 	}
-
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
 	}
-
 	return result, nil
 }
 

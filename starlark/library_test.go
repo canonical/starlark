@@ -1541,13 +1541,13 @@ func TestStringEndswithAllocs(t *testing.T) {
 	testStringFixAllocs(t, "endswith")
 }
 
-func TestStringFindAllocs(t *testing.T) {
+func testStringFindMethodAllocs(t *testing.T, name string) {
 	haystack := starlark.String("Better safe than sorry")
 	needle := starlark.String("safe")
 
-	string_find, _ := haystack.Attr("find")
+	string_find, _ := haystack.Attr(name)
 	if string_find == nil {
-		t.Fatal("no such method: string.find")
+		t.Fatalf("no such method: string.%s", name)
 	}
 
 	st := startest.From(t)
@@ -1558,10 +1558,13 @@ func TestStringFindAllocs(t *testing.T) {
 			if err != nil {
 				st.Error(err)
 			}
-
 			st.KeepAlive(result)
 		}
 	})
+}
+
+func TestStringFindAllocs(t *testing.T) {
+	testStringFindMethodAllocs(t, "find")
 }
 
 func TestStringFormatAllocs(t *testing.T) {
@@ -1629,26 +1632,7 @@ func TestStringFormatAllocs(t *testing.T) {
 }
 
 func TestStringIndexAllocs(t *testing.T) {
-	haystack := starlark.String("Better safe than sorry")
-	needle := starlark.String("safe")
-
-	string_index, _ := haystack.Attr("index")
-	if string_index == nil {
-		t.Fatal("no such method: string.index")
-	}
-
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, string_index, starlark.Tuple{needle}, nil)
-			if err != nil {
-				st.Error(err)
-			}
-
-			st.KeepAlive(result)
-		}
-	})
+	testStringFindMethodAllocs(t, "index")
 }
 
 func TestStringIsalnumAllocs(t *testing.T) {
@@ -1965,49 +1949,11 @@ func TestStringReplaceAllocs(t *testing.T) {
 }
 
 func TestStringRfindAllocs(t *testing.T) {
-	haystack := starlark.String("Better safe than sorry")
-	needle := starlark.String("safe")
-
-	string_rfind, _ := haystack.Attr("rfind")
-	if string_rfind == nil {
-		t.Fatal("no such method: string.rfind")
-	}
-
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, string_rfind, starlark.Tuple{needle}, nil)
-			if err != nil {
-				st.Error(err)
-			}
-
-			st.KeepAlive(result)
-		}
-	})
+	testStringFindMethodAllocs(t, "rfind")
 }
 
 func TestStringRindexAllocs(t *testing.T) {
-	haystack := starlark.String("Better safe than sorry")
-	needle := starlark.String("safe")
-
-	string_rindex, _ := haystack.Attr("rindex")
-	if string_rindex == nil {
-		t.Fatal("no such method: string.rindex")
-	}
-
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			idx, err := starlark.Call(thread, string_rindex, starlark.Tuple{needle}, nil)
-			if err != nil {
-				st.Error(err)
-			}
-
-			st.KeepAlive(idx)
-		}
-	})
+	testStringFindMethodAllocs(t, "rindex")
 }
 
 func TestStringRpartitionAllocs(t *testing.T) {
