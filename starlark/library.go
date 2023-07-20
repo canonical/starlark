@@ -2654,9 +2654,9 @@ func string_splitlines(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 		}
 	}
 	var itemTemplate String
-	itemsSize := EstimateMakeSize([]Value{itemTemplate}, len(lines))
-	resultSize := EstimateSize(&List{})
-	if err := thread.AddAllocs(resultSize + itemsSize); err != nil {
+	resultSize := EstimateMakeSize([]Value{itemTemplate}, len(lines)) +
+		EstimateSize(&List{})
+	if err := thread.AddAllocs(resultSize); err != nil {
 		return nil, err
 	}
 	list := make([]Value, len(lines))
