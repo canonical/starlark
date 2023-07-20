@@ -222,7 +222,7 @@ func (ui *unsafeTestIterator) Next(p *starlark.Value) bool {
 	return true
 }
 func (ui *unsafeTestIterator) Done()      {}
-func (ui *unsafeTestIterator) Err() error { return nil }
+func (ui *unsafeTestIterator) Err() error { return fmt.Errorf("Err called") }
 
 func TestAbsAllocs(t *testing.T) {
 	abs, ok := starlark.Universe["abs"]
