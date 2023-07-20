@@ -670,7 +670,7 @@ func TestHasattrAllocs(t *testing.T) {
 		t.Fatal("no such builtin: hasattr")
 	}
 
-	objs := []starlark.HasAttrs{
+	recvs := []starlark.HasAttrs{
 		starlark.String(""),
 		starlark.NewDict(0),
 		starlark.NewList(nil),
@@ -678,13 +678,13 @@ func TestHasattrAllocs(t *testing.T) {
 		starlark.Bytes(""),
 	}
 
-	t.Run("missing", func(t *testing.T) {
-		missing := starlark.String("missing-method")
+	t.Run("missing-method", func(t *testing.T) {
+		missing := starlark.String("solve-non-polynomial")
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
-		for _, obj := range objs {
+		for _, obj := range recvs {
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					result, err := starlark.Call(thread, hasattr, starlark.Tuple{obj, missing}, nil)
@@ -700,19 +700,14 @@ func TestHasattrAllocs(t *testing.T) {
 		}
 	})
 
-	t.Run("present", func(t *testing.T) {
-		attrs := []string{}
-		for _, obj := range objs {
-			attrs = append(attrs, obj.AttrNames()[0])
-		}
-
+	t.Run("existent-method", func(t *testing.T) {
 		st := startest.From(t)
 		st.SetMaxAllocs(0)
 		st.RequireSafety(starlark.MemSafe)
-		for j, obj := range objs {
+		for _, recv := range recvs {
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
-					result, err := starlark.Call(thread, hasattr, starlark.Tuple{obj, starlark.String(attrs[j])}, nil)
+					result, err := starlark.Call(thread, hasattr, starlark.Tuple{recv, starlark.String(recv.AttrNames()[0])}, nil)
 					if err != nil {
 						st.Error(err)
 					}
