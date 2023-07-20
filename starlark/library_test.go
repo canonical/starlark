@@ -1693,7 +1693,7 @@ func TestDictUpdateAllocs(t *testing.T) {
 		thread.RequireSafety(starlark.MemSafe)
 
 		iter := &unsafeIterable{}
-		_, err := starlark.Call(thread, dict, starlark.Tuple{iter}, nil)
+		_, err := starlark.Call(thread, dict_update, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
 		} else if err.Error() != expected {
