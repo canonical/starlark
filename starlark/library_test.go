@@ -461,7 +461,7 @@ func TestDictAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
+		const expected = "dict: feature unavailable to the sandbox"
 
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
@@ -1687,7 +1687,7 @@ func TestDictUpdateAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
+		const expected = "update: feature unavailable to the sandbox"
 
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
