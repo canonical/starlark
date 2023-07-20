@@ -549,8 +549,12 @@ func TestSortedAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				maxN: 10,
-				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-					return starlark.True, nil
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					res := starlark.MakeInt(n)
+					if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+						return nil, err
+					}
+					return res, nil
 				},
 			}
 			args := starlark.Tuple{iter}
@@ -571,8 +575,12 @@ func TestSortedAllocs(t *testing.T) {
 			st.RunThread(func(thread *starlark.Thread) {
 				iter := &testIterable{
 					maxN: st.N,
-					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-						return starlark.True, nil
+					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						res := starlark.MakeInt(n)
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
+						return res, nil
 					},
 				}
 
@@ -590,8 +598,12 @@ func TestSortedAllocs(t *testing.T) {
 			st.RunThread(func(thread *starlark.Thread) {
 				iter := &testIterable{
 					maxN: st.N,
-					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-						return starlark.True, nil
+					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						res := starlark.MakeInt(n)
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
+						return res, nil
 					},
 				}
 
@@ -619,8 +631,12 @@ func TestSortedAllocs(t *testing.T) {
 				iter := &testIterable{
 					maxN: st.N,
 					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						res := starlark.MakeInt(n)
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
 						nReached = n
-						return starlark.True, nil
+						return res, nil
 					},
 				}
 
@@ -649,8 +665,11 @@ func TestSortedAllocs(t *testing.T) {
 				iter := &testSequence{
 					maxN: st.N,
 					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-						nReached = n
-						return starlark.True, nil
+						res := starlark.MakeInt(n)
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
+						return res, nil
 					},
 				}
 
