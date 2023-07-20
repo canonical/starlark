@@ -66,6 +66,30 @@ func TestMathFabsAllocs(t *testing.T) {
 }
 
 func TestMathFloorAllocs(t *testing.T) {
+	t.Run("type=float", func(t *testing.T) {
+		testUnarySafety(t, "floor", []float64{-1.5, 0, 1.5})
+	})
+
+	t.Run("type=int", func(t *testing.T) {
+		floor, ok := starlarkmath.Module.Members["floor"]
+		if !ok {
+			t.Fatal("no such builtin: math.floor")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			args := starlark.Tuple{starlark.MakeInt(100)}
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, floor, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestMathModAllocs(t *testing.T) {

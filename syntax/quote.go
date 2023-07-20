@@ -7,7 +7,9 @@ package syntax
 // Starlark quoted string utilities.
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"unicode"
@@ -234,14 +236,25 @@ func indexByte(s string, b byte) int {
 // Quote returns a Starlark literal that denotes s.
 // If b, it returns a bytes literal.
 func Quote(s string, b bool) string {
-	const hex = "0123456789abcdef"
-	var runeTmp [utf8.UTFMax]byte
+	buf := new(bytes.Buffer)
+	buf.Grow(3 * len(s) / 2)
+	QuoteWriter(buf, s, b)
+	return string(buf.Bytes())
+}
 
-	buf := make([]byte, 0, 3*len(s)/2)
+func QuoteWriter(w io.Writer, s string, b bool) error {
+	const hex = "0123456789abcdef"
+	buffer := make([]byte, utf8.UTFMax)
+
 	if b {
-		buf = append(buf, 'b')
+		if _, err := w.Write([]byte{'b'}); err != nil {
+			return err
+		}
 	}
-	buf = append(buf, '"')
+	if _, err := w.Write([]byte{'"'}); err != nil {
+		return err
+	}
+
 	for width := 0; len(s) > 0; s = s[width:] {
 		r := rune(s[0])
 		width = 1
@@ -252,58 +265,86 @@ func Quote(s string, b bool) string {
 			// String (!b) literals accept \xXX escapes only for ASCII,
 			// but we must use them here to represent invalid bytes.
 			// The result is not a legal literal.
-			buf = append(buf, `\x`...)
-			buf = append(buf, hex[s[0]>>4])
-			buf = append(buf, hex[s[0]&0xF])
+			if _, err := w.Write([]byte{'\\', 'x', hex[s[0]>>4], hex[s[0]&0xF]}); err != nil {
+				return err
+			}
 			continue
 		}
 		if r == '"' || r == '\\' { // always backslashed
-			buf = append(buf, '\\')
-			buf = append(buf, byte(r))
+			if _, err := w.Write([]byte{'\\', byte(r)}); err != nil {
+				return err
+			}
 			continue
 		}
 		if strconv.IsPrint(r) {
-			n := utf8.EncodeRune(runeTmp[:], r)
-			buf = append(buf, runeTmp[:n]...)
+			runeSize := utf8.EncodeRune(buffer, r)
+			if _, err := w.Write(buffer[:runeSize]); err != nil {
+				return err
+			}
 			continue
 		}
 		switch r {
 		case '\a':
-			buf = append(buf, `\a`...)
+			if _, err := w.Write([]byte{'\\', 'a'}); err != nil {
+				return err
+			}
 		case '\b':
-			buf = append(buf, `\b`...)
+			if _, err := w.Write([]byte{'\\', 'b'}); err != nil {
+				return err
+			}
 		case '\f':
-			buf = append(buf, `\f`...)
+			if _, err := w.Write([]byte{'\\', 'f'}); err != nil {
+				return err
+			}
 		case '\n':
-			buf = append(buf, `\n`...)
+			if _, err := w.Write([]byte{'\\', 'n'}); err != nil {
+				return err
+			}
 		case '\r':
-			buf = append(buf, `\r`...)
+			if _, err := w.Write([]byte{'\\', 'r'}); err != nil {
+				return err
+			}
 		case '\t':
-			buf = append(buf, `\t`...)
+			if _, err := w.Write([]byte{'\\', 't'}); err != nil {
+				return err
+			}
 		case '\v':
-			buf = append(buf, `\v`...)
+			if _, err := w.Write([]byte{'\\', 'v'}); err != nil {
+				return err
+			}
 		default:
 			switch {
 			case r < ' ' || r == 0x7f:
-				buf = append(buf, `\x`...)
-				buf = append(buf, hex[byte(r)>>4])
-				buf = append(buf, hex[byte(r)&0xF])
+				if _, err := w.Write([]byte{'\\', 'x', hex[byte(r)>>4], hex[byte(r)&0xF]}); err != nil {
+					return err
+				}
 			case r > utf8.MaxRune:
 				r = 0xFFFD
 				fallthrough
 			case r < 0x10000:
-				buf = append(buf, `\u`...)
+				if _, err := w.Write([]byte{'\\', 'u'}); err != nil {
+					return err
+				}
 				for s := 12; s >= 0; s -= 4 {
-					buf = append(buf, hex[r>>uint(s)&0xF])
+					if _, err := w.Write([]byte{hex[r>>uint(s)&0xF]}); err != nil {
+						return err
+					}
 				}
 			default:
-				buf = append(buf, `\U`...)
+				if _, err := w.Write([]byte{'\\', 'U'}); err != nil {
+					return err
+				}
 				for s := 28; s >= 0; s -= 4 {
-					buf = append(buf, hex[r>>uint(s)&0xF])
+					if _, err := w.Write([]byte{hex[r>>uint(s)&0xF]}); err != nil {
+						return err
+					}
 				}
 			}
 		}
 	}
-	buf = append(buf, '"')
-	return string(buf)
+
+	if _, err := w.Write([]byte{'"'}); err != nil {
+		return err
+	}
+	return nil
 }
