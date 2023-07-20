@@ -586,9 +586,7 @@ func TestSortedAllocs(t *testing.T) {
 
 		t.Run("sequence", func(t *testing.T) {
 			st := startest.From(t)
-
 			st.RequireSafety(starlark.MemSafe)
-
 			st.RunThread(func(thread *starlark.Thread) {
 				iter := &testIterable{
 					maxN: st.N,
@@ -612,10 +610,8 @@ func TestSortedAllocs(t *testing.T) {
 
 		t.Run("iterable", func(t *testing.T) {
 			st := startest.From(t)
-
 			st.RequireSafety(starlark.MemSafe)
 			st.SetMaxAllocs(maxAllocs)
-
 			st.RunThread(func(thread *starlark.Thread) {
 				thread.SetMaxAllocs(maxAllocs)
 
@@ -644,10 +640,8 @@ func TestSortedAllocs(t *testing.T) {
 
 		t.Run("sequence", func(t *testing.T) {
 			st := startest.From(t)
-
 			st.RequireSafety(starlark.MemSafe)
 			st.SetMaxAllocs(maxAllocs)
-
 			st.RunThread(func(thread *starlark.Thread) {
 				thread.SetMaxAllocs(maxAllocs)
 
