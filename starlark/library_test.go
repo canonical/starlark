@@ -665,6 +665,60 @@ func TestGetattrAllocs(t *testing.T) {
 }
 
 func TestHasattrAllocs(t *testing.T) {
+	hasattr, ok := starlark.Universe["hasattr"]
+	if !ok {
+		t.Fatal("no such builtin: hasattr")
+	}
+
+	recvs := []starlark.HasAttrs{
+		starlark.String(""),
+		starlark.NewDict(0),
+		starlark.NewList(nil),
+		starlark.NewSet(0),
+		starlark.Bytes(""),
+	}
+
+	t.Run("missing-attr", func(t *testing.T) {
+		missing := starlark.String("solve_non_polynomial")
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		for _, obj := range recvs {
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					result, err := starlark.Call(thread, hasattr, starlark.Tuple{obj, missing}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+					if result != starlark.False {
+						st.Error("missing method is present")
+					}
+					st.KeepAlive(result)
+				}
+			})
+		}
+	})
+
+	t.Run("existent-attr", func(t *testing.T) {
+		st := startest.From(t)
+		st.SetMaxAllocs(0)
+		st.RequireSafety(starlark.MemSafe)
+		for _, recv := range recvs {
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					result, err := starlark.Call(thread, hasattr, starlark.Tuple{recv, starlark.String(recv.AttrNames()[0])}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+					if result != starlark.True {
+						st.Error("declared method is not present")
+					}
+					st.KeepAlive(result)
+				}
+			})
+		}
+	})
 }
 
 func TestHashAllocs(t *testing.T) {
