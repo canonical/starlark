@@ -2653,18 +2653,16 @@ func string_splitlines(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 			lines = lines[:len(lines)-1]
 		}
 	}
-
-	listSize := EstimateSize(&List{})
-	valuesSize := EstimateMakeSize([]Value{String("")}, len(lines))
-	if err := thread.AddAllocs(listSize + valuesSize); err != nil {
+	var itemTemplate String
+	itemsSize := EstimateMakeSize([]Value{itemTemplate}, len(lines))
+	resultSize := EstimateSize(&List{})
+	if err := thread.AddAllocs(resultSize + itemsSize); err != nil {
 		return nil, err
 	}
-
 	list := make([]Value, len(lines))
 	for i, x := range lines {
 		list[i] = String(x)
 	}
-
 	return NewList(list), nil
 }
 
