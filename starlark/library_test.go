@@ -678,8 +678,8 @@ func TestHasattrAllocs(t *testing.T) {
 		starlark.Bytes(""),
 	}
 
-	t.Run("missing-method", func(t *testing.T) {
-		missing := starlark.String("solve-non-polynomial")
+	t.Run("missing-attr", func(t *testing.T) {
+		missing := starlark.String("solve_non_polynomial")
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
@@ -700,7 +700,7 @@ func TestHasattrAllocs(t *testing.T) {
 		}
 	})
 
-	t.Run("existent-method", func(t *testing.T) {
+	t.Run("existent-attr", func(t *testing.T) {
 		st := startest.From(t)
 		st.SetMaxAllocs(0)
 		st.RequireSafety(starlark.MemSafe)
