@@ -1235,7 +1235,7 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		}
 		values = make(Tuple, 0, n) // preallocate if length is known
 	}
-	appender := NewSafeAppender(thread, &values)
+	valuesAppender := NewSafeAppender(thread, &values)
 	var x Value
 	for iter.Next(&x) {
 		if err := appender.Append(x); err != nil {
