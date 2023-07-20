@@ -936,6 +936,157 @@ func TestReprAllocs(t *testing.T) {
 }
 
 func TestReversedAllocs(t *testing.T) {
+	reversed, ok := starlark.Universe["reversed"]
+	if !ok {
+		t.Fatal("no such builtin: reversed")
+	}
+
+	t.Run("small-result", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+
+		iter := &testIterable{
+			maxN: 10,
+			nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+				res := starlark.Value(starlark.Tuple(make([]starlark.Value, 100)))
+				if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+					return nil, err
+				}
+				return res, nil
+			},
+		}
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{iter}
+				result, err := starlark.Call(thread, reversed, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("large-result", func(t *testing.T) {
+		t.Run("iterable", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				iter := &testIterable{
+					maxN: st.N,
+					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+						res := starlark.Value(starlark.Tuple(make([]starlark.Value, 100)))
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
+						return res, nil
+					},
+				}
+
+				result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			})
+		})
+
+		t.Run("sequence", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				iter := &testSequence{
+					maxN: st.N,
+					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+						res := starlark.Value(starlark.Tuple(make([]starlark.Value, 100)))
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
+						return res, nil
+					},
+				}
+
+				result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			})
+		})
+	})
+
+	t.Run("early-termination", func(t *testing.T) {
+		const expected = "exceeded memory allocation limits"
+		maxAllocs := uint64(50)
+
+		t.Run("iterable", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.SetMaxAllocs(maxAllocs)
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.SetMaxAllocs(maxAllocs)
+
+				var nReached int
+				iter := &testIterable{
+					maxN: st.N,
+					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						res := starlark.Value(starlark.Tuple(make([]starlark.Value, maxAllocs/2)))
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
+						nReached = n
+						return res, nil
+					},
+				}
+
+				result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
+				if err == nil {
+					st.Error("expected error")
+				} else if err.Error() != expected {
+					st.Errorf("unexpected error: %v", err)
+				}
+				st.KeepAlive(result)
+
+				if nReached > 1 && iter.maxN > 1 {
+					st.Errorf("iteration was not terminated early enough")
+				}
+			})
+		})
+
+		t.Run("sequence", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.SetMaxAllocs(maxAllocs)
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.SetMaxAllocs(maxAllocs)
+
+				var nReached int
+				iter := &testSequence{
+					maxN: st.N,
+					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						res := starlark.Value(starlark.Tuple(make([]starlark.Value, maxAllocs/2)))
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
+						nReached = n
+						return res, nil
+					},
+				}
+
+				result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
+				if err == nil {
+					st.Error("expected error")
+				} else if err.Error() != expected {
+					st.Errorf("unexpected error: %v", err)
+				}
+				st.KeepAlive(result)
+
+				if nReached > 0 {
+					st.Errorf("iteration was not terminated early enough")
+				}
+			})
+		})
+	})
 }
 
 func TestSetAllocs(t *testing.T) {

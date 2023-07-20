@@ -98,7 +98,7 @@ func init() {
 		"print":     MemSafe,
 		"range":     MemSafe,
 		"repr":      MemSafe,
-		"reversed":  NotSafe,
+		"reversed":  MemSafe,
 		"set":       NotSafe,
 		"sorted":    NotSafe,
 		"str":       MemSafe,
@@ -1258,20 +1258,35 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	if err := UnpackPositionalArgs("reversed", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
-	// TODO: use SafeIterate
-	iter := iterable.Iterate()
+
+	iter, err := SafeIterate(thread, iterable)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 	var elems []Value
 	if n := Len(args[0]); n >= 0 {
+		if err := thread.AddAllocs(EstimateMakeSize([]Value{}, n)); err != nil {
+			return nil, err
+		}
 		elems = make([]Value, 0, n) // preallocate if length known
 	}
+	elemsAppender := NewSafeAppender(thread, &elems)
 	var x Value
 	for iter.Next(&x) {
-		elems = append(elems, x)
+		if err := elemsAppender.Append(x); err != nil {
+			return nil, err
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	n := len(elems)
 	for i := 0; i < n>>1; i++ {
 		elems[i], elems[n-1-i] = elems[n-1-i], elems[i]
+	}
+	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
+		return nil, err
 	}
 	return NewList(elems), nil
 }
