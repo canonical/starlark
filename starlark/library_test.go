@@ -2288,15 +2288,14 @@ func TestStringUpperAllocs(t *testing.T) {
 }
 
 func TestSetUnionAllocs(t *testing.T) {
-	st := startest.From(t)
-
 	set := starlark.NewSet(10)
 
+	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
-		fn, err := set.Attr("union")
-		if err != nil {
-			st.Fatal(err)
+		set_union, _ := set.Attr("union")
+		if set_union == nil {
+			st.Fatal("no such method: set.union")
 		}
 
 		it := testIterable{
@@ -2306,16 +2305,14 @@ func TestSetUnionAllocs(t *testing.T) {
 				if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
 					return nil, err
 				}
-
 				return result, nil
 			},
 		}
 
-		result, err := starlark.Call(thread, fn, starlark.Tuple{&it}, nil)
+		result, err := starlark.Call(thread, set_union, starlark.Tuple{&it}, nil)
 		if err != nil {
 			st.Error(err)
 		}
-
 		st.KeepAlive(result)
 		set = result.(*starlark.Set)
 	})
