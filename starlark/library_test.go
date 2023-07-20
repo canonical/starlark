@@ -547,15 +547,14 @@ func TestSortedAllocs(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				maxN: 10,
+				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+					return starlark.True, nil
+				},
+			}
+			args := starlark.Tuple{iter}
 			for i := 0; i < st.N; i++ {
-				iter := &testIterable{
-					maxN: 10,
-					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-						return starlark.True, nil
-					},
-				}
-
-				args := starlark.Tuple{iter}
 				result, err := starlark.Call(thread, sorted, args, nil)
 				if err != nil {
 					st.Error(err)
