@@ -1684,8 +1684,7 @@ func TestStringCapitalizeAllocs(t *testing.T) {
 func testStringIterable(t *testing.T, methodName string) {
 	method, _ := starlark.String("arbitrary-string").Attr(methodName)
 	if method == nil {
-		t.Errorf("no such method: string.%s", methodName)
-		return
+		t.Fatalf("no such method: string.%s", methodName)
 	}
 
 	st := startest.From(t)
@@ -1743,8 +1742,7 @@ func TestStringElemsAllocs(t *testing.T) {
 func testStringFixAllocs(t *testing.T, method_name string) {
 	method, _ := starlark.String("foo-bar-foo").Attr(method_name)
 	if method == nil {
-		t.Errorf("no such method: %s", method)
-		return
+		t.Fatalf("no such method: %s", method)
 	}
 
 	st := startest.From(t)
@@ -2105,8 +2103,7 @@ func TestStringLowerAllocs(t *testing.T) {
 func testStringStripAllocs(t *testing.T, method_name string) {
 	method, _ := starlark.String("     ababaZZZZZababa     ").Attr(method_name)
 	if method == nil {
-		t.Errorf("no such method: string.%s", method_name)
-		return
+		t.Fatalf("no such method: string.%s", method_name)
 	}
 
 	t.Run("with-cutset=no", func(t *testing.T) {
