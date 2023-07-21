@@ -44,8 +44,7 @@ func TestMethodSafetiesExist(t *testing.T) {
 func TestTimeFromTimestampAllocs(t *testing.T) {
 	from_timestamp, ok := time.Module.Members["from_timestamp"]
 	if !ok {
-		t.Error("no such builtin: time.from_timestamp")
-		return
+		t.Fatalf("no such builtin: time.from_timestamp")
 	}
 
 	st := startest.From(t)
@@ -64,8 +63,7 @@ func TestTimeFromTimestampAllocs(t *testing.T) {
 func TestTimeIsValidTimezoneAllocs(t *testing.T) {
 	is_valid_timezone, ok := time.Module.Members["is_valid_timezone"]
 	if !ok {
-		t.Error("no such builtin: time.is_valid_timezone")
-		return
+		t.Fatalf("no such builtin: time.is_valid_timezone")
 	}
 
 	t.Run("timezone=valid", func(t *testing.T) {
@@ -105,8 +103,7 @@ func TestTimeNowAllocs(t *testing.T) {
 func TestTimeParseDurationAllocs(t *testing.T) {
 	parse_duration, ok := time.Module.Members["parse_duration"]
 	if !ok {
-		t.Errorf("no such builtin: parse_duration")
-		return
+		t.Fatalf("no such builtin: parse_duration")
 	}
 
 	t.Run("arg=duration", func(t *testing.T) {
