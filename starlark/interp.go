@@ -505,9 +505,9 @@ loop:
 
 		case compile.MAKELIST:
 			n := int(arg)
-			contentSize := EstimateMakeSize([]Value{}, n)
+			elemsSize := EstimateMakeSize([]Value{}, n)
 			listSize := EstimateSize(&List{})
-			if err2 := thread.AddAllocs(contentSize + listSize); err2 != nil {
+			if err2 := thread.AddAllocs(elemsSize + listSize); err2 != nil {
 				err = err2
 				break loop
 			}
