@@ -185,8 +185,7 @@ func (iter *testSequenceIterator) Next(p *starlark.Value) bool {
 }
 
 type unsafeTestIterable struct {
-	maxN    int
-	reached int
+	testBase startest.TestBase
 }
 
 var _ starlark.Iterable = &unsafeTestIterable{}
@@ -196,30 +195,23 @@ func (ui *unsafeTestIterable) Hash() (uint32, error) {
 	return 0, fmt.Errorf("unhashable type: %s", ui.Type())
 }
 func (ui *unsafeTestIterable) String() string       { return "unsafeTestIterable" }
-func (ui *unsafeTestIterable) Truth() starlark.Bool { return ui.maxN != 0 }
+func (ui *unsafeTestIterable) Truth() starlark.Bool { return false }
 func (ui *unsafeTestIterable) Type() string         { return "unsafeTestIterable" }
 func (ui *unsafeTestIterable) Iterate() starlark.Iterator {
 	return &unsafeTestIterator{
-		maxN: ui.maxN,
-		n:    &ui.reached,
+		testBase: ui.testBase,
 	}
 }
 
 type unsafeTestIterator struct {
-	maxN int
-	n    *int
+	testBase startest.TestBase
 }
 
 var _ starlark.Iterator = &unsafeTestIterator{}
 
 func (ui *unsafeTestIterator) Next(p *starlark.Value) bool {
-	(*ui.n)++
-	if ui.maxN > 0 && *ui.n > ui.maxN {
-		return false
-	}
-
-	*p = starlark.MakeInt(*ui.n)
-	return true
+	ui.testBase.Error("Next called")
+	return false
 }
 func (ui *unsafeTestIterator) Done()      {}
 func (ui *unsafeTestIterator) Err() error { return fmt.Errorf("Err called") }
@@ -336,16 +328,12 @@ func TestAllAllocs(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
-		iter := &unsafeTestIterable{}
+		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, all, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
 		} else if err.Error() != expected {
 			t.Errorf("unexpected error: expected %v but got %v", expected, err)
-		}
-
-		if iter.reached > 0 {
-			t.Error("unsafe iterator was executed")
 		}
 	})
 
@@ -466,16 +454,12 @@ func TestDictAllocs(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
-		iter := &unsafeTestIterable{}
+		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, dict, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
 		} else if err.Error() != expected {
 			t.Errorf("unexpected error: expected %v but got %v", expected, err)
-		}
-
-		if iter.reached > 0 {
-			t.Error("unsafe iterator was executed")
 		}
 	})
 
@@ -534,16 +518,12 @@ func TestEnumerateAllocs(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
-		iter := &unsafeTestIterable{}
+		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, enumerate, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
 		} else if err.Error() != expected {
 			t.Errorf("unexpected error: expected %v but got %v", expected, err)
-		}
-
-		if iter.reached > 0 {
-			t.Error("unsafe iterator was executed")
 		}
 	})
 
@@ -874,16 +854,12 @@ func testMinMaxAllocs(t *testing.T, name string) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
-		iter := &unsafeTestIterable{}
+		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, minOrMax, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
 		} else if err.Error() != expected {
 			t.Errorf("unexpected error: expected %v but got %v", expected, err)
-		}
-
-		if iter.reached > 0 {
-			t.Error("unsafe iterator was executed")
 		}
 	})
 
@@ -1065,16 +1041,12 @@ func TestReversedAllocs(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
-		iter := &unsafeTestIterable{}
+		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
 		} else if err.Error() != expected {
 			t.Errorf("unexpected error: expected %v but got %v", expected, err)
-		}
-
-		if iter.reached > 0 {
-			t.Error("unsafe iterator was executed")
 		}
 	})
 
@@ -1331,16 +1303,12 @@ func TestZipAllocs(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
-		iter := &unsafeTestIterable{}
+		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, zip, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
 		} else if err.Error() != expected {
 			t.Errorf("unexpected error: expected %v but got %v", expected, err)
-		}
-
-		if iter.reached > 0 {
-			t.Error("unsafe iterator was executed")
 		}
 	})
 
@@ -1692,16 +1660,12 @@ func TestDictUpdateAllocs(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
-		iter := &unsafeTestIterable{}
+		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, dict_update, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
 		} else if err.Error() != expected {
 			t.Errorf("unexpected error: expected %v but got %v", expected, err)
-		}
-
-		if iter.reached > 0 {
-			t.Error("unsafe iterator was executed")
 		}
 	})
 
