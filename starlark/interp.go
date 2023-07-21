@@ -505,6 +505,12 @@ loop:
 
 		case compile.MAKELIST:
 			n := int(arg)
+			elemsSize := EstimateMakeSize([]Value{}, n)
+			listSize := EstimateSize(&List{})
+			if err2 := thread.AddAllocs(elemsSize + listSize); err2 != nil {
+				err = err2
+				break loop
+			}
 			elems := make([]Value, n)
 			sp -= n
 			copy(elems, stack[sp:])
