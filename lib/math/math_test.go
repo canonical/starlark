@@ -56,6 +56,7 @@ func testUnarySafety(t *testing.T, name string, inputs []float64) {
 }
 
 func TestMathCeilAllocs(t *testing.T) {
+	testMathRoundingAllocs(t, "ceil")
 }
 
 func TestMathCopysignAllocs(t *testing.T) {
@@ -65,7 +66,51 @@ func TestMathFabsAllocs(t *testing.T) {
 	testUnarySafety(t, "fabs", []float64{0, 1, -1, 1 << 60, -1 << 60})
 }
 
+func testMathRoundingAllocs(t *testing.T, name string) {
+	fn, ok := starlarkmath.Module.Members[name]
+	if !ok {
+		t.Fatalf("no such builtin: math.%s", name)
+	}
+
+	t.Run("type=float", func(t *testing.T) {
+		testUnarySafety(t, name, []float64{-1.5, 0, 1.5})
+	})
+
+	t.Run("type=int", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			args := starlark.Tuple{starlark.MakeInt(100)}
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, fn, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("type=big-int", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			big := starlark.Value(starlark.MakeInt64(1<<32 + 1))
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, fn, starlark.Tuple{big}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+}
+
 func TestMathFloorAllocs(t *testing.T) {
+	testMathRoundingAllocs(t, "floor")
 }
 
 func TestMathModAllocs(t *testing.T) {
