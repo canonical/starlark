@@ -67,13 +67,10 @@ func testBinarySafety(t *testing.T, name string, inputs [][2]float64) {
 		}
 
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
-
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.Float(input[0]), starlark.Float(input[1])}
-
 				result, err := starlark.Call(thread, builtin, args, nil)
 				if err != nil {
 					st.Error(err)
