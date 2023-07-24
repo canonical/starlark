@@ -1283,7 +1283,7 @@ func TestSortedAllocs(t *testing.T) {
 			iter := &testIterable{
 				maxN: 10,
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					res := starlark.MakeInt(n)
+					res := starlark.MakeInt(-n)
 					if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
 						return nil, err
 					}
@@ -1309,7 +1309,7 @@ func TestSortedAllocs(t *testing.T) {
 				iter := &testIterable{
 					maxN: st.N,
 					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-						res := starlark.MakeInt(n)
+						res := starlark.MakeInt(-n)
 						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
 							return nil, err
 						}
@@ -1332,7 +1332,7 @@ func TestSortedAllocs(t *testing.T) {
 				iter := &testSequence{
 					maxN: st.N,
 					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-						res := starlark.MakeInt(n)
+						res := starlark.MakeInt(-n)
 						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
 							return nil, err
 						}
@@ -1364,7 +1364,7 @@ func TestSortedAllocs(t *testing.T) {
 				iter := &testIterable{
 					maxN: st.N,
 					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-						res := starlark.MakeInt(n)
+						res := starlark.MakeInt(-n)
 						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
 							return nil, err
 						}
@@ -1398,7 +1398,7 @@ func TestSortedAllocs(t *testing.T) {
 				iter := &testSequence{
 					maxN: st.N,
 					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-						res := starlark.MakeInt(n)
+						res := starlark.MakeInt(-n)
 						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
 							return nil, err
 						}
