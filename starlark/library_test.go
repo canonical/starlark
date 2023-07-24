@@ -596,7 +596,7 @@ func TestSortedAllocs(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
-				iter := &testIterable{
+				iter := &testSequence{
 					maxN: st.N,
 					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 						res := starlark.MakeInt(n)
