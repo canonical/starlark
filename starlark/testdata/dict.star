@@ -214,8 +214,8 @@ def test_delete():
 test_delete()
 
 # Regression test for github.com/google/starlark-go/issues/128.
-assert.fails(lambda: dict(None), 'got NoneType, want iterable')
-assert.fails(lambda: {}.update(None), 'got NoneType, want iterable')
+assert.fails(lambda: dict(None), 'dictionary update value is not iterable \\(NoneType\\)')
+assert.fails(lambda: {}.update(None), 'dictionary update value is not iterable \\(NoneType\\)')
 
 ---
 # Verify position of an "unhashable key" error in a dict literal.
