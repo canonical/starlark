@@ -276,9 +276,7 @@ func TestOrdAllocs(t *testing.T) {
 
 	t.Run("input=string", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
-
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.String("Д")}
@@ -294,9 +292,7 @@ func TestOrdAllocs(t *testing.T) {
 
 	t.Run("input=bytes", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
-
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.Bytes("d")}
