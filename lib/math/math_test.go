@@ -62,10 +62,6 @@ func testBinarySafety(t *testing.T, name string, inputs [][2]float64) {
 	}
 
 	for _, input := range inputs {
-		if len(input) != 2 {
-			t.Fatalf("expected pair: got %v", input)
-		}
-
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
