@@ -2131,21 +2131,14 @@ func TestStringLowerAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("dEaDbEeF", st.N))
-			fn, err := str.Attr("lower")
-			if err != nil {
-				st.Error(err)
-				return
+			string_lower, _ := str.Attr("lower")
+			if string_lower == nil {
+				t.Fatalf("no such method: string.lower")
 			}
 
-			if fn == nil {
-				st.Errorf("`string.lower` builtin doesn't exists")
-				return
-			}
-
-			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			result, err := starlark.Call(thread, string_lower, nil, nil)
 			if err != nil {
 				st.Error(err)
-				return
 			}
 			st.KeepAlive(result)
 		})
@@ -2156,37 +2149,28 @@ func TestStringLowerAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("ΔΗΑΔΒΗΗΦ", st.N))
-			fn, err := str.Attr("lower")
-			if err != nil {
-				st.Error(err)
-				return
+			string_lower, _ := str.Attr("lower")
+			if string_lower == nil {
+				t.Fatalf("no such method: string.lower")
 			}
 
-			if fn == nil {
-				st.Errorf("`string.lower` builtin doesn't exists")
-				return
-			}
-
-			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			result, err := starlark.Call(thread, string_lower, nil, nil)
 			if err != nil {
 				st.Error(err)
-				return
 			}
 			st.KeepAlive(result)
 		})
 
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("a", st.N) + "ȺȾȺȾ")
-			fn, err := str.Attr("upper")
-			if err != nil {
-				st.Error(err)
-				return
+			string_lower, _ := str.Attr("lower")
+			if string_lower == nil {
+				t.Fatalf("no such method: string.lower")
 			}
 
-			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			result, err := starlark.Call(thread, string_lower, nil, nil)
 			if err != nil {
 				st.Error(err)
-				return
 			}
 			st.KeepAlive(result)
 		})
@@ -2198,16 +2182,14 @@ func TestStringLowerAllocs(t *testing.T) {
 			// is done through the length of the original string,
 			// it should be safe ("just" wasting a 2/3 of the space).
 			str := starlark.String(strings.Repeat("K", st.N))
-			fn, err := str.Attr("upper")
-			if err != nil {
-				st.Error(err)
-				return
+			string_lower, _ := str.Attr("lower")
+			if string_lower == nil {
+				t.Fatalf("no such method: string.lower")
 			}
 
-			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			result, err := starlark.Call(thread, string_lower, nil, nil)
 			if err != nil {
 				st.Error(err)
-				return
 			}
 			st.KeepAlive(result)
 		})
@@ -2218,22 +2200,15 @@ func TestStringLowerAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("Φ")
-			fn, err := str.Attr("lower")
-			if err != nil {
-				st.Error(err)
-				return
-			}
-
-			if fn == nil {
-				st.Errorf("`string.lower` builtin doesn't exists")
-				return
+			string_lower, _ := str.Attr("lower")
+			if string_lower == nil {
+				t.Fatalf("no such method: string.lower")
 			}
 
 			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+				result, err := starlark.Call(thread, string_lower, nil, nil)
 				if err != nil {
 					st.Error(err)
-					return
 				}
 				st.KeepAlive(result)
 			}
@@ -2546,16 +2521,14 @@ func TestStringUpperAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("dEaDbEeF", st.N))
-			fn, err := str.Attr("upper")
-			if err != nil {
-				st.Error(err)
-				return
+			string_upper, _ := str.Attr("upper")
+			if string_upper == nil {
+				t.Fatalf("no such method: string.upper")
 			}
 
-			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			result, err := starlark.Call(thread, string_upper, nil, nil)
 			if err != nil {
 				st.Error(err)
-				return
 			}
 			st.KeepAlive(result)
 		})
@@ -2569,16 +2542,14 @@ func TestStringUpperAllocs(t *testing.T) {
 		// of each character remains stable for each character.
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("δηαδβηηφ", st.N))
-			fn, err := str.Attr("upper")
-			if err != nil {
-				st.Error(err)
-				return
+			string_upper, _ := str.Attr("upper")
+			if string_upper == nil {
+				t.Fatalf("no such method: string.upper")
 			}
 
-			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			result, err := starlark.Call(thread, string_upper, nil, nil)
 			if err != nil {
 				st.Error(err)
-				return
 			}
 			st.KeepAlive(result)
 		})
@@ -2594,16 +2565,14 @@ func TestStringUpperAllocs(t *testing.T) {
 		// the problem persists)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("a", st.N) + "ɥɐɥɐ")
-			fn, err := str.Attr("upper")
-			if err != nil {
-				st.Error(err)
-				return
+			string_upper, _ := str.Attr("upper")
+			if string_upper == nil {
+				t.Fatalf("no such method: string.upper")
 			}
 
-			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			result, err := starlark.Call(thread, string_upper, nil, nil)
 			if err != nil {
 				st.Error(err)
-				return
 			}
 			st.KeepAlive(result)
 		})
@@ -2614,16 +2583,14 @@ func TestStringUpperAllocs(t *testing.T) {
 		// twice the size of the original string.
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("ı", st.N))
-			fn, err := str.Attr("upper")
-			if err != nil {
-				st.Error(err)
-				return
+			string_upper, _ := str.Attr("upper")
+			if string_upper == nil {
+				t.Fatalf("no such method: string.upper")
 			}
 
-			result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+			result, err := starlark.Call(thread, string_upper, nil, nil)
 			if err != nil {
 				st.Error(err)
-				return
 			}
 			st.KeepAlive(result)
 		})
@@ -2634,17 +2601,15 @@ func TestStringUpperAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("φ")
-			fn, err := str.Attr("upper")
-			if err != nil {
-				st.Error(err)
-				return
+			string_upper, _ := str.Attr("upper")
+			if string_upper == nil {
+				t.Fatalf("no such method: string.upper")
 			}
 
 			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, fn, starlark.Tuple{}, nil)
+				result, err := starlark.Call(thread, string_upper, nil, nil)
 				if err != nil {
 					st.Error(err)
-					return
 				}
 				st.KeepAlive(result)
 			}
