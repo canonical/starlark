@@ -937,7 +937,7 @@ func ord(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			n := utf8.RuneCountInString(s)
 			return nil, fmt.Errorf("ord: string encodes %d Unicode code points, want 1", n)
 		}
-		ret := MakeInt(int(r))
+		ret := Value(MakeInt(int(r)))
 		if err := thread.AddAllocs(EstimateSize(ret)); err != nil {
 			return nil, err
 		}
@@ -948,7 +948,7 @@ func ord(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		if len(x) != 1 {
 			return nil, fmt.Errorf("ord: bytes has length %d, want 1", len(x))
 		}
-		ret := MakeInt(int(x[0]))
+		ret := Value(MakeInt(int(x[0])))
 		if err := thread.AddAllocs(EstimateSize(ret)); err != nil {
 			return nil, err
 		}
