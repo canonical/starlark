@@ -107,22 +107,22 @@ var Module = &starlarkstruct.Module{
 	},
 }
 var safeties = map[string]starlark.Safety{
-	"ceil":      starlark.NotSafe,
-	"copysign":  starlark.NotSafe,
+	"ceil":      starlark.MemSafe,
+	"copysign":  starlark.MemSafe,
 	"fabs":      starlark.MemSafe,
-	"floor":     starlark.NotSafe,
-	"mod":       starlark.NotSafe,
-	"pow":       starlark.NotSafe,
-	"remainder": starlark.NotSafe,
+	"floor":     starlark.MemSafe,
+	"mod":       starlark.MemSafe,
+	"pow":       starlark.MemSafe,
+	"remainder": starlark.MemSafe,
 	"round":     starlark.MemSafe,
 	"exp":       starlark.MemSafe,
 	"sqrt":      starlark.MemSafe,
 	"acos":      starlark.MemSafe,
 	"asin":      starlark.MemSafe,
 	"atan":      starlark.MemSafe,
-	"atan2":     starlark.NotSafe,
+	"atan2":     starlark.MemSafe,
 	"cos":       starlark.MemSafe,
-	"hypot":     starlark.NotSafe,
+	"hypot":     starlark.MemSafe,
 	"sin":       starlark.MemSafe,
 	"tan":       starlark.MemSafe,
 	"degrees":   starlark.MemSafe,
@@ -187,6 +187,9 @@ func newBinaryBuiltin(name string, fn func(float64, float64) float64) *starlark.
 		if err := starlark.UnpackPositionalArgs(name, args, kwargs, 2, &x, &y); err != nil {
 			return nil, err
 		}
+		if err := thread.AddAllocs(floatSize); err != nil {
+			return nil, err
+		}
 		return starlark.Float(fn(float64(x), float64(y))), nil
 	})
 }
@@ -216,9 +219,17 @@ func ceil(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwa
 
 	switch t := x.(type) {
 	case starlark.Int:
-		return t, nil
+		return x, nil
 	case starlark.Float:
-		return starlark.NumberToInt(starlark.Float(math.Ceil(float64(t))))
+		var res starlark.Value // Avoid transient allocation
+		res, err := starlark.NumberToInt(starlark.Float(math.Ceil(float64(t))))
+		if err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+			return nil, err
+		}
+		return res, nil
 	}
 
 	return nil, fmt.Errorf("got %s, want float or int", x.Type())
@@ -233,9 +244,17 @@ func floor(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kw
 
 	switch t := x.(type) {
 	case starlark.Int:
-		return t, nil
+		return x, nil
 	case starlark.Float:
-		return starlark.NumberToInt(starlark.Float(math.Floor(float64(t))))
+		var ret starlark.Value // Avoid transient allocation
+		ret, err := starlark.NumberToInt(starlark.Float(math.Floor(float64(t))))
+		if err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(starlark.EstimateSize(ret)); err != nil {
+			return nil, err
+		}
+		return ret, nil
 	}
 
 	return nil, fmt.Errorf("got %s, want float or int", x.Type())
