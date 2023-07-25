@@ -94,7 +94,7 @@ func init() {
 		"list":      NotSafe,
 		"max":       MemSafe,
 		"min":       MemSafe,
-		"ord":       NotSafe,
+		"ord":       MemSafe,
 		"print":     MemSafe,
 		"range":     MemSafe,
 		"repr":      MemSafe,
@@ -1018,14 +1018,22 @@ func ord(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			n := utf8.RuneCountInString(s)
 			return nil, fmt.Errorf("ord: string encodes %d Unicode code points, want 1", n)
 		}
-		return MakeInt(int(r)), nil
+		res := Value(MakeInt(int(r)))
+		if err := thread.AddAllocs(EstimateSize(res)); err != nil {
+			return nil, err
+		}
+		return res, nil
 
 	case Bytes:
 		// ord(bytes) returns int value of sole byte.
 		if len(x) != 1 {
 			return nil, fmt.Errorf("ord: bytes has length %d, want 1", len(x))
 		}
-		return MakeInt(int(x[0])), nil
+		res := Value(MakeInt(int(x[0])))
+		if err := thread.AddAllocs(EstimateSize(res)); err != nil {
+			return nil, err
+		}
+		return res, nil
 	default:
 		return nil, fmt.Errorf("ord: got %s, want string or bytes", x.Type())
 	}
