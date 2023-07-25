@@ -55,11 +55,34 @@ func testUnarySafety(t *testing.T, name string, inputs []float64) {
 	}
 }
 
+func testBinarySafety(t *testing.T, name string, inputs [][2]float64) {
+	builtin, ok := starlarkmath.Module.Members[name]
+	if !ok {
+		t.Fatalf("no such builtin: math.%s", name)
+	}
+
+	for _, input := range inputs {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.Float(input[0]), starlark.Float(input[1])}
+				result, err := starlark.Call(thread, builtin, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	}
+}
+
 func TestMathCeilAllocs(t *testing.T) {
 	testMathRoundingAllocs(t, "ceil")
 }
 
 func TestMathCopysignAllocs(t *testing.T) {
+	testBinarySafety(t, "copysign", [][2]float64{{1, 1}, {1, -1}})
 }
 
 func TestMathFabsAllocs(t *testing.T) {
@@ -114,12 +137,15 @@ func TestMathFloorAllocs(t *testing.T) {
 }
 
 func TestMathModAllocs(t *testing.T) {
+	testBinarySafety(t, "mod", [][2]float64{{5.4, 3}, {1, 0}})
 }
 
 func TestMathPowAllocs(t *testing.T) {
+	testBinarySafety(t, "pow", [][2]float64{{2, 32}, {0, 0}})
 }
 
 func TestMathRemainderAllocs(t *testing.T) {
+	testBinarySafety(t, "remainder", [][2]float64{{5.4, 3}, {1, 0}})
 }
 
 func TestMathRoundAllocs(t *testing.T) {
@@ -147,6 +173,7 @@ func TestMathAtanAllocs(t *testing.T) {
 }
 
 func TestMathAtan2Allocs(t *testing.T) {
+	testBinarySafety(t, "atan2", [][2]float64{{5.4, 3}, {1, 0}})
 }
 
 func TestMathCosAllocs(t *testing.T) {
@@ -154,6 +181,7 @@ func TestMathCosAllocs(t *testing.T) {
 }
 
 func TestMathHypotAllocs(t *testing.T) {
+	testBinarySafety(t, "hypot", [][2]float64{{4, 3}, {1, 0}})
 }
 
 func TestMathSinAllocs(t *testing.T) {
