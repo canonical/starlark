@@ -2328,9 +2328,7 @@ func TestStringJoinAllocs(t *testing.T) {
 
 	t.Run("growth", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
-
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				maxN: st.N,
@@ -2338,9 +2336,7 @@ func TestStringJoinAllocs(t *testing.T) {
 					return starlark.String("b"), nil
 				},
 			}
-
 			args := starlark.Tuple{iter}
-
 			result, err := starlark.Call(thread, string_join, args, nil)
 			if err != nil {
 				st.Error(err)
@@ -2351,9 +2347,7 @@ func TestStringJoinAllocs(t *testing.T) {
 
 	t.Run("result", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
-
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				iter := &testIterable{
@@ -2362,9 +2356,7 @@ func TestStringJoinAllocs(t *testing.T) {
 						return starlark.String("b"), nil
 					},
 				}
-
 				args := starlark.Tuple{iter}
-
 				result, err := starlark.Call(thread, string_join, args, nil)
 				if err != nil {
 					st.Error(err)
