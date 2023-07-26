@@ -33,6 +33,33 @@ func TestJsonEncodeAllocs(t *testing.T) {
 }
 
 func TestJsonDecodeAllocs(t *testing.T) {
+	json_document := starlark.String(`
+		{
+			"Int": 48879,
+			"BigInt": 3825590844416,
+			"Float": 1.4218e-1,
+			"Bool": true,
+			"Null": null,
+			"Empty list": [],
+			"Tuple":[ 1, 2 ]	
+		}`)
+
+	json_decode, _ := json.Module.Attr("decode")
+	if json_decode == nil {
+		t.Fatal("no such method: json.endoce")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, json_decode, starlark.Tuple{json_document}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestJsonIndentAllocs(t *testing.T) {
