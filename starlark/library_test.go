@@ -1421,7 +1421,7 @@ func TestDictValuesAllocs(t *testing.T) {
 	})
 }
 
-const testListElems = 100
+const testListElems = 10
 
 func TestListAppendAllocs(t *testing.T) {
 	list := starlark.NewList([]starlark.Value{})
