@@ -99,7 +99,7 @@ func init() {
 		"range":     MemSafe,
 		"repr":      MemSafe,
 		"reversed":  MemSafe,
-		"set":       NotSafe,
+		"set":       MemSafe,
 		"sorted":    MemSafe,
 		"str":       MemSafe,
 		"tuple":     MemSafe,
@@ -1335,16 +1335,24 @@ func set(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if err := UnpackPositionalArgs("set", args, kwargs, 0, &iterable); err != nil {
 		return nil, err
 	}
+	if err := thread.AddAllocs(EstimateSize(&Set{})); err != nil {
+		return nil, err
+	}
 	set := new(Set)
 	if iterable != nil {
-		// TODO: use SafeIterate
-		iter := iterable.Iterate()
+		iter, err := SafeIterate(thread, iterable)
+		if err != nil {
+			return nil, err
+		}
 		defer iter.Done()
 		var x Value
 		for iter.Next(&x) {
-			if err := set.Insert(x); err != nil {
+			if err := set.ht.insert(thread, x, None); err != nil {
 				return nil, nameErr(b, err)
 			}
+		}
+		if err := iter.Err(); err != nil {
+			return nil, err
 		}
 	}
 	return set, nil
