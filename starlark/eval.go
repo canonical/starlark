@@ -258,8 +258,8 @@ type StringBuilder interface {
 type SafeStringBuilder struct {
 	builder strings.Builder
 	thread  *Thread
-
-	err error
+	allocs  uint64
+	err     error
 }
 
 var _ StringBuilder = &SafeStringBuilder{}
@@ -270,12 +270,10 @@ func NewSafeStringBuilder(thread *Thread) *SafeStringBuilder {
 	return &SafeStringBuilder{thread: thread}
 }
 
-var stringSize = EstimateSize("")
-
-// EstimateStringSize estimates the size of the result of String. This takes
-// into account the capacity of the buffer, unlike EstimateSize(tb.String()).
-func (tb *SafeStringBuilder) EstimateStringSize() int64 {
-	return stringSize + int64(roundAllocSize(uintptr(tb.builder.Cap())))
+// Allocs returns the total allocations reported to this SafeStringBuilder's
+// thread.
+func (tb *SafeStringBuilder) Allocs() uint64 {
+	return tb.allocs
 }
 
 func (tb *SafeStringBuilder) safeGrow(n int) error {
@@ -285,11 +283,19 @@ func (tb *SafeStringBuilder) safeGrow(n int) error {
 
 	if tb.Cap()-tb.Len() < n {
 		// Make sure that we can allocate more
-		if err := tb.thread.CheckAllocs(int64(tb.Cap()*2 + n)); err != nil {
+		newCap := tb.Cap()*2 + n
+		newBufferSize := EstimateMakeSize([]byte{}, newCap)
+		if err := tb.thread.AddAllocs(newBufferSize - int64(tb.allocs)); err != nil {
 			tb.err = err
 			return err
 		}
-		tb.builder.Grow(n)
+		// The real size of the allocated buffer might be
+		// bigger than expected. For this reason, add the
+		// difference between the real buffer size and the
+		// target capacity, so that every allocated byte
+		// is available to the user.
+		tb.builder.Grow(n + int(newBufferSize) - newCap)
+		tb.allocs = uint64(newBufferSize)
 	}
 	return nil
 }
@@ -329,7 +335,6 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 	} else {
 		growAmount = utf8.UTFMax
 	}
-
 	if err := tb.safeGrow(growAmount); err != nil {
 		return 0, err
 	}
