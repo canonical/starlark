@@ -1249,3 +1249,31 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 		t.Errorf("missing safety flags %v, expected %v", missing.String(), expectedSafety.String())
 	}
 }
+
+func TestSafeBinaryAllocs(t *testing.T) {
+	t.Run("+", func(t *testing.T) {})
+
+	t.Run("-", func(t *testing.T) {})
+
+	t.Run("*", func(t *testing.T) {})
+
+	t.Run("/", func(t *testing.T) {})
+
+	t.Run("//", func(t *testing.T) {})
+
+	t.Run("%", func(t *testing.T) {})
+
+	t.Run("in", func(t *testing.T) {})
+
+	t.Run("not in", func(t *testing.T) {})
+
+	t.Run("|", func(t *testing.T) {})
+
+	t.Run("&", func(t *testing.T) {})
+
+	t.Run("^", func(t *testing.T) {})
+
+	t.Run("<<", func(t *testing.T) {})
+
+	t.Run(">>", func(t *testing.T) {})
+}
