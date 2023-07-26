@@ -1714,7 +1714,6 @@ func list_append(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	if err := appender.Append(object); err != nil {
 		return nil, err
 	}
-
 	return None, nil
 }
 
@@ -1743,7 +1742,6 @@ func list_extend(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	if err := safeListExtend(thread, recv, iterable); err != nil {
 		return nil, err
 	}
-
 	return None, nil
 }
 
@@ -1803,11 +1801,9 @@ func list_insert(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		if err := appender.Append(nil); err != nil {
 			return nil, err
 		}
-
 		copy(recv.elems[index+1:], recv.elems[index:]) // slide up one
 		recv.elems[index] = object
 	}
-
 	return None, nil
 }
 

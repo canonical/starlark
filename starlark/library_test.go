@@ -1449,7 +1449,6 @@ func TestListAppendAllocs(t *testing.T) {
 
 func TestListClearAllocs(t *testing.T) {
 	list := starlark.NewList(make([]starlark.Value, 0, 100))
-
 	clear, _ := list.Attr("clear")
 	if clear == nil {
 		t.Fatal("no such method: list.clear")
@@ -1468,7 +1467,6 @@ func TestListClearAllocs(t *testing.T) {
 			if err != nil {
 				st.Error(err)
 			}
-
 			st.KeepAlive(list)
 		}
 	})
@@ -1486,7 +1484,6 @@ func TestListExtendAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			list := starlark.NewList([]starlark.Value{})
-
 			extend, _ := list.Attr("extend")
 			if extend == nil {
 				st.Fatal("no such method: list.extend")
@@ -1532,11 +1529,9 @@ func TestListExtendAllocs(t *testing.T) {
 		nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
 			allocs := starlark.EstimateSize(&starlark.List{}) +
 				starlark.EstimateMakeSize([]starlark.Value{}, 16)
-
 			if err := thread.AddAllocs(allocs); err != nil {
 				return nil, err
 			}
-
 			return starlark.NewList(make([]starlark.Value, 0, 16)), nil
 		},
 	}
@@ -1548,7 +1543,6 @@ func TestListExtendAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			list := starlark.NewList([]starlark.Value{})
-
 			extend, _ := list.Attr("extend")
 			if extend == nil {
 				st.Fatal("no such method: list.extend")
@@ -1567,7 +1561,6 @@ func TestListExtendAllocs(t *testing.T) {
 
 	t.Run("big-iterable", func(t *testing.T) {
 		list := starlark.NewList([]starlark.Value{})
-
 		extend, _ := list.Attr("extend")
 		if extend == nil {
 			t.Fatal("no such method: list.extend")
@@ -1594,7 +1587,6 @@ func TestListIndexAllocs(t *testing.T) {
 		starlark.False,
 		starlark.True,
 	})
-
 	index, _ := list.Attr("index")
 	if index == nil {
 		t.Fatal("no such method: list.index")
@@ -1608,7 +1600,6 @@ func TestListIndexAllocs(t *testing.T) {
 			if err != nil {
 				st.Error(err)
 			}
-
 			st.KeepAlive(index)
 		}
 	})
@@ -1637,7 +1628,6 @@ func TestListInsertAllocs(t *testing.T) {
 
 func TestListPopAllocs(t *testing.T) {
 	list := starlark.NewList(make([]starlark.Value, 0, 100))
-
 	pop, _ := list.Attr("pop")
 	if pop == nil {
 		t.Fatal("no such method: list.pop")

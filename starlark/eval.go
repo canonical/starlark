@@ -798,12 +798,10 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 				return err
 			}
 		}
-
 		if err := iter.Err(); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
