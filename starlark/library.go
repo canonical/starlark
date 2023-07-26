@@ -1889,11 +1889,6 @@ func string_capitalize(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 		return nil, err
 	}
 	s := string(b.Receiver().(String))
-
-	if err := thread.CheckAllocs(EstimateSize(s)); err != nil {
-		return nil, err
-	}
-
 	res := NewSafeStringBuilder(thread)
 	res.Grow(len(s))
 	for i, r := range s {
@@ -1907,10 +1902,6 @@ func string_capitalize(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 		}
 	}
 	if err := res.Err(); err != nil {
-		return nil, err
-	}
-
-	if err := thread.AddAllocs(res.EstimateStringSize()); err != nil {
 		return nil, err
 	}
 	return String(res.String()), nil
