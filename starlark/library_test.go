@@ -504,6 +504,32 @@ func TestDictAllocs(t *testing.T) {
 }
 
 func TestDirAllocs(t *testing.T) {
+	values := starlark.Tuple{
+		starlark.None,
+		starlark.False,
+		starlark.True,
+		starlark.MakeInt(0),
+		starlark.MakeInt64(1 << 34),
+		starlark.String("starlark"),
+		starlark.NewList(nil),
+		starlark.NewDict(10),
+	}
+	dir, ok := starlark.Universe["dir"]
+	if !ok {
+		t.Fatal("no such builtin: dir")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	for _, value := range values {
+		st.RunThread(func(thread *starlark.Thread) {
+			result, err := starlark.Call(thread, dir, starlark.Tuple{value}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	}
 }
 
 func TestEnumerateAllocs(t *testing.T) {
