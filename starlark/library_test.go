@@ -894,6 +894,107 @@ func TestLenAllocs(t *testing.T) {
 }
 
 func TestListAllocs(t *testing.T) {
+	const numTestElems = 10
+
+	t.Run("small-iterable", func(t *testing.T) {
+		list, ok := starlark.Universe["list"]
+		if !ok {
+			t.Fatal("no such builtin: list")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
+					return starlark.None, nil
+				},
+				maxN: numTestElems,
+			}
+
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, list, starlark.Tuple{iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("big-iterable", func(t *testing.T) {
+		list, ok := starlark.Universe["list"]
+		if !ok {
+			t.Fatal("no such builtin: list")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
+					return starlark.None, nil
+				},
+				maxN: st.N,
+			}
+
+			result, err := starlark.Call(thread, list, starlark.Tuple{iter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("small-sequence", func(t *testing.T) {
+		list, ok := starlark.Universe["list"]
+		if !ok {
+			t.Fatal("no such builtin: list")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testSequence{
+				nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
+					return starlark.None, nil
+				},
+				maxN: numTestElems,
+			}
+
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, list, starlark.Tuple{iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("big-sequence", func(t *testing.T) {
+		list, ok := starlark.Universe["list"]
+		if !ok {
+			t.Fatal("no such builtin: list")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testSequence{
+				nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
+					return starlark.None, nil
+				},
+				maxN: st.N,
+			}
+
+			result, err := starlark.Call(thread, list, starlark.Tuple{iter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
 }
 
 func testMinMaxAllocs(t *testing.T, name string) {
