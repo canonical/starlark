@@ -1709,9 +1709,8 @@ func list_append(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	if err := recv.checkMutable("append to"); err != nil {
 		return nil, nameErr(b, err)
 	}
-
-	appender := NewSafeAppender(thread, &recv.elems)
-	if err := appender.Append(object); err != nil {
+	elemsAppender := NewSafeAppender(thread, &recv.elems)
+	if err := elemsAppender.Append(object); err != nil {
 		return nil, err
 	}
 	return None, nil
@@ -1762,11 +1761,11 @@ func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		if eq, err := Equal(recv.elems[i], value); err != nil {
 			return nil, nameErr(b, err)
 		} else if eq {
-			var result Value = MakeInt(i)
-			if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+			res := Value(MakeInt(i))
+			if err := thread.AddAllocs(EstimateSize(res)); err != nil {
 				return nil, err
 			}
-			return result, nil
+			return res, nil
 		}
 	}
 	return nil, nameErr(b, "value not in list")

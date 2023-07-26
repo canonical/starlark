@@ -210,7 +210,6 @@ loop:
 					if err = xlist.checkMutable("apply += to"); err != nil {
 						break loop
 					}
-
 					if err = safeListExtend(thread, xlist, yiter); err != nil {
 						break loop
 					}

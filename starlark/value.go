@@ -993,9 +993,7 @@ func (it *listIterator) Done() {
 	}
 }
 
-// Iterating over a list is safe as no allocation or IO
-// is ever performed.
-func (it *listIterator) Safety() Safety            { return MemSafe | IOSafe }
+func (it *listIterator) Safety() Safety            { return MemSafe }
 func (it *listIterator) BindThread(thread *Thread) {}
 func (it *listIterator) Err() error                { return nil }
 
