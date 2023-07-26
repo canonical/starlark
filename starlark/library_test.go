@@ -2024,9 +2024,7 @@ func TestStringCapitalizeAllocs(t *testing.T) {
 	}
 
 	st := startest.From(t)
-
 	st.RequireSafety(starlark.MemSafe)
-
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			result, err := starlark.Call(thread, string_capitalize, nil, nil)
