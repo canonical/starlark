@@ -878,33 +878,69 @@ func outOfRange(i, n int, x Value) error {
 	}
 }
 
-// setIndex implements x[y] = z.
-func setIndex(x, y, z Value) error {
-	switch x := x.(type) {
-	case HasSetKey:
-		if err := x.SetKey(y, z); err != nil {
-			return err
+func checkIndexRange(collection Indexable, i int) (int, error) {
+	n := collection.Len()
+	origI := i
+	if i < 0 {
+		i += n
+	}
+	if i < 0 || i >= n {
+		return 0, outOfRange(origI, n, collection)
+	}
+	return i, nil
+}
+
+// SafeSetIndex implements x[y] = z.
+func SafeSetIndex(thread *Thread, x, y, z Value) error {
+	if thread != nil {
+		switch x := x.(type) {
+		case HasSafeSetKey:
+			if err := thread.CheckPermits(x.Safety()); err != nil {
+				return err
+			}
+			if err := x.SafeSetKey(thread, y, z); err != nil {
+				return err
+			}
+
+		case HasSafeSetIndex:
+			if err := thread.CheckPermits(x.Safety()); err != nil {
+				return err
+			}
+			i, err := AsInt32(y)
+			if err != nil {
+				return err
+			}
+
+			if i, err = checkIndexRange(x, i); err != nil {
+				return err
+			}
+			return x.SafeSetIndex(thread, i, z)
 		}
 
+		if err := thread.CheckPermits(NotSafe); err != nil {
+			return err
+		}
+	}
+
+	// If this executes either thread is nil or it
+	// allows execution of NotSafe code.
+	switch x := x.(type) {
+	case HasSetKey:
+		return x.SetKey(y, z)
+
 	case HasSetIndex:
-		n := x.Len()
 		i, err := AsInt32(y)
 		if err != nil {
 			return err
 		}
-		origI := i
-		if i < 0 {
-			i += n
-		}
-		if i < 0 || i >= n {
-			return outOfRange(origI, n, x)
+		if i, err = checkIndexRange(x, i); err != nil {
+			return err
 		}
 		return x.SetIndex(i, z)
 
 	default:
-		return fmt.Errorf("%s value does not support item assignment", x.Type())
+		return ErrUnsupported
 	}
-	return nil
 }
 
 // Unary applies a unary operator (+, -, ~, not) to its operand.

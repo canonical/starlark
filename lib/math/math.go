@@ -107,22 +107,22 @@ var Module = &starlarkstruct.Module{
 	},
 }
 var safeties = map[string]starlark.Safety{
-	"ceil":      starlark.NotSafe,
-	"copysign":  starlark.NotSafe,
+	"ceil":      starlark.MemSafe,
+	"copysign":  starlark.MemSafe,
 	"fabs":      starlark.MemSafe,
 	"floor":     starlark.MemSafe,
-	"mod":       starlark.NotSafe,
-	"pow":       starlark.NotSafe,
-	"remainder": starlark.NotSafe,
+	"mod":       starlark.MemSafe,
+	"pow":       starlark.MemSafe,
+	"remainder": starlark.MemSafe,
 	"round":     starlark.MemSafe,
 	"exp":       starlark.MemSafe,
 	"sqrt":      starlark.MemSafe,
 	"acos":      starlark.MemSafe,
 	"asin":      starlark.MemSafe,
 	"atan":      starlark.MemSafe,
-	"atan2":     starlark.NotSafe,
+	"atan2":     starlark.MemSafe,
 	"cos":       starlark.MemSafe,
-	"hypot":     starlark.NotSafe,
+	"hypot":     starlark.MemSafe,
 	"sin":       starlark.MemSafe,
 	"tan":       starlark.MemSafe,
 	"degrees":   starlark.MemSafe,
@@ -133,7 +133,7 @@ var safeties = map[string]starlark.Safety{
 	"cosh":      starlark.MemSafe,
 	"sinh":      starlark.MemSafe,
 	"tanh":      starlark.MemSafe,
-	"log":       starlark.NotSafe,
+	"log":       starlark.MemSafe,
 	"gamma":     starlark.MemSafe,
 }
 
@@ -187,6 +187,9 @@ func newBinaryBuiltin(name string, fn func(float64, float64) float64) *starlark.
 		if err := starlark.UnpackPositionalArgs(name, args, kwargs, 2, &x, &y); err != nil {
 			return nil, err
 		}
+		if err := thread.AddAllocs(floatSize); err != nil {
+			return nil, err
+		}
 		return starlark.Float(fn(float64(x), float64(y))), nil
 	})
 }
@@ -204,6 +207,9 @@ func log(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwar
 	if base == 1 {
 		return nil, errors.New("division by zero")
 	}
+	if err := thread.AddAllocs(floatSize); err != nil {
+		return nil, err
+	}
 	return starlark.Float(math.Log(float64(x)) / math.Log(float64(base))), nil
 }
 
@@ -216,9 +222,17 @@ func ceil(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwa
 
 	switch t := x.(type) {
 	case starlark.Int:
-		return t, nil
+		return x, nil
 	case starlark.Float:
-		return starlark.NumberToInt(starlark.Float(math.Ceil(float64(t))))
+		var res starlark.Value // Avoid transient allocation
+		res, err := starlark.NumberToInt(starlark.Float(math.Ceil(float64(t))))
+		if err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+			return nil, err
+		}
+		return res, nil
 	}
 
 	return nil, fmt.Errorf("got %s, want float or int", x.Type())

@@ -377,8 +377,11 @@ loop:
 			y := stack[sp-2]
 			x := stack[sp-3]
 			sp -= 3
-			err = setIndex(x, y, z)
+			err = SafeSetIndex(thread, x, y, z)
 			if err != nil {
+				if err == ErrUnsupported {
+					err = fmt.Errorf("%s value does not support item assignment", x.Type())
+				}
 				break loop
 			}
 
@@ -505,6 +508,12 @@ loop:
 
 		case compile.MAKELIST:
 			n := int(arg)
+			elemsSize := EstimateMakeSize([]Value{}, n)
+			listSize := EstimateSize(&List{})
+			if err2 := thread.AddAllocs(elemsSize + listSize); err2 != nil {
+				err = err2
+				break loop
+			}
 			elems := make([]Value, n)
 			sp -= n
 			copy(elems, stack[sp:])

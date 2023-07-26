@@ -222,13 +222,23 @@ type HasSetIndex interface {
 	SetIndex(index int, v Value) error
 }
 
+// A HasSafeSetIndex is an Indexable value whose elements may be assigned (x[i] = y),
+// respecting the safety of the thread.
+type HasSafeSetIndex interface {
+	Indexable
+	SafetyAware
+
+	SafeSetIndex(thread *Thread, index int, v Value) error
+}
+
 var (
-	_ HasSetIndex = (*List)(nil)
-	_ Indexable   = Tuple(nil)
-	_ Indexable   = String("")
-	_ Sliceable   = Tuple(nil)
-	_ Sliceable   = String("")
-	_ Sliceable   = (*List)(nil)
+	_ HasSetIndex     = (*List)(nil)
+	_ HasSafeSetIndex = (*List)(nil)
+	_ Indexable       = Tuple(nil)
+	_ Indexable       = String("")
+	_ Sliceable       = Tuple(nil)
+	_ Sliceable       = String("")
+	_ Sliceable       = (*List)(nil)
 )
 
 // An Iterator provides a sequence of values to the caller.
@@ -294,7 +304,17 @@ type HasSetKey interface {
 	SetKey(k, v Value) error
 }
 
+// A HasSafeSetKey supports map update using x[k]=v syntax, like a dictionary,
+// respecting the safety of the thread.
+type HasSafeSetKey interface {
+	Mapping
+	SafetyAware
+
+	SafeSetKey(thread *Thread, k, v Value) error
+}
+
 var _ HasSetKey = (*Dict)(nil)
+var _ HasSafeSetKey = (*Dict)(nil)
 
 // A HasBinary value may be used as either operand of these binary operators:
 //     +   -   *   /   //   %   in   not in   |   &   ^   <<   >>
@@ -824,6 +844,14 @@ func NewDict(size int) *Dict {
 	return dict
 }
 
+func SafeNewDict(thread *Thread, size int) (*Dict, error) {
+	dict := new(Dict)
+	if err := dict.ht.safeInit(thread, size); err != nil {
+		return nil, err
+	}
+	return dict, nil
+}
+
 func (d *Dict) Clear() error                                    { return d.ht.clear() }
 func (d *Dict) Delete(k Value) (v Value, found bool, err error) { return d.ht.delete(k) }
 func (d *Dict) Get(k Value) (v Value, found bool, err error)    { return d.ht.lookup(k) }
@@ -838,6 +866,14 @@ func (d *Dict) Freeze()                                         { d.ht.freeze() 
 func (d *Dict) Truth() Bool                                     { return d.Len() > 0 }
 func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.Errorf("unhashable type: dict") }
 func (d *Dict) String() string                                  { return toString(d) }
+func (d *Dict) Safety() Safety                                  { return MemSafe }
+
+func (d *Dict) SafeSetKey(thread *Thread, k, v Value) error {
+	if err := d.ht.safeInsert(thread, k, v); err != nil {
+		return err
+	}
+	return nil
+}
 
 func (d *Dict) Attr(name string) (Value, error) { return builtinAttr(d, name, dictMethods) }
 func (d *Dict) AttrNames() []string             { return builtinAttrNames(dictMethods) }
@@ -912,6 +948,7 @@ func (l *List) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable type: l
 func (l *List) Truth() Bool           { return l.Len() > 0 }
 func (l *List) Len() int              { return len(l.elems) }
 func (l *List) Index(i int) Value     { return l.elems[i] }
+func (l *List) Safety() Safety        { return MemSafe }
 
 func (l *List) Slice(start, end, step int) Value {
 	if step == 1 {
@@ -1000,6 +1037,11 @@ func (l *List) SetIndex(i int, v Value) error {
 	}
 	l.elems[i] = v
 	return nil
+}
+
+func (l *List) SafeSetIndex(_ *Thread, i int, v Value) error {
+	// no allocation whatsoever in case of List
+	return l.SetIndex(i, v)
 }
 
 func (l *List) Append(v Value) error {

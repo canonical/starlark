@@ -87,20 +87,20 @@ func init() {
 		"fail":      MemSafe,
 		"float":     MemSafe,
 		"getattr":   NotSafe,
-		"hasattr":   NotSafe,
+		"hasattr":   MemSafe,
 		"hash":      MemSafe,
 		"int":       MemSafe,
 		"len":       MemSafe,
 		"list":      NotSafe,
 		"max":       MemSafe,
 		"min":       MemSafe,
-		"ord":       NotSafe,
+		"ord":       MemSafe,
 		"print":     MemSafe,
 		"range":     MemSafe,
 		"repr":      MemSafe,
-		"reversed":  NotSafe,
+		"reversed":  MemSafe,
 		"set":       NotSafe,
-		"sorted":    NotSafe,
+		"sorted":    MemSafe,
 		"str":       MemSafe,
 		"tuple":     NotSafe,
 		"type":      MemSafe,
@@ -234,7 +234,7 @@ var (
 		"rsplit":         MemSafe,
 		"rstrip":         MemSafe,
 		"split":          MemSafe,
-		"splitlines":     NotSafe,
+		"splitlines":     MemSafe,
 		"startswith":     MemSafe,
 		"strip":          MemSafe,
 		"title":          NotSafe,
@@ -454,7 +454,7 @@ func dict(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		return nil, fmt.Errorf("dict: got %d arguments, want at most 1", len(args))
 	}
 	dict := new(Dict)
-	if err := thread.AddAllocs(dict.ht.estimateTypeSize()); err != nil {
+	if err := thread.AddAllocs(EstimateSize(dict)); err != nil {
 		return nil, err
 	}
 	if err := updateDict(thread, dict, args, kwargs); err != nil {
@@ -1018,14 +1018,22 @@ func ord(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			n := utf8.RuneCountInString(s)
 			return nil, fmt.Errorf("ord: string encodes %d Unicode code points, want 1", n)
 		}
-		return MakeInt(int(r)), nil
+		res := Value(MakeInt(int(r)))
+		if err := thread.AddAllocs(EstimateSize(res)); err != nil {
+			return nil, err
+		}
+		return res, nil
 
 	case Bytes:
 		// ord(bytes) returns int value of sole byte.
 		if len(x) != 1 {
 			return nil, fmt.Errorf("ord: bytes has length %d, want 1", len(x))
 		}
-		return MakeInt(int(x[0])), nil
+		res := Value(MakeInt(int(x[0])))
+		if err := thread.AddAllocs(EstimateSize(res)); err != nil {
+			return nil, err
+		}
+		return res, nil
 	default:
 		return nil, fmt.Errorf("ord: got %s, want string or bytes", x.Type())
 	}
@@ -1258,20 +1266,35 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	if err := UnpackPositionalArgs("reversed", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
-	// TODO: use SafeIterate
-	iter := iterable.Iterate()
+
+	iter, err := SafeIterate(thread, iterable)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 	var elems []Value
 	if n := Len(args[0]); n >= 0 {
+		if err := thread.AddAllocs(EstimateMakeSize([]Value{}, n)); err != nil {
+			return nil, err
+		}
 		elems = make([]Value, 0, n) // preallocate if length known
 	}
+	elemsAppender := NewSafeAppender(thread, &elems)
 	var x Value
 	for iter.Next(&x) {
-		elems = append(elems, x)
+		if err := elemsAppender.Append(x); err != nil {
+			return nil, err
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	n := len(elems)
 	for i := 0; i < n>>1; i++ {
 		elems[i], elems[n-1-i] = elems[n-1-i], elems[i]
+	}
+	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
+		return nil, err
 	}
 	return NewList(elems), nil
 }
@@ -1310,16 +1333,28 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	); err != nil {
 		return nil, err
 	}
-	// TODO: use SafeIterate
-	iter := iterable.Iterate()
+
+	iter, err := SafeIterate(thread, iterable)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 	var values []Value
 	if n := Len(iterable); n > 0 {
+		if err := thread.AddAllocs(EstimateMakeSize(Tuple{}, n)); err != nil {
+			return nil, err
+		}
 		values = make(Tuple, 0, n) // preallocate if length is known
 	}
+	valuesAppender := NewSafeAppender(thread, &values)
 	var x Value
 	for iter.Next(&x) {
-		values = append(values, x)
+		if err := valuesAppender.Append(x); err != nil {
+			return nil, err
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 
 	// Derive keys from values by applying key function.
@@ -1340,6 +1375,9 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		sort.Stable(sort.Reverse(slice))
 	} else {
 		sort.Stable(slice)
+	}
+	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
+		return nil, err
 	}
 	return NewList(slice.values), slice.err
 }
@@ -1671,11 +1709,8 @@ func dict_setdefault(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Va
 	} else if ok {
 		return v, nil
 	} else {
-		before := dict.ht.estimateTypeSize()
-		if err := dict.SetKey(key, dflt); err != nil {
+		if err := dict.SafeSetKey(thread, key, dflt); err != nil {
 			return nil, nameErr(b, err)
-		} else if err := thread.AddAllocs(dict.ht.estimateTypeSize() - before); err != nil {
-			return nil, err
 		} else {
 			return dflt, nil
 		}
@@ -2636,7 +2671,7 @@ func splitspace(s string, max int) []string {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·splitlines
-func string_splitlines(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_splitlines(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var keepends bool
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &keepends); err != nil {
 		return nil, err
@@ -2652,6 +2687,12 @@ func string_splitlines(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		if strings.HasSuffix(s, "\n") {
 			lines = lines[:len(lines)-1]
 		}
+	}
+	var itemTemplate String
+	resultSize := EstimateMakeSize([]Value{itemTemplate}, len(lines)) +
+		EstimateSize(&List{})
+	if err := thread.AddAllocs(resultSize); err != nil {
+		return nil, err
 	}
 	list := make([]Value, len(lines))
 	for i, x := range lines {
@@ -2723,14 +2764,12 @@ func string_find_impl(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple, al
 // Common implementation of builtin dict function and dict.update method.
 // Precondition: len(updates) == 0 or 1.
 func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error {
-	sizeBefore := dict.ht.estimateTypeSize()
-
 	if len(updates) == 1 {
 		switch updates := updates[0].(type) {
 		case IterableMapping:
 			// Iterate over dict's key/value pairs, not just keys.
 			for _, item := range updates.Items() {
-				if err := dict.SetKey(item[0], item[1]); err != nil {
+				if err := dict.SafeSetKey(thread, item[0], item[1]); err != nil {
 					return err // dict is frozen
 				}
 			}
@@ -2766,7 +2805,7 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 						return err
 					}
 				}
-				if err := dict.SetKey(k, v); err != nil {
+				if err := dict.SafeSetKey(thread, k, v); err != nil {
 					return err
 				}
 			}
@@ -2779,7 +2818,7 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 	// Then add the kwargs.
 	before := dict.Len()
 	for _, pair := range kwargs {
-		if err := dict.SetKey(pair[0], pair[1]); err != nil {
+		if err := dict.SafeSetKey(thread, pair[0], pair[1]); err != nil {
 			return err // dict is frozen
 		}
 	}
@@ -2793,13 +2832,6 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 				return fmt.Errorf("duplicate keyword arg: %v", k)
 			}
 			keys[k] = true
-		}
-	}
-
-	sizeAfter := dict.ht.estimateTypeSize()
-	if sizeAfter > sizeBefore {
-		if err := thread.AddAllocs(sizeAfter - sizeBefore); err != nil {
-			return err
 		}
 	}
 
