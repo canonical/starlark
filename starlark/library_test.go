@@ -1613,22 +1613,21 @@ func TestListIndexAllocs(t *testing.T) {
 }
 
 func TestListInsertAllocs(t *testing.T) {
-	list := starlark.NewList([]starlark.Value{})
-	list_insert, _ := list.Attr("insert")
-	if list_insert == nil {
-		t.Fatal("no such method: list.insert")
-	}
-
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
+		list := starlark.NewList([]starlark.Value{})
+		list_insert, _ := list.Attr("insert")
+		if list_insert == nil {
+			st.Fatal("no such method: list.insert")
+		}
+
 		for i := 0; i < st.N; i++ {
 			_, err := starlark.Call(thread, list_insert, starlark.Tuple{starlark.MakeInt(st.N / 2), starlark.None}, nil)
 			if err != nil {
 				st.Error(err)
 			}
 		}
-
 		st.KeepAlive(list)
 	})
 }
