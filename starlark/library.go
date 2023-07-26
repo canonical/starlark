@@ -1904,6 +1904,10 @@ func string_capitalize(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 	if err := res.Err(); err != nil {
 		return nil, err
 	}
+
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
+	}
 	return String(res.String()), nil
 }
 
