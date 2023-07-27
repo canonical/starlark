@@ -157,13 +157,13 @@ var (
 		"remove": NewBuiltin("remove", list_remove),
 	}
 	listMethodSafeties = map[string]Safety{
-		"append": NotSafe,
-		"clear":  NotSafe,
-		"extend": NotSafe,
-		"index":  NotSafe,
-		"insert": NotSafe,
-		"pop":    NotSafe,
-		"remove": NotSafe,
+		"append": MemSafe,
+		"clear":  MemSafe,
+		"extend": MemSafe,
+		"index":  MemSafe,
+		"insert": MemSafe,
+		"pop":    MemSafe,
+		"remove": MemSafe,
 	}
 
 	stringMethods = map[string]*Builtin{
@@ -1746,7 +1746,7 @@ func dict_values(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·append
-func list_append(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_append(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var object Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &object); err != nil {
 		return nil, err
@@ -1755,7 +1755,10 @@ func list_append(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := recv.checkMutable("append to"); err != nil {
 		return nil, nameErr(b, err)
 	}
-	recv.elems = append(recv.elems, object)
+	elemsAppender := NewSafeAppender(thread, &recv.elems)
+	if err := elemsAppender.Append(object); err != nil {
+		return nil, err
+	}
 	return None, nil
 }
 
@@ -1771,7 +1774,7 @@ func list_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·extend
-func list_extend(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_extend(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := b.Receiver().(*List)
 	var iterable Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &iterable); err != nil {
@@ -1780,13 +1783,15 @@ func list_extend(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := recv.checkMutable("extend"); err != nil {
 		return nil, nameErr(b, err)
 	}
-	// TODO: use SafeIterate
-	listExtend(recv, iterable)
+
+	if err := safeListExtend(thread, recv, iterable); err != nil {
+		return nil, err
+	}
 	return None, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·index
-func list_index(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var value, start_, end_ Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &value, &start_, &end_); err != nil {
 		return nil, err
@@ -1802,14 +1807,18 @@ func list_index(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		if eq, err := Equal(recv.elems[i], value); err != nil {
 			return nil, nameErr(b, err)
 		} else if eq {
-			return MakeInt(i), nil
+			res := Value(MakeInt(i))
+			if err := thread.AddAllocs(EstimateSize(res)); err != nil {
+				return nil, err
+			}
+			return res, nil
 		}
 	}
 	return nil, nameErr(b, "value not in list")
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·insert
-func list_insert(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_insert(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := b.Receiver().(*List)
 	var index int
 	var object Value
@@ -1824,14 +1833,19 @@ func list_insert(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		index += recv.Len()
 	}
 
+	appender := NewSafeAppender(thread, &recv.elems)
 	if index >= recv.Len() {
 		// end
-		recv.elems = append(recv.elems, object)
+		if err := appender.Append(object); err != nil {
+			return nil, err
+		}
 	} else {
 		if index < 0 {
 			index = 0 // start
 		}
-		recv.elems = append(recv.elems, nil)
+		if err := appender.Append(nil); err != nil {
+			return nil, err
+		}
 		copy(recv.elems[index+1:], recv.elems[index:]) // slide up one
 		recv.elems[index] = object
 	}
