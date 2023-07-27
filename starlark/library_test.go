@@ -2059,7 +2059,6 @@ func TestListExtendAllocs(t *testing.T) {
 		}
 
 		iter := &unsafeTestIterable{t}
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 		_, err := starlark.Call(thread, list_extend, starlark.Tuple{iter}, nil)
