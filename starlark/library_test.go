@@ -2049,6 +2049,27 @@ func TestListClearAllocs(t *testing.T) {
 func TestListExtendAllocs(t *testing.T) {
 	const numTestElems = 10
 
+	t.Run("safety-respected", func(t *testing.T) {
+		const expected = "feature unavailable to the sandbox"
+
+		list := starlark.NewList([]starlark.Value{})
+		list_extend, _ := list.Attr("extend")
+		if list_extend == nil {
+			t.Fatal("no such method: list.extend")
+		}
+
+		iter := &unsafeTestIterable{t}
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+		_, err := starlark.Call(thread, list_extend, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if err.Error() != expected {
+			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		}
+	})
+
 	t.Run("small-list", func(t *testing.T) {
 		toAdd := starlark.NewList(make([]starlark.Value, 0, numTestElems))
 		for i := 0; i < numTestElems; i++ {
