@@ -864,7 +864,7 @@ func TestRunStringMemSafety(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
-		st.SetMaxAllocs(128)
+		st.SetMaxAllocs(1000)
 		st.AddBuiltin(overallocate)
 		ok := st.RunString(`
 			for _ in st.ntimes():
