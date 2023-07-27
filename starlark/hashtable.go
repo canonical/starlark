@@ -199,8 +199,6 @@ func (ht *hashtable) safeGrow(thread *Thread) error {
 	return nil
 }
 
-func (ht *hashtable) grow() { ht.safeGrow(nil) }
-
 func (ht *hashtable) lookup(k Value) (v Value, found bool, err error) {
 	h, err := k.Hash()
 	if err != nil {

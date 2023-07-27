@@ -1040,7 +1040,6 @@ func (l *List) SetIndex(i int, v Value) error {
 }
 
 func (l *List) SafeSetIndex(_ *Thread, i int, v Value) error {
-	// no allocation whatsoever in case of List
 	return l.SetIndex(i, v)
 }
 

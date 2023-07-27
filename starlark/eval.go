@@ -878,7 +878,7 @@ func outOfRange(i, n int, x Value) error {
 	}
 }
 
-func checkIndexRange(collection Indexable, i int) (int, error) {
+func getValidIndex(collection Indexable, i int) (int, error) {
 	n := collection.Len()
 	origI := i
 	if i < 0 {
@@ -903,15 +903,15 @@ func SafeSetIndex(thread *Thread, x, y, z Value) error {
 			}
 
 		case HasSafeSetIndex:
-			if err := thread.CheckPermits(x.Safety()); err != nil {
-				return err
-			}
 			i, err := AsInt32(y)
 			if err != nil {
 				return err
 			}
 
-			if i, err = checkIndexRange(x, i); err != nil {
+			if i, err = getValidIndex(x, i); err != nil {
+				return err
+			}
+			if err := thread.CheckPermits(x.Safety()); err != nil {
 				return err
 			}
 			return x.SafeSetIndex(thread, i, z)
@@ -933,7 +933,7 @@ func SafeSetIndex(thread *Thread, x, y, z Value) error {
 		if err != nil {
 			return err
 		}
-		if i, err = checkIndexRange(x, i); err != nil {
+		if i, err = getValidIndex(x, i); err != nil {
 			return err
 		}
 		return x.SetIndex(i, z)
