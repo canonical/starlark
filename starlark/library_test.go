@@ -2331,7 +2331,6 @@ func TestStringJoinAllocs(t *testing.T) {
 
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
-
 		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, string_join, starlark.Tuple{iter}, nil)
 		if err == nil {
