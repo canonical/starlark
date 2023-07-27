@@ -703,7 +703,7 @@ func getattr(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 		return nil, err
 	}
 
-	v, err := getAttr(thread, object, name, false)
+	v, err := SafeGetAttr(thread, object, name, false)
 	if err != nil {
 		if dflt != nil {
 			return dflt, nil

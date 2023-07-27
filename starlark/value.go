@@ -357,7 +357,7 @@ type HasAttrs interface {
 	AttrNames() []string             // callers must not modify the result.
 }
 
-type SafeHasAttrs interface {
+type HasSafeAttrs interface {
 	HasAttrs
 	SafetyAware
 
@@ -365,11 +365,11 @@ type SafeHasAttrs interface {
 }
 
 var (
-	_ SafeHasAttrs = String("")
-	_ SafeHasAttrs = Bytes("")
-	_ SafeHasAttrs = new(List)
-	_ SafeHasAttrs = new(Dict)
-	_ SafeHasAttrs = new(Set)
+	_ HasSafeAttrs = String("")
+	_ HasSafeAttrs = Bytes("")
+	_ HasSafeAttrs = new(List)
+	_ HasSafeAttrs = new(Dict)
+	_ HasSafeAttrs = new(Set)
 )
 
 // A HasSetField value has fields that may be written by a dot expression (x.f = y).

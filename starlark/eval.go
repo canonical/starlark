@@ -805,8 +805,8 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 	return nil
 }
 
-// getAttr implements x.dot.
-func getAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
+// SafeGetAttr implements x.dot.
+func SafeGetAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
 	hasAttr, ok := x.(HasAttrs)
 	if !ok {
 		return nil, fmt.Errorf("%s has no .%s field or method", x.Type(), name)
@@ -814,24 +814,30 @@ func getAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
 
 	var attr Value
 	var err error
-	if safeHasAttrs, ok := x.(SafeHasAttrs); ok {
-		attr, err = safeHasAttrs.SafeAttr(thread, name)
-		if err == nil {
-			return attr, nil
-		}
-	} else if err = thread.CheckPermits(NotSafe); err != nil {
-		return nil, err
-	} else {
-		attr, err = hasAttr.Attr(name)
-		if err == nil {
-			if attr != nil {
-				return attr, nil // success
+	if thread != nil {
+		if hasSafeAttr, ok := x.(HasSafeAttrs); ok {
+			if err := thread.CheckPermits(hasSafeAttr.Safety()); err != nil {
+				return nil, err
 			}
-			// (nil, nil) => generic error
-			err = ErrNoSuchAttr
+			if attr, err = hasSafeAttr.SafeAttr(thread, name); err == nil {
+				return attr, nil
+			}
+			goto Error
+		} else if err := thread.CheckPermits(NotSafe); err != nil {
+			return nil, err
 		}
 	}
 
+	attr, err = hasAttr.Attr(name)
+	if err == nil {
+		if attr != nil {
+			return attr, nil
+		}
+		// (nil, nil) => generic error
+		err = ErrNoSuchAttr
+	}
+
+Error:
 	var errmsg string
 	if nsa, ok := err.(NoSuchAttrError); ok {
 		errmsg = string(nsa)
