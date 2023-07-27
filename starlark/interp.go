@@ -210,8 +210,9 @@ loop:
 					if err = xlist.checkMutable("apply += to"); err != nil {
 						break loop
 					}
-					// TODO: use SafeIterate
-					listExtend(xlist, yiter)
+					if err = safeListExtend(thread, xlist, yiter); err != nil {
+						break loop
+					}
 					z = xlist
 				}
 			}
@@ -509,6 +510,12 @@ loop:
 
 		case compile.MAKELIST:
 			n := int(arg)
+			elemsSize := EstimateMakeSize([]Value{}, n)
+			listSize := EstimateSize(&List{})
+			if err2 := thread.AddAllocs(elemsSize + listSize); err2 != nil {
+				err = err2
+				break loop
+			}
 			elems := make([]Value, n)
 			sp -= n
 			copy(elems, stack[sp:])
