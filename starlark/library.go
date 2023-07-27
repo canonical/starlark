@@ -2712,12 +2712,23 @@ func set_union(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 	defer iter.Done()
-	union, err := b.Receiver().(*Set).Union(iter)
+	if err := thread.AddAllocs(EstimateSize(&Set{})); err != nil {
+		return nil, err
+	}
+	union := new(Set)
+	for _, elem := range b.Receiver().(*Set).elems() {
+		if err := union.ht.safeInsert(thread, elem, None); err != nil {
+			return nil, err
+		}
+	}
+	var x Value
+	for iter.Next(&x) {
+		if err := union.ht.safeInsert(thread, x, None); err != nil {
+			return nil, err
+		}
+	}
 	if err != nil {
 		return nil, nameErr(b, err)
-	}
-	if err := thread.AddAllocs(union.(*Set).ht.estimateTypeSize()); err != nil {
-		return nil, err
 	}
 	return union, nil
 }
