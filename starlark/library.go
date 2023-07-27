@@ -481,11 +481,11 @@ func dir(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	for i, name := range names {
 		elems[i] = String(name)
 	}
-	result := Value(NewList(elems))
-	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+	res := Value(NewList(elems))
+	if err := thread.AddAllocs(EstimateSize(res)); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return res, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#enumerate
