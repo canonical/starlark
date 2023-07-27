@@ -1421,8 +1421,6 @@ func TestDictValuesAllocs(t *testing.T) {
 	})
 }
 
-const testListElems = 10
-
 func TestListAppendAllocs(t *testing.T) {
 	list := starlark.NewList([]starlark.Value{})
 	list_append, _ := list.Attr("append")
@@ -1445,11 +1443,13 @@ func TestListAppendAllocs(t *testing.T) {
 }
 
 func TestListClearAllocs(t *testing.T) {
+	const numTestElems = 10
+
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			list := starlark.NewList(make([]starlark.Value, 0, testListElems))
+			list := starlark.NewList(make([]starlark.Value, 0, numTestElems))
 			if err := thread.AddAllocs(starlark.EstimateSize(list)); err != nil {
 				st.Error(err)
 			}
@@ -1458,7 +1458,7 @@ func TestListClearAllocs(t *testing.T) {
 				t.Fatal("no such method: list.clear")
 			}
 
-			for j := 0; j < testListElems; j++ {
+			for j := 0; j < numTestElems; j++ {
 				list.Append(starlark.MakeInt(j))
 			}
 
@@ -1472,9 +1472,11 @@ func TestListClearAllocs(t *testing.T) {
 }
 
 func TestListExtendAllocs(t *testing.T) {
+	const numTestElems = 10
+
 	t.Run("small-list", func(t *testing.T) {
-		toAdd := starlark.NewList(make([]starlark.Value, 0, testListElems))
-		for i := 0; i < testListElems; i++ {
+		toAdd := starlark.NewList(make([]starlark.Value, 0, numTestElems))
+		for i := 0; i < numTestElems; i++ {
 			toAdd.Append(starlark.None)
 		}
 
@@ -1560,6 +1562,14 @@ func TestListExtendAllocs(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
+			list := starlark.NewList([]starlark.Value{})
+			if err := thread.AddAllocs(starlark.EstimateSize(list)); err != nil {
+				st.Error(err)
+			}
+			list_extend, _ := list.Attr("extend")
+			if list_extend == nil {
+				t.Fatal("no such method: list.extend")
+			}
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
 					resultSize := starlark.EstimateSize(&starlark.List{}) +
@@ -1570,14 +1580,6 @@ func TestListExtendAllocs(t *testing.T) {
 					return starlark.NewList(make([]starlark.Value, 0, 16)), nil
 				},
 				maxN: st.N,
-			}
-			list := starlark.NewList([]starlark.Value{})
-			if err := thread.AddAllocs(starlark.EstimateSize(list)); err != nil {
-				st.Error(err)
-			}
-			list_extend, _ := list.Attr("extend")
-			if list_extend == nil {
-				t.Fatal("no such method: list.extend")
 			}
 
 			_, err := starlark.Call(thread, list_extend, starlark.Tuple{iter}, nil)
@@ -1635,7 +1637,9 @@ func TestListInsertAllocs(t *testing.T) {
 }
 
 func TestListPopAllocs(t *testing.T) {
-	list := starlark.NewList(make([]starlark.Value, 0, testListElems))
+	const numTestElems = 10
+
+	list := starlark.NewList(make([]starlark.Value, 0, numTestElems))
 	list_pop, _ := list.Attr("pop")
 	if list_pop == nil {
 		t.Fatal("no such method: list.pop")
@@ -1647,7 +1651,7 @@ func TestListPopAllocs(t *testing.T) {
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			if list.Len() == 0 {
-				for j := 0; j < testListElems; j++ {
+				for j := 0; j < numTestElems; j++ {
 					list.Append(starlark.None)
 				}
 			}
@@ -1663,9 +1667,10 @@ func TestListPopAllocs(t *testing.T) {
 }
 
 func TestListRemoveAllocs(t *testing.T) {
-	preallocatedInts := make([]starlark.Value, testListElems)
-	list := starlark.NewList(make([]starlark.Value, 0, testListElems))
-	for i := 0; i < testListElems; i++ {
+	const numTestElems = 10
+	preallocatedInts := make([]starlark.Value, numTestElems)
+	list := starlark.NewList(make([]starlark.Value, 0, numTestElems))
+	for i := 0; i < numTestElems; i++ {
 		preallocatedInts[i] = starlark.MakeInt(i)
 		list.Append(preallocatedInts[i])
 	}
@@ -1680,13 +1685,13 @@ func TestListRemoveAllocs(t *testing.T) {
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			_, err := starlark.Call(thread, list_remove, starlark.Tuple{starlark.MakeInt(i % testListElems)}, nil)
+			_, err := starlark.Call(thread, list_remove, starlark.Tuple{starlark.MakeInt(i % numTestElems)}, nil)
 			if err != nil {
 				st.Error(err)
 			}
 
 			// re-add value for next iteration
-			list.Append(preallocatedInts[i%testListElems])
+			list.Append(preallocatedInts[i%numTestElems])
 		}
 
 		st.KeepAlive(list)
