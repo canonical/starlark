@@ -805,6 +805,25 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 	return nil
 }
 
+func tryGetAttrs(thread *Thread, x HasAttrs, name string) (Value, error) {
+	if thread != nil {
+		if safeHasAttrs, ok := x.(HasSafeAttrs); ok {
+			if err := thread.CheckPermits(safeHasAttrs.Safety()); err != nil {
+				return nil, err
+			}
+			return safeHasAttrs.SafeAttr(thread, name)
+		} else if err := thread.CheckPermits(NotSafe); err != nil {
+			return nil, err
+		}
+	}
+	attr, err := x.Attr(name)
+	if err == nil && attr == nil {
+		// (nil, nil) => generic error
+		err = ErrNoSuchAttr
+	}
+	return attr, err
+}
+
 // SafeGetAttr implements x.dot.
 func SafeGetAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
 	hasAttr, ok := x.(HasAttrs)
@@ -812,49 +831,27 @@ func SafeGetAttr(thread *Thread, x Value, name string, hint bool) (Value, error)
 		return nil, fmt.Errorf("%s has no .%s field or method", x.Type(), name)
 	}
 
-	var attr Value
-	var err error
-	if thread != nil {
-		if hasSafeAttr, ok := x.(HasSafeAttrs); ok {
-			if err := thread.CheckPermits(hasSafeAttr.Safety()); err != nil {
-				return nil, err
+	attr, err := tryGetAttrs(thread, hasAttr, name)
+	if err != nil {
+		var errmsg string
+		if nsa, ok := err.(NoSuchAttrError); ok {
+			errmsg = string(nsa)
+		} else if err == ErrNoSuchAttr {
+			errmsg = fmt.Sprintf("%s has no .%s field or method", x.Type(), name)
+		} else {
+			return nil, err // return error as is
+		}
+
+		// add spelling hint
+		if hint {
+			if n := spell.Nearest(name, hasAttr.AttrNames()); n != "" {
+				errmsg = fmt.Sprintf("%s (did you mean .%s?)", errmsg, n)
 			}
-			if attr, err = hasSafeAttr.SafeAttr(thread, name); err == nil {
-				return attr, nil
-			}
-			goto Error
-		} else if err := thread.CheckPermits(NotSafe); err != nil {
-			return nil, err
 		}
-	}
 
-	attr, err = hasAttr.Attr(name)
-	if err == nil {
-		if attr != nil {
-			return attr, nil
-		}
-		// (nil, nil) => generic error
-		err = ErrNoSuchAttr
+		return nil, errors.New(errmsg)
 	}
-
-Error:
-	var errmsg string
-	if nsa, ok := err.(NoSuchAttrError); ok {
-		errmsg = string(nsa)
-	} else if err == ErrNoSuchAttr {
-		errmsg = fmt.Sprintf("%s has no .%s field or method", x.Type(), name)
-	} else {
-		return nil, err // return error as is
-	}
-
-	// add spelling hint
-	if hint {
-		if n := spell.Nearest(name, hasAttr.AttrNames()); n != "" {
-			errmsg = fmt.Sprintf("%s (did you mean .%s?)", errmsg, n)
-		}
-	}
-
-	return nil, errors.New(errmsg)
+	return attr, nil
 }
 
 // setField implements x.name = y.
