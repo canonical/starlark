@@ -364,13 +364,12 @@ loop:
 
 		case compile.ITERPOP:
 			n := len(iterstack) - 1
-			iter := iterstack[n]
-			iter.Done()
-			iterstack = iterstack[:n]
-			if err2 := iter.Err(); err2 != nil {
+			if err2 := iterstack[n].Err(); err2 != nil {
 				err = err2
 				break loop
 			}
+			iterstack[n].Done()
+			iterstack = iterstack[:n]
 
 		case compile.NOT:
 			stack[sp-1] = !stack[sp-1].Truth()
