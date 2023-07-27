@@ -69,7 +69,7 @@ var Module = &starlarkstruct.Module{
 }
 var safeties = map[string]starlark.Safety{
 	"from_timestamp":    starlark.MemSafe,
-	"is_valid_timezone": starlark.NotSafe,
+	"is_valid_timezone": starlark.MemSafe,
 	"now":               starlark.NotSafe,
 	"parse_duration":    starlark.MemSafe,
 	"parse_time":        starlark.NotSafe,
