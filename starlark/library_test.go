@@ -1530,88 +1530,99 @@ func TestTupleAllocs(t *testing.T) {
 		}
 	})
 
-	t.Run("small-result", func(t *testing.T) {
-		tests := []struct {
-			name  string
-			value starlark.Iterable
-		}{{
-			name: "iterable",
-			value: &testIterable{
-				maxN: 10,
-				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					return starlark.None, nil
-				},
-			},
-		}, {
-			name: "sequence",
-			value: &testSequence{
-				maxN: 10,
-				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					return starlark.None, nil
-				},
-			},
-		}}
-
-		for _, test := range tests {
-			t.Run(test.name, func(t *testing.T) {
-				st := startest.From(t)
-				st.RequireSafety(starlark.MemSafe)
-				st.RunThread(func(thread *starlark.Thread) {
-					for i := 0; i < st.N; i++ {
-						args := starlark.Tuple{test.value}
-
-						result, err := starlark.Call(thread, tuple, args, nil)
-						if err != nil {
-							st.Error(err)
-						}
-						st.KeepAlive(result)
-					}
-				})
-			})
-		}
-	})
-
-	t.Run("large-result", func(t *testing.T) {
-		t.Run("iterable", func(t *testing.T) {
-			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
-			st.RunThread(func(thread *starlark.Thread) {
+	t.Run("small-iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
 				iter := &testIterable{
-					maxN: st.N,
-					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-						return starlark.None, nil
-
+					maxN: 10,
+					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						res := starlark.Value(starlark.MakeInt(n))
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
+						return res, nil
 					},
 				}
-
 				args := starlark.Tuple{iter}
 				result, err := starlark.Call(thread, tuple, args, nil)
 				if err != nil {
 					st.Error(err)
 				}
 				st.KeepAlive(result)
-			})
+			}
 		})
+	})
 
-		t.Run("sequence", func(t *testing.T) {
-			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
-			st.RunThread(func(thread *starlark.Thread) {
+	t.Run("small-sequence", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
 				seq := &testSequence{
-					maxN: st.N,
-					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-						return starlark.None, nil
-
+					maxN: 10,
+					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						res := starlark.Value(starlark.MakeInt(n))
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
+						return res, nil
 					},
 				}
-
 				args := starlark.Tuple{seq}
 				result, err := starlark.Call(thread, tuple, args, nil)
 				if err != nil {
 					st.Error(err)
 				}
 				st.KeepAlive(result)
-			})
+			}
+		})
+	})
+
+	t.Run("large-iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				maxN: st.N,
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					res := starlark.Value(starlark.MakeInt(n))
+					if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+						return nil, err
+					}
+					return res, nil
+				},
+			}
+			args := starlark.Tuple{iter}
+			result, err := starlark.Call(thread, tuple, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("large-sequence", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			seq := &testSequence{
+				maxN: st.N,
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					res := starlark.Value(starlark.MakeInt(n))
+					if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+						return nil, err
+					}
+					return res, nil
+				},
+			}
+			args := starlark.Tuple{seq}
+			result, err := starlark.Call(thread, tuple, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
 		})
 	})
 
