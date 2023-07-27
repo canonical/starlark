@@ -1551,6 +1551,7 @@ func TestListExtendAllocs(t *testing.T) {
 					st.Error(err)
 				}
 			}
+
 			st.KeepAlive(list)
 		})
 	})
@@ -1583,6 +1584,7 @@ func TestListExtendAllocs(t *testing.T) {
 			if err != nil {
 				st.Error(err)
 			}
+
 			st.KeepAlive(list)
 		})
 	})
@@ -1663,7 +1665,6 @@ func TestListPopAllocs(t *testing.T) {
 func TestListRemoveAllocs(t *testing.T) {
 	preallocatedInts := make([]starlark.Value, testListElems)
 	list := starlark.NewList(make([]starlark.Value, 0, testListElems))
-
 	for i := 0; i < testListElems; i++ {
 		preallocatedInts[i] = starlark.MakeInt(i)
 		list.Append(preallocatedInts[i])
