@@ -2333,7 +2333,7 @@ func TestStringJoinAllocs(t *testing.T) {
 		thread.RequireSafety(starlark.MemSafe)
 
 		iter := &unsafeTestIterable{t}
-		_, err := starlark.Call(thread, enumerate, starlark.Tuple{iter}, nil)
+		_, err := starlark.Call(thread, string_join, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
 		} else if err.Error() != expected {
