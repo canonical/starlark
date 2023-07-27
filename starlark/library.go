@@ -102,7 +102,7 @@ func init() {
 		"set":       NotSafe,
 		"sorted":    MemSafe,
 		"str":       MemSafe,
-		"tuple":     NotSafe,
+		"tuple":     MemSafe,
 		"type":      MemSafe,
 		"zip":       MemSafe,
 	}
@@ -1478,16 +1478,31 @@ func tuple(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if len(args) == 0 {
 		return Tuple(nil), nil
 	}
-	// TODO: use SafeIterate
-	iter := iterable.Iterate()
+	iter, err := SafeIterate(thread, iterable)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 	var elems Tuple
 	if n := Len(iterable); n > 0 {
+		if err := thread.AddAllocs(EstimateMakeSize(Tuple{}, n)); err != nil {
+			return nil, err
+		}
 		elems = make(Tuple, 0, n) // preallocate if length is known
 	}
+	elemsAppender := NewSafeAppender(thread, &elems)
 	var x Value
 	for iter.Next(&x) {
-		elems = append(elems, x)
+		if err := elemsAppender.Append(x); err != nil {
+			return nil, err
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+
+	if err := thread.AddAllocs(EstimateSize(Tuple{})); err != nil {
+		return nil, err
 	}
 	return elems, nil
 }
