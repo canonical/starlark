@@ -473,7 +473,7 @@ func TestBytesAllocs(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
-			const testString = "asdf"
+			testString := string([]byte{0x80, 0x80, 0x80, 0x80, 0x80})
 			if utf8.ValidString(testString) {
 				st.Fatal("test string will not force allocations")
 			}
@@ -493,7 +493,11 @@ func TestBytesAllocs(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
-			testString := strings.Repeat("asdf", st.N)
+			testBytes := []byte{}
+			for i := 0; i < st.N; i++ {
+				testBytes = append(testBytes, 0x80)
+			}
+			testString := string(testBytes)
 			if utf8.ValidString(testString) {
 				st.Fatal("test string will not force allocations")
 			}
