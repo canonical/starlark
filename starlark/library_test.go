@@ -522,7 +522,7 @@ func TestBytesAllocs(t *testing.T) {
 						return nil, err
 					}
 					st.KeepAlive(make([]byte, 100))
-					return starlark.MakeInt(n), nil
+					return starlark.MakeInt(n % 256), nil
 				},
 				maxN: st.N,
 			}
