@@ -514,6 +514,7 @@ func TestDirAllocs(t *testing.T) {
 		starlark.NewList(nil),
 		starlark.NewDict(10),
 	}
+
 	dir, ok := starlark.Universe["dir"]
 	if !ok {
 		t.Fatal("no such builtin: dir")
