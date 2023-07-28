@@ -316,8 +316,7 @@ func TestAbsAllocs(t *testing.T) {
 func TestAnyAllocs(t *testing.T) {
 	any, ok := starlark.Universe["any"]
 	if !ok {
-		t.Error("no such builtin: any")
-		return
+		t.Fatal("no such builtin: any")
 	}
 
 	t.Run("result", func(t *testing.T) {
