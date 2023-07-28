@@ -324,7 +324,6 @@ func TestAnyAllocs(t *testing.T) {
 
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
-
 		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, any, starlark.Tuple{iter}, nil)
 		if err == nil {
@@ -336,10 +335,8 @@ func TestAnyAllocs(t *testing.T) {
 
 	t.Run("result", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
-
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{&testIterable{
@@ -360,9 +357,7 @@ func TestAnyAllocs(t *testing.T) {
 
 	t.Run("iteration", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.MemSafe)
-
 		st.RunThread(func(thread *starlark.Thread) {
 			args := starlark.Tuple{&testIterable{
 				maxN: st.N,
