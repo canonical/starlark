@@ -911,7 +911,6 @@ func TestListAllocs(t *testing.T) {
 				},
 				maxN: numTestElems,
 			}
-
 			for i := 0; i < st.N; i++ {
 				result, err := starlark.Call(thread, list, starlark.Tuple{iter}, nil)
 				if err != nil {
@@ -937,7 +936,6 @@ func TestListAllocs(t *testing.T) {
 				},
 				maxN: st.N,
 			}
-
 			result, err := starlark.Call(thread, list, starlark.Tuple{iter}, nil)
 			if err != nil {
 				st.Error(err)
@@ -961,7 +959,6 @@ func TestListAllocs(t *testing.T) {
 				},
 				maxN: numTestElems,
 			}
-
 			for i := 0; i < st.N; i++ {
 				result, err := starlark.Call(thread, list, starlark.Tuple{iter}, nil)
 				if err != nil {
@@ -987,7 +984,6 @@ func TestListAllocs(t *testing.T) {
 				},
 				maxN: st.N,
 			}
-
 			result, err := starlark.Call(thread, list, starlark.Tuple{iter}, nil)
 			if err != nil {
 				st.Error(err)
