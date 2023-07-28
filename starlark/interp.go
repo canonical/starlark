@@ -416,6 +416,10 @@ loop:
 			}
 
 		case compile.MAKEDICT:
+			if err2 := thread.AddAllocs(EstimateSize(&Dict{})); err2 != nil {
+				err = err2
+				break loop
+			}
 			stack[sp] = new(Dict)
 			sp++
 
