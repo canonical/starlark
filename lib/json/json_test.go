@@ -51,7 +51,6 @@ func TestJsonEncodeAllocs(t *testing.T) {
 		for i := 0; i < st.N; i++ {
 			array[i] = json_object
 		}
-
 		result, err := starlark.Call(thread, json_encode, starlark.Tuple{array}, nil)
 		if err != nil {
 			st.Error(err)

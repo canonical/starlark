@@ -117,7 +117,6 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				return err
 			}
 		}
-
 		return nil
 	}
 
@@ -131,7 +130,6 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			if err != nil {
 				return err
 			}
-
 			if _, err := buf.Write(data); err != nil {
 				return err
 			}
@@ -276,7 +274,6 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
 		return nil, err
 	}
-
 	return starlark.String(buf.String()), nil
 }
 
