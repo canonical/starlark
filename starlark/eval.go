@@ -922,8 +922,7 @@ func SafeSetIndex(thread *Thread, x, y, z Value) error {
 		}
 	}
 
-	// If this executes either thread is nil or it
-	// allows execution of NotSafe code.
+	// No safety has been required.
 	switch x := x.(type) {
 	case HasSetKey:
 		return x.SetKey(y, z)
