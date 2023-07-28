@@ -361,7 +361,7 @@ func TestAnyAllocs(t *testing.T) {
 			args := starlark.Tuple{&testIterable{
 				maxN: st.N,
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					overheadSize := starlark.EstimateMakeSize([]starlark.Value, 16) +
+					overheadSize := starlark.EstimateMakeSize([]starlark.Value{}, 16) +
 						starlark.EstimateSize(starlark.List{})
 					if err := thread.AddAllocs(overheadSize); err != nil {
 						return nil, err
