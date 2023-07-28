@@ -38,18 +38,17 @@ func TestJsonEncodeAllocs(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
-		json_object := &starlark.Dict{}
-		json_object.SetKey(starlark.String("Int"), starlark.MakeInt(0xbeef))
-		json_object.SetKey(starlark.String("BigInt"), starlark.MakeInt64(0xdeadbeef<<10))
-		json_object.SetKey(starlark.String("Float"), starlark.Float(1.4218e-1))
-		json_object.SetKey(starlark.String("Bool"), starlark.True)
-		json_object.SetKey(starlark.String("Null"), starlark.None)
-		json_object.SetKey(starlark.String("Empty list"), starlark.NewList([]starlark.Value{}))
-		json_object.SetKey(starlark.String("Tuple"), starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(2)})
-
+		dictToMarshal := &starlark.Dict{}
+		dictToMarshal.SetKey(starlark.String("Int"), starlark.MakeInt(0xbeef))
+		dictToMarshal.SetKey(starlark.String("BigInt"), starlark.MakeInt64(0xdeadbeef<<10))
+		dictToMarshal.SetKey(starlark.String("Float"), starlark.Float(1.4218e-1))
+		dictToMarshal.SetKey(starlark.String("Bool"), starlark.True)
+		dictToMarshal.SetKey(starlark.String("Null"), starlark.None)
+		dictToMarshal.SetKey(starlark.String("Empty list"), starlark.NewList([]starlark.Value{}))
+		dictToMarshal.SetKey(starlark.String("Tuple"), starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(2)})
 		array := make(starlark.Tuple, st.N)
 		for i := 0; i < st.N; i++ {
-			array[i] = json_object
+			array[i] = dictToMarshal
 		}
 		result, err := starlark.Call(thread, json_encode, starlark.Tuple{array}, nil)
 		if err != nil {
