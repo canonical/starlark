@@ -345,7 +345,6 @@ func TestAnyAllocs(t *testing.T) {
 						return starlark.False, nil
 					},
 				}}
-
 				result, err := starlark.Call(thread, any, args, nil)
 				if err != nil {
 					st.Error(err)
@@ -362,12 +361,16 @@ func TestAnyAllocs(t *testing.T) {
 			args := starlark.Tuple{&testIterable{
 				maxN: st.N,
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					ret := starlark.NewList(make([]starlark.Value, 0, 16))
-					st.KeepAlive(ret)
-					return ret, thread.AddAllocs(starlark.EstimateSize(ret))
+					overheadSize := starlark.EstimateMakeSize([]starlark.Value, 16) +
+						starlark.EstimateSize(starlark.List{})
+					if err := thread.AddAllocs(overheadSize); err != nil {
+						return nil, err
+					}
+					st.KeepAlive(starlark.NewList(make([]starlark.Value, 0, 16)))
+
+					return starlark.False, nil
 				}},
 			}
-
 			result, err := starlark.Call(thread, any, args, nil)
 			if err != nil {
 				t.Errorf("unexpected error: %s", err.Error())
