@@ -522,7 +522,6 @@ func TestBytesAllocs(t *testing.T) {
 			if utf8.ValidString(testString) {
 				st.Fatal("test string will not force allocations")
 			}
-
 			args := starlark.Tuple{starlark.String(testString)}
 			result, err := starlark.Call(thread, bytes, args, nil)
 			if err != nil {
