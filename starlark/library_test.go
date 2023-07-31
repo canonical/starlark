@@ -455,12 +455,30 @@ func TestBytesAllocs(t *testing.T) {
 		})
 	})
 
-	t.Run("valid-string", func(t *testing.T) {
+	t.Run("small-valid-string", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String("hello, world!")
+			result, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("large-valid-string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("hello, world!", st.N))
+			if err := thread.AddAllocs(starlark.EstimateSize(str)); err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(str)
+
 			result, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
 			if err != nil {
 				st.Error(err)
@@ -476,6 +494,9 @@ func TestBytesAllocs(t *testing.T) {
 			testString := string([]byte{0x80, 0x80, 0x80, 0x80, 0x80})
 			if utf8.ValidString(testString) {
 				st.Fatal("test string will not force allocations")
+			}
+			if err := thread.AddAllocs(starlark.EstimateSize(testString)); err != nil {
+				st.Error(err)
 			}
 
 			for i := 0; i < st.N; i++ {
@@ -517,7 +538,7 @@ func TestBytesAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					overheadSize := starlark.EstimateMakeSize([]byte{}, 100)
+					overheadSize := starlark.EstimateMakeSize([]byte{}, 100) + starlark.SliceTypeOverhead
 					if err := thread.AddAllocs(overheadSize); err != nil {
 						return nil, err
 					}
@@ -526,8 +547,7 @@ func TestBytesAllocs(t *testing.T) {
 				},
 				maxN: st.N,
 			}
-			args := starlark.Tuple{iter}
-			result, err := starlark.Call(thread, bytes, args, nil)
+			result, err := starlark.Call(thread, bytes, starlark.Tuple{iter}, nil)
 			if err != nil {
 				st.Error(err)
 			}

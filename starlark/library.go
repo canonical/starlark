@@ -396,7 +396,14 @@ func bytes_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		return args[0], nil
 	case String:
 		// Invalid encodings are replaced by that of U+FFFD.
-		return Bytes(utf8Transcode(string(x))), nil
+		res, err := safeUtf8Transcode(thread, string(x))
+		if err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(SliceTypeOverhead); err != nil {
+			return nil, err
+		}
+		return Bytes(res), nil
 	case Iterable:
 		// iterable of numeric byte values
 		buf := NewSafeStringBuilder(thread)
