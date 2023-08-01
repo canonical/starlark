@@ -498,7 +498,6 @@ func TestBytesAllocs(t *testing.T) {
 			if err := thread.AddAllocs(starlark.EstimateSize(testString)); err != nil {
 				st.Error(err)
 			}
-
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.String(testString)}
 				result, err := starlark.Call(thread, bytes, args, nil)
