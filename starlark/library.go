@@ -79,7 +79,7 @@ func init() {
 		"any":       MemSafe,
 		"all":       MemSafe,
 		"bool":      MemSafe,
-		"bytes":     NotSafe,
+		"bytes":     MemSafe,
 		"chr":       MemSafe,
 		"dict":      MemSafe,
 		"dir":       MemSafe,
@@ -399,19 +399,28 @@ func bytes_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	}
 	switch x := args[0].(type) {
 	case Bytes:
-		return x, nil
+		return args[0], nil
 	case String:
 		// Invalid encodings are replaced by that of U+FFFD.
-		return Bytes(utf8Transcode(string(x))), nil
+		res, err := safeUtf8Transcode(thread, string(x))
+		if err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
+		}
+		return Bytes(res), nil
 	case Iterable:
 		// iterable of numeric byte values
-		var buf strings.Builder
+		buf := NewSafeStringBuilder(thread)
 		if n := Len(x); n >= 0 {
 			// common case: known length
 			buf.Grow(n)
 		}
-		// No need for SafeIterate as allocation is only transitional
-		iter := x.Iterate()
+		iter, err := SafeIterate(thread, x)
+		if err != nil {
+			return nil, err
+		}
 		defer iter.Done()
 		var elem Value
 		var b byte
@@ -419,7 +428,18 @@ func bytes_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 			if err := AsInt(elem, &b); err != nil {
 				return nil, fmt.Errorf("bytes: at index %d, %s", i, err)
 			}
-			buf.WriteByte(b)
+			if err := buf.WriteByte(b); err != nil {
+				return nil, err
+			}
+		}
+		if err := iter.Err(); err != nil {
+			return nil, err
+		}
+		if err := buf.Err(); err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
 		}
 		return Bytes(buf.String()), nil
 

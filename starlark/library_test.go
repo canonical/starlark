@@ -6,6 +6,7 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -483,6 +484,138 @@ func TestBoolAllocs(t *testing.T) {
 }
 
 func TestBytesAllocs(t *testing.T) {
+	bytes, ok := starlark.Universe["bytes"]
+	if !ok {
+		t.Fatal("No such builtin: bytes")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		const expected = "feature unavailable to the sandbox"
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, bytes, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if err.Error() != expected {
+			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		}
+	})
+
+	t.Run("bytes", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.Bytes("foobar")}
+				result, err := starlark.Call(thread, bytes, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("small-valid-string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String("hello, world!")
+			result, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("large-valid-string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("hello, world!", st.N))
+			if err := thread.AddAllocs(starlark.EstimateSize(str)); err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(str)
+
+			result, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("small-invalid-string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			testString := string([]byte{0x80, 0x80, 0x80, 0x80, 0x80})
+			if utf8.ValidString(testString) {
+				st.Fatal("test string will not force allocations")
+			}
+			if err := thread.AddAllocs(starlark.EstimateSize(testString)); err != nil {
+				st.Error(err)
+			}
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.String(testString)}
+				result, err := starlark.Call(thread, bytes, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("large-invalid-string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			testBytes := []byte{}
+			for i := 0; i < st.N; i++ {
+				testBytes = append(testBytes, 0x80)
+			}
+			testString := string(testBytes)
+			if utf8.ValidString(testString) {
+				st.Fatal("test string will not force allocations")
+			}
+			args := starlark.Tuple{starlark.String(testString)}
+			result, err := starlark.Call(thread, bytes, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					overheadSize := starlark.EstimateMakeSize([]byte{}, 100) + starlark.SliceTypeOverhead
+					if err := thread.AddAllocs(overheadSize); err != nil {
+						return nil, err
+					}
+					st.KeepAlive(make([]byte, 100))
+					return starlark.MakeInt(n % 256), nil
+				},
+				maxN: st.N,
+			}
+			result, err := starlark.Call(thread, bytes, starlark.Tuple{iter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
 }
 
 func TestChrAllocs(t *testing.T) {
