@@ -400,7 +400,7 @@ func bytes_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		if err != nil {
 			return nil, err
 		}
-		if err := thread.AddAllocs(SliceTypeOverhead); err != nil {
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
 			return nil, err
 		}
 		return Bytes(res), nil
