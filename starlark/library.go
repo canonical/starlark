@@ -82,7 +82,7 @@ func init() {
 		"bytes":     NotSafe,
 		"chr":       MemSafe,
 		"dict":      MemSafe,
-		"dir":       NotSafe,
+		"dir":       MemSafe,
 		"enumerate": MemSafe,
 		"fail":      MemSafe,
 		"float":     MemSafe,
@@ -487,7 +487,11 @@ func dir(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	for i, name := range names {
 		elems[i] = String(name)
 	}
-	return NewList(elems), nil
+	res := Value(NewList(elems))
+	if err := thread.AddAllocs(EstimateSize(res)); err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#enumerate
