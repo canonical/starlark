@@ -1119,56 +1119,121 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Int:
 			switch y := y.(type) {
 			case Int:
+				if thread != nil {
+					if err := thread.CheckAllocs(EstimateSize(x) + EstimateSize(y)); err != nil {
+						return nil, err
+					}
+					result := Value(x.Add(y))
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+						return nil, err
+					}
+					return result, nil
+				}
 				return x.Mul(y), nil
 			case Float:
 				xf, err := x.finiteFloat()
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(floatSize)); err != nil {
+						return nil, err
+					}
+				}
 				return xf * y, nil
 			case String:
-				return stringRepeat(y, x)
+				if thread != nil {
+					if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return stringRepeat(thread, y, x)
 			case Bytes:
-				return bytesRepeat(y, x)
+				if thread != nil {
+					if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return bytesRepeat(thread, y, x)
 			case *List:
-				elems, err := tupleRepeat(Tuple(y.elems), x)
+				elems, err := tupleRepeat(thread, Tuple(y.elems), x)
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
+						return nil, err
+					}
+				}
 				return NewList(elems), nil
 			case Tuple:
-				return tupleRepeat(y, x)
+				if thread != nil {
+					if err := thread.AddAllocs(SliceTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return tupleRepeat(thread, y, x)
 			}
 		case Float:
 			switch y := y.(type) {
 			case Float:
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(floatSize)); err != nil {
+						return nil, err
+					}
+				}
 				return x * y, nil
 			case Int:
 				yf, err := y.finiteFloat()
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(floatSize)); err != nil {
+						return nil, err
+					}
+				}
 				return x * yf, nil
 			}
 		case String:
 			if y, ok := y.(Int); ok {
-				return stringRepeat(x, y)
+				if thread != nil {
+					if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return stringRepeat(thread, x, y)
 			}
 		case Bytes:
 			if y, ok := y.(Int); ok {
-				return bytesRepeat(x, y)
+				if thread != nil {
+					if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return bytesRepeat(thread, x, y)
 			}
 		case *List:
 			if y, ok := y.(Int); ok {
-				elems, err := tupleRepeat(Tuple(x.elems), y)
+				elems, err := tupleRepeat(thread, Tuple(x.elems), y)
 				if err != nil {
 					return nil, err
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
+						return nil, err
+					}
 				}
 				return NewList(elems), nil
 			}
 		case Tuple:
 			if y, ok := y.(Int); ok {
-				return tupleRepeat(x, y)
+				if thread != nil {
+					if err := thread.AddAllocs(SliceTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return tupleRepeat(thread, x, y)
 			}
 
 		}
@@ -1467,7 +1532,7 @@ unknown:
 // try to stop someone swallowing the world in one gulp.
 const maxAlloc = 1 << 30
 
-func tupleRepeat(elems Tuple, n Int) (Tuple, error) {
+func tupleRepeat(thread *Thread, elems Tuple, n Int) (Tuple, error) {
 	if len(elems) == 0 {
 		return nil, nil
 	}
@@ -1484,6 +1549,11 @@ func tupleRepeat(elems Tuple, n Int) (Tuple, error) {
 		// Don't print sz.
 		return nil, fmt.Errorf("excessive repeat (%d * %d elements)", len(elems), i)
 	}
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateMakeSize([]Value{}, sz)); err != nil {
+			return nil, err
+		}
+	}
 	res := make([]Value, sz)
 	// copy elems into res, doubling each time
 	x := copy(res, elems)
@@ -1494,12 +1564,12 @@ func tupleRepeat(elems Tuple, n Int) (Tuple, error) {
 	return res, nil
 }
 
-func bytesRepeat(b Bytes, n Int) (Bytes, error) {
-	res, err := stringRepeat(String(b), n)
+func bytesRepeat(thread *Thread, b Bytes, n Int) (Bytes, error) {
+	res, err := stringRepeat(thread, String(b), n)
 	return Bytes(res), err
 }
 
-func stringRepeat(s String, n Int) (String, error) {
+func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 	if s == "" {
 		return "", nil
 	}
@@ -1515,6 +1585,11 @@ func stringRepeat(s String, n Int) (String, error) {
 	if sz < 0 || sz >= maxAlloc { // sz < 0 => overflow
 		// Don't print sz.
 		return "", fmt.Errorf("excessive repeat (%d * %d elements)", len(s), i)
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateMakeSize([]byte{}, sz)); err != nil {
+			return "", err
+		}
 	}
 	return String(strings.Repeat(string(s), i)), nil
 }
