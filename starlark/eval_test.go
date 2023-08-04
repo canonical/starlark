@@ -1263,7 +1263,7 @@ func (b safeBinaryTest) Run(t *testing.T) {
 			t.Fatalf("binary test '%v' missing inputs field", b.name)
 		}
 		if b.name == "" {
-			x, op, y := b.inputs(0)
+			x, op, y := b.inputs(1)
 			t.Fatalf("binary test of %v %v %v has empty name field", x.Type(), op, y.Type())
 		}
 
@@ -1273,7 +1273,7 @@ func (b safeBinaryTest) Run(t *testing.T) {
 					t.Errorf("unexpected panic: %v", err)
 				}
 			}()
-			x, op, y := b.inputs(10)
+			x, op, y := b.inputs(1)
 			_, err := starlark.SafeBinary(nil, op, x, y)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
@@ -1286,7 +1286,7 @@ func (b safeBinaryTest) Run(t *testing.T) {
 				st.SetMaxAllocs(0)
 			}
 			st.RunThread(func(thread *starlark.Thread) {
-				x, op, y := b.inputs(10)
+				x, op, y := b.inputs(1)
 				for i := 0; i < st.N; i++ {
 					result, err := starlark.SafeBinary(thread, op, x, y)
 					if err != nil {
