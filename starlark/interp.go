@@ -173,7 +173,7 @@ loop:
 			x := stack[sp-2]
 			sp -= 2
 			// TODO: use SafeIterate (SafeBinary?)
-			z, err2 := Binary(binop, x, y)
+			z, err2 := SafeBinary(thread, binop, x, y)
 			if err2 != nil {
 				err = err2
 				break loop
