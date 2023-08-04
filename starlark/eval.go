@@ -1020,7 +1020,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case *List:
 			if y, ok := y.(*List); ok {
 				if thread != nil {
-					resultSize := EstimateSize(&List{}) + EstimateMakeSize([]Value{}, x.Len()+y.Len())
+					resultSize := EstimateMakeSize([]Value{}, x.Len()+y.Len()) + EstimateSize(&List{})
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
@@ -1033,7 +1033,8 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Tuple:
 			if y, ok := y.(Tuple); ok {
 				if thread != nil {
-					if err := thread.AddAllocs(SliceTypeOverhead + EstimateMakeSize(Tuple{}, len(x)+len(y))); err != nil {
+					zSize := EstimateMakeSize(Tuple{}, len(x)+len(y)) + SliceTypeOverhead
+					if err := thread.AddAllocs(zSize); err != nil {
 						return nil, err
 					}
 				}
