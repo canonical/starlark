@@ -1256,6 +1256,34 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 			t.Fatalf("binary test of %v %v %v has empty name field", x.Type(), op, y.Type())
 		}
 
+		t.Run("safety-respected", func(t *testing.T) {
+			t.Run("unsafe-left", func(t *testing.T) {
+				const expected = "feature unavailable to the sandbox"
+
+				thread := &starlark.Thread{}
+				thread.RequireSafety(starlark.Safe)
+				_, err := starlark.SafeBinary(thread, syntax.PLUS, unsafeTestValue{}, starlark.True)
+				if err == nil {
+					t.Error("expected error")
+				} else if err.Error() != expected {
+					t.Errorf("unexpected error: %v", err)
+				}
+			})
+
+			t.Run("unsafe-right", func(t *testing.T) {
+				const expected = "feature unavailable to the sandbox"
+
+				thread := &starlark.Thread{}
+				thread.RequireSafety(starlark.Safe)
+				_, err := starlark.SafeBinary(thread, syntax.PLUS, starlark.True, unsafeTestValue{})
+				if err == nil {
+					t.Error("expected error")
+				} else if err.Error() != expected {
+					t.Errorf("unexpected error: %v", err)
+				}
+			})
+		})
+
 		t.Run("nil-thread", func(t *testing.T) {
 			defer func() {
 				if err := recover(); err != nil {
@@ -1396,7 +1424,44 @@ func TestSafeBinaryAllocs(t *testing.T) {
 
 	})
 
-	t.Run("-", func(t *testing.T) {})
+	t.Run("-", func(t *testing.T) {
+		tests := []safeBinaryTest{{
+			name: "int - int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				shift := n - 1
+				if shift < 0 {
+					shift = 0
+				}
+				l := starlark.MakeInt(1).Lsh(uint(shift))
+				r := starlark.MakeInt(-1).Lsh(uint(shift))
+				return l, syntax.MINUS, r
+			},
+		}, {
+			name: "int - float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(1).Lsh(308)
+				r := starlark.Float(-n)
+				return l, syntax.MINUS, r
+			},
+		}, {
+			name: "float - int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(n)
+				r := starlark.MakeInt(-1).Lsh(308)
+				return l, syntax.MINUS, r
+			},
+		}, {
+			name: "float - float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(n)
+				r := starlark.Float(-n)
+				return l, syntax.MINUS, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
 
 	t.Run("*", func(t *testing.T) {})
 
