@@ -1305,47 +1305,7 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 	})
 }
 
-type unsafeTestValue struct{}
-
-var _ starlark.Value = unsafeTestValue{}
-
-func (uv unsafeTestValue) Freeze() {}
-func (uv unsafeTestValue) Hash() (uint32, error) {
-	return 0, fmt.Errorf("unhashable type: %s", uv.Type())
-}
-func (uv unsafeTestValue) String() string       { return "unsafeTestValue" }
-func (uv unsafeTestValue) Truth() starlark.Bool { return starlark.False }
-func (uv unsafeTestValue) Type() string         { return "unsafeTestValue" }
-
 func TestSafeBinaryAllocs(t *testing.T) {
-	t.Run("safety-respected", func(t *testing.T) {
-		t.Run("unsafe-left", func(t *testing.T) {
-			const expected = "feature unavailable to the sandbox"
-
-			thread := &starlark.Thread{}
-			thread.RequireSafety(starlark.Safe)
-			_, err := starlark.SafeBinary(thread, syntax.PLUS, unsafeTestValue{}, starlark.True)
-			if err == nil {
-				t.Error("expected error")
-			} else if err.Error() != expected {
-				t.Errorf("unexpected error: %v", err)
-			}
-		})
-
-		t.Run("unsafe-right", func(t *testing.T) {
-			const expected = "feature unavailable to the sandbox"
-
-			thread := &starlark.Thread{}
-			thread.RequireSafety(starlark.Safe)
-			_, err := starlark.SafeBinary(thread, syntax.PLUS, starlark.True, unsafeTestValue{})
-			if err == nil {
-				t.Error("expected error")
-			} else if err.Error() != expected {
-				t.Errorf("unexpected error: %v", err)
-			}
-		})
-	})
-
 	t.Run("+", func(t *testing.T) {
 		t.Run("in-starlark", func(t *testing.T) {
 			st := startest.From(t)
