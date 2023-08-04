@@ -950,24 +950,6 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 }
 
 func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
-	if thread != nil {
-		var xSafety Safety
-		if x, ok := x.(SafetyAware); ok {
-			xSafety = x.Safety()
-		}
-		if err := thread.CheckPermits(xSafety); err != nil {
-			return nil, err
-		}
-
-		var ySafety Safety
-		if y, ok := y.(Safety); ok {
-			ySafety = y.Safety()
-		}
-		if err := thread.CheckPermits(ySafety); err != nil {
-			return nil, err
-		}
-	}
-
 	floatSize := EstimateSize(Float(0))
 	max := func(a, b int64) int64 {
 		if a > b {
@@ -1416,6 +1398,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 	// user-defined types
 	// (nil, nil) => unhandled
 	// TODO: use SafeIterate (SafeBinary?)
+	if thread != nil {
+		if err := thread.CheckPermits(NotSafe); err != nil {
+			return nil, err
+		}
+	}
 	if x, ok := x.(HasBinary); ok {
 		z, err := x.Binary(op, y, Left)
 		if z != nil || err != nil {
