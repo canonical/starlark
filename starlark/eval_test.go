@@ -1305,6 +1305,18 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 	})
 }
 
+type unsafeTestValue struct{}
+
+var _ starlark.Value = unsafeTestValue{}
+
+func (uv unsafeTestValue) Freeze() {}
+func (uv unsafeTestValue) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", uv.Type())
+}
+func (uv unsafeTestValue) String() string       { return "unsafeTestValue" }
+func (uv unsafeTestValue) Truth() starlark.Bool { return starlark.False }
+func (uv unsafeTestValue) Type() string         { return "unsafeTestValue" }
+
 func TestSafeBinaryAllocs(t *testing.T) {
 	t.Run("+", func(t *testing.T) {
 		t.Run("in-starlark", func(t *testing.T) {
