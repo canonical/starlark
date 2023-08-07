@@ -1223,6 +1223,18 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				if y.Sign() == 0 {
 					return nil, fmt.Errorf("floored division by zero")
 				}
+				if thread != nil {
+					if resultSizeEstimate := EstimateSize(x) - EstimateSize(y); resultSizeEstimate > 0 {
+						if err := thread.CheckAllocs(resultSizeEstimate); err != nil {
+							return nil, err
+						}
+					}
+					result := Value(x.Div(y))
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+						return nil, err
+					}
+					return result, nil
+				}
 				return x.Div(y), nil
 			case Float:
 				xf, err := x.finiteFloat()
@@ -1232,6 +1244,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				if y == 0.0 {
 					return nil, fmt.Errorf("floored division by zero")
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(floatSize)); err != nil {
+						return nil, err
+					}
+				}
 				return floor(xf / y), nil
 			}
 		case Float:
@@ -1239,6 +1256,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			case Float:
 				if y == 0.0 {
 					return nil, fmt.Errorf("floored division by zero")
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(floatSize)); err != nil {
+						return nil, err
+					}
 				}
 				return floor(x / y), nil
 			case Int:
@@ -1248,6 +1270,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				}
 				if yf == 0.0 {
 					return nil, fmt.Errorf("floored division by zero")
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(floatSize)); err != nil {
+						return nil, err
+					}
 				}
 				return floor(x / yf), nil
 			}
