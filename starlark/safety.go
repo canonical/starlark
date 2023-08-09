@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/bits"
+	"reflect"
 )
 
 // Safety represents a set of constraints on executed code.
@@ -121,4 +122,19 @@ func (set Safety) CheckContains(subset Safety) error {
 		return &SafetyError{difference}
 	}
 	return nil
+}
+
+func CheckSafety(thread *Thread, value interface{}) error {
+	if thread == nil {
+		return nil
+	}
+	if v := reflect.ValueOf(value); value == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
+		return errors.New("cannot check safety of nil value")
+	}
+
+	safety := NotSafe
+	if value, ok := value.(SafetyAware); ok {
+		safety = value.Safety()
+	}
+	return thread.CheckPermits(safety)
 }
