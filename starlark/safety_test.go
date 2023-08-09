@@ -310,7 +310,6 @@ func (cst *checkSafetyTest) Run(t *testing.T) {
 		v := reflect.ValueOf(value)
 		return v.Kind() == reflect.Ptr && v.IsNil()
 	}
-
 	t.Run(cst.name, func(t *testing.T) {
 		err := starlark.CheckSafety(cst.thread, cst.value)
 		if cst.thread == nil {
