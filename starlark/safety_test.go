@@ -356,42 +356,50 @@ func (dsa *dummySafetyAware) Safety() starlark.Safety {
 
 func TestCheckSafety(t *testing.T) {
 	testThread := func(t *testing.T, thread *starlark.Thread) {
-		tests := []checkSafetyTest{{
-			name:   "nil-subject",
-			thread: thread,
-			value:  nil,
-		}, {
-			name:   "nil-safety-aware-subject",
-			thread: thread,
-			value:  (*dummySafetyAware)(nil),
-		}, {
-			name:   "non-safety-aware",
-			thread: thread,
-			value:  25,
-		}, {
-			name:   "NotSafe",
-			thread: thread,
-			value:  starlark.NotSafe,
-		}, {
-			name:   "Safe",
-			thread: thread,
-			value:  starlark.Safe,
-		}, {
-			name:   "notsafe-safety-aware",
-			thread: thread,
-			value:  &dummySafetyAware{},
-		}, {
-			name:   "partially-safe-safety-aware",
-			thread: thread,
-			value:  &dummySafetyAware{starlark.MemSafe | starlark.CPUSafe},
-		}, {
-			name:   "safe-safety-aware",
-			thread: thread,
-			value:  &dummySafetyAware{starlark.Safe},
-		}}
-		for _, test := range tests {
-			test.Run(t)
-		}
+		t.Run("non-safety-aware", func(t *testing.T) {
+			tests := []checkSafetyTest{{
+				name:   "int",
+				thread: thread,
+				value:  -1,
+			}}
+			for _, test := range tests {
+				test.Run(t)
+			}
+		})
+
+		t.Run("safety-aware", func(t *testing.T) {
+			tests := []checkSafetyTest{{
+				name:   "not-safe",
+				thread: thread,
+				value:  &dummySafetyAware{},
+			}, {
+				name:   "partially-safe",
+				thread: thread,
+				value:  &dummySafetyAware{starlark.MemSafe | starlark.CPUSafe},
+			}, {
+				name:   "safe",
+				thread: thread,
+				value:  &dummySafetyAware{starlark.Safe},
+			}}
+			for _, test := range tests {
+				test.Run(t)
+			}
+		})
+
+		t.Run("interface", func(t *testing.T) {
+			tests := []checkSafetyTest{{
+				name:   "nil",
+				thread: thread,
+				value:  nil,
+			}, {
+				name:   "nil-value",
+				thread: thread,
+				value:  (*dummySafetyAware)(nil),
+			}}
+			for _, test := range tests {
+				test.Run(t)
+			}
+		})
 	}
 
 	t.Run("thread=nil", func(t *testing.T) {
