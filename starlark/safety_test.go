@@ -323,6 +323,7 @@ func (cst *checkSafetyTest) Run(t *testing.T) {
 				expected = errors.New("cannot check safety of nil value")
 			} else {
 				expected = cst.thread.CheckPermits(safety)
+
 				if value, ok := cst.value.(starlark.SafetyAware); ok {
 					safety = value.Safety()
 				}
