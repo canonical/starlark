@@ -317,18 +317,15 @@ func (cst *checkSafetyTest) Run(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 		} else {
-			safety := starlark.NotSafe
-			if !isNil(cst.value) {
-				if value, ok := cst.value.(starlark.SafetyAware); ok {
-					safety = value.Safety()
-				}
-			}
-
 			var expected error
+			safety := starlark.NotSafe
 			if isNil(cst.value) {
 				expected = errors.New("cannot check safety of nil value")
 			} else {
 				expected = cst.thread.CheckPermits(safety)
+				if value, ok := cst.value.(starlark.SafetyAware); ok {
+					safety = value.Safety()
+				}
 			}
 			if expected != err {
 				if expected != nil && err == nil {
