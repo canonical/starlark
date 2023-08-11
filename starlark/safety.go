@@ -128,7 +128,7 @@ func CheckSafety(thread *Thread, value interface{}) error {
 	if thread == nil {
 		return nil
 	}
-	if v := reflect.ValueOf(value); value == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
+	if isNil(value) {
 		return errors.New("cannot check safety of nil value")
 	}
 
@@ -137,4 +137,18 @@ func CheckSafety(thread *Thread, value interface{}) error {
 		safety = value.Safety()
 	}
 	return thread.CheckPermits(safety)
+}
+
+func isNil(value interface{}) bool {
+	if value == nil {
+		return true
+	}
+
+	v := reflect.ValueOf(value)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+		return v.IsNil()
+	}
+
+	return false
 }
