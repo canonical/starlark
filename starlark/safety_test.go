@@ -382,8 +382,7 @@ func TestCheckSafety(t *testing.T) {
 			if err != nil {
 				if test.expect == "" {
 					t.Errorf("unexpected error: %v", err)
-				}
-				if test.expect != err.Error() {
+				} else if test.expect != err.Error() {
 					t.Errorf("unexpected error: expected %q but got %q", test.expect, err)
 				}
 			} else if test.expect != "" {
