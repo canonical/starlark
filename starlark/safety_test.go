@@ -3,6 +3,7 @@ package starlark_test
 import (
 	"fmt"
 	"testing"
+	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
 )
@@ -342,6 +343,11 @@ func TestCheckSafety(t *testing.T) {
 		name:   "nil-chan",
 		thread: &starlark.Thread{},
 		value:  (chan int)(nil),
+		expect: "cannot check safety of nil value",
+	}, {
+		name:   "nil-unsafe-pointer",
+		thread: &starlark.Thread{},
+		value:  (unsafe.Pointer)(nil),
 		expect: "cannot check safety of nil value",
 	}, {
 		name:   "nil-func",
