@@ -330,11 +330,6 @@ func TestCheckSafety(t *testing.T) {
 		value:  (*dummySafetyAware)(nil),
 		expect: "cannot check safety of nil value",
 	}, {
-		name:   "nil-slice",
-		thread: &starlark.Thread{},
-		value:  ([]int)(nil),
-		expect: "cannot check safety of nil value",
-	}, {
 		name:   "nil-map",
 		thread: &starlark.Thread{},
 		value:  (map[int]int)(nil),
@@ -354,6 +349,14 @@ func TestCheckSafety(t *testing.T) {
 		thread: &starlark.Thread{},
 		value:  (func())(nil),
 		expect: "cannot check safety of nil value",
+	}, {
+		name:   "nil-slice",
+		thread: &starlark.Thread{},
+		value:  ([]int)(nil),
+	}, {
+		name:   "empty-slice",
+		thread: &starlark.Thread{},
+		value:  []int{},
 	}, {
 		name:   "not-safe-thread-not-safe-value",
 		thread: &starlark.Thread{},

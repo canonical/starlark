@@ -130,8 +130,8 @@ func CheckSafety(thread *Thread, value interface{}) error {
 	if thread == nil {
 		return nil // A nil thread makes no safety requirements.
 	}
-	if isNil(value) {
-		return errors.New("cannot check safety of nil value")
+	if isInvalidNil(value) {
+		return errors.New("cannot check safety of an invalid nil value")
 	}
 
 	safety := NotSafe
@@ -141,14 +141,16 @@ func CheckSafety(thread *Thread, value interface{}) error {
 	return thread.CheckPermits(safety)
 }
 
-func isNil(value interface{}) bool {
+// isInvalidNil returns whether using the passed value would cause a nil
+// pointer dereference.
+func isInvalidNil(value interface{}) bool {
 	if value == nil {
 		return true
 	}
 
 	v := reflect.ValueOf(value)
 	switch v.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice, reflect.UnsafePointer:
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.UnsafePointer:
 		return v.IsNil()
 	}
 
