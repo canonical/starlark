@@ -1,9 +1,7 @@
 package time_test
 
 import (
-	"strings"
 	"testing"
-	gotime "time"
 
 	"github.com/canonical/starlark/lib/time"
 	"github.com/canonical/starlark/starlark"
@@ -49,78 +47,57 @@ func TestTimeNowSafety(t *testing.T) {
 		t.Fatal("no such builtin: now")
 	}
 
+	nowSafety, ok := time.Safeties["now"]
+	if !ok {
+		t.Fatal("no safety for builtin: now")
+	}
+	if nowSafety == starlark.NotSafe {
+		t.Fatal("now safety is zero")
+	}
+
+	safeThreadSafety := nowSafety
+	safeThread := &starlark.Thread{}
+	safeThread.RequireSafety(safeThreadSafety)
+
 	tests := []struct {
-		name                      string
-		require                   starlark.Safety
-		injectSafeNowFunc         bool
-		injectedSafeNowFuncSafety starlark.Safety
-		expectNowFuncCalled       bool
+		name          string
+		thread        *starlark.Thread
+		nowFuncSafety starlark.Safety
+		expect        string
 	}{{
-		name:                "default",
-		expectNowFuncCalled: true,
+		name:          "default",
+		thread:        &starlark.Thread{},
+		nowFuncSafety: time.NowFuncSafety,
 	}, {
-		name:    "default unsafe",
-		require: starlark.TimeSafe | starlark.IOSafe,
+		name:          "no-safety-required",
+		thread:        &starlark.Thread{},
+		nowFuncSafety: starlark.NotSafe,
 	}, {
-		name:                      "custom safe",
-		require:                   starlark.MemSafe,
-		injectSafeNowFunc:         true,
-		injectedSafeNowFuncSafety: starlark.MemSafe | starlark.CPUSafe,
+		name:          "not-safe",
+		thread:        safeThread,
+		nowFuncSafety: starlark.NotSafe,
+		expect:        "feature unavailable to the sandbox",
 	}, {
-		name:                      "custom unsafe",
-		require:                   starlark.MemSafe | starlark.IOSafe,
-		injectSafeNowFunc:         true,
-		injectedSafeNowFuncSafety: starlark.MemSafe,
+		name:          "safe",
+		thread:        safeThread,
+		nowFuncSafety: safeThreadSafety,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			originalNowFunc := time.NowFunc
-			defer func() { time.NowFunc = originalNowFunc }()
+			originalNowFuncSafety := time.NowFuncSafety
+			time.NowFuncSafety = test.nowFuncSafety
+			defer func() { time.NowFuncSafety = originalNowFuncSafety }()
 
-			nowFuncCalled := false
-			time.NowFunc = func() gotime.Time {
-				nowFuncCalled = true
-				return originalNowFunc()
+			t.Log(test.thread, time.NowFuncSafety)
+			_, err := starlark.Call(test.thread, now, nil, nil)
+			if test.expect != "" && err == nil {
+				t.Errorf("now returned no error, expected: %v", test.expect)
 			}
-
-			safeNowFuncCalled := false
-			if test.injectSafeNowFunc {
-				originalSafeNowFunc := time.SafeNowFunc()
-				originalSafeNowFuncSafety := time.SafeNowFuncSafety()
-				defer func() { time.SetSafeNowFunc(originalSafeNowFuncSafety, originalSafeNowFunc) }()
-
-				time.SetSafeNowFunc(test.injectedSafeNowFuncSafety, func(thread *starlark.Thread) (time.Time, error) {
-					res := time.Time(originalNowFunc())
-					if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
-						return time.Time{}, err
-					}
-					return res, nil
-				})
-			}
-
-			thread := &starlark.Thread{}
-			thread.RequireSafety(test.require)
-
-			_, err := starlark.Call(thread, now, nil, nil)
-			if test.expectNowFuncCalled != nowFuncCalled {
-				if nowFuncCalled {
-					t.Error("NowFunc called unexpectedly")
-				} else if err == nil {
-					t.Fatal("test error: NowFunc not called and no error returned")
-				} else if strings.HasPrefix(err.Error(), "fdhsjakl") {
+			if err != nil {
+				if test.expect == "" {
 					t.Errorf("unexpected error: %v", err)
-				}
-			}
-
-			if test.expectNowFuncCalled == safeNowFuncCalled {
-				if safeNowFuncCalled {
-					t.Errorf("safe now func called unexpectedly")
-				} else if err == nil {
-					if test.expectNowFuncCalled {
-						t.Error("safe now func not called and no error returned")
-					}
-				} else if err.Error() != "cannot call builtin 'now': feature unavailable to the sandbox" {
-					t.Errorf("safe now func call failed unexpectedly: %v", err)
+				} else if test.expect != err.Error() {
+					t.Errorf("unexpected error: expected %v but got %v", test.expect, err)
 				}
 			}
 		})
@@ -194,19 +171,6 @@ func TestTimeNowAllocs(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
-		originalSafeNowFunc := time.SafeNowFunc()
-		originalSafeNowFuncSafety := time.SafeNowFuncSafety()
-		defer func() { time.SetSafeNowFunc(originalSafeNowFuncSafety, originalSafeNowFunc) }()
-		time.SetSafeNowFunc(starlark.MemSafe, func(thread *starlark.Thread) (time.Time, error) {
-			mockOverhead := make([]byte, 100)
-			if err := thread.AddAllocs(starlark.EstimateSize(mockOverhead)); err != nil {
-				return time.Time{}, err
-			}
-			st.KeepAlive(mockOverhead)
-
-			return time.Time(gotime.Now()), nil
-		})
-
 		for i := 0; i < st.N; i++ {
 			result, err := starlark.Call(thread, now, nil, nil)
 			if err != nil {
