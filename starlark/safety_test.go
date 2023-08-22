@@ -3,6 +3,7 @@ package starlark_test
 import (
 	"fmt"
 	"testing"
+	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
 )
@@ -291,5 +292,111 @@ func TestBindReceiverSafety(t *testing.T) {
 	boundBuiltin := builtin.BindReceiver(recv)
 	if actual := boundBuiltin.Safety(); actual != expected {
 		t.Errorf("builtin with bound receiver had incorrect safety: expected %v but got %v", expected, actual)
+	}
+}
+
+type dummySafetyAware struct {
+	safety starlark.Safety
+}
+
+var _ starlark.SafetyAware = &dummySafetyAware{}
+
+func (dsa *dummySafetyAware) Safety() starlark.Safety {
+	return dsa.safety
+}
+
+func TestCheckSafety(t *testing.T) {
+	safeThread := &starlark.Thread{}
+	safeThread.RequireSafety(starlark.Safe)
+
+	partiallySafeThread := &starlark.Thread{}
+	partiallySafeThread.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+
+	tests := []struct {
+		name   string
+		thread *starlark.Thread
+		value  interface{}
+		expect string
+	}{{
+		name:  "nil-thread",
+		value: "unimportant",
+	}, {
+		name:   "nil-interface",
+		thread: &starlark.Thread{},
+		expect: "cannot check safety of invalid nil value",
+	}, {
+		name:   "nil.ptr",
+		thread: &starlark.Thread{},
+		value:  (*dummySafetyAware)(nil),
+		expect: "cannot check safety of invalid nil value",
+	}, {
+		name:   "nil-map",
+		thread: &starlark.Thread{},
+		value:  (map[int]int)(nil),
+		expect: "cannot check safety of invalid nil value",
+	}, {
+		name:   "nil-chan",
+		thread: &starlark.Thread{},
+		value:  (chan int)(nil),
+		expect: "cannot check safety of invalid nil value",
+	}, {
+		name:   "nil-unsafe-pointer",
+		thread: &starlark.Thread{},
+		value:  (unsafe.Pointer)(nil),
+		expect: "cannot check safety of invalid nil value",
+	}, {
+		name:   "nil-func",
+		thread: &starlark.Thread{},
+		value:  (func())(nil),
+		expect: "cannot check safety of invalid nil value",
+	}, {
+		name:   "nil-slice",
+		thread: &starlark.Thread{},
+		value:  ([]int)(nil),
+	}, {
+		name:   "empty-slice",
+		thread: &starlark.Thread{},
+		value:  []int{},
+	}, {
+		name:   "not-safe-thread-not-safe-value",
+		thread: &starlark.Thread{},
+		value:  "not-safe",
+	}, {
+		name:   "not-safe-thread-safe-value",
+		thread: &starlark.Thread{},
+		value:  &dummySafetyAware{starlark.Safe},
+	}, {
+		name:   "safe-thread-not-safe-value",
+		thread: safeThread,
+		value:  &dummySafetyAware{},
+		expect: "feature unavailable to the sandbox",
+	}, {
+		name:   "safe-thread-safe-value",
+		thread: safeThread,
+		value:  &dummySafetyAware{starlark.Safe},
+	}, {
+		name:   "partially-safe-thread-unsafe-value",
+		thread: partiallySafeThread,
+		value:  &dummySafetyAware{},
+		expect: "feature unavailable to the sandbox",
+	}, {
+		name:   "safe-thread-partially-safe-value",
+		thread: safeThread,
+		value:  &dummySafetyAware{starlark.MemSafe | starlark.IOSafe},
+		expect: "feature unavailable to the sandbox",
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := starlark.CheckSafety(test.thread, test.value)
+			if err != nil {
+				if test.expect == "" {
+					t.Errorf("unexpected error: %v", err)
+				} else if test.expect != err.Error() {
+					t.Errorf("unexpected error: expected %q but got %q", test.expect, err)
+				}
+			} else if test.expect != "" {
+				t.Errorf("no error returned, expected: %v", test.expect)
+			}
+		})
 	}
 }

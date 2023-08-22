@@ -1011,6 +1011,8 @@ type listIterator struct {
 	i int
 }
 
+var _ SafeIterator = &listIterator{}
+
 func (it *listIterator) NextAllocs() int64 { return 0 }
 
 func (it *listIterator) Next(p *Value) bool {
@@ -1028,8 +1030,9 @@ func (it *listIterator) Done() {
 	}
 }
 
-func (it *listIterator) Err() error     { return nil }
-func (it *listIterator) Safety() Safety { return NotSafe }
+func (it *listIterator) Safety() Safety            { return MemSafe }
+func (it *listIterator) BindThread(thread *Thread) {}
+func (it *listIterator) Err() error                { return nil }
 
 func (l *List) SetIndex(i int, v Value) error {
 	if err := l.checkMutable("assign to element of"); err != nil {
