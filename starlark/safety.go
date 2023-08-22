@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/bits"
-	"reflect"
 )
 
 // Safety represents a set of constraints on executed code.
@@ -127,9 +126,6 @@ func (set Safety) CheckContains(subset Safety) error {
 // CheckSafety returns an error if the provided value does not report
 // sufficient safety for the given thread. CheckSafety allows a nil thread.
 func CheckSafety(thread *Thread, value interface{}) error {
-	if isInvalidNil(value) {
-		return errors.New("cannot check safety of invalid nil value")
-	}
 	if thread == nil {
 		return nil // A nil thread makes no safety requirements.
 	}
@@ -139,20 +135,4 @@ func CheckSafety(thread *Thread, value interface{}) error {
 		safety = value.Safety()
 	}
 	return thread.CheckPermits(safety)
-}
-
-// isInvalidNil returns whether using the passed value would cause a nil
-// pointer dereference.
-func isInvalidNil(value interface{}) bool {
-	if value == nil {
-		return true
-	}
-
-	v := reflect.ValueOf(value)
-	switch v.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.UnsafePointer:
-		return v.IsNil()
-	}
-
-	return false
 }
