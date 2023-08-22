@@ -840,13 +840,13 @@ type Dict struct {
 // at least size insertions before rehashing.
 func NewDict(size int) *Dict {
 	dict := new(Dict)
-	dict.ht.init(size)
+	dict.ht.init(nil, size)
 	return dict
 }
 
 func SafeNewDict(thread *Thread, size int) (*Dict, error) {
 	dict := new(Dict)
-	if err := dict.ht.safeInit(thread, size); err != nil {
+	if err := dict.ht.init(thread, size); err != nil {
 		return nil, err
 	}
 	return dict, nil
@@ -860,7 +860,7 @@ func (d *Dict) Keys() []Value                                   { return d.ht.ke
 func (d *Dict) Values() []Value                                 { return d.ht.values() }
 func (d *Dict) Len() int                                        { return int(d.ht.len) }
 func (d *Dict) Iterate() Iterator                               { return d.ht.iterate() }
-func (d *Dict) SetKey(k, v Value) error                         { return d.ht.insert(k, v) }
+func (d *Dict) SetKey(k, v Value) error                         { return d.ht.insert(nil, k, v) }
 func (d *Dict) Type() string                                    { return "dict" }
 func (d *Dict) Freeze()                                         { d.ht.freeze() }
 func (d *Dict) Truth() Bool                                     { return d.Len() > 0 }
@@ -869,7 +869,7 @@ func (d *Dict) String() string                                  { return toStrin
 func (d *Dict) Safety() Safety                                  { return MemSafe }
 
 func (d *Dict) SafeSetKey(thread *Thread, k, v Value) error {
-	if err := d.ht.safeInsert(thread, k, v); err != nil {
+	if err := d.ht.insert(thread, k, v); err != nil {
 		return err
 	}
 	return nil
@@ -1146,14 +1146,14 @@ type Set struct {
 // at least size insertions before rehashing.
 func NewSet(size int) *Set {
 	set := new(Set)
-	set.ht.init(size)
+	set.ht.init(nil, size)
 	return set
 }
 
 func (s *Set) Delete(k Value) (found bool, err error) { _, found, err = s.ht.delete(k); return }
 func (s *Set) Clear() error                           { return s.ht.clear() }
 func (s *Set) Has(k Value) (found bool, err error)    { _, found, err = s.ht.lookup(k); return }
-func (s *Set) Insert(k Value) error                   { return s.ht.insert(k, None) }
+func (s *Set) Insert(k Value) error                   { return s.ht.insert(nil, k, None) }
 func (s *Set) Len() int                               { return int(s.ht.len) }
 func (s *Set) Iterate() Iterator                      { return s.ht.iterate() }
 func (s *Set) Type() string                           { return "set" }
