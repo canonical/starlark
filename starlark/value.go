@@ -226,7 +226,6 @@ type HasSetIndex interface {
 // respecting the safety of the thread.
 type HasSafeSetIndex interface {
 	Indexable
-	SafetyAware
 
 	SafeSetIndex(thread *Thread, index int, v Value) error
 }
@@ -308,7 +307,6 @@ type HasSetKey interface {
 // respecting the safety of the thread.
 type HasSafeSetKey interface {
 	Mapping
-	SafetyAware
 
 	SafeSetKey(thread *Thread, k, v Value) error
 }
@@ -836,6 +834,10 @@ type Dict struct {
 	ht hashtable
 }
 
+const (
+	dictSetKeySafety = MemSafe
+)
+
 // NewDict returns a set with initial space for
 // at least size insertions before rehashing.
 func NewDict(size int) *Dict {
@@ -866,9 +868,11 @@ func (d *Dict) Freeze()                                         { d.ht.freeze() 
 func (d *Dict) Truth() Bool                                     { return d.Len() > 0 }
 func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.Errorf("unhashable type: dict") }
 func (d *Dict) String() string                                  { return toString(d) }
-func (d *Dict) Safety() Safety                                  { return MemSafe }
 
 func (d *Dict) SafeSetKey(thread *Thread, k, v Value) error {
+	if err := CheckSafety(thread, dictSetKeySafety); err != nil {
+		return err
+	}
 	if err := d.ht.insert(thread, k, v); err != nil {
 		return err
 	}
@@ -917,6 +921,10 @@ type List struct {
 	itercount uint32 // number of active iterators (ignored if frozen)
 }
 
+const (
+	listSetIndexSafety = MemSafe
+)
+
 // NewList returns a list containing the specified elements.
 // Callers should not subsequently modify elems.
 func NewList(elems []Value) *List { return &List{elems: elems} }
@@ -948,7 +956,6 @@ func (l *List) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable type: l
 func (l *List) Truth() Bool           { return l.Len() > 0 }
 func (l *List) Len() int              { return len(l.elems) }
 func (l *List) Index(i int) Value     { return l.elems[i] }
-func (l *List) Safety() Safety        { return MemSafe }
 
 func (l *List) Slice(start, end, step int) Value {
 	if step == 1 {
@@ -1042,7 +1049,10 @@ func (l *List) SetIndex(i int, v Value) error {
 	return nil
 }
 
-func (l *List) SafeSetIndex(_ *Thread, i int, v Value) error {
+func (l *List) SafeSetIndex(thread *Thread, i int, v Value) error {
+	if err := CheckSafety(thread, listSetIndexSafety); err != nil {
+		return err
+	}
 	return l.SetIndex(i, v)
 }
 

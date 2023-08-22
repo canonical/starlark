@@ -901,44 +901,33 @@ func getValidIndex(collection Indexable, i int) (int, error) {
 	return i, nil
 }
 
-// SafeSetIndex implements x[y] = z.
-func SafeSetIndex(thread *Thread, x, y, z Value) error {
-	if thread != nil {
-		switch x := x.(type) {
-		case HasSafeSetKey:
-			if err := thread.CheckPermits(x.Safety()); err != nil {
-				return err
-			}
-			if err := x.SafeSetKey(thread, y, z); err != nil {
-				return err
-			}
+// setIndex implements x[y] = z.
+func setIndex(thread *Thread, x, y, z Value) error {
+	switch x := x.(type) {
+	case HasSafeSetKey:
+		return x.SafeSetKey(thread, y, z)
 
-		case HasSafeSetIndex:
-			i, err := AsInt32(y)
-			if err != nil {
-				return err
-			}
-
-			if i, err = getValidIndex(x, i); err != nil {
-				return err
-			}
-			if err := thread.CheckPermits(x.Safety()); err != nil {
-				return err
-			}
-			return x.SafeSetIndex(thread, i, z)
-		}
-
-		if err := thread.CheckPermits(NotSafe); err != nil {
+	case HasSafeSetIndex:
+		i, err := AsInt32(y)
+		if err != nil {
 			return err
 		}
-	}
 
-	// No safety has been required.
-	switch x := x.(type) {
+		if i, err = getValidIndex(x, i); err != nil {
+			return err
+		}
+		return x.SafeSetIndex(thread, i, z)
+
 	case HasSetKey:
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return err
+		}
 		return x.SetKey(y, z)
 
 	case HasSetIndex:
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return err
+		}
 		i, err := AsInt32(y)
 		if err != nil {
 			return err
@@ -949,7 +938,7 @@ func SafeSetIndex(thread *Thread, x, y, z Value) error {
 		return x.SetIndex(i, z)
 
 	default:
-		return ErrUnsupported
+		return fmt.Errorf("%s value does not support item assignment", x.Type())
 	}
 }
 

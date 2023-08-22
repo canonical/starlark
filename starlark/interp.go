@@ -384,11 +384,8 @@ loop:
 			y := stack[sp-2]
 			x := stack[sp-3]
 			sp -= 3
-			err = SafeSetIndex(thread, x, y, z)
+			err = setIndex(thread, x, y, z)
 			if err != nil {
-				if err == ErrUnsupported {
-					err = fmt.Errorf("%s value does not support item assignment", x.Type())
-				}
 				break loop
 			}
 
