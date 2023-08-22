@@ -6,6 +6,7 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -314,6 +315,70 @@ func TestAbsAllocs(t *testing.T) {
 }
 
 func TestAnyAllocs(t *testing.T) {
+	any, ok := starlark.Universe["any"]
+	if !ok {
+		t.Fatal("no such builtin: any")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		const expected = "feature unavailable to the sandbox"
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, any, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if err.Error() != expected {
+			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		}
+	})
+
+	t.Run("result", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{&testIterable{
+					maxN: 10,
+					nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+						return starlark.False, nil
+					},
+				}}
+				result, err := starlark.Call(thread, any, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("iteration", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			args := starlark.Tuple{&testIterable{
+				maxN: st.N,
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					overheadSize := starlark.EstimateMakeSize([]starlark.Value{}, 16) +
+						starlark.EstimateSize(starlark.List{})
+					if err := thread.AddAllocs(overheadSize); err != nil {
+						return nil, err
+					}
+					st.KeepAlive(starlark.NewList(make([]starlark.Value, 0, 16)))
+
+					return starlark.False, nil
+				}},
+			}
+			result, err := starlark.Call(thread, any, args, nil)
+			if err != nil {
+				t.Errorf("unexpected error: %s", err.Error())
+			}
+			st.KeepAlive(result)
+		})
+	})
 }
 
 func TestAllAllocs(t *testing.T) {
@@ -419,6 +484,138 @@ func TestBoolAllocs(t *testing.T) {
 }
 
 func TestBytesAllocs(t *testing.T) {
+	bytes, ok := starlark.Universe["bytes"]
+	if !ok {
+		t.Fatal("No such builtin: bytes")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		const expected = "feature unavailable to the sandbox"
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, bytes, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if err.Error() != expected {
+			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		}
+	})
+
+	t.Run("bytes", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.Bytes("foobar")}
+				result, err := starlark.Call(thread, bytes, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("small-valid-string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String("hello, world!")
+			result, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("large-valid-string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("hello, world!", st.N))
+			if err := thread.AddAllocs(starlark.EstimateSize(str)); err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(str)
+
+			result, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("small-invalid-string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			testString := string([]byte{0x80, 0x80, 0x80, 0x80, 0x80})
+			if utf8.ValidString(testString) {
+				st.Fatal("test string will not force allocations")
+			}
+			if err := thread.AddAllocs(starlark.EstimateSize(testString)); err != nil {
+				st.Error(err)
+			}
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.String(testString)}
+				result, err := starlark.Call(thread, bytes, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("large-invalid-string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			testBytes := []byte{}
+			for i := 0; i < st.N; i++ {
+				testBytes = append(testBytes, 0x80)
+			}
+			testString := string(testBytes)
+			if utf8.ValidString(testString) {
+				st.Fatal("test string will not force allocations")
+			}
+			args := starlark.Tuple{starlark.String(testString)}
+			result, err := starlark.Call(thread, bytes, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					overheadSize := starlark.EstimateMakeSize([]byte{}, 100) + starlark.SliceTypeOverhead
+					if err := thread.AddAllocs(overheadSize); err != nil {
+						return nil, err
+					}
+					st.KeepAlive(make([]byte, 100))
+					return starlark.MakeInt(n % 256), nil
+				},
+				maxN: st.N,
+			}
+			result, err := starlark.Call(thread, bytes, starlark.Tuple{iter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
 }
 
 func TestChrAllocs(t *testing.T) {
@@ -504,6 +701,33 @@ func TestDictAllocs(t *testing.T) {
 }
 
 func TestDirAllocs(t *testing.T) {
+	values := starlark.Tuple{
+		starlark.None,
+		starlark.False,
+		starlark.True,
+		starlark.MakeInt(0),
+		starlark.MakeInt64(1 << 34),
+		starlark.String("starlark"),
+		starlark.NewList(nil),
+		starlark.NewDict(10),
+	}
+
+	dir, ok := starlark.Universe["dir"]
+	if !ok {
+		t.Fatal("no such builtin: dir")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	for _, value := range values {
+		st.RunThread(func(thread *starlark.Thread) {
+			result, err := starlark.Call(thread, dir, starlark.Tuple{value}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	}
 }
 
 func TestEnumerateAllocs(t *testing.T) {
@@ -1510,6 +1734,186 @@ func TestStrAllocs(t *testing.T) {
 }
 
 func TestTupleAllocs(t *testing.T) {
+	tuple, ok := starlark.Universe["tuple"]
+	if !ok {
+		t.Fatal("no such builtin: tuple")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		const expected = "feature unavailable to the sandbox"
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, tuple, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if err.Error() != expected {
+			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		}
+	})
+
+	t.Run("small-iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				iter := &testIterable{
+					maxN: 10,
+					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						res := starlark.Value(starlark.MakeInt(n))
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
+						return res, nil
+					},
+				}
+				args := starlark.Tuple{iter}
+				result, err := starlark.Call(thread, tuple, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("small-sequence", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				seq := &testSequence{
+					maxN: 10,
+					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						res := starlark.Value(starlark.MakeInt(n))
+						if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+							return nil, err
+						}
+						return res, nil
+					},
+				}
+				args := starlark.Tuple{seq}
+				result, err := starlark.Call(thread, tuple, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("large-iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				maxN: st.N,
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					res := starlark.Value(starlark.MakeInt(n))
+					if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+						return nil, err
+					}
+					return res, nil
+				},
+			}
+			args := starlark.Tuple{iter}
+			result, err := starlark.Call(thread, tuple, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("large-sequence", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			seq := &testSequence{
+				maxN: st.N,
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					res := starlark.Value(starlark.MakeInt(n))
+					if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+						return nil, err
+					}
+					return res, nil
+				},
+			}
+			args := starlark.Tuple{seq}
+			result, err := starlark.Call(thread, tuple, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("early-termination", func(t *testing.T) {
+		const expected = "exceeded memory allocation limits"
+		maxAllocs := uint64(30)
+
+		t.Run("iterable", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.SetMaxAllocs(maxAllocs)
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.SetMaxAllocs(maxAllocs)
+
+				var nReached int
+				iter := &testIterable{
+					maxN: st.N,
+					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						nReached = n
+						return starlark.None, nil
+					},
+				}
+
+				result, err := starlark.Call(thread, tuple, starlark.Tuple{iter}, nil)
+				if err == nil {
+					st.Error("expected error")
+				} else if err.Error() != expected {
+					st.Errorf("unexpected error: %v", err)
+				}
+				if nReached > 1 && iter.maxN != 1 {
+					st.Errorf("iteration was not terminated early enough")
+				}
+
+				st.KeepAlive(result)
+			})
+		})
+
+		t.Run("sequence", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.SetMaxAllocs(maxAllocs)
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.SetMaxAllocs(maxAllocs)
+
+				var nReached int
+				iter := &testSequence{
+					maxN: st.N,
+					nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+						nReached = n
+						return starlark.None, nil
+					},
+				}
+
+				result, err := starlark.Call(thread, tuple, starlark.Tuple{iter}, nil)
+				if err == nil {
+					st.Error("expected error")
+				} else if err.Error() != expected {
+					st.Errorf("unexpected error: %v", err)
+				}
+				if nReached > 0 && iter.maxN > 1 {
+					st.Errorf("iteration was not terminated early enough: terminated after %d/%d Next calls", nReached+1, iter.Len())
+				}
+
+				st.KeepAlive(result)
+			})
+		})
+	})
 }
 
 func TestTypeAllocs(t *testing.T) {
@@ -1997,24 +2401,300 @@ func TestDictValuesAllocs(t *testing.T) {
 }
 
 func TestListAppendAllocs(t *testing.T) {
+	list := starlark.NewList([]starlark.Value{})
+	list_append, _ := list.Attr("append")
+	if list_append == nil {
+		t.Fatal("no such method: list.append")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			_, err := starlark.Call(thread, list_append, starlark.Tuple{starlark.None}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		}
+
+		st.KeepAlive(list)
+	})
 }
 
 func TestListClearAllocs(t *testing.T) {
+	const numTestElems = 10
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			list := starlark.NewList(make([]starlark.Value, 0, numTestElems))
+			if err := thread.AddAllocs(starlark.EstimateSize(list)); err != nil {
+				st.Error(err)
+			}
+			list_clear, _ := list.Attr("clear")
+			if list_clear == nil {
+				t.Fatal("no such method: list.clear")
+			}
+
+			for j := 0; j < numTestElems; j++ {
+				list.Append(starlark.MakeInt(j))
+			}
+
+			_, err := starlark.Call(thread, list_clear, starlark.Tuple{}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(list)
+		}
+	})
 }
 
 func TestListExtendAllocs(t *testing.T) {
+	const numTestElems = 10
+
+	t.Run("safety-respected", func(t *testing.T) {
+		const expected = "feature unavailable to the sandbox"
+
+		list := starlark.NewList([]starlark.Value{})
+		list_extend, _ := list.Attr("extend")
+		if list_extend == nil {
+			t.Fatal("no such method: list.extend")
+		}
+
+		iter := &unsafeTestIterable{t}
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+		_, err := starlark.Call(thread, list_extend, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if err.Error() != expected {
+			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		}
+	})
+
+	t.Run("small-list", func(t *testing.T) {
+		toAdd := starlark.NewList(make([]starlark.Value, 0, numTestElems))
+		for i := 0; i < numTestElems; i++ {
+			toAdd.Append(starlark.None)
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			list := starlark.NewList([]starlark.Value{})
+			list_extend, _ := list.Attr("extend")
+			if list_extend == nil {
+				st.Fatal("no such method: list.extend")
+			}
+
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, list_extend, starlark.Tuple{toAdd}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+			st.KeepAlive(list)
+		})
+	})
+
+	t.Run("big-list", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			list := starlark.NewList([]starlark.Value{})
+			list_extend, _ := list.Attr("extend")
+			if list_extend == nil {
+				t.Fatal("no such method: list.extend")
+			}
+
+			toAdd := starlark.NewList(make([]starlark.Value, st.N))
+			for i := 0; i < st.N; i++ {
+				toAdd.Append(starlark.None)
+			}
+
+			_, err := starlark.Call(thread, list_extend, starlark.Tuple{toAdd}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(list)
+		})
+	})
+
+	t.Run("small-iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+					resultSize := starlark.EstimateSize(&starlark.List{}) +
+						starlark.EstimateMakeSize([]starlark.Value{}, 16)
+					if err := thread.AddAllocs(resultSize); err != nil {
+						return nil, err
+					}
+					return starlark.NewList(make([]starlark.Value, 0, 16)), nil
+				},
+				maxN: 10,
+			}
+			list := starlark.NewList([]starlark.Value{})
+			if err := thread.AddAllocs(starlark.EstimateSize(list)); err != nil {
+				st.Error(err)
+			}
+			list_extend, _ := list.Attr("extend")
+			if list_extend == nil {
+				st.Fatal("no such method: list.extend")
+			}
+
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, list_extend, starlark.Tuple{iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+
+			st.KeepAlive(list)
+		})
+	})
+
+	t.Run("big-iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			list := starlark.NewList([]starlark.Value{})
+			if err := thread.AddAllocs(starlark.EstimateSize(list)); err != nil {
+				st.Error(err)
+			}
+			list_extend, _ := list.Attr("extend")
+			if list_extend == nil {
+				t.Fatal("no such method: list.extend")
+			}
+			iter := &testIterable{
+				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+					resultSize := starlark.EstimateSize(&starlark.List{}) +
+						starlark.EstimateMakeSize([]starlark.Value{}, 16)
+					if err := thread.AddAllocs(resultSize); err != nil {
+						return nil, err
+					}
+					return starlark.NewList(make([]starlark.Value, 0, 16)), nil
+				},
+				maxN: st.N,
+			}
+
+			_, err := starlark.Call(thread, list_extend, starlark.Tuple{iter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			st.KeepAlive(list)
+		})
+	})
 }
 
 func TestListIndexAllocs(t *testing.T) {
+	list := starlark.NewList([]starlark.Value{
+		starlark.None,
+		starlark.False,
+		starlark.True,
+	})
+	list_index, _ := list.Attr("index")
+	if list_index == nil {
+		t.Fatal("no such method: list.index")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			index, err := starlark.Call(thread, list_index, starlark.Tuple{starlark.False, starlark.None}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(index)
+		}
+	})
 }
 
 func TestListInsertAllocs(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		list := starlark.NewList([]starlark.Value{})
+		list_insert, _ := list.Attr("insert")
+		if list_insert == nil {
+			st.Fatal("no such method: list.insert")
+		}
+
+		for i := 0; i < st.N; i++ {
+			_, err := starlark.Call(thread, list_insert, starlark.Tuple{starlark.MakeInt(st.N / 2), starlark.None}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		}
+		st.KeepAlive(list)
+	})
 }
 
 func TestListPopAllocs(t *testing.T) {
+	const numTestElems = 10
+
+	list := starlark.NewList(make([]starlark.Value, 0, numTestElems))
+	list_pop, _ := list.Attr("pop")
+	if list_pop == nil {
+		t.Fatal("no such method: list.pop")
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(0)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			if list.Len() == 0 {
+				for j := 0; j < numTestElems; j++ {
+					list.Append(starlark.None)
+				}
+			}
+
+			_, err := starlark.Call(thread, list_pop, starlark.Tuple{starlark.MakeInt(-1)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		}
+
+		st.KeepAlive(list)
+	})
 }
 
 func TestListRemoveAllocs(t *testing.T) {
+	const numTestElems = 10
+	preallocatedInts := make([]starlark.Value, numTestElems)
+	list := starlark.NewList(make([]starlark.Value, 0, numTestElems))
+	for i := 0; i < numTestElems; i++ {
+		preallocatedInts[i] = starlark.MakeInt(i)
+		list.Append(preallocatedInts[i])
+	}
+
+	list_remove, _ := list.Attr("remove")
+	if list_remove == nil {
+		t.Fatal("no such method: list.remove")
+	}
+
+	st := startest.From(t)
+	st.SetMaxAllocs(0)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			_, err := starlark.Call(thread, list_remove, starlark.Tuple{starlark.MakeInt(i % numTestElems)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			// re-add value for next iteration
+			list.Append(preallocatedInts[i%numTestElems])
+		}
+
+		st.KeepAlive(list)
+	})
 }
 
 func TestStringCapitalizeAllocs(t *testing.T) {
@@ -2337,6 +3017,64 @@ func TestStringIsupperAllocs(t *testing.T) {
 }
 
 func TestStringJoinAllocs(t *testing.T) {
+	string_join, _ := starlark.String("aa").Attr("join")
+	if string_join == nil {
+		t.Fatal("no such method: string.join")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		const expected = "feature unavailable to the sandbox"
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, string_join, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if err.Error() != expected {
+			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		}
+	})
+
+	t.Run("growth", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				maxN: st.N,
+				nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
+					return starlark.String("b"), nil
+				},
+			}
+			args := starlark.Tuple{iter}
+			result, err := starlark.Call(thread, string_join, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("result", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				iter := &testIterable{
+					maxN: 10,
+					nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
+						return starlark.String("b"), nil
+					},
+				}
+				args := starlark.Tuple{iter}
+				result, err := starlark.Call(thread, string_join, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestStringLowerAllocs(t *testing.T) {

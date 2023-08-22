@@ -210,8 +210,9 @@ loop:
 					if err = xlist.checkMutable("apply += to"); err != nil {
 						break loop
 					}
-					// TODO: use SafeIterate
-					listExtend(xlist, yiter)
+					if err = safeListExtend(thread, xlist, yiter); err != nil {
+						break loop
+					}
 					z = xlist
 				}
 			}
@@ -343,10 +344,13 @@ loop:
 		case compile.ITERPUSH:
 			x := stack[sp-1]
 			sp--
-			// TODO: use SafeIterate
-			iter := Iterate(x)
-			if iter == nil {
-				err = fmt.Errorf("%s value is not iterable", x.Type())
+			iter, err2 := SafeIterate(thread, x)
+			if err2 != nil {
+				if err2 == ErrUnsupported {
+					err = fmt.Errorf("%s value is not iterable", x.Type())
+				} else {
+					err = err2
+				}
 				break loop
 			}
 			iterstack = append(iterstack, iter)
@@ -360,8 +364,11 @@ loop:
 			}
 
 		case compile.ITERPOP:
-			// TODO: use SafeIterate (Error checking)
 			n := len(iterstack) - 1
+			if err2 := iterstack[n].Err(); err2 != nil {
+				err = err2
+				break loop
+			}
 			iterstack[n].Done()
 			iterstack = iterstack[:n]
 
@@ -415,6 +422,10 @@ loop:
 			}
 
 		case compile.MAKEDICT:
+			if err2 := thread.AddAllocs(EstimateSize(&Dict{})); err2 != nil {
+				err = err2
+				break loop
+			}
 			stack[sp] = new(Dict)
 			sp++
 
@@ -646,6 +657,9 @@ loop:
 	// ITERPOP the rest of the iterator stack.
 	for _, iter := range iterstack {
 		iter.Done()
+		if err := iter.Err(); err != nil {
+			return nil, err
+		}
 	}
 
 	fr.locals = nil
