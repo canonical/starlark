@@ -889,7 +889,7 @@ func outOfRange(i, n int, x Value) error {
 	}
 }
 
-func getValidIndex(collection Indexable, i int) (int, error) {
+func sanitizeIndex(collection Indexable, i int) (int, error) {
 	n := collection.Len()
 	origI := i
 	if i < 0 {
@@ -913,7 +913,7 @@ func setIndex(thread *Thread, x, y, z Value) error {
 			return err
 		}
 
-		if i, err = getValidIndex(x, i); err != nil {
+		if i, err = sanitizeIndex(x, i); err != nil {
 			return err
 		}
 		return x.SafeSetIndex(thread, i, z)
@@ -932,7 +932,7 @@ func setIndex(thread *Thread, x, y, z Value) error {
 		if err != nil {
 			return err
 		}
-		if i, err = getValidIndex(x, i); err != nil {
+		if i, err = sanitizeIndex(x, i); err != nil {
 			return err
 		}
 		return x.SetIndex(i, z)
