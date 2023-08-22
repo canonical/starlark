@@ -889,33 +889,57 @@ func outOfRange(i, n int, x Value) error {
 	}
 }
 
-// setIndex implements x[y] = z.
-func setIndex(x, y, z Value) error {
-	switch x := x.(type) {
-	case HasSetKey:
-		if err := x.SetKey(y, z); err != nil {
-			return err
-		}
+func getValidIndex(collection Indexable, i int) (int, error) {
+	n := collection.Len()
+	origI := i
+	if i < 0 {
+		i += n
+	}
+	if i < 0 || i >= n {
+		return 0, outOfRange(origI, n, collection)
+	}
+	return i, nil
+}
 
-	case HasSetIndex:
-		n := x.Len()
+// setIndex implements x[y] = z.
+func setIndex(thread *Thread, x, y, z Value) error {
+	switch x := x.(type) {
+	case HasSafeSetKey:
+		return x.SafeSetKey(thread, y, z)
+
+	case HasSafeSetIndex:
 		i, err := AsInt32(y)
 		if err != nil {
 			return err
 		}
-		origI := i
-		if i < 0 {
-			i += n
+
+		if i, err = getValidIndex(x, i); err != nil {
+			return err
 		}
-		if i < 0 || i >= n {
-			return outOfRange(origI, n, x)
+		return x.SafeSetIndex(thread, i, z)
+
+	case HasSetKey:
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return err
+		}
+		return x.SetKey(y, z)
+
+	case HasSetIndex:
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return err
+		}
+		i, err := AsInt32(y)
+		if err != nil {
+			return err
+		}
+		if i, err = getValidIndex(x, i); err != nil {
+			return err
 		}
 		return x.SetIndex(i, z)
 
 	default:
 		return fmt.Errorf("%s value does not support item assignment", x.Type())
 	}
-	return nil
 }
 
 // Unary applies a unary operator (+, -, ~, not) to its operand.
