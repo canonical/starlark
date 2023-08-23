@@ -76,13 +76,13 @@ func init() {
 
 	universeSafeties = map[string]Safety{
 		"abs":       MemSafe,
-		"any":       NotSafe,
+		"any":       MemSafe,
 		"all":       MemSafe,
 		"bool":      MemSafe,
-		"bytes":     NotSafe,
+		"bytes":     MemSafe,
 		"chr":       MemSafe,
 		"dict":      MemSafe,
-		"dir":       NotSafe,
+		"dir":       MemSafe,
 		"enumerate": MemSafe,
 		"fail":      MemSafe,
 		"float":     MemSafe,
@@ -102,7 +102,7 @@ func init() {
 		"set":       NotSafe,
 		"sorted":    MemSafe,
 		"str":       MemSafe,
-		"tuple":     NotSafe,
+		"tuple":     MemSafe,
 		"type":      MemSafe,
 		"zip":       MemSafe,
 	}
@@ -157,13 +157,13 @@ var (
 		"remove": NewBuiltin("remove", list_remove),
 	}
 	listMethodSafeties = map[string]Safety{
-		"append": NotSafe,
-		"clear":  NotSafe,
-		"extend": NotSafe,
-		"index":  NotSafe,
-		"insert": NotSafe,
-		"pop":    NotSafe,
-		"remove": NotSafe,
+		"append": MemSafe,
+		"clear":  MemSafe,
+		"extend": MemSafe,
+		"index":  MemSafe,
+		"insert": MemSafe,
+		"pop":    MemSafe,
+		"remove": MemSafe,
 	}
 
 	stringMethods = map[string]*Builtin{
@@ -204,7 +204,7 @@ var (
 		"upper":          NewBuiltin("upper", string_upper),
 	}
 	stringMethodSafeties = map[string]Safety{
-		"capitalize":     NotSafe,
+		"capitalize":     MemSafe,
 		"codepoint_ords": MemSafe,
 		"codepoints":     MemSafe,
 		"count":          MemSafe,
@@ -221,7 +221,7 @@ var (
 		"isspace":        MemSafe,
 		"istitle":        MemSafe,
 		"isupper":        NotSafe,
-		"join":           NotSafe,
+		"join":           MemSafe,
 		"lower":          MemSafe,
 		"lstrip":         MemSafe,
 		"partition":      MemSafe,
@@ -362,14 +362,20 @@ func any(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if err := UnpackPositionalArgs("any", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
-	// TODO: use SafeIterate
-	iter := iterable.Iterate()
+
+	iter, err := SafeIterate(thread, iterable)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 	var x Value
 	for iter.Next(&x) {
 		if x.Truth() {
 			return True, nil
 		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	return False, nil
 }
@@ -393,19 +399,28 @@ func bytes_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	}
 	switch x := args[0].(type) {
 	case Bytes:
-		return x, nil
+		return args[0], nil
 	case String:
 		// Invalid encodings are replaced by that of U+FFFD.
-		return Bytes(utf8Transcode(string(x))), nil
+		res, err := safeUtf8Transcode(thread, string(x))
+		if err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
+		}
+		return Bytes(res), nil
 	case Iterable:
 		// iterable of numeric byte values
-		var buf strings.Builder
+		buf := NewSafeStringBuilder(thread)
 		if n := Len(x); n >= 0 {
 			// common case: known length
 			buf.Grow(n)
 		}
-		// No need for SafeIterate as allocation is only transitional
-		iter := x.Iterate()
+		iter, err := SafeIterate(thread, x)
+		if err != nil {
+			return nil, err
+		}
 		defer iter.Done()
 		var elem Value
 		var b byte
@@ -413,7 +428,18 @@ func bytes_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 			if err := AsInt(elem, &b); err != nil {
 				return nil, fmt.Errorf("bytes: at index %d, %s", i, err)
 			}
-			buf.WriteByte(b)
+			if err := buf.WriteByte(b); err != nil {
+				return nil, err
+			}
+		}
+		if err := iter.Err(); err != nil {
+			return nil, err
+		}
+		if err := buf.Err(); err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
 		}
 		return Bytes(buf.String()), nil
 
@@ -481,7 +507,11 @@ func dir(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	for i, name := range names {
 		elems[i] = String(name)
 	}
-	return NewList(elems), nil
+	res := Value(NewList(elems))
+	if err := thread.AddAllocs(EstimateSize(res)); err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#enumerate
@@ -1478,16 +1508,31 @@ func tuple(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if len(args) == 0 {
 		return Tuple(nil), nil
 	}
-	// TODO: use SafeIterate
-	iter := iterable.Iterate()
+	iter, err := SafeIterate(thread, iterable)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 	var elems Tuple
 	if n := Len(iterable); n > 0 {
+		if err := thread.AddAllocs(EstimateMakeSize(Tuple{}, n)); err != nil {
+			return nil, err
+		}
 		elems = make(Tuple, 0, n) // preallocate if length is known
 	}
+	elemsAppender := NewSafeAppender(thread, &elems)
 	var x Value
 	for iter.Next(&x) {
-		elems = append(elems, x)
+		if err := elemsAppender.Append(x); err != nil {
+			return nil, err
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+
+	if err := thread.AddAllocs(EstimateSize(Tuple{})); err != nil {
+		return nil, err
 	}
 	return elems, nil
 }
@@ -1743,7 +1788,7 @@ func dict_values(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·append
-func list_append(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_append(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var object Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &object); err != nil {
 		return nil, err
@@ -1752,7 +1797,10 @@ func list_append(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := recv.checkMutable("append to"); err != nil {
 		return nil, nameErr(b, err)
 	}
-	recv.elems = append(recv.elems, object)
+	elemsAppender := NewSafeAppender(thread, &recv.elems)
+	if err := elemsAppender.Append(object); err != nil {
+		return nil, err
+	}
 	return None, nil
 }
 
@@ -1768,7 +1816,7 @@ func list_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·extend
-func list_extend(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_extend(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := b.Receiver().(*List)
 	var iterable Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &iterable); err != nil {
@@ -1777,13 +1825,15 @@ func list_extend(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := recv.checkMutable("extend"); err != nil {
 		return nil, nameErr(b, err)
 	}
-	// TODO: use SafeIterate
-	listExtend(recv, iterable)
+
+	if err := safeListExtend(thread, recv, iterable); err != nil {
+		return nil, err
+	}
 	return None, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·index
-func list_index(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var value, start_, end_ Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &value, &start_, &end_); err != nil {
 		return nil, err
@@ -1799,14 +1849,18 @@ func list_index(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		if eq, err := Equal(recv.elems[i], value); err != nil {
 			return nil, nameErr(b, err)
 		} else if eq {
-			return MakeInt(i), nil
+			res := Value(MakeInt(i))
+			if err := thread.AddAllocs(EstimateSize(res)); err != nil {
+				return nil, err
+			}
+			return res, nil
 		}
 	}
 	return nil, nameErr(b, "value not in list")
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·insert
-func list_insert(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_insert(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := b.Receiver().(*List)
 	var index int
 	var object Value
@@ -1821,14 +1875,19 @@ func list_insert(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		index += recv.Len()
 	}
 
+	appender := NewSafeAppender(thread, &recv.elems)
 	if index >= recv.Len() {
 		// end
-		recv.elems = append(recv.elems, object)
+		if err := appender.Append(object); err != nil {
+			return nil, err
+		}
 	} else {
 		if index < 0 {
 			index = 0 // start
 		}
-		recv.elems = append(recv.elems, nil)
+		if err := appender.Append(nil); err != nil {
+			return nil, err
+		}
 		copy(recv.elems[index+1:], recv.elems[index:]) // slide up one
 		recv.elems[index] = object
 	}
@@ -1881,12 +1940,12 @@ func list_pop(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·capitalize
-func string_capitalize(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_capitalize(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
 	s := string(b.Receiver().(String))
-	res := new(strings.Builder)
+	res := NewSafeStringBuilder(thread)
 	res.Grow(len(s))
 	for i, r := range s {
 		if i == 0 {
@@ -1894,7 +1953,16 @@ func string_capitalize(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		} else {
 			r = unicode.ToLower(r)
 		}
-		res.WriteRune(r)
+		if _, err := res.WriteRune(r); err != nil {
+			return nil, err
+		}
+	}
+	if err := res.Err(); err != nil {
+		return nil, err
+	}
+
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
 	}
 	return String(res.String()), nil
 }
@@ -2294,26 +2362,42 @@ func string_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·join
-func string_join(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_join(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := string(b.Receiver().(String))
 	var iterable Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
-	// No need for SafeIterate as they are transient.
-	iter := iterable.Iterate()
+
+	iter, err := SafeIterate(thread, iterable)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
-	buf := new(strings.Builder)
+	buf := NewSafeStringBuilder(thread)
 	var x Value
 	for i := 0; iter.Next(&x); i++ {
 		if i > 0 {
-			buf.WriteString(recv)
+			if _, err := buf.WriteString(recv); err != nil {
+				return nil, err
+			}
 		}
 		s, ok := AsString(x)
 		if !ok {
 			return nil, fmt.Errorf("join: in list, want string, got %s", x.Type())
 		}
-		buf.WriteString(s)
+		if _, err := buf.WriteString(s); err != nil {
+			return nil, err
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	if err := buf.Err(); err != nil {
+		return nil, err
+	}
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
 	}
 	return String(buf.String()), nil
 }
@@ -2717,13 +2801,13 @@ func set_union(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	}
 	union := new(Set)
 	for _, elem := range b.Receiver().(*Set).elems() {
-		if err := union.ht.safeInsert(thread, elem, None); err != nil {
+		if err := union.ht.insert(thread, elem, None); err != nil {
 			return nil, err
 		}
 	}
 	var x Value
 	for iter.Next(&x) {
-		if err := union.ht.safeInsert(thread, x, None); err != nil {
+		if err := union.ht.insert(thread, x, None); err != nil {
 			return nil, err
 		}
 	}

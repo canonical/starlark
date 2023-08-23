@@ -779,19 +779,30 @@ func makeExprFunc(expr syntax.Expr, env StringDict) (*Function, error) {
 // The following functions are primitive operations of the byte code interpreter.
 
 // list += iterable
-func listExtend(x *List, y Iterable) {
+func safeListExtend(thread *Thread, x *List, y Iterable) error {
+	elemsAppender := NewSafeAppender(thread, &x.elems)
 	if ylist, ok := y.(*List); ok {
 		// fast path: list += list
-		x.elems = append(x.elems, ylist.elems...)
+		if err := elemsAppender.AppendSlice(ylist.elems); err != nil {
+			return err
+		}
 	} else {
-		// TODO: use SafeIterate
-		iter := y.Iterate()
+		iter, err := SafeIterate(thread, y)
+		if err != nil {
+			return err
+		}
 		defer iter.Done()
 		var z Value
 		for iter.Next(&z) {
-			x.elems = append(x.elems, z)
+			if err := elemsAppender.Append(z); err != nil {
+				return err
+			}
+		}
+		if err := iter.Err(); err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
 // getAttr implements x.dot.
@@ -878,7 +889,7 @@ func outOfRange(i, n int, x Value) error {
 	}
 }
 
-func checkIndexRange(collection Indexable, i int) (int, error) {
+func sanitizeIndex(collection Indexable, i int) (int, error) {
 	n := collection.Len()
 	origI := i
 	if i < 0 {
@@ -890,56 +901,44 @@ func checkIndexRange(collection Indexable, i int) (int, error) {
 	return i, nil
 }
 
-// SafeSetIndex implements x[y] = z.
-func SafeSetIndex(thread *Thread, x, y, z Value) error {
-	if thread != nil {
-		switch x := x.(type) {
-		case HasSafeSetKey:
-			if err := thread.CheckPermits(x.Safety()); err != nil {
-				return err
-			}
-			if err := x.SafeSetKey(thread, y, z); err != nil {
-				return err
-			}
-
-		case HasSafeSetIndex:
-			if err := thread.CheckPermits(x.Safety()); err != nil {
-				return err
-			}
-			i, err := AsInt32(y)
-			if err != nil {
-				return err
-			}
-
-			if i, err = checkIndexRange(x, i); err != nil {
-				return err
-			}
-			return x.SafeSetIndex(thread, i, z)
-		}
-
-		if err := thread.CheckPermits(NotSafe); err != nil {
-			return err
-		}
-	}
-
-	// If this executes either thread is nil or it
-	// allows execution of NotSafe code.
+// setIndex implements x[y] = z.
+func setIndex(thread *Thread, x, y, z Value) error {
 	switch x := x.(type) {
-	case HasSetKey:
-		return x.SetKey(y, z)
+	case HasSafeSetKey:
+		return x.SafeSetKey(thread, y, z)
 
-	case HasSetIndex:
+	case HasSafeSetIndex:
 		i, err := AsInt32(y)
 		if err != nil {
 			return err
 		}
-		if i, err = checkIndexRange(x, i); err != nil {
+
+		if i, err = sanitizeIndex(x, i); err != nil {
+			return err
+		}
+		return x.SafeSetIndex(thread, i, z)
+
+	case HasSetKey:
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return err
+		}
+		return x.SetKey(y, z)
+
+	case HasSetIndex:
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return err
+		}
+		i, err := AsInt32(y)
+		if err != nil {
+			return err
+		}
+		if i, err = sanitizeIndex(x, i); err != nil {
 			return err
 		}
 		return x.SetIndex(i, z)
 
 	default:
-		return ErrUnsupported
+		return fmt.Errorf("%s value does not support item assignment", x.Type())
 	}
 }
 

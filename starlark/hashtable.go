@@ -36,7 +36,7 @@ type entry struct {
 	prevLink   **entry // address of link to this entry (perhaps &head)
 }
 
-func (ht *hashtable) safeInit(thread *Thread, size int) error {
+func (ht *hashtable) init(thread *Thread, size int) error {
 	if size < 0 {
 		panic("size < 0")
 	}
@@ -58,10 +58,6 @@ func (ht *hashtable) safeInit(thread *Thread, size int) error {
 	return nil
 }
 
-func (ht *hashtable) init(size int) {
-	ht.safeInit(nil, size)
-}
-
 func (ht *hashtable) freeze() {
 	if !ht.frozen {
 		ht.frozen = true
@@ -79,7 +75,7 @@ func (ht *hashtable) freeze() {
 	}
 }
 
-func (ht *hashtable) safeInsert(thread *Thread, k, v Value) error {
+func (ht *hashtable) insert(thread *Thread, k, v Value) error {
 	if ht.frozen {
 		return fmt.Errorf("cannot insert into frozen hash table")
 	}
@@ -87,7 +83,7 @@ func (ht *hashtable) safeInsert(thread *Thread, k, v Value) error {
 		return fmt.Errorf("cannot insert into hash table during iteration")
 	}
 	if ht.table == nil {
-		ht.safeInit(thread, 1)
+		ht.init(thread, 1)
 	}
 	h, err := k.Hash()
 	if err != nil {
@@ -131,7 +127,7 @@ retry:
 
 	// Does the number of elements exceed the buckets' load factor?
 	if overloaded(int(ht.len), len(ht.table)) {
-		if err := ht.safeGrow(thread); err != nil {
+		if err := ht.grow(thread); err != nil {
 			return err
 		}
 		goto retry
@@ -164,14 +160,12 @@ retry:
 	return nil
 }
 
-func (ht *hashtable) insert(k, v Value) error { return ht.safeInsert(nil, k, v) }
-
 func overloaded(elems, buckets int) bool {
 	const loadFactor = 6.5 // just a guess
 	return elems >= bucketSize && float64(elems) >= loadFactor*float64(buckets)
 }
 
-func (ht *hashtable) safeGrow(thread *Thread) error {
+func (ht *hashtable) grow(thread *Thread) error {
 	// Double the number of buckets and rehash.
 	// TODO(adonovan): opt:
 	// - avoid reentrant calls to ht.insert, and specialize it.
@@ -191,15 +185,13 @@ func (ht *hashtable) safeGrow(thread *Thread) error {
 	ht.tailLink = &ht.head
 	ht.len = 0
 	for e := oldhead; e != nil; e = e.next {
-		if err := ht.safeInsert(thread, e.key, e.value); err != nil {
+		if err := ht.insert(thread, e.key, e.value); err != nil {
 			return err
 		}
 	}
 	ht.bucket0[0] = bucket{} // clear out unused initial bucket
 	return nil
 }
-
-func (ht *hashtable) grow() { ht.safeGrow(nil) }
 
 func (ht *hashtable) lookup(k Value) (v Value, found bool, err error) {
 	h, err := k.Hash()
