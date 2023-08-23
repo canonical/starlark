@@ -870,7 +870,7 @@ func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.
 func (d *Dict) String() string                                  { return toString(d) }
 
 func (d *Dict) SafeSetKey(thread *Thread, k, v Value) error {
-	if err := CheckSafety(thread, dictSetKeySafety); err != nil {
+	if err := CheckSafety(thread, MemSafe); err != nil {
 		return err
 	}
 	if err := d.ht.insert(thread, k, v); err != nil {
@@ -1050,7 +1050,7 @@ func (l *List) SetIndex(i int, v Value) error {
 }
 
 func (l *List) SafeSetIndex(thread *Thread, i int, v Value) error {
-	if err := CheckSafety(thread, listSetIndexSafety); err != nil {
+	if err := CheckSafety(thread, MemSafe); err != nil {
 		return err
 	}
 	return l.SetIndex(i, v)

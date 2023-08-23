@@ -127,7 +127,7 @@ retry:
 
 	// Does the number of elements exceed the buckets' load factor?
 	if overloaded(int(ht.len), len(ht.table)) {
-		if err := ht.safeGrow(thread); err != nil {
+		if err := ht.grow(thread); err != nil {
 			return err
 		}
 		goto retry
@@ -165,7 +165,7 @@ func overloaded(elems, buckets int) bool {
 	return elems >= bucketSize && float64(elems) >= loadFactor*float64(buckets)
 }
 
-func (ht *hashtable) safeGrow(thread *Thread) error {
+func (ht *hashtable) grow(thread *Thread) error {
 	// Double the number of buckets and rehash.
 	// TODO(adonovan): opt:
 	// - avoid reentrant calls to ht.insert, and specialize it.
