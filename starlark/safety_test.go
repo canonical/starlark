@@ -3,7 +3,6 @@ package starlark_test
 import (
 	"fmt"
 	"testing"
-	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
 )
