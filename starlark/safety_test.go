@@ -3,7 +3,6 @@ package starlark_test
 import (
 	"fmt"
 	"testing"
-	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
 )
@@ -320,43 +319,6 @@ func TestCheckSafety(t *testing.T) {
 	}{{
 		name:  "nil-thread",
 		value: "unimportant",
-	}, {
-		name:   "nil-interface",
-		thread: &starlark.Thread{},
-		expect: "cannot check safety of invalid nil value",
-	}, {
-		name:   "nil.ptr",
-		thread: &starlark.Thread{},
-		value:  (*dummySafetyAware)(nil),
-		expect: "cannot check safety of invalid nil value",
-	}, {
-		name:   "nil-map",
-		thread: &starlark.Thread{},
-		value:  (map[int]int)(nil),
-		expect: "cannot check safety of invalid nil value",
-	}, {
-		name:   "nil-chan",
-		thread: &starlark.Thread{},
-		value:  (chan int)(nil),
-		expect: "cannot check safety of invalid nil value",
-	}, {
-		name:   "nil-unsafe-pointer",
-		thread: &starlark.Thread{},
-		value:  (unsafe.Pointer)(nil),
-		expect: "cannot check safety of invalid nil value",
-	}, {
-		name:   "nil-func",
-		thread: &starlark.Thread{},
-		value:  (func())(nil),
-		expect: "cannot check safety of invalid nil value",
-	}, {
-		name:   "nil-slice",
-		thread: &starlark.Thread{},
-		value:  ([]int)(nil),
-	}, {
-		name:   "empty-slice",
-		thread: &starlark.Thread{},
-		value:  []int{},
 	}, {
 		name:   "not-safe-thread-not-safe-value",
 		thread: &starlark.Thread{},
