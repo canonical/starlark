@@ -384,7 +384,7 @@ loop:
 			y := stack[sp-2]
 			x := stack[sp-3]
 			sp -= 3
-			err = setIndex(x, y, z)
+			err = setIndex(thread, x, y, z)
 			if err != nil {
 				break loop
 			}
