@@ -834,10 +834,6 @@ type Dict struct {
 	ht hashtable
 }
 
-const (
-	dictSetKeySafety = MemSafe
-)
-
 // NewDict returns a set with initial space for
 // at least size insertions before rehashing.
 func NewDict(size int) *Dict {
@@ -920,10 +916,6 @@ type List struct {
 	frozen    bool
 	itercount uint32 // number of active iterators (ignored if frozen)
 }
-
-const (
-	listSetIndexSafety = MemSafe
-)
 
 // NewList returns a list containing the specified elements.
 // Callers should not subsequently modify elems.
