@@ -2811,7 +2811,7 @@ func set_union(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 			return nil, err
 		}
 	}
-	if err != nil {
+	if err := iter.Err(); err != nil {
 		return nil, nameErr(b, err)
 	}
 	return union, nil
