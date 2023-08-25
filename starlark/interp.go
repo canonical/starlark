@@ -468,10 +468,13 @@ loop:
 			n := int(arg)
 			iterable := stack[sp-1]
 			sp--
-			// TODO: use SafeIterate
-			iter := Iterate(iterable)
-			if iter == nil {
-				err = fmt.Errorf("got %s in sequence assignment", iterable.Type())
+			iter, err2 := SafeIterate(thread, iterable)
+			if err2 != nil {
+				if err2 == ErrUnsupported {
+					err = fmt.Errorf("got %s in sequence assignment", iterable.Type())
+				} else {
+					err = err2
+				}
 				break loop
 			}
 			i := 0
@@ -486,6 +489,10 @@ loop:
 				break loop
 			}
 			iter.Done()
+			if err2 := iter.Err(); err2 != nil {
+				err = err2
+				break loop
+			}
 			if i < n {
 				err = fmt.Errorf("too few values to unpack (got %d, want %d)", i, n)
 				break loop

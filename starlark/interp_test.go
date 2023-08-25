@@ -57,3 +57,23 @@ func TestIterate(t *testing.T) {
 				break
 	`)
 }
+
+func TestSequenceAssignment(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunString(`
+		for _ in st.ntimes():
+			[ single ] = range(1)
+			st.keep_alive(single)
+	`)
+	st.RunString(`
+		for _ in st.ntimes():
+			[ first, second ] = range(2)
+			st.keep_alive(first, second)
+	`)
+	st.RunString(`
+		for _ in st.ntimes():
+			first, second = range(2)
+			st.keep_alive(first, second)
+	`)
+}
