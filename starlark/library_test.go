@@ -3597,7 +3597,6 @@ func TestSetUnionAllocs(t *testing.T) {
 				return result, nil
 			},
 		}
-
 		result, err := starlark.Call(thread, set_union, starlark.Tuple{&iter}, nil)
 		if err != nil {
 			st.Error(err)
