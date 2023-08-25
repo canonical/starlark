@@ -88,7 +88,6 @@ func TestTimeNowSafety(t *testing.T) {
 			time.NowFuncSafety = test.nowFuncSafety
 			defer func() { time.NowFuncSafety = originalNowFuncSafety }()
 
-			t.Log(test.thread, time.NowFuncSafety)
 			_, err := starlark.Call(test.thread, now, nil, nil)
 			if test.expect != "" && err == nil {
 				t.Errorf("now returned no error, expected: %v", test.expect)
