@@ -1625,6 +1625,30 @@ func TestReversedAllocs(t *testing.T) {
 }
 
 func TestSetAllocs(t *testing.T) {
+	set, ok := starlark.Universe["set"]
+	if !ok {
+		t.Fatal("no such builtin: set")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		iter := &testIterable{
+			nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+				res := starlark.Value(starlark.MakeInt(n))
+				if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+					return nil, err
+				}
+				return res, nil
+			},
+			maxN: st.N,
+		}
+		result, err := starlark.Call(thread, set, starlark.Tuple{iter}, nil)
+		if err != nil {
+			st.Error(err)
+		}
+		st.KeepAlive(result)
+	})
 }
 
 func TestSortedAllocs(t *testing.T) {
