@@ -1529,7 +1529,6 @@ func TestSetAllocs(t *testing.T) {
 			},
 			maxN: st.N,
 		}
-
 		result, err := starlark.Call(thread, set, starlark.Tuple{iter}, nil)
 		if err != nil {
 			st.Error(err)
