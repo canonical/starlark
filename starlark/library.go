@@ -91,7 +91,7 @@ func init() {
 		"hash":      MemSafe,
 		"int":       MemSafe,
 		"len":       MemSafe,
-		"list":      NotSafe,
+		"list":      MemSafe,
 		"max":       MemSafe,
 		"min":       MemSafe,
 		"ord":       MemSafe,
@@ -940,16 +940,30 @@ func list(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	}
 	var elems []Value
 	if iterable != nil {
-		// TODO: use SafeIterate
-		iter := iterable.Iterate()
+		iter, err := SafeIterate(thread, iterable)
+		if err != nil {
+			return nil, err
+		}
 		defer iter.Done()
 		if n := Len(iterable); n > 0 {
+			if err := thread.AddAllocs(EstimateMakeSize([]Value{}, n)); err != nil {
+				return nil, err
+			}
 			elems = make([]Value, 0, n) // preallocate if length known
 		}
+		elemsAppender := NewSafeAppender(thread, &elems)
 		var x Value
 		for iter.Next(&x) {
-			elems = append(elems, x)
+			if err := elemsAppender.Append(x); err != nil {
+				return nil, err
+			}
 		}
+		if err := iter.Err(); err != nil {
+			return nil, err
+		}
+	}
+	if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
+		return nil, err
 	}
 	return NewList(elems), nil
 }
