@@ -33,7 +33,15 @@ func TestJsonEncodeAllocs(t *testing.T) {
 }
 
 func TestJsonDecodeAllocs(t *testing.T) {
-	json_document := starlark.String(`
+	json_decode, _ := json.Module.Attr("decode")
+	if json_decode == nil {
+		t.Fatal("no such method: json.decode")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		json_document := starlark.String(`
 		{
 			"Int": 48879,
 			"BigInt": 3825590844416,
@@ -44,14 +52,6 @@ func TestJsonDecodeAllocs(t *testing.T) {
 			"Tuple":[ 1, 2 ]	
 		}`)
 
-	json_decode, _ := json.Module.Attr("decode")
-	if json_decode == nil {
-		t.Fatal("no such method: json.decode")
-	}
-
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			result, err := starlark.Call(thread, json_decode, starlark.Tuple{json_document}, nil)
 			if err != nil {
