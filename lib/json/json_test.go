@@ -46,7 +46,7 @@ func TestJsonDecodeAllocs(t *testing.T) {
 
 	json_decode, _ := json.Module.Attr("decode")
 	if json_decode == nil {
-		t.Fatal("no such method: json.endoce")
+		t.Fatal("no such method: json.decode")
 	}
 
 	st := startest.From(t)
