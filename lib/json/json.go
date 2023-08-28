@@ -307,16 +307,16 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	// control the returned types, but there's no compelling need yet.
 
 	// Use panic/recover with a distinguished type (failure) for error handling.
-	type safetyError error
-	safetyFail := func(err error) {
-		panic(safetyError(err))
-	}
-	type failure string
+	i := 0
+
+	type failure struct{ err error }
 	fail := func(format string, args ...interface{}) {
-		panic(failure(fmt.Sprintf(format, args...)))
+		panic(failure{fmt.Errorf("json.decode: at offset %d, %s", i, fmt.Sprintf(format, args...))})
 	}
 
-	i := 0
+	failWith := func(err error) {
+		panic(failure{err})
+	}
 
 	// skipSpace consumes leading spaces, and reports whether there is more input.
 	skipSpace := func() bool {
@@ -378,7 +378,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			// unquote
 			if safe {
 				if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
-					safetyFail(err)
+					failWith(err)
 				}
 				r = r[1 : len(r)-1]
 			} else {
@@ -386,7 +386,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 					fail("%s", err)
 				}
 				if err := thread.AddAllocs(starlark.EstimateSize(r)); err != nil {
-					safetyFail(err)
+					failWith(err)
 				}
 			}
 			return starlark.String(r)
@@ -420,7 +420,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				for {
 					elem := parse()
 					if err := elemsAppender.Append(elem); err != nil {
-						safetyFail(err)
+						failWith(err)
 					}
 					b = next()
 					if b != ',' {
@@ -434,16 +434,15 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			}
 			i++ // ']'
 			if err := thread.AddAllocs(starlark.EstimateSize(&starlark.List{})); err != nil {
-				safetyFail(err)
+				failWith(err)
 			}
 			return starlark.NewList(elems)
 
 		case '{':
 			// object
 			dict := new(starlark.Dict)
-			dictSize := starlark.EstimateSize(dict)
-			if err := thread.AddAllocs(dictSize); err != nil {
-				safetyFail(err)
+			if err := thread.AddAllocs(starlark.EstimateSize(dict)); err != nil {
+				failWith(err)
 			}
 
 			i++ // '{'
@@ -461,7 +460,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 					i++ // ':'
 					value := parse()
 					if err := dict.SafeSetKey(thread, key, value); err != nil {
-						safetyFail(err)
+						failWith(err)
 					}
 					b = next()
 					if b != ',' {
@@ -517,7 +516,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 					}
 					res := starlark.Value(starlark.Float(x))
 					if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
-						safetyFail(err)
+						failWith(err)
 					}
 					return res
 				} else {
@@ -527,7 +526,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 					}
 					res := starlark.Value(starlark.MakeBigInt(x))
 					if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
-						safetyFail(err)
+						failWith(err)
 					}
 					return res
 				}
@@ -540,9 +539,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 		x := recover()
 		switch x := x.(type) {
 		case failure:
-			err = fmt.Errorf("json.decode: at offset %d, %s", i, x)
-		case safetyError:
-			err = x
+			err = x.err
 		case nil:
 			// nop
 		default:
