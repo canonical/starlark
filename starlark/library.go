@@ -245,7 +245,7 @@ var (
 		"union": NewBuiltin("union", set_union),
 	}
 	setMethodSafeties = map[string]Safety{
-		"union": NotSafe,
+		"union": MemSafe,
 	}
 )
 
@@ -2808,16 +2808,32 @@ func string_splitlines(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·union.
-func set_union(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_union(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var iterable Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &iterable); err != nil {
 		return nil, err
 	}
-	// TODO: use SafeIterate
-	iter := iterable.Iterate()
-	defer iter.Done()
-	union, err := b.Receiver().(*Set).Union(iter)
+	iter, err := SafeIterate(thread, iterable)
 	if err != nil {
+		return nil, err
+	}
+	defer iter.Done()
+	if err := thread.AddAllocs(EstimateSize(&Set{})); err != nil {
+		return nil, err
+	}
+	union := new(Set)
+	for _, elem := range b.Receiver().(*Set).elems() {
+		if err := union.ht.insert(thread, elem, None); err != nil {
+			return nil, err
+		}
+	}
+	var x Value
+	for iter.Next(&x) {
+		if err := union.ht.insert(thread, x, None); err != nil {
+			return nil, err
+		}
+	}
+	if err := iter.Err(); err != nil {
 		return nil, nameErr(b, err)
 	}
 	return union, nil
