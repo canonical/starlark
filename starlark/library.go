@@ -237,7 +237,7 @@ var (
 		"splitlines":     MemSafe,
 		"startswith":     MemSafe,
 		"strip":          MemSafe,
-		"title":          NotSafe,
+		"title":          MemSafe,
 		"upper":          MemSafe,
 	}
 
@@ -2609,7 +2609,7 @@ func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·title
-func string_title(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_title(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
@@ -2619,7 +2619,7 @@ func string_title(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	// Python semantics differ from x==strings.{To,}Title(x) in Go:
 	// "uppercase characters may only follow uncased characters and
 	// lowercase characters only cased ones."
-	buf := new(strings.Builder)
+	buf := NewSafeStringBuilder(thread)
 	buf.Grow(len(s))
 	var prevCased bool
 	for _, r := range s {
@@ -2629,7 +2629,15 @@ func string_title(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 			r = unicode.ToTitle(r)
 		}
 		prevCased = isCasedRune(r)
-		buf.WriteRune(r)
+		if _, err := buf.WriteRune(r); err != nil {
+			return nil, err
+		}
+	}
+	if err := buf.Err(); err != nil {
+		return nil, err
+	}
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
 	}
 	return String(buf.String()), nil
 }
