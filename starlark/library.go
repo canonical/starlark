@@ -220,7 +220,7 @@ var (
 		"islower":        MemSafe,
 		"isspace":        MemSafe,
 		"istitle":        MemSafe,
-		"isupper":        NotSafe,
+		"isupper":        MemSafe,
 		"join":           MemSafe,
 		"lower":          MemSafe,
 		"lstrip":         MemSafe,
