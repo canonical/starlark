@@ -2166,6 +2166,22 @@ func TestZipAllocs(t *testing.T) {
 }
 
 func TestBytesElemsAllocs(t *testing.T) {
+	bytes_elems, _ := starlark.Bytes("arbitrary-string").Attr("elems")
+	if bytes_elems == nil {
+		t.Fatalf("no such method: bytes.elems")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func (thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, bytes_elems, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestDictClearAllocs(t *testing.T) {

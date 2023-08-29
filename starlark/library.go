@@ -121,7 +121,7 @@ var (
 		"elems": NewBuiltin("elems", bytes_elems),
 	}
 	bytesMethodSafeties = map[string]Safety{
-		"elems": NotSafe,
+		"elems": MemSafe,
 	}
 
 	dictMethods = map[string]*Builtin{
@@ -2016,8 +2016,11 @@ func string_iterable(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Va
 
 // bytes_elems returns an unspecified iterable value whose
 // iterator yields the int values of successive elements.
-func bytes_elems(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func bytes_elems(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
+		return nil, err
+	}
+	if err := thread.AddAllocs(EstimateSize(bytesIterable{})); err != nil {
 		return nil, err
 	}
 	return bytesIterable{b.Receiver().(Bytes)}, nil
