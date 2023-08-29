@@ -25,11 +25,11 @@ func (m *Module) Hash() (uint32, error)                    { return 0, fmt.Error
 func (m *Module) String() string                           { return fmt.Sprintf("<module %q>", m.Name) }
 func (m *Module) Truth() starlark.Bool                     { return true }
 func (m *Module) Type() string                             { return "module" }
-func (m *Module) Safety() starlark.Safety {
-	return starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
-}
 
 func (m *Module) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	if err := starlark.CheckSafety(thread, starlark.MemSafe|starlark.CPUSafe|starlark.TimeSafe|starlark.IOSafe); err != nil {
+		return nil, err
+	}
 	member, ok := m.Members[name]
 	if !ok {
 		return nil, starlark.ErrNoSuchAttr

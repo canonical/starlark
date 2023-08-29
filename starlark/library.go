@@ -295,8 +295,10 @@ func safeBuiltinAttr(thread *Thread, recv Value, name string, methods map[string
 	if b == nil {
 		return nil, ErrNoSuchAttr
 	}
-	if err := thread.AddAllocs(EstimateSize(&Builtin{})); err != nil {
-		return nil, err
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateSize(&Builtin{})); err != nil {
+			return nil, err
+		}
 	}
 	return b.BindReceiver(recv), nil
 }
@@ -703,7 +705,7 @@ func getattr(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 		return nil, err
 	}
 
-	v, err := SafeGetAttr(thread, object, name, false)
+	v, err := getAttr(thread, object, name, false)
 	if err != nil {
 		if dflt != nil {
 			return dflt, nil

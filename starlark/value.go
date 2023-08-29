@@ -7,35 +7,35 @@
 // Starlark values are represented by the Value interface.
 // The following built-in Value types are known to the evaluator:
 //
-//      NoneType        -- NoneType
-//      Bool            -- bool
-//      Bytes           -- bytes
-//      Int             -- int
-//      Float           -- float
-//      String          -- string
-//      *List           -- list
-//      Tuple           -- tuple
-//      *Dict           -- dict
-//      *Set            -- set
-//      *Function       -- function (implemented in Starlark)
-//      *Builtin        -- builtin_function_or_method (function or method implemented in Go)
+//	NoneType        -- NoneType
+//	Bool            -- bool
+//	Bytes           -- bytes
+//	Int             -- int
+//	Float           -- float
+//	String          -- string
+//	*List           -- list
+//	Tuple           -- tuple
+//	*Dict           -- dict
+//	*Set            -- set
+//	*Function       -- function (implemented in Starlark)
+//	*Builtin        -- builtin_function_or_method (function or method implemented in Go)
 //
 // Client applications may define new data types that satisfy at least
 // the Value interface.  Such types may provide additional operations by
 // implementing any of these optional interfaces:
 //
-//      Callable        -- value is callable like a function
-//      Comparable      -- value defines its own comparison operations
-//      Iterable        -- value is iterable using 'for' loops
-//      Sequence        -- value is iterable sequence of known length
-//      Indexable       -- value is sequence with efficient random access
-//      Mapping         -- value maps from keys to values, like a dictionary
-//      HasBinary       -- value defines binary operations such as * and +
-//      HasAttrs        -- value has readable fields or methods x.f
-//      HasSetField     -- value has settable fields x.f
-//      HasSetIndex     -- value supports element update using x[i]=y
-//      HasSetKey       -- value supports map update using x[k]=v
-//      HasUnary        -- value defines unary operations such as + and -
+//	Callable        -- value is callable like a function
+//	Comparable      -- value defines its own comparison operations
+//	Iterable        -- value is iterable using 'for' loops
+//	Sequence        -- value is iterable sequence of known length
+//	Indexable       -- value is sequence with efficient random access
+//	Mapping         -- value maps from keys to values, like a dictionary
+//	HasBinary       -- value defines binary operations such as * and +
+//	HasAttrs        -- value has readable fields or methods x.f
+//	HasSetField     -- value has settable fields x.f
+//	HasSetIndex     -- value supports element update using x[i]=y
+//	HasSetKey       -- value supports map update using x[k]=v
+//	HasUnary        -- value defines unary operations such as + and -
 //
 // Client applications may also define domain-specific functions in Go
 // and make them available to Starlark programs.  Use NewBuiltin to
@@ -63,7 +63,6 @@
 // through Starlark code and into callbacks.  When evaluation fails it
 // returns an EvalError from which the application may obtain a
 // backtrace of active Starlark calls.
-//
 package starlark // import "github.com/canonical/starlark/starlark"
 
 // This file defines the data types of Starlark and their basic operations.
@@ -247,13 +246,12 @@ var (
 //
 // Example usage:
 //
-// 	iter := iterable.Iterator()
+//	iter := iterable.Iterator()
 //	defer iter.Done()
 //	var x Value
 //	for iter.Next(&x) {
 //		...
 //	}
-//
 type Iterator interface {
 	// If the iterator is exhausted, Next returns false.
 	// Otherwise it sets *p to the current element of the sequence,
@@ -315,7 +313,7 @@ var _ HasSetKey = (*Dict)(nil)
 var _ HasSafeSetKey = (*Dict)(nil)
 
 // A HasBinary value may be used as either operand of these binary operators:
-//     +   -   *   /   //   %   in   not in   |   &   ^   <<   >>
+//   - -   *   /   //   %   in   not in   |   &   ^   <<   >>
 //
 // The Side argument indicates whether the receiver is the left or right operand.
 //
@@ -335,7 +333,7 @@ const (
 )
 
 // A HasUnary value may be used as the operand of these unary operators:
-//     +   -   ~
+//   - -   ~
 //
 // An implementation may decline to handle an operation by returning (nil, nil).
 // For this reason, clients should always call the standalone Unary(op, x)
@@ -358,10 +356,8 @@ type HasAttrs interface {
 }
 
 type HasSafeAttrs interface {
-	HasAttrs
-	SafetyAware
-
 	SafeAttr(thread *Thread, name string) (Value, error)
+	AttrNames() []string
 }
 
 var (
@@ -600,11 +596,15 @@ func (s String) Slice(start, end, step int) Value {
 
 func (s String) Attr(name string) (Value, error) { return builtinAttr(s, name, stringMethods) }
 func (s String) AttrNames() []string             { return builtinAttrNames(stringMethods) }
-func (s String) Safety() Safety                  { return MemSafe }
 
 func (s String) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+	if err := CheckSafety(thread, MemSafe); err != nil {
 		return nil, err
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
+		}
 	}
 	return safeBuiltinAttr(thread, s, name, stringMethods)
 }
@@ -831,13 +831,12 @@ func NewBuiltinWithSafety(name string, safety Safety, fn func(*Thread, *Builtin,
 // In the example below, the value of f is the string.index
 // built-in method bound to the receiver value "abc":
 //
-//     f = "abc".index; f("a"); f("b")
+//	f = "abc".index; f("a"); f("b")
 //
 // In the common case, the receiver is bound only during the call,
 // but this still results in the creation of a temporary method closure:
 //
-//     "abc".index("a")
-//
+//	"abc".index("a")
 func (b *Builtin) BindReceiver(recv Value) *Builtin {
 	return &Builtin{name: b.name, fn: b.fn, recv: recv, safety: b.safety}
 }
@@ -893,9 +892,11 @@ func (d *Dict) SafeSetKey(thread *Thread, k, v Value) error {
 
 func (d *Dict) Attr(name string) (Value, error) { return builtinAttr(d, name, dictMethods) }
 func (d *Dict) AttrNames() []string             { return builtinAttrNames(dictMethods) }
-func (d *Dict) Safety() Safety                  { return MemSafe }
 
 func (d *Dict) SafeAttr(thread *Thread, name string) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
 	return safeBuiltinAttr(thread, d, name, dictMethods)
 }
 
@@ -986,9 +987,11 @@ func (l *List) Slice(start, end, step int) Value {
 
 func (l *List) Attr(name string) (Value, error) { return builtinAttr(l, name, listMethods) }
 func (l *List) AttrNames() []string             { return builtinAttrNames(listMethods) }
-func (l *List) Safety() Safety                  { return MemSafe }
 
 func (l *List) SafeAttr(thread *Thread, name string) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
 	return safeBuiltinAttr(thread, l, name, listMethods)
 }
 
@@ -1193,9 +1196,11 @@ func (s *Set) String() string                         { return toString(s) }
 
 func (s *Set) Attr(name string) (Value, error) { return builtinAttr(s, name, setMethods) }
 func (s *Set) AttrNames() []string             { return builtinAttrNames(setMethods) }
-func (s *Set) Safety() Safety                  { return MemSafe }
 
 func (s *Set) SafeAttr(thread *Thread, name string) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
 	return safeBuiltinAttr(thread, s, name, setMethods)
 }
 
@@ -1701,11 +1706,15 @@ func (b Bytes) Index(i int) Value     { return b[i : i+1] }
 
 func (b Bytes) Attr(name string) (Value, error) { return builtinAttr(b, name, bytesMethods) }
 func (b Bytes) AttrNames() []string             { return builtinAttrNames(bytesMethods) }
-func (b Bytes) Safety() Safety                  { return MemSafe }
 
 func (b Bytes) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+	if err := CheckSafety(thread, MemSafe); err != nil {
 		return nil, err
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
+		}
 	}
 	return safeBuiltinAttr(thread, b, name, bytesMethods)
 }

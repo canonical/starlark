@@ -805,33 +805,28 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 	return nil
 }
 
-func tryGetAttrs(thread *Thread, x HasAttrs, name string) (Value, error) {
-	if thread != nil {
-		if safeHasAttrs, ok := x.(HasSafeAttrs); ok {
-			if err := thread.CheckPermits(safeHasAttrs.Safety()); err != nil {
-				return nil, err
-			}
-			return safeHasAttrs.SafeAttr(thread, name)
-		} else if err := thread.CheckPermits(NotSafe); err != nil {
+// getAttr implements x.dot.
+func getAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
+	var getAttrs func() []string
+	var attr Value
+	var err error
+
+	switch x := x.(type) {
+	case HasSafeAttrs:
+		getAttrs = x.AttrNames
+		attr, err = x.SafeAttr(thread, name)
+	case HasAttrs:
+		if err := CheckSafety(thread, NotSafe); err != nil {
 			return nil, err
 		}
-	}
-	attr, err := x.Attr(name)
-	if err == nil && attr == nil {
-		// (nil, nil) => generic error
-		err = ErrNoSuchAttr
-	}
-	return attr, err
-}
 
-// SafeGetAttr implements x.dot.
-func SafeGetAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
-	hasAttr, ok := x.(HasAttrs)
-	if !ok {
-		return nil, fmt.Errorf("%s has no .%s field or method", x.Type(), name)
+		getAttrs = x.AttrNames
+		attr, err = x.Attr(name)
+		if attr == nil && err == nil {
+			err = ErrNoSuchAttr
+		}
 	}
 
-	attr, err := tryGetAttrs(thread, hasAttr, name)
 	if err != nil {
 		var errmsg string
 		if nsa, ok := err.(NoSuchAttrError); ok {
@@ -844,7 +839,7 @@ func SafeGetAttr(thread *Thread, x Value, name string, hint bool) (Value, error)
 
 		// add spelling hint
 		if hint {
-			if n := spell.Nearest(name, hasAttr.AttrNames()); n != "" {
+			if n := spell.Nearest(name, getAttrs()); n != "" {
 				errmsg = fmt.Sprintf("%s (did you mean .%s?)", errmsg, n)
 			}
 		}
