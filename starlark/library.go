@@ -2193,11 +2193,14 @@ func string_istitle(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·isupper
-func string_isupper(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_isupper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
+	if err := thread.CheckAllocs(EstimateSize(recv)); err != nil {
+		return nil, err
+	}
 	return Bool(isCasedString(recv) && recv == strings.ToUpper(recv)), nil
 }
 
