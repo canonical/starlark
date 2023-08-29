@@ -38,7 +38,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"unsafe"
 
 	"github.com/canonical/starlark/resolve"
 	"github.com/canonical/starlark/starlark"
@@ -296,7 +295,7 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 		runtime.ReadMemStats(&after)
 
 		iterationMeasure := int64(after.Alloc - before.Alloc)
-		valueTrackerOverhead += uint64(cap(st.alive)) * uint64(unsafe.Sizeof(interface{}(nil)))
+		valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
 		st.alive = nil
 		if iterationMeasure > 0 {
 			memoryUsed += uint64(iterationMeasure)
