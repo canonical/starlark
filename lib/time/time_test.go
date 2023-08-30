@@ -52,7 +52,7 @@ func TestTimeNowSafety(t *testing.T) {
 		t.Fatal("no safety for builtin: now")
 	}
 	if nowSafety == starlark.NotSafe {
-		t.Fatal("now safety is zero")
+		t.Fatal("now builtin is not safe")
 	}
 
 	safeThreadSafety := nowSafety
