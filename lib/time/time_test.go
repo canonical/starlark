@@ -96,7 +96,7 @@ func TestTimeNowSafety(t *testing.T) {
 				if test.expect == "" {
 					t.Errorf("unexpected error: %v", err)
 				} else if test.expect != err.Error() {
-					t.Errorf("unexpected error: expected %v but got %v", test.expect, err)
+					t.Errorf("unexpected error: expected %#v but got %#v", test.expect, err)
 				}
 			}
 		})
