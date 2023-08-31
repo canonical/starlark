@@ -347,6 +347,7 @@ func TestSafeStringBuilder(t *testing.T) {
 	t.Run("counting", func(t *testing.T) {
 		t.Run("small", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.SetMaxAllocs(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
@@ -358,6 +359,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("Grow", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -374,6 +376,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("Write", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -389,6 +392,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("WriteString", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -404,6 +408,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("WriteByte", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -421,6 +426,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("WriteRune", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -439,6 +445,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 	t.Run("allocs", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			sb := starlark.NewSafeStringBuilder(thread)
 			initialAllocs := thread.Allocs()

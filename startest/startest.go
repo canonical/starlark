@@ -58,8 +58,12 @@ type TestBase interface {
 type ST struct {
 	maxAllocs         uint64
 	maxExecutionSteps uint64
+	minExecutionSteps uint64
 	alive             []interface{}
 	N                 int
+	timerOn           bool
+	timerStart        time.Time
+	elapsed           time.Duration
 	requiredSafety    starlark.Safety
 	safetyGiven       bool
 	predecls          starlark.StringDict
@@ -93,6 +97,11 @@ func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 // SetMaxExecutionSteps optionally sets the max execution steps allowed per st.N.
 func (st *ST) SetMaxExecutionSteps(maxExecutionSteps uint64) {
 	st.maxExecutionSteps = maxExecutionSteps
+}
+
+// SetMinExecutionSteps optionally sets the min execution steps allowed per st.N.
+func (st *ST) SetMinExecutionSteps(minExecutionSteps uint64) {
+	st.minExecutionSteps = minExecutionSteps
 }
 
 // RequireSafety optionally sets the required safety of tested code.
@@ -138,6 +147,26 @@ func (st *ST) AddLocal(name string, value interface{}) {
 		st.locals = make(map[string]interface{})
 	}
 	st.locals[name] = value
+}
+
+func (st *ST) StartTimer() {
+	if !st.timerOn {
+		st.timerOn = true
+		st.timerStart = time.Now()
+	}
+}
+
+func (st *ST) StopTimer() {
+	if st.timerOn {
+		st.elapsed += time.Since(st.timerStart)
+		st.timerOn = false
+	}
+}
+
+func (st *ST) ResetTimer() {
+	if st.timerOn {
+		st.timerStart = time.Now()
+	}
 }
 
 // RunString tests a string of Starlark code. On unexpected error, reports it,
@@ -201,8 +230,8 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	if !st.safetyGiven {
 		st.requiredSafety = stSafe
 	}
-
 	thread := &starlark.Thread{}
+	thread.PreallocateFrames(100)
 	thread.RequireSafety(st.requiredSafety)
 	thread.Print = func(_ *starlark.Thread, msg string) {
 		st.Log(msg)
@@ -211,17 +240,14 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		thread.SetLocal(k, v)
 	}
 
-	allocSum, nSum := st.measureMemory(func() {
-		fn(thread)
-	})
-
+	execution := st.measureExecution(fn, thread)
 	if st.Failed() {
 		return
 	}
 
-	meanMeasuredAllocs := allocSum / nSum
-	meanDeclaredAllocs := thread.Allocs() / nSum
-	meanExecutionSteps := thread.ExecutionSteps() / nSum
+	meanMeasuredAllocs := execution.allocSum / execution.nSum
+	meanDeclaredAllocs := thread.Allocs() / execution.nSum
+	meanExecutionSteps := thread.ExecutionSteps() / execution.nSum
 
 	if st.maxAllocs != math.MaxUint64 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
@@ -240,6 +266,16 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	if st.maxExecutionSteps != math.MaxUint64 && meanExecutionSteps > st.maxExecutionSteps {
 		st.Errorf("execution steps are above maximum (%d > %d)", meanExecutionSteps, st.maxExecutionSteps)
 	}
+
+	if meanExecutionSteps < st.minExecutionSteps {
+		st.Errorf("execution steps are below minimum (%d < %d)", meanExecutionSteps, st.minExecutionSteps)
+	}
+
+	if st.requiredSafety.Contains(starlark.CPUSafe) {
+		if execution.cpuDangerous && st.maxExecutionSteps == math.MaxUint64 {
+			st.Errorf("execution seems to use CPU resources that are not accounted for")
+		}
+	}
 }
 
 // KeepAlive causes the memory of the passed objects to be measured.
@@ -247,29 +283,35 @@ func (st *ST) KeepAlive(values ...interface{}) {
 	st.alive = append(st.alive, values...)
 }
 
-func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
+type executionStats struct {
+	nSum, allocSum uint64
+	cpuDangerous   bool
+}
+
+func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Thread) executionStats {
 	startNano := time.Now().Nanosecond()
 
 	const nMax = 100_000
 	const memoryMax = 100 * 2 << 20
 	const timeMax = 1e9
 
-	var memoryUsed uint64
+	var allocSum uint64
 	var valueTrackerOverhead uint64
-	st.N = 0
-	nSum = 0
+	nSum := uint64(0)
+	cpuDangerous := false
+	retried := false
+	lastElapsed := time.Duration(0)
 
-	for n := uint64(0); !st.Failed() && memoryUsed-valueTrackerOverhead < memoryMax && n < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
-		last := n
-		prevIters := uint64(st.N)
-		prevMemory := memoryUsed
+	for prevN := 0; !st.Failed() && allocSum-valueTrackerOverhead < memoryMax && prevN < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
+	retry:
+		prevMemory := allocSum
 		if prevMemory <= 0 {
 			prevMemory = 1
 		}
-		n = memoryMax * prevIters / prevMemory
+		n := int(uint64(memoryMax) * uint64(prevN) / prevMemory)
 		n += n / 5
-		maxGrowth := last * 100
-		minGrowth := last + 1
+		maxGrowth := prevN * 100
+		minGrowth := prevN + 1
 		if n > maxGrowth {
 			n = maxGrowth
 		} else if n < minGrowth {
@@ -280,39 +322,75 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 			n = nMax
 		}
 
-		st.N = int(n)
-		nSum += n
+		st.elapsed = 0
+		st.N = n
+
+		prevAllocs := thread.Allocs()
+		prevSteps := thread.ExecutionSteps()
 
 		var before, after runtime.MemStats
 		runtime.GC()
 		runtime.GC()
 		runtime.ReadMemStats(&before)
 
-		fn()
+		runtime.LockOSThread()
+		st.StartTimer()
+		fn(thread)
+		st.StopTimer()
+		runtime.UnlockOSThread()
 
 		runtime.GC()
 		runtime.GC()
 		runtime.ReadMemStats(&after)
 
-		iterationMeasure := int64(after.Alloc - before.Alloc)
+		if prevN > 1 {
+			maxNegligibleElapsed := time.Duration(float64(lastElapsed) * math.Log(float64(n)) / math.Log(float64(prevN)))
+			if st.elapsed > maxNegligibleElapsed {
+				if !retried {
+					st.alive = nil
+					if delta := int64(thread.Allocs()) - int64(prevAllocs); delta > 0 {
+						thread.AddAllocs(-delta)
+					}
+					if delta := int64(thread.ExecutionSteps()) - int64(prevSteps); delta > 0 {
+						thread.AddExecutionSteps(-delta)
+					}
+
+					retried = true
+					goto retry
+				}
+				cpuDangerous = true
+			}
+			retried = false
+		}
+
+		if measuredAllocs := int64(after.Alloc - before.Alloc); measuredAllocs > 0 {
+			allocSum += uint64(measuredAllocs)
+		}
+
+		nSum += uint64(n)
+		prevN = n
+		if st.elapsed > lastElapsed {
+			lastElapsed = st.elapsed
+		}
 		valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
 		st.alive = nil
-		if iterationMeasure > 0 {
-			memoryUsed += uint64(iterationMeasure)
-		}
 	}
 
 	if st.Failed() {
-		return 0, 1
+		return executionStats{}
 	}
 
-	if valueTrackerOverhead > memoryUsed {
-		memoryUsed = 0
+	if valueTrackerOverhead > allocSum {
+		allocSum = 0
 	} else {
-		memoryUsed -= valueTrackerOverhead
+		allocSum -= valueTrackerOverhead
 	}
 
-	return memoryUsed, nSum
+	return executionStats{
+		nSum:         nSum,
+		allocSum:     allocSum,
+		cpuDangerous: cpuDangerous,
+	}
 }
 
 func (st *ST) String() string        { return "<startest.ST>" }

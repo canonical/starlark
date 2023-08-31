@@ -100,7 +100,7 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 //
 // It is safe to call CheckExecutionSteps from any goroutine, even if the thread
 // is actively executing.
-func (thread *Thread) CheckExecutionSteps(delta uint64) error {
+func (thread *Thread) CheckExecutionSteps(delta int64) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
@@ -114,7 +114,7 @@ func (thread *Thread) CheckExecutionSteps(delta uint64) error {
 //
 // It is safe to call AddExecutionSteps from any goroutine, even if the thread
 // is actively executing.
-func (thread *Thread) AddExecutionSteps(delta uint64) error {
+func (thread *Thread) AddExecutionSteps(delta int64) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
@@ -130,14 +130,25 @@ func (thread *Thread) AddExecutionSteps(delta uint64) error {
 // simulateExecutionSteps simulates a call to AddExecutionSteps returning the
 // new total step-count and any error this would entail. No change is
 // recorded.
-func (thread *Thread) simulateExecutionSteps(delta uint64) (uint64, error) {
+func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
 		return thread.steps, errors.New(*(*string)(cancelReason))
 	}
 
 	var nextExecutionSteps uint64
-	if delta <= math.MaxUint64-thread.steps {
-		nextExecutionSteps = thread.steps + delta
+	if delta < 0 {
+		udelta := uint64(-delta)
+		if udelta < thread.allocs {
+			nextExecutionSteps = thread.allocs - udelta
+		} else {
+			nextExecutionSteps = 0
+		}
+		return nextExecutionSteps, nil
+	}
+
+	udelta := uint64(delta)
+	if udelta <= math.MaxInt64-thread.steps {
+		nextExecutionSteps = thread.steps + udelta
 	} else {
 		nextExecutionSteps = math.MaxUint64
 	}
@@ -222,6 +233,22 @@ func (thread *Thread) Local(key string) interface{} {
 // It is equivalent to CallStack().At(depth), but more efficient.
 func (thread *Thread) CallFrame(depth int) CallFrame {
 	return thread.frameAt(depth).asCallFrame()
+}
+
+func (thread *Thread) PreallocateFrames(depth int) {
+	if cap(thread.stack) >= depth {
+		return
+	}
+
+	newStack := append(thread.stack[0:cap(thread.stack)], make([]*frame, depth)...)
+	for i := len(thread.stack); i < len(newStack); i++ {
+		newStack[i] = new(frame)
+	}
+	thread.stack = newStack[0:len(thread.stack)]
+	// One-time initialization
+	if thread.maxSteps == 0 {
+		thread.maxSteps--
+	}
 }
 
 func (thread *Thread) frameAt(depth int) *frame {

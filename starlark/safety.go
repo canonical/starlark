@@ -74,11 +74,13 @@ func (flags Safety) String() string {
 	}
 }
 
+var invalidSafetyFlagsErr = errors.New("internal error: invalid safety flags")
+
 // CheckValid checks that a given set of safety flags contains only defined
 // flags.
 func (flags Safety) CheckValid() error {
 	if flags >= safetyFlagsLimit {
-		return errors.New("internal error: invalid safety flags")
+		return invalidSafetyFlagsErr
 	}
 	return nil
 }

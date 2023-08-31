@@ -111,6 +111,7 @@ func TestKeepAlive(t *testing.T) {
 	// Check for a non-allocating routine
 	t.Run("check=non-allocating", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -122,6 +123,7 @@ func TestKeepAlive(t *testing.T) {
 	// Check for exact measuring
 	t.Run("check=exact", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -137,6 +139,7 @@ func TestKeepAlive(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -155,6 +158,7 @@ func TestKeepAlive(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -175,6 +179,7 @@ func TestKeepAlive(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -202,6 +207,7 @@ func TestKeepAlive(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -221,8 +227,8 @@ func TestKeepAlive(t *testing.T) {
 func TestStepBounding(t *testing.T) {
 	t.Run("steps=safe", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxExecutionSteps(10)
-
 		st.RunString(`
 			for _ in st.ntimes():
 				pass
@@ -560,7 +566,7 @@ func TestRequireSafetyDefault(t *testing.T) {
 }
 
 func TestRequireSafetyDoesNotUnsetFlags(t *testing.T) {
-	const initialSafety = starlark.CPUSafe
+	const initialSafety = starlark.MemSafe
 	const newSafety = starlark.IOSafe | starlark.TimeSafe
 	const expectedSafety = initialSafety | newSafety
 
@@ -787,6 +793,7 @@ func TestLocals(t *testing.T) {
 
 	t.Run("method=RunThread", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.NotSafe)
 		st.AddLocal(localName, expected)
 		st.RunThread(func(thread *starlark.Thread) {
 			testLocals(t, thread)
@@ -844,6 +851,7 @@ func TestRunStringMemSafety(t *testing.T) {
 		})
 
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(128)
 		st.AddBuiltin(allocate)
 		ok := st.RunString(`
