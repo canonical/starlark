@@ -2121,11 +2121,14 @@ func string_isdigit(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·islower
-func string_islower(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_islower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
+	if err := thread.CheckAllocs(EstimateSize(recv)); err != nil {
+		return nil, err
+	}
 	return Bool(isCasedString(recv) && recv == strings.ToLower(recv)), nil
 }
 
