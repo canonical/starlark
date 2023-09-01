@@ -508,6 +508,8 @@ func TestRequireSafetyDefault(t *testing.T) {
 			st.RunThread(func(thread *starlark.Thread) {
 				if err := thread.CheckPermits(safe); err != nil {
 					st.Error(err)
+				} else {
+					return
 				}
 			})
 		})
@@ -566,7 +568,7 @@ func TestRequireSafetyDefault(t *testing.T) {
 }
 
 func TestRequireSafetyDoesNotUnsetFlags(t *testing.T) {
-	const initialSafety = starlark.MemSafe
+	const initialSafety = starlark.CPUSafe
 	const newSafety = starlark.IOSafe | starlark.TimeSafe
 	const expectedSafety = initialSafety | newSafety
 
@@ -793,7 +795,6 @@ func TestLocals(t *testing.T) {
 
 	t.Run("method=RunThread", func(t *testing.T) {
 		st := startest.From(t)
-		st.RequireSafety(starlark.NotSafe)
 		st.AddLocal(localName, expected)
 		st.RunThread(func(thread *starlark.Thread) {
 			testLocals(t, thread)

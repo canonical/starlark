@@ -81,8 +81,9 @@ var invalidSafetyFlagsErr = errors.New("internal error: invalid safety flags")
 func (flags Safety) CheckValid() error {
 	if flags >= safetyFlagsLimit {
 		return invalidSafetyFlagsErr
+	} else {
+		return nil
 	}
-	return nil
 }
 
 // A SafetyAware value can report its safety, which can be used by a thread to
@@ -121,8 +122,9 @@ func (se SafetyError) Error() string {
 func (set Safety) CheckContains(subset Safety) error {
 	if difference := subset &^ set; difference != 0 {
 		return &SafetyError{difference}
+	} else {
+		return nil
 	}
-	return nil
 }
 
 // CheckSafety returns an error if the provided value does not report

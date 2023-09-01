@@ -288,6 +288,32 @@ type executionStats struct {
 	cpuDangerous   bool
 }
 
+type iir struct {
+	x   [2]float64
+	y   [2]float64
+	pos int
+}
+
+func (f *iir) Apply(x float64) float64 {
+	const (
+		b_0 = 0.2929
+		b_1 = 0.5858
+		b_2 = 0.2929
+
+		a_1 = -1.3878e-16
+		a_2 = 1.7157e-01
+	)
+
+	return b_0*x + b_1*f.x[f.pos] + b_2*f.x[(f.pos+1)%len(f.x)] -
+		a_1*f.y[f.pos] - a_2*f.y[(f.pos+1)%len(f.x)]
+}
+
+func (f *iir) Update(x, y float64) {
+	f.pos = (f.pos + 1) % 2
+	f.x[f.pos] = x
+	f.y[f.pos] = y
+}
+
 func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Thread) executionStats {
 	startNano := time.Now().Nanosecond()
 
@@ -300,7 +326,8 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 	nSum := uint64(0)
 	cpuDangerous := false
 	retried := false
-	lastElapsed := time.Duration(0)
+	lastElapsed := float64(0)
+	filter := iir{}
 
 	for prevN := 0; !st.Failed() && allocSum-valueTrackerOverhead < memoryMax && prevN < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
 	retry:
@@ -339,13 +366,15 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 		st.StopTimer()
 		runtime.UnlockOSThread()
 
+		elapsed := filter.Apply(float64(st.elapsed))
+
 		runtime.GC()
 		runtime.GC()
 		runtime.ReadMemStats(&after)
 
 		if prevN > 1 {
-			maxNegligibleElapsed := time.Duration(float64(lastElapsed) * math.Log(float64(n)) / math.Log(float64(prevN)))
-			if st.elapsed > maxNegligibleElapsed {
+			maxNegligibleElapsed := float64(lastElapsed) * math.Log(float64(n)) / math.Log(float64(prevN))
+			if elapsed > maxNegligibleElapsed {
 				if !retried {
 					st.alive = nil
 					if delta := int64(thread.Allocs()) - int64(prevAllocs); delta > 0 {
@@ -369,9 +398,8 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 
 		nSum += uint64(n)
 		prevN = n
-		if st.elapsed > lastElapsed {
-			lastElapsed = st.elapsed
-		}
+		filter.Update(float64(st.elapsed), elapsed)
+		lastElapsed = elapsed
 		valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
 		st.alive = nil
 	}
