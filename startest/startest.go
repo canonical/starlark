@@ -366,7 +366,7 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 	timeSamples := []float64{}
 	ns := []int{}
 
-	for prevN := 0; !st.Failed() && allocSum-valueTrackerOverhead < memoryMax && prevN < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
+	for prevN := 0; !st.Failed() && allocSum-valueTrackerOverhead < memoryMax && nSum < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
 	retry:
 		prevMemory := allocSum
 		if prevMemory <= 0 {
@@ -409,7 +409,7 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 
 		elapsed := float64(st.elapsed)
 
-		if prevN > 1 {
+		if st.requiredSafety.Contains(starlark.CPUSafe) && prevN > 1 {
 			maxNegligibleElapsed := float64(lastElapsed) * math.Log(float64(n)) / math.Log(float64(prevN))
 			if elapsed > maxNegligibleElapsed {
 				if !retried {
