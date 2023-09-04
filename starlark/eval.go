@@ -138,8 +138,8 @@ func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 	var nextExecutionSteps uint64
 	if delta < 0 {
 		udelta := uint64(-delta)
-		if udelta < thread.allocs {
-			nextExecutionSteps = thread.allocs - udelta
+		if udelta < thread.steps {
+			nextExecutionSteps = thread.steps - udelta
 		} else {
 			nextExecutionSteps = 0
 		}
