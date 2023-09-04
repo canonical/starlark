@@ -62,8 +62,8 @@ type ST struct {
 	alive             []interface{}
 	N                 int
 	timerOn           bool
-	timerStart        time.Time
-	elapsed           time.Duration
+	timerStart        int64
+	elapsed           int64
 	requiredSafety    starlark.Safety
 	safetyGiven       bool
 	predecls          starlark.StringDict
@@ -152,20 +152,20 @@ func (st *ST) AddLocal(name string, value interface{}) {
 func (st *ST) StartTimer() {
 	if !st.timerOn {
 		st.timerOn = true
-		st.timerStart = time.Now()
+		st.timerStart = nanotime()
 	}
 }
 
 func (st *ST) StopTimer() {
 	if st.timerOn {
-		st.elapsed += time.Since(st.timerStart)
+		st.elapsed += nanotime() - st.timerStart
 		st.timerOn = false
 	}
 }
 
 func (st *ST) ResetTimer() {
 	if st.timerOn {
-		st.timerStart = time.Now()
+		st.timerStart = nanotime()
 	}
 }
 
