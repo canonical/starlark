@@ -288,37 +288,27 @@ type executionStats struct {
 	cpuDangerous   bool
 }
 
-const (
-	b_0 = 5.542717210280681e-03
-	b_1 = 1.108543442056136e-02
-	b_2 = 5.542717210280681e-03
-
-	a_1 = -1.778631777824585
-	a_2 = 0.800802646665708
-)
-
-type iir struct {
-	w [2]float64
-}
-
-func (f *iir) Apply(x float64) float64 {
-	y := f.w[0] + b_0*x
-	return y
-}
-
-func (f *iir) Update(x, y float64) {
-	f.w[0] = f.w[1] - a_1*y + b_1*x
-	f.w[1] = b_2*x - a_2*y
-}
-
-func (f *iir) ApplyUpdate(x float64) float64 {
-	y := f.Apply(x)
-	f.Update(x, y)
-	return y
-}
-
-func refilter(x []float64) []float64 {
+// removeNoise removes high-frequency noise
+// from the input sequence.
+func removeNoise(x []float64) []float64 {
+	// This routine uses 2nd order IIR filter to remove high
+	// frequency noise from x, returning the filtered vector.
+	// Moreover, this functions uses batch-processing techniques
+	// to get a zero-phase filter, so that there are no transitory
+	// effects at the sides. This requires at least 7 samples.
+	//
+	// The idea behind this scheme is that monotonic functions
+	// (like logn, n^k, e^n) are low in frequency.
 	const (
+		// Butterworth weights for 1/40th of the sampling frequency
+		b_0 = 5.542717210280681e-03
+		b_1 = 1.108543442056136e-02
+		b_2 = 5.542717210280681e-03
+
+		a_1 = -1.778631777824585
+		a_2 = 0.800802646665708
+
+		// Transposed sum to compute initial state
 		si_0 = 0.994457282789719
 		si_1 = -0.795259929455426
 	)
@@ -327,23 +317,29 @@ func refilter(x []float64) []float64 {
 		return x // too small
 	}
 
-	filter := iir{w: [2]float64{si_0 * (x[0]*2 - x[6]), si_1 * (x[0]*2 - x[6])}}
+	w := [2]float64{si_0 * (x[0]*2 - x[6]), si_1 * (x[0]*2 - x[6])}
+	filter := func(x float64) float64 {
+		y := w[0] + b_0*x
+		w[0] = w[1] - a_1*y + b_1*x
+		w[1] = b_2*x - a_2*y
+		return y
+	}
 
 	v := []float64{}
 
 	for i := 6; i >= 1; i-- {
-		v = append(v, filter.ApplyUpdate(x[0]*2-x[i]))
+		v = append(v, filter(x[0]*2-x[i]))
 	}
 	for _, x_i := range x {
-		v = append(v, filter.ApplyUpdate(x_i))
+		v = append(v, filter(x_i))
 	}
 	for i := 1; i <= 6; i++ {
-		v = append(v, filter.ApplyUpdate(x[len(x)-1]*2-x[len(x)-1-i]))
+		v = append(v, filter(x[len(x)-1]*2-x[len(x)-1-i]))
 	}
 
-	filter = iir{w: [2]float64{si_0 * v[len(v)-1], si_1 * v[len(v)-1]}}
+	w = [2]float64{si_0 * v[len(v)-1], si_1 * v[len(v)-1]}
 	for i := len(v) - 1; i >= 0; i-- {
-		v[i] = filter.ApplyUpdate(v[i])
+		v[i] = filter(v[i])
 	}
 
 	return v[6 : len(x)+6]
@@ -447,7 +443,7 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 		st.alive = nil
 	}
 
-	filtered := refilter(timeSamples)
+	filtered := removeNoise(timeSamples)
 	for i := 1; i < len(filtered); i++ {
 		maxNegligibleElapsed := float64(filtered[i-1]) * math.Log(float64(ns[i])) / math.Log(float64(ns[i-1]))
 		if filtered[i] > maxNegligibleElapsed {
