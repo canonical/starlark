@@ -288,30 +288,65 @@ type executionStats struct {
 	cpuDangerous   bool
 }
 
+const (
+	b_0 = 5.542717210280681e-03
+	b_1 = 1.108543442056136e-02
+	b_2 = 5.542717210280681e-03
+
+	a_1 = -1.778631777824585
+	a_2 = 0.800802646665708
+)
+
 type iir struct {
-	x   [2]float64
-	y   [2]float64
-	pos int
+	w [2]float64
 }
 
 func (f *iir) Apply(x float64) float64 {
-	const (
-		b_0 = 0.2929
-		b_1 = 0.5858
-		b_2 = 0.2929
-
-		a_1 = -1.3878e-16
-		a_2 = 1.7157e-01
-	)
-
-	return b_0*x + b_1*f.x[f.pos] + b_2*f.x[(f.pos+1)%len(f.x)] -
-		a_1*f.y[f.pos] - a_2*f.y[(f.pos+1)%len(f.x)]
+	y := f.w[0] + b_0*x
+	return y
 }
 
 func (f *iir) Update(x, y float64) {
-	f.pos = (f.pos + 1) % 2
-	f.x[f.pos] = x
-	f.y[f.pos] = y
+	f.w[0] = f.w[1] - a_1*y + b_1*x
+	f.w[1] = b_2*x - a_2*y
+}
+
+func (f *iir) ApplyUpdate(x float64) float64 {
+	y := f.Apply(x)
+	f.Update(x, y)
+	return y
+}
+
+func refilter(x []float64) []float64 {
+	const (
+		si_0 = 0.994457282789719
+		si_1 = -0.795259929455426
+	)
+
+	if len(x) < 7 {
+		return x // too small
+	}
+
+	filter := iir{w: [2]float64{si_0 * (x[0]*2 - x[6]), si_1 * (x[0]*2 - x[6])}}
+
+	v := []float64{}
+
+	for i := 6; i >= 1; i-- {
+		v = append(v, filter.ApplyUpdate(x[0]*2-x[i]))
+	}
+	for _, x_i := range x {
+		v = append(v, filter.ApplyUpdate(x_i))
+	}
+	for i := 1; i <= 6; i++ {
+		v = append(v, filter.ApplyUpdate(x[len(x)-1]*2-x[len(x)-1-i]))
+	}
+
+	filter = iir{w: [2]float64{si_0 * v[len(v)-1], si_1 * v[len(v)-1]}}
+	for i := len(v) - 1; i >= 0; i-- {
+		v[i] = filter.ApplyUpdate(v[i])
+	}
+
+	return v[6 : len(x)+6]
 }
 
 func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Thread) executionStats {
@@ -326,8 +361,10 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 	nSum := uint64(0)
 	cpuDangerous := false
 	retried := false
+	lastRetry := float64(0)
 	lastElapsed := float64(0)
-	filter := iir{}
+	timeSamples := []float64{}
+	ns := []int{}
 
 	for prevN := 0; !st.Failed() && allocSum-valueTrackerOverhead < memoryMax && prevN < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
 	retry:
@@ -337,7 +374,7 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 		}
 		n := int(uint64(memoryMax) * uint64(prevN) / prevMemory)
 		n += n / 5
-		maxGrowth := prevN * 100
+		maxGrowth := prevN * 2
 		minGrowth := prevN + 1
 		if n > maxGrowth {
 			n = maxGrowth
@@ -366,11 +403,11 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 		st.StopTimer()
 		runtime.UnlockOSThread()
 
-		elapsed := filter.Apply(float64(st.elapsed))
-
 		runtime.GC()
 		runtime.GC()
 		runtime.ReadMemStats(&after)
+
+		elapsed := float64(st.elapsed)
 
 		if prevN > 1 {
 			maxNegligibleElapsed := float64(lastElapsed) * math.Log(float64(n)) / math.Log(float64(prevN))
@@ -385,12 +422,19 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 					}
 
 					retried = true
+					lastRetry = elapsed
 					goto retry
+				} else {
+					if lastRetry < elapsed {
+						elapsed = lastRetry
+					}
 				}
-				cpuDangerous = true
 			}
-			retried = false
 		}
+
+		timeSamples = append(timeSamples, elapsed)
+		ns = append(ns, n)
+		retried = false
 
 		if measuredAllocs := int64(after.Alloc - before.Alloc); measuredAllocs > 0 {
 			allocSum += uint64(measuredAllocs)
@@ -398,10 +442,17 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 
 		nSum += uint64(n)
 		prevN = n
-		filter.Update(float64(st.elapsed), elapsed)
 		lastElapsed = elapsed
 		valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
 		st.alive = nil
+	}
+
+	filtered := refilter(timeSamples)
+	for i := 1; i < len(filtered); i++ {
+		maxNegligibleElapsed := float64(filtered[i-1]) * math.Log(float64(ns[i])) / math.Log(float64(ns[i-1]))
+		if filtered[i] > maxNegligibleElapsed {
+			cpuDangerous = true
+		}
 	}
 
 	if st.Failed() {

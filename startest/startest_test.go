@@ -3,6 +3,7 @@ package startest_test
 import (
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"testing"
@@ -1077,4 +1078,33 @@ func TestRunStringErrorPositions(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestStepsCheck(t *testing.T) {
+	t.Run("log", func(t *testing.T) {
+		st := startest.From(t)
+		st.RunThread(func(t *starlark.Thread) {
+			st.KeepAlive(make([]int, int(math.Log(float64(st.N)))))
+		})
+	})
+
+	t.Run("linear", func(t *testing.T) {
+		st := startest.From(&dummyBase{})
+		st.RunThread(func(t *starlark.Thread) {
+			st.KeepAlive(make([]int, st.N))
+		})
+		if !st.Failed() {
+			t.Error("expected failur for linear function")
+		}
+	})
+
+	t.Run("quadratic", func(t *testing.T) {
+		st := startest.From(&dummyBase{})
+		st.RunThread(func(t *starlark.Thread) {
+			st.KeepAlive(make([]int, st.N*st.N/64))
+		})
+		if !st.Failed() {
+			t.Error("expected failur for quadratic function")
+		}
+	})
 }
