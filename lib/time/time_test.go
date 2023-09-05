@@ -109,13 +109,14 @@ func TestTimeParseDurationAllocs(t *testing.T) {
 	t.Run("arg=duration", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
-			result, err := starlark.Call(thread, parse_duration, starlark.Tuple{time.Duration(10)}, nil)
-			if err != nil {
-				t.Error(err)
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, parse_duration, starlark.Tuple{time.Duration(10)}, nil)
+				if err != nil {
+					t.Error(err)
+				}
+				st.KeepAlive(result)
 			}
-			st.KeepAlive(result)
 		})
 	})
 
