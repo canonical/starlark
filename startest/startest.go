@@ -268,7 +268,7 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 		}
 		n = memoryMax * prevIters / prevMemory
 		n += n / 5
-		maxGrowth := last * 100
+		maxGrowth := last * 2
 		minGrowth := last + 1
 		if n > maxGrowth {
 			n = maxGrowth
