@@ -281,7 +281,8 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 		}
 
 		st.N = int(n)
-		st.alive = make([]interface{}, 0, n)
+		alive := make([]interface{}, 0, n)
+		st.alive = alive
 		nSum += n
 
 		var before, after runtime.MemStats
@@ -294,6 +295,7 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 		runtime.GC()
 		runtime.GC()
 		runtime.ReadMemStats(&after)
+		runtime.KeepAlive(alive)
 
 		iterationMeasure := int64(after.Alloc - before.Alloc)
 		if cap(st.alive) != int(n) {
