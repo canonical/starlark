@@ -346,11 +346,11 @@ func removeNoise(x []float64) []float64 {
 }
 
 func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Thread) executionStats {
-	startNano := time.Now().Nanosecond()
+	startNano := time.Now()
 
 	const nMax = 100_000
 	const memoryMax = 100 * 2 << 20
-	const timeMax = 1e9
+	const timeMax = time.Second
 
 	var allocSum uint64
 	var valueTrackerOverhead uint64
@@ -362,7 +362,7 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 	timeSamples := []float64{}
 	ns := []int{}
 
-	for prevN := 0; !st.Failed() && allocSum-valueTrackerOverhead < memoryMax && nSum < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
+	for prevN := 0; !st.Failed() && allocSum < memoryMax+valueTrackerOverhead && nSum < nMax && time.Since(startNano) < timeMax; {
 	retry:
 		prevMemory := allocSum
 		if prevMemory <= 0 {
