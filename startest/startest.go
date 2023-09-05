@@ -248,18 +248,18 @@ func (st *ST) KeepAlive(values ...interface{}) {
 }
 
 func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
-	startNano := time.Now().Nanosecond()
+	startNano := time.Now()
 
 	const nMax = 100_000
 	const memoryMax = 100 * 2 << 20
-	const timeMax = 1e9
+	const timeMax = time.Second
 
 	var memoryUsed uint64
 	var valueTrackerOverhead uint64
 	st.N = 0
 	nSum = 0
 
-	for n := uint64(0); !st.Failed() && memoryUsed-valueTrackerOverhead < memoryMax && n < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
+	for n := uint64(0); !st.Failed() && memoryUsed < memoryMax+valueTrackerOverhead && n < nMax && time.Since(startNano) < timeMax; {
 		last := n
 		prevIters := uint64(st.N)
 		prevMemory := memoryUsed
@@ -281,6 +281,7 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 		}
 
 		st.N = int(n)
+		st.alive = make([]interface{}, 0, n)
 		nSum += n
 
 		var before, after runtime.MemStats
@@ -295,7 +296,9 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 		runtime.ReadMemStats(&after)
 
 		iterationMeasure := int64(after.Alloc - before.Alloc)
-		valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
+		if cap(st.alive) != int(n) {
+			valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
+		}
 		st.alive = nil
 		if iterationMeasure > 0 {
 			memoryUsed += uint64(iterationMeasure)

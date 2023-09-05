@@ -224,6 +224,24 @@ func (thread *Thread) CallFrame(depth int) CallFrame {
 	return thread.frameAt(depth).asCallFrame()
 }
 
+func (thread *Thread) PreallocateFrames(depth int) {
+	if cap(thread.stack) >= depth {
+		return
+	}
+
+	count := depth - cap(thread.stack)
+	stack := append(thread.stack[0:cap(thread.stack)], make([]*frame, count)...)
+	frames := make([]frame, count)
+	for i := 0; i < count; i++ {
+		stack[i+len(thread.stack)] = &frames[i]
+	}
+	thread.stack = stack[0:len(thread.stack)]
+	// One-time initialization
+	if thread.maxSteps == 0 {
+		thread.maxSteps--
+	}
+}
+
 func (thread *Thread) frameAt(depth int) *frame {
 	return thread.stack[len(thread.stack)-1-depth]
 }
