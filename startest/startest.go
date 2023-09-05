@@ -298,7 +298,7 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 		runtime.KeepAlive(alive)
 
 		iterationMeasure := int64(after.Alloc - before.Alloc)
-		if cap(st.alive) != int(n) {
+		if cap(st.alive) != cap(alive) {
 			valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
 		}
 		st.alive = nil
