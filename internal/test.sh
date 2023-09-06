@@ -15,5 +15,5 @@ diff -w  go.mod.orig go.mod
 diff -w go.sum.orig go.sum
 rm go.mod.orig go.sum.orig
 
-# Run tests
+# Run tests with a single process to reduce measurement noise.
 go test -p 1 ./...

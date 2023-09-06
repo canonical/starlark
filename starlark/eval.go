@@ -236,10 +236,6 @@ func (thread *Thread) PreallocateFrames(depth int) {
 		stack[i+len(thread.stack)] = &frames[i]
 	}
 	thread.stack = stack[0:len(thread.stack)]
-	// One-time initialization
-	if thread.maxSteps == 0 {
-		thread.maxSteps--
-	}
 }
 
 func (thread *Thread) frameAt(depth int) *frame {
@@ -1488,11 +1484,9 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		fr = new(frame)
 	}
 
-	if thread.stack == nil {
-		// one-time initialization of thread
-		if thread.maxSteps == 0 {
-			thread.maxSteps-- // (MaxUint64)
-		}
+	// one-time initialization of thread
+	if thread.maxSteps == 0 {
+		thread.maxSteps-- // (MaxUint64)
 	}
 
 	thread.stack = append(thread.stack, fr) // push

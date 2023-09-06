@@ -203,6 +203,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	}
 
 	thread := &starlark.Thread{}
+	thread.PreallocateFrames(100)
 	thread.RequireSafety(st.requiredSafety)
 	thread.Print = func(_ *starlark.Thread, msg string) {
 		st.Log(msg)
@@ -249,10 +250,10 @@ func (st *ST) KeepAlive(values ...interface{}) {
 }
 
 func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
-	startNano := time.Now()
+	startTime := time.Now()
 
 	const nMax = 100_000
-	const memoryMax = 100 * 2 << 20
+	const memoryMax = 200 * (1 << 20)
 	const timeMax = time.Second
 
 	var memoryUsed uint64
@@ -260,7 +261,7 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 	st.N = 0
 	nSum = 0
 
-	for n := uint64(0); !st.Failed() && memoryUsed < memoryMax+valueTrackerOverhead && n < nMax && time.Since(startNano) < timeMax; {
+	for n := uint64(0); !st.Failed() && memoryUsed < memoryMax+valueTrackerOverhead && n < nMax && time.Since(startTime) < timeMax; {
 		last := n
 		prevIters := uint64(st.N)
 		prevMemory := memoryUsed
@@ -301,7 +302,9 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 		if after.Alloc > before.Alloc {
 			memoryUsed += after.Alloc - before.Alloc
 		}
-
+		// If st.alive was reallocated, the cost of its new memory block is
+		// included in the measurement. This overhead must be discounted
+		// when reasoning about the measurement.
 		if cap(st.alive) != cap(alive) {
 			valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
 		}
