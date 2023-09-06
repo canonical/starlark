@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/canonical/starlark/internal/chunkedfile"
@@ -1024,7 +1025,8 @@ func TestConcurrentCheckExecutionStepsUsage(t *testing.T) {
 	thread.SetMaxExecutionSteps(maxSteps)
 	thread.AddExecutionSteps(stepPeak - 1)
 
-	done := make(chan struct{}, 2)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
 	go func() {
 		// Flip between 1000...00 and 0111...11 allocations
@@ -1032,7 +1034,7 @@ func TestConcurrentCheckExecutionStepsUsage(t *testing.T) {
 			thread.AddExecutionSteps(1)
 			thread.SubtractExecutionSteps(1)
 		}
-		done <- struct{}{}
+		wg.Done()
 	}()
 	go func() {
 		for i := 0; i < repetitions; i++ {
@@ -1042,17 +1044,10 @@ func TestConcurrentCheckExecutionStepsUsage(t *testing.T) {
 				break
 			}
 		}
-		done <- struct{}{}
+		wg.Done()
 	}()
 
-	// Await goroutine completion
-	totDone := 0
-	for totDone != 2 {
-		select {
-		case <-done:
-			totDone++
-		}
-	}
+	wg.Wait()
 }
 
 func TestAddExecutionStepsOk(t *testing.T) {
@@ -1109,7 +1104,8 @@ func TestConcurrentAddExecutionStepsUsage(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxExecutionSteps(expectedSteps)
 
-	done := make(chan struct{}, 2)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
 	callAddExecutionSteps := func(n uint) {
 		for i := uint(0); i < n; i++ {
@@ -1118,20 +1114,13 @@ func TestConcurrentAddExecutionStepsUsage(t *testing.T) {
 				break
 			}
 		}
-		done <- struct{}{}
+		wg.Done()
 	}
 
 	go callAddExecutionSteps(expectedSteps / 2)
 	go callAddExecutionSteps(expectedSteps / 2)
 
-	// Await goroutine completion
-	totDone := 0
-	for totDone != 2 {
-		select {
-		case <-done:
-			totDone++
-		}
-	}
+	wg.Wait()
 
 	if steps := thread.ExecutionSteps(); steps != expectedSteps {
 		t.Errorf("concurrent thread.AddExecutionSteps contains a race, expected %d steps recorded but got %d", expectedSteps, steps)
