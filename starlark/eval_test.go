@@ -1280,13 +1280,15 @@ func TestSafeBinaryAllocs(t *testing.T) {
 }
 
 func TestThreadPreallocation(t *testing.T) {
-	dummy := &testing.T{}
-	st := startest.From(dummy)
-	st.SetMaxAllocs(0)
-	st.RunThread(func(thread *starlark.Thread) {
-		thread.PreallocateFrames(st.N)
+	t.Run("allocates", func(t *testing.T) {
+		dummy := &testing.T{}
+		st := startest.From(dummy)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.EnsureStack(st.N)
+		})
+		if !dummy.Failed() {
+			t.Error("no new frames preallocated")
+		}
 	})
-	if !dummy.Failed() {
-		t.Error("no new frames preallocated")
-	}
 }

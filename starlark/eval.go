@@ -224,18 +224,14 @@ func (thread *Thread) CallFrame(depth int) CallFrame {
 	return thread.frameAt(depth).asCallFrame()
 }
 
-func (thread *Thread) PreallocateFrames(depth int) {
-	if cap(thread.stack) >= depth {
-		return
+// EnsureStack grows the stack to fit n nested calls, if needed.
+func (thread *Thread) EnsureStack(n int) {
+	newFrames := make([]frame, n)
+	newStack := thread.stack
+	for i := 0; i < n; i++ {
+		newStack = append(newStack, &newFrames[i])
 	}
-
-	count := depth - cap(thread.stack)
-	stack := append(thread.stack[0:cap(thread.stack)], make([]*frame, count)...)
-	frames := make([]frame, count)
-	for i := 0; i < count; i++ {
-		stack[i+len(thread.stack)] = &frames[i]
-	}
-	thread.stack = stack[0:len(thread.stack)]
+	thread.stack = newStack[:len(thread.stack)]
 }
 
 func (thread *Thread) frameAt(depth int) *frame {

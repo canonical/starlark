@@ -203,7 +203,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	}
 
 	thread := &starlark.Thread{}
-	thread.PreallocateFrames(100)
+	thread.EnsureStack(100)
 	thread.RequireSafety(st.requiredSafety)
 	thread.Print = func(_ *starlark.Thread, msg string) {
 		st.Log(msg)
