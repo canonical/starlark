@@ -377,10 +377,10 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		if prevMemory <= 0 {
 			prevMemory = 1
 		}
-		n := int(uint64(memoryMax) * uint64(prevN) / prevMemory)
+		n := int64(uint64(memoryMax) * uint64(prevN) / prevMemory)
 		n += n / 5
-		maxGrowth := prevN * 2
-		minGrowth := prevN + 1
+		maxGrowth := int64(prevN) * 2
+		minGrowth := int64(prevN) + 1
 		if n > maxGrowth {
 			n = maxGrowth
 		} else if n < minGrowth {
@@ -394,7 +394,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		alive := make([]interface{}, 0, n)
 		st.alive = alive
 		st.elapsed = 0
-		st.N = n
+		st.N = int(n)
 
 		prevAllocs := thread.Allocs()
 		prevSteps := thread.ExecutionSteps()
@@ -450,9 +450,9 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		}
 
 		timeSamples = append(timeSamples, elapsed)
-		ns = append(ns, n)
+		ns = append(ns, int(n))
 		nSum += uint64(n)
-		prevN = n
+		prevN = int(n)
 		lastElapsed = elapsed
 		st.alive = nil
 		retried = false
