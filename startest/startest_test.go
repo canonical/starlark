@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -1106,17 +1105,4 @@ func TestStepsCheck(t *testing.T) {
 			t.Error("expected failur for quadratic function")
 		}
 	})
-}
-
-func TestNanotime(t *testing.T) {
-	start := time.Now()
-
-	lastInstant := startest.Nanotime()
-	for time.Since(start) < 10*time.Millisecond {
-		now := startest.Nanotime()
-		if lastInstant >= now {
-			t.Errorf("time not passing or gone backward (%v %v)", lastInstant, now)
-		}
-		lastInstant = now
-	}
 }
