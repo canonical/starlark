@@ -224,8 +224,12 @@ func (thread *Thread) CallFrame(depth int) CallFrame {
 	return thread.frameAt(depth).asCallFrame()
 }
 
-// EnsureStack grows the stack to fit n nested calls, if needed.
+// EnsureStack grows the stack to fit n more nested calls.
 func (thread *Thread) EnsureStack(n int) {
+	if n < 0 {
+		panic("starlark.Thread.EnsureStack: negative stack size")
+	}
+
 	newFrames := make([]frame, n)
 	newStack := thread.stack
 	for i := 0; i < n; i++ {
