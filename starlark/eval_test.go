@@ -1279,8 +1279,8 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	t.Run(">>", func(t *testing.T) {})
 }
 
-func TestThreadPreallocation(t *testing.T) {
-	t.Run("preallocation", func(t *testing.T) {
+func TestThreadEnsureStack(t *testing.T) {
+	t.Run("positive-size", func(t *testing.T) {
 		dummy := &testing.T{}
 		st := startest.From(dummy)
 		st.SetMaxAllocs(0)

@@ -227,7 +227,7 @@ func (thread *Thread) CallFrame(depth int) CallFrame {
 // EnsureStack grows the stack to fit n more nested calls.
 func (thread *Thread) EnsureStack(n int) {
 	if n < 0 {
-		panic("starlark.Thread.EnsureStack: negative stack size")
+		panic("internal error: negative stack size")
 	}
 
 	newFrames := make([]frame, n)
