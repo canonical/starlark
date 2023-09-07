@@ -469,6 +469,12 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		}
 	}
 
+	if cpuDangerous {
+		st.Log(ns)
+		st.Log(timeSamples)
+		st.Log(filtered)
+	}
+
 	if st.Failed() {
 		return executionStats{}
 	}
