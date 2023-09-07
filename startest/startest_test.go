@@ -509,8 +509,6 @@ func TestRequireSafetyDefault(t *testing.T) {
 			st.RunThread(func(thread *starlark.Thread) {
 				if err := thread.CheckPermits(safe); err != nil {
 					st.Error(err)
-				} else {
-					return
 				}
 			})
 		})

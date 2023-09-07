@@ -122,9 +122,8 @@ func (se SafetyError) Error() string {
 func (set Safety) CheckContains(subset Safety) error {
 	if difference := subset &^ set; difference != 0 {
 		return &SafetyError{difference}
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // CheckSafety returns an error if the provided value does not report

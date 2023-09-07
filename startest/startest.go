@@ -149,6 +149,7 @@ func (st *ST) AddLocal(name string, value interface{}) {
 	st.locals[name] = value
 }
 
+//go:inline
 func (st *ST) StartTimer() {
 	if !st.timerOn {
 		st.timerOn = true
@@ -156,6 +157,7 @@ func (st *ST) StartTimer() {
 	}
 }
 
+//go:inline
 func (st *ST) StopTimer() {
 	if st.timerOn {
 		st.elapsed += nanotime() - st.timerStart
@@ -163,6 +165,7 @@ func (st *ST) StopTimer() {
 	}
 }
 
+//go:inline
 func (st *ST) ResetTimer() {
 	if st.timerOn {
 		st.timerStart = nanotime()
@@ -175,6 +178,7 @@ func (st *ST) RunString(code string) (ok bool) {
 	if code = strings.TrimRight(code, " \t\r\n"); code == "" {
 		return true
 	}
+
 	code, err := Reindent(code)
 	if err != nil {
 		st.Error(err)
@@ -240,25 +244,23 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		thread.SetLocal(k, v)
 	}
 
-	execution := st.measureExecution(fn, thread)
+	stats := st.measureExecution(thread, fn)
 	if st.Failed() {
 		return
 	}
 
-	mean := func(x uint64) uint64 { return (x + execution.nSum/2) / execution.nSum }
-	meanMeasuredAllocs := mean(execution.allocSum)
+	mean := func(x uint64) uint64 { return (x + stats.nSum/2) / stats.nSum }
+	meanMeasuredAllocs := mean(stats.allocSum)
 	meanDeclaredAllocs := mean(thread.Allocs())
 	meanExecutionSteps := mean(thread.ExecutionSteps())
 
 	if st.maxAllocs != math.MaxUint64 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
 	}
-
 	if st.requiredSafety.Contains(starlark.MemSafe) {
 		if meanDeclaredAllocs > st.maxAllocs {
 			st.Errorf("declared allocations are above maximum (%d > %d)", meanDeclaredAllocs, st.maxAllocs)
 		}
-
 		if meanMeasuredAllocs > meanDeclaredAllocs {
 			st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasuredAllocs, meanDeclaredAllocs)
 		}
@@ -267,13 +269,11 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	if st.maxExecutionSteps != math.MaxUint64 && meanExecutionSteps > st.maxExecutionSteps {
 		st.Errorf("execution steps are above maximum (%d > %d)", meanExecutionSteps, st.maxExecutionSteps)
 	}
-
 	if meanExecutionSteps < st.minExecutionSteps {
 		st.Errorf("execution steps are below minimum (%d < %d)", meanExecutionSteps, st.minExecutionSteps)
 	}
-
 	if st.requiredSafety.Contains(starlark.CPUSafe) {
-		if execution.cpuDangerous && st.maxExecutionSteps == math.MaxUint64 {
+		if stats.cpuDangerous && st.maxExecutionSteps == math.MaxUint64 {
 			st.Errorf("execution seems to use CPU resources that are not accounted for")
 		}
 	}
@@ -291,14 +291,19 @@ type executionStats struct {
 
 // removeNoise removes high-frequency noise from the input sequence.
 func removeNoise(x []float64) []float64 {
-	// This routine uses 2nd order IIR filter to remove high
-	// frequency noise from x, returning the filtered vector.
-	// Moreover, this functions uses batch-processing techniques
-	// to get a zero-phase filter, so that there are no transitory
-	// effects at the sides. This requires at least 7 samples.
+	// This function uses a 2nd order IIR filter to remove
+	// noise from the input vector. Batch processing is used to
+	// obtain a zero-phase filter[1] to avoid unwanted effects at
+	// the beginning and end of the sequence.
 	//
-	// The idea behind this scheme is that monotonic functions
-	// (like logn, n^k, e^n) are low in frequency.
+	// The main idea is that monotonic functions (such as log(n),
+	// n^k, e^n) will appear to have a low frequency compared with
+	// measured noise.
+	//
+	// [1]: Gustafsson, Fredrik.
+	//      "Determining the initial states in forward-backward filtering."
+	//      IEEE Transactions on signal processing 44.4 (1996): 988-992.
+	//      https://www.diva-portal.org/smash/get/diva2:315708/FULLTEXT02*/
 	const (
 		// Butterworth weights for 1/40th of the sampling frequency
 		b_0 = 5.542717210280681e-03
@@ -313,6 +318,9 @@ func removeNoise(x []float64) []float64 {
 		si_1 = -0.795259929455426
 	)
 
+	// The zero-phase technique requires
+	//    len(x) > 3*order
+	// samples to work.
 	if len(x) < 7 {
 		return x // too small
 	}
@@ -346,7 +354,7 @@ func removeNoise(x []float64) []float64 {
 	return v[6 : len(x)+6]
 }
 
-func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Thread) executionStats {
+func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) executionStats {
 	startTime := time.Now()
 
 	const nMax = 100_000
@@ -408,7 +416,6 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 		runtime.KeepAlive(alive)
 
 		elapsed := float64(st.elapsed)
-
 		if st.requiredSafety.Contains(starlark.CPUSafe) && prevN > 1 {
 			maxNegligibleElapsed := float64(lastElapsed) * math.Log(float64(n)) / math.Log(float64(prevN))
 			if elapsed > maxNegligibleElapsed {
@@ -421,8 +428,8 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 						thread.AddExecutionSteps(-delta)
 					}
 
-					retried = true
 					lastRetry = elapsed
+					retried = true
 					goto retry
 				} else {
 					if lastRetry < elapsed {
@@ -432,24 +439,23 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 			}
 		}
 
-		timeSamples = append(timeSamples, elapsed)
-		ns = append(ns, n)
-		retried = false
-
-		if after.Alloc > before.Alloc {
-			allocSum += after.Alloc - before.Alloc
-		}
-
-		nSum += uint64(n)
-		prevN = n
-		lastElapsed = elapsed
 		// If st.alive was reallocated, the cost of its new memory block is
 		// included in the measurement. This overhead must be discounted
 		// when reasoning about the measurement.
 		if cap(st.alive) != cap(alive) {
 			valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
 		}
+		if after.Alloc > before.Alloc {
+			allocSum += after.Alloc - before.Alloc
+		}
+
+		timeSamples = append(timeSamples, elapsed)
+		ns = append(ns, n)
+		nSum += uint64(n)
+		prevN = n
+		lastElapsed = elapsed
 		st.alive = nil
+		retried = false
 	}
 
 	filtered := removeNoise(timeSamples)

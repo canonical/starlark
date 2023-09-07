@@ -266,12 +266,11 @@ func TestSafeAppenderAppendSlice(t *testing.T) {
 			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				slice := []int{1, 3, 5}
-				expected := slice
-
-				st.KeepAlive(slice)
 				if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
 					st.Error(err)
 				}
+				expected := slice
+				st.KeepAlive(slice)
 
 				var toAppend []int
 				for i := 0; i < st.N; i++ {
