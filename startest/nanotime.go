@@ -1,3 +1,5 @@
+//+build !windows
+
 package startest
 
 import _ "unsafe"
