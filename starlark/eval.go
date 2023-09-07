@@ -224,6 +224,20 @@ func (thread *Thread) CallFrame(depth int) CallFrame {
 	return thread.frameAt(depth).asCallFrame()
 }
 
+// EnsureStack grows the stack to fit n more nested calls.
+func (thread *Thread) EnsureStack(n int) {
+	if n < 0 {
+		panic("internal error: negative stack size")
+	}
+
+	newFrames := make([]frame, n)
+	newStack := thread.stack
+	for i := 0; i < n; i++ {
+		newStack = append(newStack, &newFrames[i])
+	}
+	thread.stack = newStack[:len(thread.stack)]
+}
+
 func (thread *Thread) frameAt(depth int) *frame {
 	return thread.stack[len(thread.stack)-1-depth]
 }
@@ -1470,11 +1484,9 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		fr = new(frame)
 	}
 
-	if thread.stack == nil {
-		// one-time initialization of thread
-		if thread.maxSteps == 0 {
-			thread.maxSteps-- // (MaxUint64)
-		}
+	// one-time initialization of thread
+	if thread.maxSteps == 0 {
+		thread.maxSteps-- // (MaxUint64)
 	}
 
 	thread.stack = append(thread.stack, fr) // push
