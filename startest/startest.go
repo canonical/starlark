@@ -459,8 +459,11 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	}
 
 	filtered := removeNoise(timeSamples)
-	for i := 1; i < len(filtered); i++ {
-		maxNegligibleElapsed := float64(filtered[i-1]) * math.Log(float64(ns[i])) / math.Log(float64(ns[i-1]))
+	for highWater, i := .0, 1; i < len(filtered); i++ {
+		if highWater < filtered[i-1] {
+			highWater = filtered[i-1]
+		}
+		maxNegligibleElapsed := highWater * math.Log(float64(ns[i])) / math.Log(float64(ns[i-1]))
 		if filtered[i] > maxNegligibleElapsed {
 			cpuDangerous = true
 		}
