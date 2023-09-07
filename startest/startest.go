@@ -231,7 +231,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		st.requiredSafety = stSafe
 	}
 	thread := &starlark.Thread{}
-	thread.PreallocateFrames(100)
+	thread.EnsureStack(100)
 	thread.RequireSafety(st.requiredSafety)
 	thread.Print = func(_ *starlark.Thread, msg string) {
 		st.Log(msg)
@@ -245,9 +245,10 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		return
 	}
 
-	meanMeasuredAllocs := execution.allocSum / execution.nSum
-	meanDeclaredAllocs := thread.Allocs() / execution.nSum
-	meanExecutionSteps := thread.ExecutionSteps() / execution.nSum
+	mean := func(x uint64) uint64 { return (x + execution.nSum/2) / execution.nSum }
+	meanMeasuredAllocs := mean(execution.allocSum)
+	meanDeclaredAllocs := mean(thread.Allocs())
+	meanExecutionSteps := mean(thread.ExecutionSteps())
 
 	if st.maxAllocs != math.MaxUint64 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
@@ -288,8 +289,7 @@ type executionStats struct {
 	cpuDangerous   bool
 }
 
-// removeNoise removes high-frequency noise
-// from the input sequence.
+// removeNoise removes high-frequency noise from the input sequence.
 func removeNoise(x []float64) []float64 {
 	// This routine uses 2nd order IIR filter to remove high
 	// frequency noise from x, returning the filtered vector.
@@ -317,6 +317,7 @@ func removeNoise(x []float64) []float64 {
 		return x // too small
 	}
 
+	// Direct-Form II transposed.
 	w := [2]float64{si_0 * (x[0]*2 - x[6]), si_1 * (x[0]*2 - x[6])}
 	filter := func(x float64) float64 {
 		y := w[0] + b_0*x
@@ -346,10 +347,10 @@ func removeNoise(x []float64) []float64 {
 }
 
 func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Thread) executionStats {
-	startNano := time.Now()
+	startTime := time.Now()
 
 	const nMax = 100_000
-	const memoryMax = 100 * 2 << 20
+	const memoryMax = 200 * (1 << 20)
 	const timeMax = time.Second
 
 	var allocSum uint64
@@ -362,7 +363,7 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 	timeSamples := []float64{}
 	ns := []int{}
 
-	for prevN := 0; !st.Failed() && allocSum < memoryMax+valueTrackerOverhead && nSum < nMax && time.Since(startNano) < timeMax; {
+	for prevN := 0; !st.Failed() && allocSum < memoryMax+valueTrackerOverhead && nSum < nMax && time.Since(startTime) < timeMax; {
 	retry:
 		prevMemory := allocSum
 		if prevMemory <= 0 {
@@ -382,6 +383,8 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 			n = nMax
 		}
 
+		alive := make([]interface{}, 0, n)
+		st.alive = alive
 		st.elapsed = 0
 		st.N = n
 
@@ -402,6 +405,7 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 		runtime.GC()
 		runtime.GC()
 		runtime.ReadMemStats(&after)
+		runtime.KeepAlive(alive)
 
 		elapsed := float64(st.elapsed)
 
@@ -432,14 +436,19 @@ func (st *ST) measureExecution(fn func(*starlark.Thread), thread *starlark.Threa
 		ns = append(ns, n)
 		retried = false
 
-		if measuredAllocs := int64(after.Alloc - before.Alloc); measuredAllocs > 0 {
-			allocSum += uint64(measuredAllocs)
+		if after.Alloc > before.Alloc {
+			allocSum += after.Alloc - before.Alloc
 		}
 
 		nSum += uint64(n)
 		prevN = n
 		lastElapsed = elapsed
-		valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
+		// If st.alive was reallocated, the cost of its new memory block is
+		// included in the measurement. This overhead must be discounted
+		// when reasoning about the measurement.
+		if cap(st.alive) != cap(alive) {
+			valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
+		}
 		st.alive = nil
 	}
 

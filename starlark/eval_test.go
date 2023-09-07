@@ -23,6 +23,7 @@ import (
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarkstruct"
 	"github.com/canonical/starlark/starlarktest"
+	"github.com/canonical/starlark/startest"
 	"github.com/canonical/starlark/syntax"
 )
 
@@ -1276,4 +1277,29 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	t.Run("<<", func(t *testing.T) {})
 
 	t.Run(">>", func(t *testing.T) {})
+}
+
+func TestThreadPreallocation(t *testing.T) {
+	t.Run("preallocation", func(t *testing.T) {
+		dummy := &testing.T{}
+		st := startest.From(dummy)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.EnsureStack(st.N)
+		})
+		if !dummy.Failed() {
+			t.Error("no new frames preallocated")
+		}
+	})
+
+	t.Run("negative-size", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err == nil {
+				t.Error("expected panic")
+			}
+		}()
+		thread := &starlark.Thread{}
+		thread.EnsureStack(10)
+		thread.EnsureStack(-1)
+	})
 }

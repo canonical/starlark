@@ -235,20 +235,18 @@ func (thread *Thread) CallFrame(depth int) CallFrame {
 	return thread.frameAt(depth).asCallFrame()
 }
 
-func (thread *Thread) PreallocateFrames(depth int) {
-	if cap(thread.stack) >= depth {
-		return
+// EnsureStack grows the stack to fit n more nested calls.
+func (thread *Thread) EnsureStack(n int) {
+	if n < 0 {
+		panic("starlark.Thread.EnsureStack: negative stack size")
 	}
 
-	newStack := append(thread.stack[0:cap(thread.stack)], make([]*frame, depth)...)
-	for i := len(thread.stack); i < len(newStack); i++ {
-		newStack[i] = new(frame)
+	newFrames := make([]frame, n)
+	newStack := thread.stack
+	for i := 0; i < n; i++ {
+		newStack = append(newStack, &newFrames[i])
 	}
-	thread.stack = newStack[0:len(thread.stack)]
-	// One-time initialization
-	if thread.maxSteps == 0 {
-		thread.maxSteps--
-	}
+	thread.stack = newStack[:len(thread.stack)]
 }
 
 func (thread *Thread) frameAt(depth int) *frame {
@@ -1497,11 +1495,9 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		fr = new(frame)
 	}
 
-	if thread.stack == nil {
-		// one-time initialization of thread
-		if thread.maxSteps == 0 {
-			thread.maxSteps-- // (MaxUint64)
-		}
+	// one-time initialization of thread
+	if thread.maxSteps == 0 {
+		thread.maxSteps-- // (MaxUint64)
 	}
 
 	thread.stack = append(thread.stack, fr) // push
