@@ -291,73 +291,15 @@ type executionStats struct {
 
 // removeNoise smooths and returns a copy of the input sequence.
 func removeNoise(x []float64) []float64 {
-	// This function uses a 2nd order IIR filter to remove
-	// noise from the input vector. Batch processing is used to
-	// obtain a zero-phase filter[1] to avoid unwanted effects at
-	// the beginning and end of the sequence.
-	//
 	// The main idea is that monotonic functions (such as log(n),
 	// n^k, e^n) will appear to have a low frequency compared with
 	// measured noise.
-	//
-	// [1]: Gustafsson, Fredrik.
-	//      "Determining the initial states in forward-backward filtering."
-	//      IEEE Transactions on signal processing 44.4 (1996): 988-992.
-	//      https://www.diva-portal.org/smash/get/diva2:315708/FULLTEXT02*/
-	const (
-		// Butterworth weights for 1/40th of the sampling frequency
-		b_0 = 5.542717210280681e-03
-		b_1 = 1.108543442056136e-02
-		b_2 = 5.542717210280681e-03
 
-		a_1 = -1.778631777824585
-		a_2 = 0.800802646665708
-
-		// Transposed sum to compute initial state
-		si_0 = 0.994457282789719
-		si_1 = -0.795259929455426
-	)
-
-	// The zero-phase technique requires
-	//    len(x) > 3*order
-	// samples to work.
-	if len(x) < 7 {
-		return x // too small
-	}
-
-	// Direct-Form II transposed.
-	w := [2]float64{
-		si_0 * (x[0]*2 - x[6]),
-		si_1 * (x[0]*2 - x[6]),
-	}
-	filter := func(x float64) float64 {
-		y := w[0] + b_0*x
-		w[0] = w[1] - a_1*y + b_1*x
-		w[1] = b_2*x - a_2*y
-		return y
-	}
-
-	v := []float64{}
-
-	for i := 6; i >= 1; i-- {
-		v = append(v, filter(x[0]*2-x[i]))
-	}
-	for _, x_i := range x {
-		v = append(v, filter(x_i))
-	}
-	for i := 1; i <= 6; i++ {
-		v = append(v, filter(x[len(x)-1]*2-x[len(x)-1-i]))
-	}
-
-	w = [2]float64{
-		si_0 * v[len(v)-1],
-		si_1 * v[len(v)-1],
-	}
-	for i := len(v) - 1; i >= 0; i-- {
-		v[i] = filter(v[i])
-	}
-
-	return v[6 : len(x)+6]
+	// Butterworth weights for 1/40th of the sampling frequency
+	b := [3]float64{5.542717210280681e-03, 1.108543442056136e-02, 5.542717210280681e-03}
+	a := [2]float64{-1.778631777824585, 0.800802646665708}
+	iir := iir2{b: b, a: a}
+	return iir.BatchFilter(x)
 }
 
 func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) executionStats {
