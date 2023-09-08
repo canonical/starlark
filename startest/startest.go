@@ -274,7 +274,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	}
 	if st.requiredSafety.Contains(starlark.CPUSafe) {
 		if stats.cpuDangerous && st.maxExecutionSteps == math.MaxUint64 {
-			st.Errorf("execution seems to use CPU resources that are not accounted for")
+			st.Errorf("execution uses CPU resources which are not accounted for")
 		}
 	}
 }
@@ -473,12 +473,6 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		if filtered[i] > maxNegligibleElapsed {
 			cpuDangerous = true
 		}
-	}
-
-	if cpuDangerous {
-		st.Log(ns)
-		st.Log(timeSamples)
-		st.Log(filtered)
 	}
 
 	if st.Failed() {
