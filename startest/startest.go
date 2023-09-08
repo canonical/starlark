@@ -289,7 +289,7 @@ type executionStats struct {
 	cpuDangerous   bool
 }
 
-// removeNoise removes high-frequency noise from the input sequence.
+// removeNoise smooths and returns a copy of the input sequence.
 func removeNoise(x []float64) []float64 {
 	// This function uses a 2nd order IIR filter to remove
 	// noise from the input vector. Batch processing is used to
@@ -326,7 +326,10 @@ func removeNoise(x []float64) []float64 {
 	}
 
 	// Direct-Form II transposed.
-	w := [2]float64{si_0 * (x[0]*2 - x[6]), si_1 * (x[0]*2 - x[6])}
+	w := [2]float64{
+		si_0 * (x[0]*2 - x[6]),
+		si_1 * (x[0]*2 - x[6]),
+	}
 	filter := func(x float64) float64 {
 		y := w[0] + b_0*x
 		w[0] = w[1] - a_1*y + b_1*x
@@ -346,7 +349,10 @@ func removeNoise(x []float64) []float64 {
 		v = append(v, filter(x[len(x)-1]*2-x[len(x)-1-i]))
 	}
 
-	w = [2]float64{si_0 * v[len(v)-1], si_1 * v[len(v)-1]}
+	w = [2]float64{
+		si_0 * v[len(v)-1],
+		si_1 * v[len(v)-1],
+	}
 	for i := len(v) - 1; i >= 0; i-- {
 		v[i] = filter(v[i])
 	}
