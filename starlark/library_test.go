@@ -3152,6 +3152,23 @@ func TestStringIstitleAllocs(t *testing.T) {
 }
 
 func TestStringIsupperAllocs(t *testing.T) {
+	string_istitle, _ := starlark.String("Hello, world!").Attr("isupper")
+	if string_istitle == nil {
+		t.Fatal("no such method: string.istitle")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, string_istitle, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
 }
 
 func TestStringJoinAllocs(t *testing.T) {
@@ -3603,6 +3620,78 @@ func TestStringStripAllocs(t *testing.T) {
 }
 
 func TestStringTitleAllocs(t *testing.T) {
+	t.Run("ASCII", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread){
+			str := starlark.String(strings.Repeat("dEaDbEeF", st.N))
+			string_title, _ := str.Attr("title")
+			if string_title == nil {
+				t.Fatal("no such method: string.title")
+			}
+
+			result, err := starlark.Call(thread, string_title, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("Unicode", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+
+		// Same byte-length capitals
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("δηαδβηηφ", st.N))
+			string_title, _ := str.Attr("title")
+			if string_title == nil {
+				t.Fatal("no such method: string.title")
+			}
+
+			result, err := starlark.Call(thread, string_title, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+
+		// Different byte-length capitals
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("ı ", st.N))
+			string_title, _ := str.Attr("title")
+			if string_title == nil {
+				t.Fatal("no such method: string.title")
+			}
+
+			result, err := starlark.Call(thread, string_title, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("Unicode-single", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String("φ")
+			string_title, _ := str.Attr("title")
+			if string_title == nil {
+				t.Fatalf("no such method: string.title")
+			}
+
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, string_title, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestStringUpperAllocs(t *testing.T) {
