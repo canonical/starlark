@@ -1079,6 +1079,13 @@ func TestRunStringErrorPositions(t *testing.T) {
 }
 
 func TestStepsCheck(t *testing.T) {
+	t.Run("const", func(t *testing.T) {
+		st := startest.From(t)
+		st.RunThread(func(t *starlark.Thread) {
+			st.KeepAlive(make([]int, 400))
+		})
+	})
+
 	t.Run("log", func(t *testing.T) {
 		st := startest.From(t)
 		st.RunThread(func(t *starlark.Thread) {
