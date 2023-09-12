@@ -218,6 +218,61 @@ func (ui *unsafeTestIterator) Done()      {}
 func (ui *unsafeTestIterator) Err() error { return fmt.Errorf("Err called") }
 
 func TestAbsSteps(t *testing.T) {
+	abs, ok := starlark.Universe["abs"]
+	if !ok {
+		t.Fatal("no such builtin: abs")
+	}
+
+	t.Run("const-size", func(t *testing.T) {
+		numbers := []starlark.Value{
+			starlark.MakeInt(0),
+			starlark.MakeInt(-1),
+			starlark.MakeInt(-1000),
+			starlark.MakeInt64(-(1 << 40)),
+			starlark.Float(-1e20),
+		}
+
+		for _, n := range numbers {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMaxExecutionSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				_, err := starlark.Call(thread, abs, starlark.Tuple{n}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			})
+		}
+	})
+
+	t.Run("var-size", func(t *testing.T) {
+		t.Run("positive", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMaxExecutionSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				n := starlark.Value(starlark.MakeInt(1).Lsh(uint(st.N)))
+				_, err := starlark.Call(thread, abs, starlark.Tuple{n}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			})
+		})
+
+		t.Run("negative", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMaxExecutionSteps(1)
+			st.SetMinExecutionSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				n := starlark.MakeInt(-1).Lsh(uint(st.N))
+				_, err := starlark.Call(thread, abs, starlark.Tuple{n}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			})
+		})
+	})
 }
 
 func TestAbsAllocs(t *testing.T) {
