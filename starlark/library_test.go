@@ -516,6 +516,116 @@ func TestAllAllocs(t *testing.T) {
 }
 
 func TestBoolSteps(t *testing.T) {
+	bool_, ok := starlark.Universe["bool"]
+	if !ok {
+		t.Fatal("no such builtin: bool")
+	}
+
+	t.Run("const-size", func(t *testing.T) {
+		tests := []struct {
+			name string
+			args starlark.Tuple
+		}{
+			{
+				name: "none",
+				args: starlark.Tuple{starlark.None},
+			}, {
+				name: "true",
+				args: starlark.Tuple{starlark.True},
+			}, {
+				name: "int",
+				args: starlark.Tuple{starlark.MakeInt(0)},
+			}, {
+				name: "float",
+				args: starlark.Tuple{starlark.Float(0.5)},
+			},
+		}
+
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+					_, err := starlark.Call(thread, bool_, test.args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				})
+			})
+		}
+	})
+
+	t.Run("var-size", func(t *testing.T) {
+		generators := []struct {
+			name string
+			fn   func(n int) starlark.Value
+		}{
+			{
+				"big-int",
+				func(n int) starlark.Value {
+					return starlark.MakeInt(1).Lsh(uint(n))
+				},
+			},
+			{
+				"string",
+				func(n int) starlark.Value {
+					return starlark.String(strings.Repeat("a", n))
+				},
+			},
+			{
+				"set",
+				func() func(int) starlark.Value {
+					set := starlark.NewSet(0)
+					return func(n int) starlark.Value {
+						for i := set.Len(); i < n; i++ {
+						set.Insert(starlark.MakeInt(i))
+					}
+					return set
+					}
+				}(),
+			},
+			{
+				"dict",
+				func() func(int) starlark.Value {
+					dict := starlark.NewDict(0)
+					return func(n int) starlark.Value {
+						for i := dict.Len(); i < n; i++ {
+						dict.SetKey(starlark.MakeInt(i), starlark.None)
+					}
+					return dict
+					}
+				}(),
+			},
+			{
+				"list",
+				func() func(int) starlark.Value {
+					list := starlark.NewList([]starlark.Value{})
+					return func(n int) starlark.Value {
+						for i := list.Len(); i < n; i++ {
+							list.Append(starlark.None)
+					}
+					return list
+					}
+				}(),
+			},
+		}
+
+		for _, gen := range generators {
+			t.Run(gen.name, func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.CPUSafe)
+				st.RunThread(func(thread *starlark.Thread) {
+					value := gen.fn(st.N)
+					starlark.Call(thread, bool_, nil, nil) // warmup
+					st.ResetTimer()
+					_, err := starlark.Call(thread, bool_, starlark.Tuple{value}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				})
+			})
+		}
+	})
 }
 
 func TestBoolAllocs(t *testing.T) {
