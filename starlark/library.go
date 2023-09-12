@@ -78,7 +78,7 @@ func init() {
 		"abs":       MemSafe | IOSafe,
 		"any":       MemSafe | IOSafe,
 		"all":       MemSafe | IOSafe,
-		"bool":      MemSafe | IOSafe,
+		"bool":      MemSafe | IOSafe | CPUSafe,
 		"bytes":     MemSafe | IOSafe,
 		"chr":       MemSafe | IOSafe,
 		"dict":      MemSafe | IOSafe,
