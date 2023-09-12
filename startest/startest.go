@@ -178,7 +178,6 @@ func (st *ST) RunString(code string) (ok bool) {
 	if code = strings.TrimRight(code, " \t\r\n"); code == "" {
 		return true
 	}
-
 	code, err := Reindent(code)
 	if err != nil {
 		st.Error(err)
@@ -273,7 +272,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		st.Errorf("execution steps are below minimum (%d < %d)", meanExecutionSteps, st.minExecutionSteps)
 	}
 	if st.requiredSafety.Contains(starlark.CPUSafe) {
-		if stats.cpuDangerous && st.maxExecutionSteps == math.MaxUint64 {
+		if stats.unaccountedCpu && st.maxExecutionSteps == math.MaxUint64 {
 			st.Errorf("execution uses CPU resources which are not accounted for")
 		}
 	}
@@ -286,20 +285,27 @@ func (st *ST) KeepAlive(values ...interface{}) {
 
 type executionStats struct {
 	nSum, allocSum uint64
-	cpuDangerous   bool
+	unaccountedCpu bool
 }
 
 // removeNoise smooths and returns a copy of the input sequence.
-func removeNoise(x []float64) []float64 {
+func removeNoise(signal []float64) []float64 {
 	// The main idea is that monotonic functions (such as log(n),
 	// n^k, e^n) will appear to have a low frequency compared with
 	// measured noise.
 
 	// Butterworth weights for 1/40th of the sampling frequency
-	b := [3]float64{5.542717210280681e-03, 1.108543442056136e-02, 5.542717210280681e-03}
-	a := [2]float64{-1.778631777824585, 0.800802646665708}
-	iir := iir2{b: b, a: a}
-	return iir.BatchFilter(x)
+	b := [3]float64{
+		5.542717210280681e-03,
+		1.108543442056136e-02,
+		5.542717210280681e-03,
+	}
+	a := [2]float64{
+		-1.778631777824585,
+		0.800802646665708,
+	}
+	iir := iir2{B: b, A: a}
+	return iir.BatchFilter(signal)
 }
 
 func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) executionStats {
@@ -312,10 +318,10 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	var allocSum uint64
 	var valueTrackerOverhead uint64
 	nSum := uint64(0)
-	cpuDangerous := false
+	unaccountedCpu := false
 	retried := false
-	lastRetry := float64(0)
-	lastElapsed := float64(0)
+	lastRetryElapsed := float64(0)
+	prevElapsed := float64(0)
 	timeSamples := []float64{}
 	ns := []int{}
 
@@ -365,7 +371,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 
 		elapsed := float64(st.elapsed)
 		if st.requiredSafety.Contains(starlark.CPUSafe) && prevN > 1 {
-			maxNegligibleElapsed := float64(lastElapsed) * math.Log(float64(n)) / math.Log(float64(prevN))
+			maxNegligibleElapsed := float64(prevElapsed) * math.Log(float64(n)) / math.Log(float64(prevN))
 			if elapsed > maxNegligibleElapsed {
 				if !retried {
 					st.alive = nil
@@ -376,12 +382,12 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 						thread.AddExecutionSteps(-delta)
 					}
 
-					lastRetry = elapsed
+					lastRetryElapsed = elapsed
 					retried = true
 					goto retry
 				} else {
-					if lastRetry < elapsed {
-						elapsed = lastRetry
+					if lastRetryElapsed < elapsed {
+						elapsed = lastRetryElapsed
 					}
 				}
 			}
@@ -401,19 +407,18 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		ns = append(ns, int(n))
 		nSum += uint64(n)
 		prevN = int(n)
-		lastElapsed = elapsed
+		prevElapsed = elapsed
 		st.alive = nil
 		retried = false
 	}
-
-	filtered := removeNoise(timeSamples)
-	for highWater, i := .0, 1; i < len(filtered); i++ {
-		if highWater < filtered[i-1] {
-			highWater = filtered[i-1]
+	timeSamples = removeNoise(timeSamples)
+	for maxSeen, i := .0, 1; i < len(timeSamples); i++ {
+		if maxSeen < timeSamples[i-1] {
+			maxSeen = timeSamples[i-1]
 		}
-		maxNegligibleElapsed := highWater * math.Log(float64(ns[i])) / math.Log(float64(ns[i-1]))
-		if filtered[i] > maxNegligibleElapsed {
-			cpuDangerous = true
+		maxNegligibleElapsed := maxSeen * math.Log(float64(ns[i])) / math.Log(float64(ns[i-1]))
+		if timeSamples[i] > maxNegligibleElapsed {
+			unaccountedCpu = true
 		}
 	}
 
@@ -428,9 +433,9 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	}
 
 	return executionStats{
-		nSum:         nSum,
-		allocSum:     allocSum,
-		cpuDangerous: cpuDangerous,
+		nSum:           nSum,
+		allocSum:       allocSum,
+		unaccountedCpu: unaccountedCpu,
 	}
 }
 

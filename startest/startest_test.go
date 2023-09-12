@@ -230,6 +230,7 @@ func TestStepBounding(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxExecutionSteps(10)
+
 		st.RunString(`
 			for _ in st.ntimes():
 				pass
@@ -1079,7 +1080,7 @@ func TestRunStringErrorPositions(t *testing.T) {
 }
 
 func TestStepsCheck(t *testing.T) {
-	t.Run("const", func(t *testing.T) {
+	t.Run("constant", func(t *testing.T) {
 		st := startest.From(t)
 		st.RunThread(func(t *starlark.Thread) {
 			st.KeepAlive(make([]int, 400))
@@ -1099,7 +1100,7 @@ func TestStepsCheck(t *testing.T) {
 			st.KeepAlive(make([]int, st.N))
 		})
 		if !st.Failed() {
-			t.Error("expected failur for linear function")
+			t.Error("expected failure for linear function")
 		}
 	})
 
@@ -1109,7 +1110,7 @@ func TestStepsCheck(t *testing.T) {
 			st.KeepAlive(make([]int, st.N*st.N/64))
 		})
 		if !st.Failed() {
-			t.Error("expected failur for quadratic function")
+			t.Error("expected failure for quadratic function")
 		}
 	})
 }
