@@ -85,7 +85,7 @@ func init() {
 		"dir":       MemSafe | IOSafe,
 		"enumerate": MemSafe | IOSafe,
 		"fail":      MemSafe | IOSafe,
-		"float":     MemSafe | IOSafe,
+		"float":     MemSafe | IOSafe | CPUSafe,
 		"getattr":   NotSafe | IOSafe,
 		"hasattr":   MemSafe | IOSafe,
 		"hash":      MemSafe | IOSafe,
@@ -659,6 +659,9 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	case String:
 		if x == "" {
 			return nil, fmt.Errorf("float: empty string")
+		}
+		if err := thread.AddExecutionSteps(int64(len(x))); err != nil {
+			return nil, err
 		}
 		// +/- NaN or Inf or Infinity (case insensitive)?
 		s := string(x)

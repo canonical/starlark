@@ -212,6 +212,12 @@ func (i Int) Float() Float {
 			return Float(iBig.Uint64())
 		} else if iBig.IsInt64() {
 			return Float(iBig.Int64())
+		} else {
+			// No need to compute all of that if iBig is above 1025
+			// as it would result to a rounding toward inf.
+			if iBig.BitLen() > 1025 {
+				return Float(math.Inf(iBig.Sign()))
+			}
 		}
 
 		f, _ := new(big.Float).SetInt(iBig).Float64()
