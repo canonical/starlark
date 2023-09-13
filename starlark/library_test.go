@@ -3188,6 +3188,26 @@ func TestListAppendAllocs(t *testing.T) {
 }
 
 func TestListClearSteps(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.SetMinExecutionSteps(1)
+	st.SetMaxExecutionSteps(1)
+	st.RunThread(func(thread *starlark.Thread) {
+		elems := make([]starlark.Value, st.N)
+		for i := 0; i < len(elems); i++ {
+			elems[i] = starlark.None
+		}
+		list := starlark.NewList(elems)
+		list_clear, _ := list.Attr("clear")
+		if list_clear == nil {
+			t.Fatal("no such method: list.clear")
+		}
+		st.ResetTimer()
+		_, err := starlark.Call(thread, list_clear, nil, nil)
+		if err != nil {
+			st.Error(err)
+		}
+	})
 }
 
 func TestListClearAllocs(t *testing.T) {
