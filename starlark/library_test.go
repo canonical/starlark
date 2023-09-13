@@ -2722,6 +2722,99 @@ func TestDictKeysAllocs(t *testing.T) {
 }
 
 func TestDictPopSteps(t *testing.T) {
+	const dictSize = 500
+
+	t.Run("few-collisions", func(t *testing.T) {
+		dict := starlark.NewDict(dictSize)
+		for i := 0; i < dictSize; i++ {
+			dict.SetKey(starlark.Float(i), starlark.None)
+		}
+		dict_pop, _ := dict.Attr("pop")
+		if dict_pop == nil {
+			t.Fatal("no such method: dict.pop")
+		}
+
+		t.Run("present", func(t *testing.T) {
+			st := startest.From(t)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
+			st.RequireSafety(starlark.CPUSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					input := starlark.Value(starlark.MakeInt(i % dictSize))
+					_, err := starlark.Call(thread, dict_pop, starlark.Tuple{input}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+					dict.SetKey(input, starlark.None) // Add back for the next iteration.
+				}
+			})
+		})
+
+		t.Run("missing", func(t *testing.T) {
+			st := startest.From(t)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
+			st.RequireSafety(starlark.CPUSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					input := starlark.Value(starlark.MakeInt(dictSize))
+					_, err := starlark.Call(thread, dict_pop, starlark.Tuple{input, starlark.None}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		dict := starlark.NewDict(dictSize)
+		for i := 0; i < dictSize; i++ {
+			// Int hash only uses the least 32 bits.
+			// Leaving them blank creates collisions.
+			key := starlark.MakeInt64(int64(i) << 32)
+			dict.SetKey(key, starlark.None)
+		}
+		dict_pop, _ := dict.Attr("pop")
+		if dict_pop == nil {
+			t.Fatal("no such method: dict.pop")
+		}
+
+		t.Run("present", func(t *testing.T) {
+			st := startest.From(t)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps((dictSize + 7) / 8)
+			st.RequireSafety(starlark.CPUSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					input := starlark.Value(starlark.MakeInt64(int64(i%dictSize) << 32))
+					_, err := starlark.Call(thread, dict_pop, starlark.Tuple{input}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+					dict.SetKey(input, starlark.None) // Add back for the next iteration.
+				}
+			})
+		})
+
+		t.Run("missing", func(t *testing.T) {
+			st := startest.From(t)
+			// Each bucket can contain 8 elements tops
+			st.SetMinExecutionSteps((dictSize + 7) / 8)
+			st.SetMaxExecutionSteps((dictSize + 7) / 8)
+			st.RequireSafety(starlark.CPUSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					input := starlark.Value(starlark.MakeInt(dictSize << 32))
+					_, err := starlark.Call(thread, dict_pop, starlark.Tuple{input, starlark.None}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+	})
 }
 
 func TestDictPopAllocs(t *testing.T) {
