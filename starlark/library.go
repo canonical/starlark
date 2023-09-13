@@ -88,7 +88,7 @@ func init() {
 		"float":     MemSafe | IOSafe,
 		"getattr":   NotSafe | IOSafe,
 		"hasattr":   MemSafe | IOSafe,
-		"hash":      MemSafe | IOSafe,
+		"hash":      MemSafe | IOSafe | CPUSafe,
 		"int":       MemSafe | IOSafe,
 		"len":       MemSafe | IOSafe,
 		"list":      MemSafe | IOSafe,
@@ -773,8 +773,14 @@ func hash(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		// String.Hash, which uses the fastest implementation
 		// available, because as varies across process restarts,
 		// and may evolve with the implementation.
+		if err := thread.AddExecutionSteps(int64(len(x))); err != nil {
+			return nil, err
+		}
 		h = int64(javaStringHash(string(x)))
 	case Bytes:
+		if err := thread.AddExecutionSteps(int64(len(x))); err != nil {
+			return nil, err
+		}
 		h = int64(softHashString(string(x))) // FNV32
 	default:
 		return nil, fmt.Errorf("hash: got %s, want string or bytes", x.Type())
