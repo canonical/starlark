@@ -634,6 +634,20 @@ func TestBytesAllocs(t *testing.T) {
 }
 
 func TestChrSteps(t *testing.T) {
+	chr, ok := starlark.Universe["chr"]
+	if !ok {
+		t.Fatal("no such builtin: chr")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.SetMaxExecutionSteps(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		_, err := starlark.Call(thread, chr, starlark.Tuple{starlark.MakeInt(st.N)}, nil)
+		if err != nil {
+			st.Error(err)
+		}
+	})
 }
 
 func TestChrAllocs(t *testing.T) {
