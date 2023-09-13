@@ -2928,6 +2928,27 @@ func TestDictKeysAllocs(t *testing.T) {
 }
 
 func TestDictPopSteps(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		dict := starlark.NewDict(st.N)
+		for i := 0; i < st.N; i++ {
+			dict.SetKey(starlark.MakeInt(i), starlark.None)
+		}
+		dict_pop, _ := dict.Attr("pop")
+		if dict_pop == nil {
+			t.Fatal("no such method: dict.pop")
+		}
+		st.ResetTimer()
+		_, err := starlark.Call(thread, dict_pop, starlark.Tuple{starlark.MakeInt(st.N / 2)}, nil)
+		if err != nil {
+			st.Error(err)
+		}
+		_, err = starlark.Call(thread, dict_pop, starlark.Tuple{starlark.MakeInt(st.N), starlark.None}, nil)
+		if err != nil {
+			st.Error(err)
+		}
+	})
 }
 
 func TestDictPopAllocs(t *testing.T) {
