@@ -3030,6 +3030,23 @@ func TestDictPopAllocs(t *testing.T) {
 }
 
 func TestDictPopitemSteps(t *testing.T) {
+	dict := starlark.NewDict(100)
+	dict_popitem, _ := dict.Attr("popitem")
+	if dict_popitem == nil {
+		t.Fatal("no such method: dict.popitem")
+	}
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := dict.Len(); i <= st.N; i++ {
+			dict.SetKey(starlark.MakeInt(i), starlark.None)
+		}
+		st.ResetTimer()
+		_, err := starlark.Call(thread, dict_popitem, nil, nil)
+		if err != nil {
+			st.Error(err)
+		}
+	})
 }
 
 func TestDictPopitemAllocs(t *testing.T) {
