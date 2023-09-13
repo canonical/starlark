@@ -2956,6 +2956,50 @@ func TestDictKeysAllocs(t *testing.T) {
 }
 
 func TestDictPopSteps(t *testing.T) {
+	t.Run("last", func(t *testing.T) {
+		dict := starlark.NewDict(0)
+		dict_pop, _ := dict.Attr("pop")
+		if dict_pop == nil {
+			t.Fatal("no such method: dict.pop")
+		}
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(1)
+	st.RunThread(func(thread *starlark.Thread) {
+			for i := dict.Len(); i < st.N; i++ {
+			dict.SetKey(starlark.MakeInt(i), starlark.None)
+		}
+			st.ResetTimer()
+			_, err := starlark.Call(thread, dict_pop, starlark.Tuple{starlark.MakeInt(st.N), starlark.None}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("middle", func(t *testing.T) {
+		dict := starlark.NewDict(0)
+		dict_pop, _ := dict.Attr("pop")
+		if dict_pop == nil {
+			t.Fatal("no such method: dict.pop")
+		}
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := dict.Len(); i <= st.N; i++ {
+				dict.SetKey(starlark.MakeInt(i), starlark.None)
+			}
+			elem := starlark.Value(starlark.MakeInt(st.N / 2))
+		st.ResetTimer()
+			_, err := starlark.Call(thread, dict_pop, starlark.Tuple{elem}, nil)
+		if err != nil {
+			st.Error(err)
+		}
+			st.StopTimer()
+			dict.SetKey(elem, starlark.None)
+		})
+	})
 }
 
 func TestDictPopAllocs(t *testing.T) {
