@@ -1453,6 +1453,56 @@ func TestIntAllocs(t *testing.T) {
 }
 
 func TestLenSteps(t *testing.T) {
+	len_, ok := starlark.Universe["len"]
+	if !ok {
+		t.Fatal("no such builtin: len")
+	}
+
+	t.Run("string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			value := starlark.String(strings.Repeat("a", st.N*16))
+			st.ResetTimer()
+			_, err := starlark.Call(thread, len_, starlark.Tuple{value}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("indexable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			elems := make([]starlark.Value, st.N)
+			for i := 0; i < st.N; i++ {
+				elems[i] = starlark.None
+			}
+			value := starlark.NewList(elems)
+			st.ResetTimer()
+			_, err := starlark.Call(thread, len_, starlark.Tuple{value}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("sequence", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			value := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				value.SetKey(starlark.MakeInt(i), starlark.None)
+			}
+			st.ResetTimer()
+			_, err := starlark.Call(thread, len_, starlark.Tuple{value}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestLenAllocs(t *testing.T) {
