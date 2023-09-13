@@ -1375,6 +1375,70 @@ func TestHashAllocs(t *testing.T) {
 }
 
 func TestIntSteps(t *testing.T) {
+	int_, ok := starlark.Universe["int"]
+	if !ok {
+		t.Fatal("no such builtin: int")
+	}
+
+	t.Run("bool", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			_, err := starlark.Call(thread, int_, starlark.Tuple{starlark.False}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			_, err = starlark.Call(thread, int_, starlark.Tuple{starlark.True}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("float", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			f := math.Pow(2, float64(st.N))
+			if math.IsInf(f, 0) {
+				f = math.MaxFloat64
+			}
+			st.ResetTimer()
+			_, err := starlark.Call(thread, int_, starlark.Tuple{starlark.Float(f)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("int", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			n := starlark.Value(starlark.MakeInt(1).Lsh(uint(st.N)))
+			starlark.Call(thread, int_, nil, nil) // warmup
+			st.ResetTimer()
+			_, err := starlark.Call(thread, int_, starlark.Tuple{n}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(16)
+		st.SetMaxExecutionSteps(16)
+		st.RunThread(func(thread *starlark.Thread) {
+			n := starlark.String(strings.Repeat("0", st.N*16))
+			st.ResetTimer()
+			_, err := starlark.Call(thread, int_, starlark.Tuple{n}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestIntAllocs(t *testing.T) {

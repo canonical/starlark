@@ -89,7 +89,7 @@ func init() {
 		"getattr":   NotSafe | IOSafe,
 		"hasattr":   MemSafe | IOSafe,
 		"hash":      MemSafe | IOSafe | CPUSafe,
-		"int":       MemSafe | IOSafe,
+		"int":       MemSafe | IOSafe | CPUSafe,
 		"len":       MemSafe | IOSafe,
 		"list":      MemSafe | IOSafe,
 		"max":       MemSafe | IOSafe,
@@ -820,8 +820,14 @@ func javaStringHash(s string) (h int32) {
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#int
 func int_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (res Value, err error) {
+	var x Value = zero
+	var base Value
+	if err := UnpackArgs("int", args, kwargs, "x", &x, "base?", &base); err != nil {
+		return nil, err
+	}
+
 	defer func() {
-		if res != nil {
+		if res != x {
 			if e := thread.AddAllocs(EstimateSize(res)); e != nil {
 				res = nil
 				err = e
@@ -829,17 +835,14 @@ func int_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (res Value, er
 		}
 	}()
 
-	var x Value = zero
-	var base Value
-	if err := UnpackArgs("int", args, kwargs, "x", &x, "base?", &base); err != nil {
-		return nil, err
-	}
-
 	if s, ok := AsString(x); ok {
 		// Max result size is going to be base36, where each char is going to have 36 values
 		// To make things easy we will just consider each character to be max 6 bits.
 		// It's pessimistic, but easy.
 		if err := thread.CheckAllocs((int64(len(s)*6) + 7) / 8); err != nil {
+			return nil, err
+		}
+		if err := thread.AddExecutionSteps(int64(len(s))); err != nil {
 			return nil, err
 		}
 
@@ -871,6 +874,11 @@ func int_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (res Value, er
 		} else {
 			return zero, nil
 		}
+	}
+
+	if _, ok := x.(Int); ok {
+		// Avoid allocation
+		return x, nil
 	}
 
 	i, err := NumberToInt(x)
