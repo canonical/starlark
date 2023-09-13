@@ -137,7 +137,7 @@ var (
 	}
 	dictMethodSafeties = map[string]Safety{
 		"clear":      MemSafe | IOSafe,
-		"get":        MemSafe | IOSafe,
+		"get":        MemSafe | IOSafe | CPUSafe,
 		"items":      MemSafe | IOSafe,
 		"keys":       MemSafe | IOSafe,
 		"pop":        MemSafe | IOSafe,
@@ -1678,12 +1678,12 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 // ---- methods of built-in types ---
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·get
-func dict_get(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_get(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var key, dflt Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &key, &dflt); err != nil {
 		return nil, err
 	}
-	if v, ok, err := b.Receiver().(*Dict).Get(key); err != nil {
+	if v, ok, err := b.Receiver().(*Dict).ht.lookup(thread, key); err != nil {
 		return nil, nameErr(b, err)
 	} else if ok {
 		return v, nil

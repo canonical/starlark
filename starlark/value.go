@@ -905,7 +905,7 @@ func SafeNewDict(thread *Thread, size int) (*Dict, error) {
 
 func (d *Dict) Clear() error                                    { return d.ht.clear() }
 func (d *Dict) Delete(k Value) (v Value, found bool, err error) { return d.ht.delete(k) }
-func (d *Dict) Get(k Value) (v Value, found bool, err error)    { return d.ht.lookup(k) }
+func (d *Dict) Get(k Value) (v Value, found bool, err error)    { return d.ht.lookup(nil, k) }
 func (d *Dict) Items() []Tuple                                  { return d.ht.items() }
 func (d *Dict) Keys() []Value                                   { return d.ht.keys() }
 func (d *Dict) Values() []Value                                 { return d.ht.values() }
@@ -1215,7 +1215,7 @@ func NewSet(size int) *Set {
 
 func (s *Set) Delete(k Value) (found bool, err error) { _, found, err = s.ht.delete(k); return }
 func (s *Set) Clear() error                           { return s.ht.clear() }
-func (s *Set) Has(k Value) (found bool, err error)    { _, found, err = s.ht.lookup(k); return }
+func (s *Set) Has(k Value) (found bool, err error)    { _, found, err = s.ht.lookup(nil, k); return }
 func (s *Set) Insert(k Value) error                   { return s.ht.insert(nil, k, None) }
 func (s *Set) Len() int                               { return int(s.ht.len) }
 func (s *Set) Iterate() Iterator                      { return s.ht.iterate() }

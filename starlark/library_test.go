@@ -2342,6 +2342,97 @@ func TestDictClearAllocs(t *testing.T) {
 }
 
 func TestDictGetSteps(t *testing.T) {
+	const setSize = 500
+
+	t.Run("balanced", func(t *testing.T) {
+		dict := starlark.NewDict(setSize)
+		for i := 0; i < setSize; i++ {
+			dict.SetKey(starlark.Float(i), starlark.None)
+		}
+		dict_get, _ := dict.Attr("get")
+		if dict_get == nil {
+			t.Fatal("no such method: dict.get")
+		}
+
+		t.Run("present", func(t *testing.T) {
+			st := startest.From(t)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
+			st.RequireSafety(starlark.CPUSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					elem := starlark.Value(starlark.MakeInt(i % setSize))
+					_, err := starlark.Call(thread, dict_get, starlark.Tuple{elem}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+
+		t.Run("missing", func(t *testing.T) {
+			st := startest.From(t)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
+			st.RequireSafety(starlark.CPUSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					elem := starlark.Value(starlark.MakeInt(setSize))
+					_, err := starlark.Call(thread, dict_get, starlark.Tuple{elem}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+	})
+
+	t.Run("unbalanced", func(t *testing.T) {
+		dict := starlark.NewDict(setSize)
+		for i := 0; i < setSize; i++ {
+			// Int hash only uses the least 32 bits.
+			// Leaving them blank creates collisions.
+			key := starlark.MakeInt64(int64(i) << 32)
+			dict.SetKey(key, starlark.None)
+		}
+		dict_get, _ := dict.Attr("get")
+		if dict_get == nil {
+			t.Fatal("no such method: dict.get")
+		}
+
+		t.Run("present", func(t *testing.T) {
+			st := startest.From(t)
+			st.SetMinExecutionSteps(20)
+			st.SetMaxExecutionSteps(200)
+			st.RequireSafety(starlark.CPUSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					elem := starlark.Value(starlark.MakeInt64(int64(i%setSize) << 32))
+					_, err := starlark.Call(thread, dict_get, starlark.Tuple{elem}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+
+		t.Run("missing", func(t *testing.T) {
+			st := startest.From(t)
+			// Each bucket can contain 8 elements tops
+			st.SetMinExecutionSteps((setSize + 7) / 8)
+			st.SetMaxExecutionSteps((setSize + 7) / 8)
+			st.RequireSafety(starlark.CPUSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					elem := starlark.Value(starlark.MakeInt(setSize << 32))
+					_, err := starlark.Call(thread, dict_get, starlark.Tuple{elem}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+	})
 }
 
 func TestDictGetAllocs(t *testing.T) {
