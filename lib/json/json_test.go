@@ -29,10 +29,19 @@ func TestModuleSafeties(t *testing.T) {
 	}
 }
 
+func TestJsonEncodeSteps(t *testing.T) {
+}
+
 func TestJsonEncodeAllocs(t *testing.T) {
 }
 
+func TestJsonDecodeSteps(t *testing.T) {
+}
+
 func TestJsonDecodeAllocs(t *testing.T) {
+}
+
+func TestJsonIndentSteps(t *testing.T) {
 }
 
 func TestJsonIndentAllocs(t *testing.T) {
