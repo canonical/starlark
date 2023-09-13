@@ -2669,6 +2669,25 @@ func TestBytesElemsAllocs(t *testing.T) {
 }
 
 func TestDictClearSteps(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.SetMinExecutionSteps(1)
+	st.SetMaxExecutionSteps(2) // Load factor can lead to up to twice the size
+	st.RunThread(func(thread *starlark.Thread) {
+		dict := starlark.NewDict(st.N)
+		for i := 0; i < st.N*4; i++ { // each bucket has space for 4 elements
+			dict.SetKey(starlark.MakeInt(i), starlark.None)
+		}
+		dict_clear, _ := dict.Attr("clear")
+		if dict_clear == nil {
+			t.Fatal("no such method: dict.clear")
+		}
+		st.ResetTimer()
+		_, err := starlark.Call(thread, dict_clear, nil, nil)
+		if err != nil {
+			st.Error(err)
+		}
+	})
 }
 
 func TestDictClearAllocs(t *testing.T) {
