@@ -137,7 +137,7 @@ var (
 	}
 	dictMethodSafeties = map[string]Safety{
 		"clear":      MemSafe | IOSafe,
-		"get":        MemSafe | IOSafe,
+		"get":        MemSafe | IOSafe | CPUSafe,
 		"items":      MemSafe | IOSafe,
 		"keys":       MemSafe | IOSafe,
 		"pop":        MemSafe | IOSafe,

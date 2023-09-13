@@ -2701,6 +2701,47 @@ func TestDictClearAllocs(t *testing.T) {
 }
 
 func TestDictGetSteps(t *testing.T) {
+	t.Run("present", func(t *testing.T) {
+		st := startest.From(t)
+		st.SetMaxAllocs(0)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			dict := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				dict.SetKey(starlark.MakeInt(i), starlark.None)
+			}
+			dict_get, _ := dict.Attr("get")
+			if dict_get == nil {
+				t.Fatal("no such method: dict.get")
+			}
+			st.ResetTimer()
+			_, err := starlark.Call(thread, dict_get, starlark.Tuple{starlark.MakeInt(st.N / 2)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("missing", func(t *testing.T) {
+		st := startest.From(t)
+		st.SetMaxAllocs(0)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			dict := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				dict.SetKey(starlark.MakeInt(i), starlark.None)
+			}
+			dict_get, _ := dict.Attr("get")
+			if dict_get == nil {
+				t.Fatal("no such method: dict.get")
+			}
+			st.ResetTimer()
+			_, err := starlark.Call(thread, dict_get, starlark.Tuple{starlark.MakeInt(st.N)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestDictGetAllocs(t *testing.T) {
