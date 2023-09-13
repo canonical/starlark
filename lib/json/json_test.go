@@ -49,7 +49,7 @@ func TestJsonDecodeAllocs(t *testing.T) {
 			"Bool": true,
 			"Null": null,
 			"Empty list": [],
-			"Tuple":[ 1, 2 ]	
+			"Tuple": [ 1, 2 ]	
 		}`)
 
 		for i := 0; i < st.N; i++ {

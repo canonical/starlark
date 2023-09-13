@@ -309,13 +309,13 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	// Use panic/recover with a distinguished type (failure) for error handling.
 	i := 0
 
-	type failure struct{ err error }
+	type forward struct{ underlying error }
 	fail := func(format string, args ...interface{}) {
-		panic(failure{fmt.Errorf("json.decode: at offset %d, %s", i, fmt.Sprintf(format, args...))})
+		panic(forward{fmt.Errorf("json.decode: at offset %d, %s", i, fmt.Sprintf(format, args...))})
 	}
 
 	failWith := func(err error) {
-		panic(failure{err})
+		panic(forward{err})
 	}
 
 	// skipSpace consumes leading spaces, and reports whether there is more input.
@@ -538,8 +538,8 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	defer func() {
 		x := recover()
 		switch x := x.(type) {
-		case failure:
-			err = x.err
+		case forward:
+			err = x.underlying
 		case nil:
 			// nop
 		default:
