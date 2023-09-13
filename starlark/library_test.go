@@ -1275,6 +1275,40 @@ func TestHasattrAllocs(t *testing.T) {
 }
 
 func TestHashSteps(t *testing.T) {
+	hash, ok := starlark.Universe["hash"]
+	if !ok {
+		t.Fatal("no such builtin: hash")
+	}
+
+	t.Run("input=string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(16)
+		st.SetMaxExecutionSteps(16)
+		st.RunThread(func(thread *starlark.Thread) {
+			args := starlark.Tuple{starlark.String(strings.Repeat("a", st.N*16))}
+			st.ResetTimer()
+			_, err := starlark.Call(thread, hash, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("input=bytes", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(16)
+		st.SetMaxExecutionSteps(16)
+		st.RunThread(func(thread *starlark.Thread) {
+			args := starlark.Tuple{starlark.Bytes(strings.Repeat("a", st.N*16))}
+			st.ResetTimer()
+			_, err := starlark.Call(thread, hash, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestHashAllocs(t *testing.T) {
