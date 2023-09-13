@@ -141,7 +141,7 @@ var (
 		"items":      MemSafe | IOSafe,
 		"keys":       MemSafe | IOSafe,
 		"pop":        MemSafe | IOSafe | CPUSafe,
-		"popitem":    MemSafe | IOSafe,
+		"popitem":    MemSafe | IOSafe | CPUSafe,
 		"setdefault": MemSafe | IOSafe,
 		"update":     MemSafe | IOSafe,
 		"values":     MemSafe | IOSafe,
