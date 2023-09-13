@@ -1143,6 +1143,63 @@ func TestFailAllocs(t *testing.T) {
 }
 
 func TestFloatSteps(t *testing.T) {
+	float, ok := starlark.Universe["float"]
+	if !ok {
+		t.Fatal("no such builtin: float")
+	}
+
+	t.Run("const-size", func(t *testing.T) {
+		values := []starlark.Value{
+			starlark.True,
+			starlark.MakeInt(0),
+			starlark.Float(-1),
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		for _, value := range values {
+			st.RunThread(func(thread *starlark.Thread) {
+				_, err := starlark.Call(thread, float, starlark.Tuple{value}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			})
+		}
+	})
+
+	t.Run("var-size", func(t *testing.T) {
+		t.Run("int", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				number := starlark.Value(starlark.MakeInt(1).Lsh(uint(st.N)))
+				starlark.Call(thread, float, nil, nil) // warmup
+				st.ResetTimer()
+				// This code is not checking for the error as it *will*
+				// error when `number`` is big enough. The execution must
+				// still be checked to make sure that before getting that
+				// error it doesn't consumes too much cpu (as it was doing
+				// before).
+				starlark.Call(thread, float, starlark.Tuple{number}, nil)
+			})
+		})
+
+		t.Run("string", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
+			st.RunThread(func(thread *starlark.Thread) {
+				number := starlark.Value(starlark.String(strings.Repeat("0", st.N)))
+				starlark.Call(thread, float, nil, nil) // warmup
+				st.ResetTimer()
+				_, err := starlark.Call(thread, float, starlark.Tuple{number}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			})
+		})
+	})
 }
 
 func TestFloatAllocs(t *testing.T) {
