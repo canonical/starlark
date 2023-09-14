@@ -3170,6 +3170,47 @@ func TestListInsertAllocs(t *testing.T) {
 }
 
 func TestListPopSteps(t *testing.T) {
+	const listSize = 1000
+	list := starlark.NewList(make([]starlark.Value, 0, listSize))
+	for i := 0; i < listSize; i++ {
+		list.Append(starlark.None)
+	}
+	list_pop, _ := list.Attr("pop")
+	if list_pop == nil {
+		t.Fatal("no such method: list.pop")
+	}
+
+	t.Run("leading", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(listSize - 1)
+		st.SetMaxExecutionSteps(listSize - 1)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, list_pop, starlark.Tuple{starlark.MakeInt(0)}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				list.Append(starlark.None) // Add back for next iteration
+			}
+		})
+	})
+
+	t.Run("trailing", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(0)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, list_pop, starlark.Tuple{starlark.MakeInt(listSize - 1)}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				list.Append(starlark.None)
+			}
+		})
+	})
 }
 
 func TestListPopAllocs(t *testing.T) {
