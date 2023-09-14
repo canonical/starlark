@@ -139,7 +139,7 @@ var (
 	dictMethodSafeties = map[string]Safety{
 		"clear":      MemSafe | IOSafe,
 		"get":        MemSafe | IOSafe | CPUSafe,
-		"items":      MemSafe | IOSafe,
+		"items":      MemSafe | IOSafe | CPUSafe,
 		"keys":       MemSafe | IOSafe,
 		"pop":        MemSafe | IOSafe,
 		"popitem":    MemSafe | IOSafe,
@@ -1722,6 +1722,9 @@ func dict_items(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 	itemSize := EstimateMakeSize([]Value{Tuple{}}, len)
 	resultSize := EstimateSize(&List{})
 	if err := thread.AddAllocs(itemSize + arraySize + resultSize); err != nil {
+		return nil, err
+	}
+	if err := thread.AddExecutionSteps(int64(len)); err != nil {
 		return nil, err
 	}
 	tupleItemsSize := EstimateMakeSize([]Tuple{}, len)
