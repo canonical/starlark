@@ -3524,6 +3524,49 @@ func TestListInsertAllocs(t *testing.T) {
 }
 
 func TestListPopSteps(t *testing.T) {
+	t.Run("leading", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(8)
+		st.SetMaxExecutionSteps(8)
+		st.RunThread(func(thread *starlark.Thread) {
+			elems := make([]starlark.Value, st.N*8)
+			for i := 0; i < len(elems); i++ {
+				elems[i] = starlark.MakeInt(i)
+			}
+			list := starlark.NewList(elems)
+			list_pop, _ := list.Attr("pop")
+			if list_pop == nil {
+				t.Fatal("no such method: list.pop")
+			}
+			st.ResetTimer()
+			_, err := starlark.Call(thread, list_pop, starlark.Tuple{starlark.MakeInt(0)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("trailing", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			elems := make([]starlark.Value, st.N)
+			for i := 0; i < st.N; i++ {
+				elems[i] = starlark.MakeInt(i)
+			}
+			list := starlark.NewList(elems)
+			list_pop, _ := list.Attr("pop")
+			if list_pop == nil {
+				t.Fatal("no such method: list.pop")
+			}
+			st.ResetTimer()
+			_, err := starlark.Call(thread, list_pop, starlark.Tuple{starlark.MakeInt(st.N - 1)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestListPopAllocs(t *testing.T) {
