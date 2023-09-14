@@ -145,7 +145,7 @@ var (
 		"popitem":    MemSafe | IOSafe,
 		"setdefault": MemSafe | IOSafe,
 		"update":     MemSafe | IOSafe,
-		"values":     MemSafe | IOSafe,
+		"values":     MemSafe | IOSafe | CPUSafe,
 	}
 
 	listMethods = map[string]*Builtin{
@@ -1824,13 +1824,17 @@ func dict_values(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	dict := b.Receiver().(*Dict)
-	valuesSize := EstimateMakeSize([]Value{}, dict.Len())
+	recv := b.Receiver().(*Dict)
+	len := recv.Len()
+	valuesSize := EstimateMakeSize([]Value{}, len)
 	resultSize := EstimateSize(&List{})
 	if err := thread.AddAllocs(resultSize + valuesSize); err != nil {
 		return nil, err
 	}
-	return NewList(dict.Values()), nil
+	if err := thread.AddExecutionSteps(int64(len)); err != nil {
+		return nil, err
+	}
+	return NewList(recv.Values()), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·append
