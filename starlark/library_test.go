@@ -2816,6 +2816,25 @@ func TestDictGetAllocs(t *testing.T) {
 }
 
 func TestDictItemsSteps(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.SetMinExecutionSteps(1)
+	st.SetMaxExecutionSteps(1)
+	st.RunThread(func(thread *starlark.Thread) {
+		dict := starlark.NewDict(st.N)
+		for i := 0; i < st.N; i++ {
+			dict.SetKey(starlark.MakeInt(i), starlark.None)
+		}
+		dict_items, _ := dict.Attr("items")
+		if dict_items == nil {
+			t.Fatal("no such method: dict.items")
+		}
+		st.ResetTimer()
+		_, err := starlark.Call(thread, dict_items, nil, nil)
+		if err != nil {
+			st.Error(err)
+		}
+	})
 }
 
 func TestDictItemsAllocs(t *testing.T) {
