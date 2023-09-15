@@ -411,7 +411,13 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		st.alive = nil
 		retried = false
 	}
-	timeSamples = removeNoise(timeSamples)
+	// It's better to discard the first sample as:
+	//  - it usually includes warmup time for the function;
+	//  - it's log would be zero leading to an +Inf as maxNegligibleElapsed.
+	// The second point is particularly important as Go doesn't define what
+	// happens during division by 0: it could be either +Inf or a panic.
+	timeSamples = removeNoise(timeSamples[1:])
+	ns = ns[1:]
 	for maxSeen, i := .0, 1; i < len(timeSamples); i++ {
 		if maxSeen < timeSamples[i-1] {
 			maxSeen = timeSamples[i-1]
