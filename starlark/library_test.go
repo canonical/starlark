@@ -543,13 +543,13 @@ func TestBoolSteps(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-		st := startest.From(t)
-		st.RequireSafety(starlark.CPUSafe)
-			st.RunThread(func(thread *starlark.Thread) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.CPUSafe)
+				st.RunThread(func(thread *starlark.Thread) {
 					_, err := starlark.Call(thread, bool_, test.args, nil)
-				if err != nil {
-					st.Error(err)
-				}
+					if err != nil {
+						st.Error(err)
+					}
 				})
 			})
 		}
@@ -578,9 +578,9 @@ func TestBoolSteps(t *testing.T) {
 					set := starlark.NewSet(0)
 					return func(n int) starlark.Value {
 						for i := set.Len(); i < n; i++ {
-						set.Insert(starlark.MakeInt(i))
-					}
-					return set
+							set.Insert(starlark.MakeInt(i))
+						}
+						return set
 					}
 				}(),
 			},
@@ -590,9 +590,9 @@ func TestBoolSteps(t *testing.T) {
 					dict := starlark.NewDict(0)
 					return func(n int) starlark.Value {
 						for i := dict.Len(); i < n; i++ {
-						dict.SetKey(starlark.MakeInt(i), starlark.None)
-					}
-					return dict
+							dict.SetKey(starlark.MakeInt(i), starlark.None)
+						}
+						return dict
 					}
 				}(),
 			},
@@ -603,8 +603,8 @@ func TestBoolSteps(t *testing.T) {
 					return func(n int) starlark.Value {
 						for i := list.Len(); i < n; i++ {
 							list.Append(starlark.None)
-					}
-					return list
+						}
+						return list
 					}
 				}(),
 			},
@@ -2748,10 +2748,10 @@ func TestDictClearAllocs(t *testing.T) {
 func TestDictGetSteps(t *testing.T) {
 	t.Run("present", func(t *testing.T) {
 		dict := starlark.NewDict(0)
-			dict_get, _ := dict.Attr("get")
-			if dict_get == nil {
-				t.Fatal("no such method: dict.get")
-			}
+		dict_get, _ := dict.Attr("get")
+		if dict_get == nil {
+			t.Fatal("no such method: dict.get")
+		}
 		st := startest.From(t)
 		st.SetMaxExecutionSteps(1)
 		st.RequireSafety(starlark.CPUSafe)
@@ -3000,13 +3000,13 @@ func TestDictPopSteps(t *testing.T) {
 		if dict_pop == nil {
 			t.Fatal("no such method: dict.pop")
 		}
-	st := startest.From(t)
-	st.RequireSafety(starlark.CPUSafe)
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
 		st.SetMaxExecutionSteps(1)
-	st.RunThread(func(thread *starlark.Thread) {
+		st.RunThread(func(thread *starlark.Thread) {
 			for i := dict.Len(); i < st.N; i++ {
-			dict.SetKey(starlark.MakeInt(i), starlark.None)
-		}
+				dict.SetKey(starlark.MakeInt(i), starlark.None)
+			}
 			st.ResetTimer()
 			_, err := starlark.Call(thread, dict_pop, starlark.Tuple{starlark.MakeInt(st.N), starlark.None}, nil)
 			if err != nil {
@@ -3029,11 +3029,11 @@ func TestDictPopSteps(t *testing.T) {
 				dict.SetKey(starlark.MakeInt(i), starlark.None)
 			}
 			elem := starlark.Value(starlark.MakeInt(st.N / 2))
-		st.ResetTimer()
+			st.ResetTimer()
 			_, err := starlark.Call(thread, dict_pop, starlark.Tuple{elem}, nil)
-		if err != nil {
-			st.Error(err)
-		}
+			if err != nil {
+				st.Error(err)
+			}
 			st.StopTimer()
 			dict.SetKey(elem, starlark.None)
 		})
@@ -3575,9 +3575,9 @@ func TestListInsertAllocs(t *testing.T) {
 func TestListPopSteps(t *testing.T) {
 	t.Run("leading", func(t *testing.T) {
 		list := starlark.NewList([]starlark.Value{})
-			list_pop, _ := list.Attr("pop")
-			if list_pop == nil {
-				t.Fatal("no such method: list.pop")
+		list_pop, _ := list.Attr("pop")
+		if list_pop == nil {
+			t.Fatal("no such method: list.pop")
 		}
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
@@ -3597,9 +3597,9 @@ func TestListPopSteps(t *testing.T) {
 
 	t.Run("trailing", func(t *testing.T) {
 		list := starlark.NewList([]starlark.Value{})
-			list_pop, _ := list.Attr("pop")
-			if list_pop == nil {
-				t.Fatal("no such method: list.pop")
+		list_pop, _ := list.Attr("pop")
+		if list_pop == nil {
+			t.Fatal("no such method: list.pop")
 		}
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
@@ -3647,6 +3647,49 @@ func TestListPopAllocs(t *testing.T) {
 }
 
 func TestListRemoveSteps(t *testing.T) {
+	t.Run("leading", func(t *testing.T) {
+		list := starlark.NewList([]starlark.Value{})
+		list_remove, _ := list.Attr("remove")
+		if list_remove == nil {
+			t.Fatal("no such method: list.remove")
+		}
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := list.Len(); i < st.N; i++ {
+				list.Append(starlark.MakeInt(i))
+			}
+			st.ResetTimer()
+			_, err := starlark.Call(thread, list_remove, starlark.Tuple{list.Index(0)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("trailing", func(t *testing.T) {
+		list := starlark.NewList([]starlark.Value{})
+		list_remove, _ := list.Attr("remove")
+		if list_remove == nil {
+			t.Fatal("no such method: list.remove")
+		}
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := list.Len(); i < st.N; i++ {
+				list.Append(starlark.MakeInt(i))
+			}
+			st.ResetTimer()
+			_, err := starlark.Call(thread, list_remove, starlark.Tuple{list.Index(list.Len() - 1)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestListRemoveAllocs(t *testing.T) {

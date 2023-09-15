@@ -163,7 +163,7 @@ var (
 		"index":  MemSafe | IOSafe | CPUSafe,
 		"insert": MemSafe | IOSafe,
 		"pop":    MemSafe | IOSafe | CPUSafe,
-		"remove": MemSafe | IOSafe,
+		"remove": MemSafe | IOSafe | CPUSafe,
 	}
 
 	stringMethods = map[string]*Builtin{
@@ -1986,7 +1986,7 @@ func list_insert(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·remove
-func list_remove(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_remove(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := b.Receiver().(*List)
 	var value Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &value); err != nil {
@@ -1994,6 +1994,9 @@ func list_remove(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	}
 	if err := recv.checkMutable("remove from"); err != nil {
 		return nil, nameErr(b, err)
+	}
+	if err := thread.AddExecutionSteps(int64(recv.Len())); err != nil {
+		return nil, err
 	}
 	for i, elem := range recv.elems {
 		if eq, err := Equal(elem, value); err != nil {
