@@ -62,8 +62,8 @@ type ST struct {
 	alive             []interface{}
 	N                 int
 	timerOn           bool
-	timerStart        int64
-	elapsed           int64
+	timerStart        time.Duration
+	elapsed           time.Duration
 	requiredSafety    starlark.Safety
 	safetyGiven       bool
 	predecls          starlark.StringDict
@@ -272,8 +272,8 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		st.Errorf("execution steps are below minimum (%d < %d)", meanExecutionSteps, st.minExecutionSteps)
 	}
 	if st.requiredSafety.Contains(starlark.CPUSafe) {
-		if stats.unaccountedCpu && st.maxExecutionSteps == math.MaxUint64 {
-			st.Errorf("execution uses CPU resources which are not accounted for")
+		if stats.unaccountedCpuTime && st.maxExecutionSteps == math.MaxUint64 {
+			st.Errorf("execution uses CPU time which is not accounted for")
 		}
 	}
 }
@@ -284,8 +284,8 @@ func (st *ST) KeepAlive(values ...interface{}) {
 }
 
 type executionStats struct {
-	nSum, allocSum uint64
-	unaccountedCpu bool
+	nSum, allocSum     uint64
+	unaccountedCpuTime bool
 }
 
 // removeNoise smooths and returns a copy of the input sequence.
@@ -293,19 +293,19 @@ func removeNoise(signal []float64) []float64 {
 	// The main idea is that monotonic functions (such as log(n),
 	// n^k, e^n) will appear to have a low frequency compared with
 	// measured noise.
-
-	// Butterworth weights for 1/40th of the sampling frequency
-	b := [3]float64{
-		5.542717210280681e-03,
-		1.108543442056136e-02,
-		5.542717210280681e-03,
+	filter := iir2{
+		// Butterworth weights for 1/40th of the sampling frequency
+		B: [3]float64{
+			5.542717210280681e-03,
+			1.108543442056136e-02,
+			5.542717210280681e-03,
+		},
+		A: [2]float64{
+			-1.778631777824585,
+			0.800802646665708,
+		},
 	}
-	a := [2]float64{
-		-1.778631777824585,
-		0.800802646665708,
-	}
-	iir := iir2{B: b, A: a}
-	return iir.BatchFilter(signal)
+	return filter.BatchFilter(signal)
 }
 
 func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) executionStats {
@@ -318,23 +318,23 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	var allocSum uint64
 	var valueTrackerOverhead uint64
 	nSum := uint64(0)
-	unaccountedCpu := false
+	unaccountedCpuTime := false
 	retried := false
-	lastRetryElapsed := float64(0)
-	prevElapsed := float64(0)
+	lastRetryElapsed := time.Duration(0)
+	prevElapsed := time.Duration(0)
 	timeSamples := []float64{}
 	ns := []int{}
 
-	for prevN := 0; !st.Failed() && allocSum < memoryMax+valueTrackerOverhead && nSum < nMax && time.Since(startTime) < timeMax; {
+	for prevN := int64(0); !st.Failed() && allocSum < memoryMax+valueTrackerOverhead && nSum < nMax && time.Since(startTime) < timeMax; {
 	retry:
-		prevMemory := allocSum
+		prevMemory := int64(allocSum)
 		if prevMemory <= 0 {
 			prevMemory = 1
 		}
-		n := int64(uint64(memoryMax) * uint64(prevN) / prevMemory)
+		n := memoryMax * prevN / prevMemory
 		n += n / 5
-		maxGrowth := int64(prevN) * 2
-		minGrowth := int64(prevN) + 1
+		maxGrowth := prevN * 2
+		minGrowth := prevN + 1
 		if n > maxGrowth {
 			n = maxGrowth
 		} else if n < minGrowth {
@@ -369,10 +369,9 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		runtime.ReadMemStats(&after)
 		runtime.KeepAlive(alive)
 
-		elapsed := float64(st.elapsed)
 		if st.requiredSafety.Contains(starlark.CPUSafe) && prevN > 1 {
 			maxNegligibleElapsed := float64(prevElapsed) * math.Log(float64(n)) / math.Log(float64(prevN))
-			if elapsed > maxNegligibleElapsed {
+			if float64(st.elapsed) > maxNegligibleElapsed {
 				if !retried {
 					st.alive = nil
 					if delta := int64(thread.Allocs()) - int64(prevAllocs); delta > 0 {
@@ -382,13 +381,13 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 						thread.AddExecutionSteps(-delta)
 					}
 
-					lastRetryElapsed = elapsed
+					lastRetryElapsed = st.elapsed
 					retried = true
 					goto retry
-				} else {
-					if lastRetryElapsed < elapsed {
-						elapsed = lastRetryElapsed
-					}
+				}
+
+				if lastRetryElapsed < st.elapsed {
+					st.elapsed = lastRetryElapsed
 				}
 			}
 		}
@@ -403,11 +402,11 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 			allocSum += after.Alloc - before.Alloc
 		}
 
-		timeSamples = append(timeSamples, elapsed)
+		timeSamples = append(timeSamples, float64(st.elapsed))
 		ns = append(ns, int(n))
 		nSum += uint64(n)
-		prevN = int(n)
-		prevElapsed = elapsed
+		prevN = int64(n)
+		prevElapsed = st.elapsed
 		st.alive = nil
 		retried = false
 	}
@@ -424,7 +423,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		}
 		maxNegligibleElapsed := maxSeen * math.Log(float64(ns[i])) / math.Log(float64(ns[i-1]))
 		if timeSamples[i] > maxNegligibleElapsed {
-			unaccountedCpu = true
+			unaccountedCpuTime = true
 		}
 	}
 
@@ -439,9 +438,9 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	}
 
 	return executionStats{
-		nSum:           nSum,
-		allocSum:       allocSum,
-		unaccountedCpu: unaccountedCpu,
+		nSum:               nSum,
+		allocSum:           allocSum,
+		unaccountedCpuTime: unaccountedCpuTime,
 	}
 }
 

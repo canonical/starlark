@@ -9,7 +9,7 @@ type iir2 struct {
 }
 
 // Filter applies the filter to the given samples, updating the internal state.
-// Returns the filtered sample.
+// It returns the filtered sample.
 func (f *iir2) Filter(sample float64) float64 {
 	y := f.w[0] + f.B[0]*sample
 	f.w[0] = f.w[1] - f.A[0]*y + f.B[1]*sample
@@ -47,8 +47,8 @@ func (f *iir2) BatchFilter(signal []float64) []float64 {
 	for i := 6; i >= 1; i-- {
 		v = append(v, f.Filter(signal[0]*2-signal[i]))
 	}
-	for _, x_i := range signal {
-		v = append(v, f.Filter(x_i))
+	for _, sample := range signal {
+		v = append(v, f.Filter(sample))
 	}
 	for i := 1; i <= 6; i++ {
 		v = append(v, f.Filter(signal[len(signal)-1]*2-signal[len(signal)-1-i]))
