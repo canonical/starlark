@@ -3600,6 +3600,51 @@ func TestListPopAllocs(t *testing.T) {
 }
 
 func TestListRemoveSteps(t *testing.T) {
+	t.Run("leading", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			elems := make([]starlark.Value, st.N)
+			for i := 0; i < len(elems); i++ {
+				elems[i] = starlark.MakeInt(i)
+			}
+			list := starlark.NewList(elems)
+			list_remove, _ := list.Attr("remove")
+			if list_remove == nil {
+				t.Fatal("no such method: list.remove")
+			}
+			st.ResetTimer()
+			_, err := starlark.Call(thread, list_remove, starlark.Tuple{starlark.MakeInt(0)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("trailing", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			elems := make([]starlark.Value, st.N)
+			for i := 0; i < st.N; i++ {
+				elems[i] = starlark.MakeInt(i)
+			}
+			list := starlark.NewList(elems)
+			list_remove, _ := list.Attr("remove")
+			if list_remove == nil {
+				t.Fatal("no such method: list.remove")
+			}
+			st.ResetTimer()
+			_, err := starlark.Call(thread, list_remove, starlark.Tuple{starlark.MakeInt(st.N - 1)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestListRemoveAllocs(t *testing.T) {
