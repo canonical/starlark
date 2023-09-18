@@ -7,5 +7,10 @@ import (
 	"time"
 )
 
-//go:linkname nanotime runtime.nanotime
-func nanotime() time.Duration 
+//go:linkname runtime_nanotime runtime.nanotime
+func runtime_nanotime() int64
+
+//go:inline
+func nanotime() time.Duration {
+	return time.Duration(runtime_nanotime())
+}
