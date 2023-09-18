@@ -76,7 +76,7 @@ func testHashtable(tb testing.TB, sane map[int]bool) {
 	for j := 0; j < testIters; j++ {
 		k := testInts[i]
 		i++
-		if err := ht.insert(k.Int, None); err != nil {
+		if err := ht.insert(nil, k.Int, None); err != nil {
 			tb.Fatal(err)
 		}
 		if sane != nil {

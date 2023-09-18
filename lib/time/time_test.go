@@ -103,11 +103,13 @@ func TestTimeNowSafety(t *testing.T) {
 	}
 }
 
+func TestTimeFromTimestampSteps(t *testing.T) {
+}
+
 func TestTimeFromTimestampAllocs(t *testing.T) {
 	from_timestamp, ok := time.Module.Members["from_timestamp"]
 	if !ok {
-		t.Error("no such builtin: time.from_timestamp")
-		return
+		t.Fatalf("no such builtin: time.from_timestamp")
 	}
 
 	st := startest.From(t)
@@ -123,11 +125,13 @@ func TestTimeFromTimestampAllocs(t *testing.T) {
 	})
 }
 
+func TestTimeIsValidTimezoneSteps(t *testing.T) {
+}
+
 func TestTimeIsValidTimezoneAllocs(t *testing.T) {
 	is_valid_timezone, ok := time.Module.Members["is_valid_timezone"]
 	if !ok {
-		t.Error("no such builtin: time.is_valid_timezone")
-		return
+		t.Fatalf("no such builtin: time.is_valid_timezone")
 	}
 
 	t.Run("timezone=valid", func(t *testing.T) {
@@ -161,6 +165,9 @@ func TestTimeIsValidTimezoneAllocs(t *testing.T) {
 	})
 }
 
+func TestTimeNowSteps(t *testing.T) {
+}
+
 func TestTimeNowAllocs(t *testing.T) {
 	now, ok := time.Module.Members["now"]
 	if !ok {
@@ -180,23 +187,26 @@ func TestTimeNowAllocs(t *testing.T) {
 	})
 }
 
+func TestTimeParseDurationSteps(t *testing.T) {
+}
+
 func TestTimeParseDurationAllocs(t *testing.T) {
 	parse_duration, ok := time.Module.Members["parse_duration"]
 	if !ok {
-		t.Errorf("no such builtin: parse_duration")
-		return
+		t.Fatalf("no such builtin: parse_duration")
 	}
 
 	t.Run("arg=duration", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
-			result, err := starlark.Call(thread, parse_duration, starlark.Tuple{time.Duration(10)}, nil)
-			if err != nil {
-				t.Error(err)
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, parse_duration, starlark.Tuple{time.Duration(10)}, nil)
+				if err != nil {
+					t.Error(err)
+				}
+				st.KeepAlive(result)
 			}
-			st.KeepAlive(result)
 		})
 	})
 
@@ -216,7 +226,13 @@ func TestTimeParseDurationAllocs(t *testing.T) {
 	})
 }
 
+func TestTimeParseTimeSteps(t *testing.T) {
+}
+
 func TestTimeParseTimeAllocs(t *testing.T) {
+}
+
+func TestTimeTimeSteps(t *testing.T) {
 }
 
 func TestTimeTimeAllocs(t *testing.T) {

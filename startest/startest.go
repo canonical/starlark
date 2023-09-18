@@ -38,7 +38,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"unsafe"
 
 	"github.com/canonical/starlark/resolve"
 	"github.com/canonical/starlark/starlark"
@@ -204,6 +203,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	}
 
 	thread := &starlark.Thread{}
+	thread.EnsureStack(100)
 	thread.RequireSafety(st.requiredSafety)
 	thread.Print = func(_ *starlark.Thread, msg string) {
 		st.Log(msg)
@@ -220,9 +220,10 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		return
 	}
 
-	meanMeasuredAllocs := allocSum / nSum
-	meanDeclaredAllocs := thread.Allocs() / nSum
-	meanExecutionSteps := thread.ExecutionSteps() / nSum
+	mean := func(x uint64) uint64 { return (x + nSum/2) / nSum }
+	meanMeasuredAllocs := mean(allocSum)
+	meanDeclaredAllocs := mean(thread.Allocs())
+	meanExecutionSteps := mean(thread.ExecutionSteps())
 
 	if st.maxAllocs != math.MaxUint64 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
@@ -249,18 +250,18 @@ func (st *ST) KeepAlive(values ...interface{}) {
 }
 
 func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
-	startNano := time.Now().Nanosecond()
+	startTime := time.Now()
 
 	const nMax = 100_000
-	const memoryMax = 100 * 2 << 20
-	const timeMax = 1e9
+	const memoryMax = 200 * (1 << 20)
+	const timeMax = time.Second
 
 	var memoryUsed uint64
 	var valueTrackerOverhead uint64
 	st.N = 0
 	nSum = 0
 
-	for n := uint64(0); !st.Failed() && memoryUsed-valueTrackerOverhead < memoryMax && n < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
+	for n := uint64(0); !st.Failed() && memoryUsed < memoryMax+valueTrackerOverhead && n < nMax && time.Since(startTime) < timeMax; {
 		last := n
 		prevIters := uint64(st.N)
 		prevMemory := memoryUsed
@@ -269,7 +270,7 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 		}
 		n = memoryMax * prevIters / prevMemory
 		n += n / 5
-		maxGrowth := last * 100
+		maxGrowth := last * 2
 		minGrowth := last + 1
 		if n > maxGrowth {
 			n = maxGrowth
@@ -282,6 +283,8 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 		}
 
 		st.N = int(n)
+		alive := make([]interface{}, 0, n)
+		st.alive = alive
 		nSum += n
 
 		var before, after runtime.MemStats
@@ -294,13 +297,18 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 		runtime.GC()
 		runtime.GC()
 		runtime.ReadMemStats(&after)
+		runtime.KeepAlive(alive)
 
-		iterationMeasure := int64(after.Alloc - before.Alloc)
-		valueTrackerOverhead += uint64(cap(st.alive)) * uint64(unsafe.Sizeof(interface{}(nil)))
-		st.alive = nil
-		if iterationMeasure > 0 {
-			memoryUsed += uint64(iterationMeasure)
+		if after.Alloc > before.Alloc {
+			memoryUsed += after.Alloc - before.Alloc
 		}
+		// If st.alive was reallocated, the cost of its new memory block is
+		// included in the measurement. This overhead must be discounted
+		// when reasoning about the measurement.
+		if cap(st.alive) != cap(alive) {
+			valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
+		}
+		st.alive = nil
 	}
 
 	if st.Failed() {
