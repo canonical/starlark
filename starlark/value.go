@@ -222,13 +222,22 @@ type HasSetIndex interface {
 	SetIndex(index int, v Value) error
 }
 
+// A HasSafeSetIndex is an Indexable value whose elements may be assigned (x[i] = y),
+// respecting the safety of the thread.
+type HasSafeSetIndex interface {
+	Indexable
+
+	SafeSetIndex(thread *Thread, index int, v Value) error
+}
+
 var (
-	_ HasSetIndex = (*List)(nil)
-	_ Indexable   = Tuple(nil)
-	_ Indexable   = String("")
-	_ Sliceable   = Tuple(nil)
-	_ Sliceable   = String("")
-	_ Sliceable   = (*List)(nil)
+	_ HasSetIndex     = (*List)(nil)
+	_ HasSafeSetIndex = (*List)(nil)
+	_ Indexable       = Tuple(nil)
+	_ Indexable       = String("")
+	_ Sliceable       = Tuple(nil)
+	_ Sliceable       = String("")
+	_ Sliceable       = (*List)(nil)
 )
 
 // An Iterator provides a sequence of values to the caller.
@@ -294,7 +303,16 @@ type HasSetKey interface {
 	SetKey(k, v Value) error
 }
 
+// A HasSafeSetKey supports map update using x[k]=v syntax, like a dictionary,
+// respecting the safety of the thread.
+type HasSafeSetKey interface {
+	Mapping
+
+	SafeSetKey(thread *Thread, k, v Value) error
+}
+
 var _ HasSetKey = (*Dict)(nil)
+var _ HasSafeSetKey = (*Dict)(nil)
 
 // A HasBinary value may be used as either operand of these binary operators:
 //     +   -   *   /   //   %   in   not in   |   &   ^   <<   >>
@@ -820,8 +838,16 @@ type Dict struct {
 // at least size insertions before rehashing.
 func NewDict(size int) *Dict {
 	dict := new(Dict)
-	dict.ht.init(size)
+	dict.ht.init(nil, size)
 	return dict
+}
+
+func SafeNewDict(thread *Thread, size int) (*Dict, error) {
+	dict := new(Dict)
+	if err := dict.ht.init(thread, size); err != nil {
+		return nil, err
+	}
+	return dict, nil
 }
 
 func (d *Dict) Clear() error                                    { return d.ht.clear() }
@@ -832,12 +858,22 @@ func (d *Dict) Keys() []Value                                   { return d.ht.ke
 func (d *Dict) Values() []Value                                 { return d.ht.values() }
 func (d *Dict) Len() int                                        { return int(d.ht.len) }
 func (d *Dict) Iterate() Iterator                               { return d.ht.iterate() }
-func (d *Dict) SetKey(k, v Value) error                         { return d.ht.insert(k, v) }
+func (d *Dict) SetKey(k, v Value) error                         { return d.ht.insert(nil, k, v) }
 func (d *Dict) Type() string                                    { return "dict" }
 func (d *Dict) Freeze()                                         { d.ht.freeze() }
 func (d *Dict) Truth() Bool                                     { return d.Len() > 0 }
 func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.Errorf("unhashable type: dict") }
 func (d *Dict) String() string                                  { return toString(d) }
+
+func (d *Dict) SafeSetKey(thread *Thread, k, v Value) error {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return err
+	}
+	if err := d.ht.insert(thread, k, v); err != nil {
+		return err
+	}
+	return nil
+}
 
 func (d *Dict) Attr(name string) (Value, error) { return builtinAttr(d, name, dictMethods) }
 func (d *Dict) AttrNames() []string             { return builtinAttrNames(dictMethods) }
@@ -1005,6 +1041,13 @@ func (l *List) SetIndex(i int, v Value) error {
 	return nil
 }
 
+func (l *List) SafeSetIndex(thread *Thread, i int, v Value) error {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return err
+	}
+	return l.SetIndex(i, v)
+}
+
 func (l *List) Append(v Value) error {
 	if err := l.checkMutable("append to"); err != nil {
 		return err
@@ -1105,14 +1148,14 @@ type Set struct {
 // at least size insertions before rehashing.
 func NewSet(size int) *Set {
 	set := new(Set)
-	set.ht.init(size)
+	set.ht.init(nil, size)
 	return set
 }
 
 func (s *Set) Delete(k Value) (found bool, err error) { _, found, err = s.ht.delete(k); return }
 func (s *Set) Clear() error                           { return s.ht.clear() }
 func (s *Set) Has(k Value) (found bool, err error)    { _, found, err = s.ht.lookup(k); return }
-func (s *Set) Insert(k Value) error                   { return s.ht.insert(k, None) }
+func (s *Set) Insert(k Value) error                   { return s.ht.insert(nil, k, None) }
 func (s *Set) Len() int                               { return int(s.ht.len) }
 func (s *Set) Iterate() Iterator                      { return s.ht.iterate() }
 func (s *Set) Type() string                           { return "set" }

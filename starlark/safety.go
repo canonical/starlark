@@ -122,3 +122,17 @@ func (set Safety) CheckContains(subset Safety) error {
 	}
 	return nil
 }
+
+// CheckSafety returns an error if the provided value does not report
+// sufficient safety for the given thread. CheckSafety allows a nil thread.
+func CheckSafety(thread *Thread, value interface{}) error {
+	if thread == nil {
+		return nil // A nil thread makes no safety requirements.
+	}
+
+	safety := NotSafe
+	if value, ok := value.(SafetyAware); ok {
+		safety = value.Safety()
+	}
+	return thread.CheckPermits(safety)
+}

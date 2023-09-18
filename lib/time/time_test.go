@@ -41,6 +41,9 @@ func TestMethodSafetiesExist(t *testing.T) {
 	}
 }
 
+func TestTimeFromTimestampSteps(t *testing.T) {
+}
+
 func TestTimeFromTimestampAllocs(t *testing.T) {
 	from_timestamp, ok := time.Module.Members["from_timestamp"]
 	if !ok {
@@ -58,6 +61,9 @@ func TestTimeFromTimestampAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		}
 	})
+}
+
+func TestTimeIsValidTimezoneSteps(t *testing.T) {
 }
 
 func TestTimeIsValidTimezoneAllocs(t *testing.T) {
@@ -97,7 +103,13 @@ func TestTimeIsValidTimezoneAllocs(t *testing.T) {
 	})
 }
 
+func TestTimeNowSteps(t *testing.T) {
+}
+
 func TestTimeNowAllocs(t *testing.T) {
+}
+
+func TestTimeParseDurationSteps(t *testing.T) {
 }
 
 func TestTimeParseDurationAllocs(t *testing.T) {
@@ -109,13 +121,14 @@ func TestTimeParseDurationAllocs(t *testing.T) {
 	t.Run("arg=duration", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
-			result, err := starlark.Call(thread, parse_duration, starlark.Tuple{time.Duration(10)}, nil)
-			if err != nil {
-				t.Error(err)
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, parse_duration, starlark.Tuple{time.Duration(10)}, nil)
+				if err != nil {
+					t.Error(err)
+				}
+				st.KeepAlive(result)
 			}
-			st.KeepAlive(result)
 		})
 	})
 
@@ -135,7 +148,13 @@ func TestTimeParseDurationAllocs(t *testing.T) {
 	})
 }
 
+func TestTimeParseTimeSteps(t *testing.T) {
+}
+
 func TestTimeParseTimeAllocs(t *testing.T) {
+}
+
+func TestTimeTimeSteps(t *testing.T) {
 }
 
 func TestTimeTimeAllocs(t *testing.T) {
