@@ -68,7 +68,7 @@ func TestJsonEncodeSteps(t *testing.T) {
 func TestJsonEncodeAllocs(t *testing.T) {
 	json_encode, _ := json.Module.Attr("encode")
 	if json_encode == nil {
-		t.Fatal("no such method: json.endoce")
+		t.Fatal("no such method: json.encode")
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
