@@ -31,7 +31,6 @@ func (f *iir2) BatchFilter(signal []float64) []float64 {
 		return signal // too small
 	}
 
-	// Transposed sum
 	kdc := (f.B[0] + f.B[1] + f.B[2]) / (1 + f.A[0] + f.A[1])
 	si := [2]float64{}
 	si[1] = f.B[2] - kdc*f.A[1]
@@ -47,8 +46,8 @@ func (f *iir2) BatchFilter(signal []float64) []float64 {
 	for i := 6; i >= 1; i-- {
 		v = append(v, f.Filter(signal[0]*2-signal[i]))
 	}
-	for _, sample := range signal {
-		v = append(v, f.Filter(sample))
+	for i := range signal {
+		v = append(v, f.Filter(signal[i]))
 	}
 	for i := 1; i <= 6; i++ {
 		v = append(v, f.Filter(signal[len(signal)-1]*2-signal[len(signal)-1-i]))

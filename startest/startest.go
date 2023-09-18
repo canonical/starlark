@@ -233,6 +233,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	if !st.safetyGiven {
 		st.requiredSafety = stSafe
 	}
+
 	thread := &starlark.Thread{}
 	thread.EnsureStack(100)
 	thread.RequireSafety(st.requiredSafety)
@@ -372,6 +373,8 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		if st.requiredSafety.Contains(starlark.CPUSafe) && prevN > 1 {
 			maxNegligibleElapsed := float64(prevElapsed) * math.Log(float64(n)) / math.Log(float64(prevN))
 			if float64(st.elapsed) > maxNegligibleElapsed {
+				// confirming that the quick increase in time comes
+				// from the function execution and not external factors
 				if !retried {
 					st.alive = nil
 					if delta := int64(thread.Allocs()) - int64(prevAllocs); delta > 0 {
@@ -411,7 +414,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		retried = false
 	}
 
-	// It's better to discard the first sample as:
+	// It's best to discard the first sample as:
 	//  - it usually includes warmup time for the function;
 	//  - it's log would be zero so maxNegligibleElapsed would become
 	//    positive infinity.

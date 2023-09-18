@@ -3,7 +3,7 @@
 package startest
 
 import (
-	_ "unsafe"
+	_ "unsafe" // for go:linkname hack
 	"time"
 )
 
