@@ -8,7 +8,7 @@
 // When a test is run, the startest instance exposes an integer N which must be
 // used to scale the total resources used by the test. All checks are done in
 // terms of this N, so for example, calling SetMaxAllocs(100) on a startest
-// instance will cause it to check that no more than 100 allocations are made
+// instance will cause it to check that no more than 100 bytes are allocated
 // per given N. Tests are repeated with different values of N to reduce the
 // effect of noise on measurements.
 //
@@ -38,7 +38,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"unsafe"
 
 	"github.com/canonical/starlark/resolve"
 	"github.com/canonical/starlark/starlark"
@@ -204,6 +203,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	}
 
 	thread := &starlark.Thread{}
+	thread.EnsureStack(100)
 	thread.RequireSafety(st.requiredSafety)
 	thread.Print = func(_ *starlark.Thread, msg string) {
 		st.Log(msg)
@@ -220,9 +220,10 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		return
 	}
 
-	meanMeasuredAllocs := allocSum / nSum
-	meanDeclaredAllocs := thread.Allocs() / nSum
-	meanExecutionSteps := thread.ExecutionSteps() / nSum
+	mean := func(x uint64) uint64 { return (x + nSum/2) / nSum }
+	meanMeasuredAllocs := mean(allocSum)
+	meanDeclaredAllocs := mean(thread.Allocs())
+	meanExecutionSteps := mean(thread.ExecutionSteps())
 
 	if st.maxAllocs != math.MaxUint64 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
@@ -249,18 +250,18 @@ func (st *ST) KeepAlive(values ...interface{}) {
 }
 
 func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
-	startNano := time.Now().Nanosecond()
+	startTime := time.Now()
 
 	const nMax = 100_000
-	const memoryMax = 100 * 2 << 20
-	const timeMax = 1e9
+	const memoryMax = 200 * (1 << 20)
+	const timeMax = time.Second
 
 	var memoryUsed uint64
 	var valueTrackerOverhead uint64
 	st.N = 0
 	nSum = 0
 
-	for n := uint64(0); !st.Failed() && memoryUsed-valueTrackerOverhead < memoryMax && n < nMax && (time.Now().Nanosecond()-startNano) < timeMax; {
+	for n := uint64(0); !st.Failed() && memoryUsed < memoryMax+valueTrackerOverhead && n < nMax && time.Since(startTime) < timeMax; {
 		last := n
 		prevIters := uint64(st.N)
 		prevMemory := memoryUsed
@@ -269,7 +270,7 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 		}
 		n = memoryMax * prevIters / prevMemory
 		n += n / 5
-		maxGrowth := last * 100
+		maxGrowth := last * 2
 		minGrowth := last + 1
 		if n > maxGrowth {
 			n = maxGrowth
@@ -282,6 +283,8 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 		}
 
 		st.N = int(n)
+		alive := make([]interface{}, 0, n)
+		st.alive = alive
 		nSum += n
 
 		var before, after runtime.MemStats
@@ -294,13 +297,18 @@ func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
 		runtime.GC()
 		runtime.GC()
 		runtime.ReadMemStats(&after)
+		runtime.KeepAlive(alive)
 
-		iterationMeasure := int64(after.Alloc - before.Alloc)
-		valueTrackerOverhead += uint64(cap(st.alive)) * uint64(unsafe.Sizeof(interface{}(nil)))
-		st.alive = nil
-		if iterationMeasure > 0 {
-			memoryUsed += uint64(iterationMeasure)
+		if after.Alloc > before.Alloc {
+			memoryUsed += after.Alloc - before.Alloc
 		}
+		// If st.alive was reallocated, the cost of its new memory block is
+		// included in the measurement. This overhead must be discounted
+		// when reasoning about the measurement.
+		if cap(st.alive) != cap(alive) {
+			valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
+		}
+		st.alive = nil
 	}
 
 	if st.Failed() {
@@ -325,6 +333,7 @@ func (st *ST) Hash() (uint32, error) { return 0, errors.New("unhashable type: st
 var errorMethod = starlark.NewBuiltinWithSafety("error", stSafe, st_error)
 var fatalMethod = starlark.NewBuiltinWithSafety("fatal", stSafe, st_fatal)
 var keepAliveMethod = starlark.NewBuiltinWithSafety("keep_alive", stSafe, st_keep_alive)
+var ntimesMethod = starlark.NewBuiltinWithSafety("ntimes", stSafe, st_ntimes)
 
 func (st *ST) Attr(name string) (starlark.Value, error) {
 	switch name {
@@ -334,6 +343,8 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 		return fatalMethod.BindReceiver(st), nil
 	case "keep_alive":
 		return keepAliveMethod.BindReceiver(st), nil
+	case "ntimes":
+		return ntimesMethod.BindReceiver(st), nil
 	case "n":
 		return starlark.MakeInt(st.N), nil
 	}
@@ -399,4 +410,52 @@ func st_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple,
 	}
 
 	return starlark.None, nil
+}
+
+func st_ntimes(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("%s: unexpected positional arguments", b.Name())
+	}
+	if len(kwargs) > 0 {
+		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
+	}
+
+	recv := b.Receiver().(*ST)
+	return &ntimes_iterable{recv.N}, nil
+}
+
+type ntimes_iterable struct {
+	n int
+}
+
+var _ starlark.Iterable = &ntimes_iterable{}
+
+func (it *ntimes_iterable) Freeze() {}
+func (it *ntimes_iterable) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable: %s", it.Type())
+}
+func (it *ntimes_iterable) String() string       { return "st.ntimes()" }
+func (it *ntimes_iterable) Truth() starlark.Bool { return true }
+func (it *ntimes_iterable) Type() string         { return "st.ntimes" }
+func (it *ntimes_iterable) Iterate() starlark.Iterator {
+	return &ntimes_iterator{it.n}
+}
+
+type ntimes_iterator struct {
+	n int
+}
+
+var _ starlark.SafeIterator = &ntimes_iterator{}
+
+func (it *ntimes_iterator) Safety() starlark.Safety            { return stSafe }
+func (it *ntimes_iterator) BindThread(thread *starlark.Thread) {}
+func (it *ntimes_iterator) Done()                              {}
+func (it *ntimes_iterator) Err() error                         { return nil }
+func (it *ntimes_iterator) Next(p *starlark.Value) bool {
+	if it.n > 0 {
+		it.n--
+		*p = starlark.None
+		return true
+	}
+	return false
 }

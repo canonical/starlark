@@ -2,6 +2,8 @@ package starlark_test
 
 import (
 	"math"
+	"strings"
+	"sync"
 	"testing"
 	"unicode/utf8"
 
@@ -193,7 +195,8 @@ func TestConcurrentCheckAllocsUsage(t *testing.T) {
 	thread.SetMaxAllocs(maxAllocs)
 	thread.AddAllocs(allocPeak - 1)
 
-	done := make(chan struct{}, 2)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
 	go func() {
 		// Flip between 1000...00 and 0111...11 allocations
@@ -201,7 +204,7 @@ func TestConcurrentCheckAllocsUsage(t *testing.T) {
 			thread.AddAllocs(1)
 			thread.AddAllocs(-1)
 		}
-		done <- struct{}{}
+		wg.Done()
 	}()
 	go func() {
 		for i := 0; i < repetitions; i++ {
@@ -211,17 +214,10 @@ func TestConcurrentCheckAllocsUsage(t *testing.T) {
 				break
 			}
 		}
-		done <- struct{}{}
+		wg.Done()
 	}()
 
-	// Await goroutine completion
-	totDone := 0
-	for totDone != 2 {
-		select {
-		case <-done:
-			totDone++
-		}
-	}
+	wg.Wait()
 }
 
 func TestConcurrentAddAllocsUsage(t *testing.T) {
@@ -230,26 +226,20 @@ func TestConcurrentAddAllocsUsage(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
 
-	done := make(chan struct{}, 2)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
 	callAddAlloc := func(n uint) {
 		for i := uint(0); i < n; i++ {
 			thread.AddAllocs(1)
 		}
-		done <- struct{}{}
+		wg.Done()
 	}
 
 	go callAddAlloc(expectedAllocs / 2)
 	go callAddAlloc(expectedAllocs / 2)
 
-	// Await goroutine completion
-	totDone := 0
-	for totDone != 2 {
-		select {
-		case <-done:
-			totDone++
-		}
-	}
+	wg.Wait()
 
 	if allocs := thread.Allocs(); allocs != expectedAllocs {
 		t.Errorf("concurrent thread.AddAlloc contains a race, expected %d allocs recorded but got %d", expectedAllocs, allocs)
@@ -289,30 +279,171 @@ func TestAddAllocsCancelledRejection(t *testing.T) {
 }
 
 func TestSafeStringBuilder(t *testing.T) {
-	st := startest.From(t)
-	st.RunThread(func(thread *starlark.Thread) {
-		var builder starlark.StringBuilder
-		thread.SetMaxAllocs(1)
+	t.Run("over-allocation", func(t *testing.T) {
+		t.Run("Grow", func(t *testing.T) {
+			thread := &starlark.Thread{}
+			thread.SetMaxAllocs(1)
 
-		builder = starlark.NewSafeStringBuilder(thread)
-		if _, err := builder.Write([]byte{1, 2, 3, 4}); err == nil {
-			st.Errorf("Write shouldn't be able to over allocate")
-		}
+			builder := starlark.NewSafeStringBuilder(thread)
+			builder.Grow(1000)
+			if err := builder.Err(); err == nil {
+				t.Errorf("Grow shouldn't be able to over allocate")
+			}
+		})
 
-		builder = starlark.NewSafeStringBuilder(thread)
-		if _, err := builder.WriteString("Test"); err == nil {
-			st.Errorf("WriteString shouldn't be able to over allocate")
-		}
+		t.Run("Write", func(t *testing.T) {
+			thread := &starlark.Thread{}
+			thread.SetMaxAllocs(1)
 
-		builder = starlark.NewSafeStringBuilder(thread)
-		builder.Grow(4)
-		if err := builder.WriteByte(1); err == nil {
-			st.Errorf("WriteByte shouldn't be able to write after an over allocation attempt")
-		}
+			builder := starlark.NewSafeStringBuilder(thread)
+			if _, err := builder.Write(make([]byte, 1000)); err == nil {
+				t.Errorf("Write shouldn't be able to over allocate")
+			}
+		})
 
-		builder = starlark.NewSafeStringBuilder(thread)
-		if _, err := builder.WriteRune(utf8.MaxRune); err == nil {
-			st.Errorf("WriteRune shouldn't be able to over allocate")
-		}
+		t.Run("WriteString", func(t *testing.T) {
+			thread := &starlark.Thread{}
+			thread.SetMaxAllocs(1)
+
+			builder := starlark.NewSafeStringBuilder(thread)
+			if _, err := builder.WriteString("foo bar baz qux"); err == nil {
+				t.Errorf("WriteString shouldn't be able to over allocate")
+			}
+		})
+
+		t.Run("WriteByte", func(t *testing.T) {
+			thread := &starlark.Thread{}
+			thread.SetMaxAllocs(1)
+
+			builder := starlark.NewSafeStringBuilder(thread)
+			builder.Grow(4)
+			if err := builder.WriteByte(1); err == nil {
+				t.Errorf("WriteByte shouldn't be able to write after an over allocation attempt")
+			}
+		})
+
+		t.Run("WriteRune", func(t *testing.T) {
+			thread := &starlark.Thread{}
+			thread.SetMaxAllocs(1)
+
+			builder := starlark.NewSafeStringBuilder(thread)
+			if _, err := builder.WriteRune(utf8.MaxRune); err == nil {
+				t.Errorf("WriteRune shouldn't be able to over allocate")
+			}
+		})
+	})
+
+	t.Run("counting", func(t *testing.T) {
+		t.Run("small", func(t *testing.T) {
+			st := startest.From(t)
+			st.SetMaxAllocs(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					builder := starlark.NewSafeStringBuilder(thread)
+					st.KeepAlive(builder.String())
+				}
+			})
+		})
+
+		t.Run("Grow", func(t *testing.T) {
+			st := startest.From(t)
+			st.RunThread(func(thread *starlark.Thread) {
+				allocs := thread.Allocs()
+				builder := starlark.NewSafeStringBuilder(thread)
+				builder.Grow(st.N)
+				if err := builder.Err(); err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
+					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
+				}
+				st.KeepAlive(builder.String())
+			})
+		})
+
+		t.Run("Write", func(t *testing.T) {
+			st := startest.From(t)
+			st.RunThread(func(thread *starlark.Thread) {
+				allocs := thread.Allocs()
+				builder := starlark.NewSafeStringBuilder(thread)
+				if _, err := builder.Write(make([]byte, st.N)); err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
+					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
+				}
+				st.KeepAlive(builder.String())
+			})
+		})
+
+		t.Run("WriteString", func(t *testing.T) {
+			st := startest.From(t)
+			st.RunThread(func(thread *starlark.Thread) {
+				allocs := thread.Allocs()
+				builder := starlark.NewSafeStringBuilder(thread)
+				if _, err := builder.WriteString(strings.Repeat("a", st.N)); err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
+					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
+				}
+				st.KeepAlive(builder.String())
+			})
+		})
+
+		t.Run("WriteByte", func(t *testing.T) {
+			st := startest.From(t)
+			st.RunThread(func(thread *starlark.Thread) {
+				allocs := thread.Allocs()
+				builder := starlark.NewSafeStringBuilder(thread)
+				for i := 0; i < st.N; i++ {
+					if err := builder.WriteByte(97); err != nil {
+						t.Errorf("unexpected error: %v", err)
+					}
+				}
+				if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
+					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
+				}
+				st.KeepAlive(builder.String())
+			})
+		})
+
+		t.Run("WriteRune", func(t *testing.T) {
+			st := startest.From(t)
+			st.RunThread(func(thread *starlark.Thread) {
+				allocs := thread.Allocs()
+				builder := starlark.NewSafeStringBuilder(thread)
+				for i := 0; i < st.N; i++ {
+					if _, err := builder.WriteRune('a'); err != nil {
+						t.Errorf("unexpected error: %v", err)
+					}
+				}
+				if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
+					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
+				}
+				st.KeepAlive(builder.String())
+			})
+		})
+	})
+
+	t.Run("allocs", func(t *testing.T) {
+		st := startest.From(t)
+		st.RunThread(func(thread *starlark.Thread) {
+			sb := starlark.NewSafeStringBuilder(thread)
+			initialAllocs := thread.Allocs()
+
+			if _, err := sb.WriteString("foo bar baz qux"); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+
+			if thread.Allocs() == initialAllocs {
+				t.Error("SafeStringBuilder did not allocate")
+			}
+
+			expected := thread.Allocs() - initialAllocs
+			if actual := sb.Allocs(); actual != expected {
+				t.Errorf("incorrect number of allocs reported: expected %d but got %d", expected, actual)
+			}
+		})
 	})
 }

@@ -107,35 +107,37 @@ var Module = &starlarkstruct.Module{
 	},
 }
 var safeties = map[string]starlark.Safety{
-	"ceil":      starlark.IOSafe,
-	"copysign":  starlark.IOSafe,
-	"fabs":      starlark.IOSafe,
-	"floor":     starlark.IOSafe,
-	"mod":       starlark.IOSafe,
-	"pow":       starlark.IOSafe,
-	"remainder": starlark.IOSafe,
-	"round":     starlark.IOSafe,
-	"exp":       starlark.IOSafe,
-	"sqrt":      starlark.IOSafe,
-	"acos":      starlark.IOSafe,
-	"asin":      starlark.IOSafe,
-	"atan":      starlark.IOSafe,
-	"atan2":     starlark.IOSafe,
-	"cos":       starlark.IOSafe,
-	"hypot":     starlark.IOSafe,
-	"sin":       starlark.IOSafe,
-	"tan":       starlark.IOSafe,
-	"degrees":   starlark.IOSafe,
-	"radians":   starlark.IOSafe,
-	"acosh":     starlark.IOSafe,
-	"asinh":     starlark.IOSafe,
-	"atanh":     starlark.IOSafe,
-	"cosh":      starlark.IOSafe,
-	"sinh":      starlark.IOSafe,
-	"tanh":      starlark.IOSafe,
-	"log":       starlark.IOSafe,
-	"gamma":     starlark.IOSafe,
+	"ceil":      starlark.MemSafe | starlark.IOSafe,
+	"copysign":  starlark.MemSafe | starlark.IOSafe,
+	"fabs":      starlark.MemSafe | starlark.IOSafe,
+	"floor":     starlark.MemSafe | starlark.IOSafe,
+	"mod":       starlark.MemSafe | starlark.IOSafe,
+	"pow":       starlark.MemSafe | starlark.IOSafe,
+	"remainder": starlark.MemSafe | starlark.IOSafe,
+	"round":     starlark.MemSafe | starlark.IOSafe,
+	"exp":       starlark.MemSafe | starlark.IOSafe,
+	"sqrt":      starlark.MemSafe | starlark.IOSafe,
+	"acos":      starlark.MemSafe | starlark.IOSafe,
+	"asin":      starlark.MemSafe | starlark.IOSafe,
+	"atan":      starlark.MemSafe | starlark.IOSafe,
+	"atan2":     starlark.MemSafe | starlark.IOSafe,
+	"cos":       starlark.MemSafe | starlark.IOSafe,
+	"hypot":     starlark.MemSafe | starlark.IOSafe,
+	"sin":       starlark.MemSafe | starlark.IOSafe,
+	"tan":       starlark.MemSafe | starlark.IOSafe,
+	"degrees":   starlark.MemSafe | starlark.IOSafe,
+	"radians":   starlark.MemSafe | starlark.IOSafe,
+	"acosh":     starlark.MemSafe | starlark.IOSafe,
+	"asinh":     starlark.MemSafe | starlark.IOSafe,
+	"atanh":     starlark.MemSafe | starlark.IOSafe,
+	"cosh":      starlark.MemSafe | starlark.IOSafe,
+	"sinh":      starlark.MemSafe | starlark.IOSafe,
+	"tanh":      starlark.MemSafe | starlark.IOSafe,
+	"log":       starlark.MemSafe | starlark.IOSafe,
+	"gamma":     starlark.MemSafe | starlark.IOSafe,
 }
+
+var floatSize = starlark.EstimateSize(starlark.Float(0))
 
 func init() {
 	for name, safety := range safeties {
@@ -170,6 +172,9 @@ func newUnaryBuiltin(name string, fn func(float64) float64) *starlark.Builtin {
 		if err := starlark.UnpackPositionalArgs(name, args, kwargs, 1, &x); err != nil {
 			return nil, err
 		}
+		if err := thread.AddAllocs(floatSize); err != nil {
+			return nil, err
+		}
 		return starlark.Float(fn(float64(x))), nil
 	})
 }
@@ -180,6 +185,9 @@ func newBinaryBuiltin(name string, fn func(float64, float64) float64) *starlark.
 	return starlark.NewBuiltin(name, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		var x, y floatOrInt
 		if err := starlark.UnpackPositionalArgs(name, args, kwargs, 2, &x, &y); err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(floatSize); err != nil {
 			return nil, err
 		}
 		return starlark.Float(fn(float64(x), float64(y))), nil
@@ -199,6 +207,9 @@ func log(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwar
 	if base == 1 {
 		return nil, errors.New("division by zero")
 	}
+	if err := thread.AddAllocs(floatSize); err != nil {
+		return nil, err
+	}
 	return starlark.Float(math.Log(float64(x)) / math.Log(float64(base))), nil
 }
 
@@ -211,9 +222,17 @@ func ceil(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwa
 
 	switch t := x.(type) {
 	case starlark.Int:
-		return t, nil
+		return x, nil
 	case starlark.Float:
-		return starlark.NumberToInt(starlark.Float(math.Ceil(float64(t))))
+		var res starlark.Value // Avoid transient allocation
+		res, err := starlark.NumberToInt(starlark.Float(math.Ceil(float64(t))))
+		if err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+			return nil, err
+		}
+		return res, nil
 	}
 
 	return nil, fmt.Errorf("got %s, want float or int", x.Type())
@@ -228,9 +247,17 @@ func floor(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kw
 
 	switch t := x.(type) {
 	case starlark.Int:
-		return t, nil
+		return x, nil
 	case starlark.Float:
-		return starlark.NumberToInt(starlark.Float(math.Floor(float64(t))))
+		var ret starlark.Value // Avoid transient allocation
+		ret, err := starlark.NumberToInt(starlark.Float(math.Floor(float64(t))))
+		if err != nil {
+			return nil, err
+		}
+		if err := thread.AddAllocs(starlark.EstimateSize(ret)); err != nil {
+			return nil, err
+		}
+		return ret, nil
 	}
 
 	return nil, fmt.Errorf("got %s, want float or int", x.Type())

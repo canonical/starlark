@@ -224,6 +224,20 @@ func (thread *Thread) CallFrame(depth int) CallFrame {
 	return thread.frameAt(depth).asCallFrame()
 }
 
+// EnsureStack grows the stack to fit n more nested calls.
+func (thread *Thread) EnsureStack(n int) {
+	if n < 0 {
+		panic("internal error: negative stack size")
+	}
+
+	newFrames := make([]frame, n)
+	newStack := thread.stack
+	for i := 0; i < n; i++ {
+		newStack = append(newStack, &newFrames[i])
+	}
+	thread.stack = newStack[:len(thread.stack)]
+}
+
 func (thread *Thread) frameAt(depth int) *frame {
 	return thread.stack[len(thread.stack)-1-depth]
 }
@@ -258,8 +272,8 @@ type StringBuilder interface {
 type SafeStringBuilder struct {
 	builder strings.Builder
 	thread  *Thread
-
-	err error
+	allocs  uint64
+	err     error
 }
 
 var _ StringBuilder = &SafeStringBuilder{}
@@ -270,6 +284,12 @@ func NewSafeStringBuilder(thread *Thread) *SafeStringBuilder {
 	return &SafeStringBuilder{thread: thread}
 }
 
+// Allocs returns the total allocations reported to this SafeStringBuilder's
+// thread.
+func (tb *SafeStringBuilder) Allocs() uint64 {
+	return tb.allocs
+}
+
 func (tb *SafeStringBuilder) safeGrow(n int) error {
 	if tb.err != nil {
 		return tb.err
@@ -277,11 +297,19 @@ func (tb *SafeStringBuilder) safeGrow(n int) error {
 
 	if tb.Cap()-tb.Len() < n {
 		// Make sure that we can allocate more
-		if err := tb.thread.CheckAllocs(int64(tb.Cap()*2 + n)); err != nil {
+		newCap := tb.Cap()*2 + n
+		newBufferSize := EstimateMakeSize([]byte{}, newCap)
+		if err := tb.thread.AddAllocs(newBufferSize - int64(tb.allocs)); err != nil {
 			tb.err = err
 			return err
 		}
-		tb.builder.Grow(n)
+		// The real size of the allocated buffer might be
+		// bigger than expected. For this reason, add the
+		// difference between the real buffer size and the
+		// target capacity, so that every allocated byte
+		// is available to the user.
+		tb.builder.Grow(n + int(newBufferSize) - newCap)
+		tb.allocs = uint64(newBufferSize)
 	}
 	return nil
 }
@@ -321,7 +349,6 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 	} else {
 		growAmount = utf8.UTFMax
 	}
-
 	if err := tb.safeGrow(growAmount); err != nil {
 		return 0, err
 	}
@@ -766,19 +793,30 @@ func makeExprFunc(expr syntax.Expr, env StringDict) (*Function, error) {
 // The following functions are primitive operations of the byte code interpreter.
 
 // list += iterable
-func listExtend(x *List, y Iterable) {
+func safeListExtend(thread *Thread, x *List, y Iterable) error {
+	elemsAppender := NewSafeAppender(thread, &x.elems)
 	if ylist, ok := y.(*List); ok {
 		// fast path: list += list
-		x.elems = append(x.elems, ylist.elems...)
+		if err := elemsAppender.AppendSlice(ylist.elems); err != nil {
+			return err
+		}
 	} else {
-		// TODO: use SafeIterate
-		iter := y.Iterate()
+		iter, err := SafeIterate(thread, y)
+		if err != nil {
+			return err
+		}
 		defer iter.Done()
 		var z Value
 		for iter.Next(&z) {
-			x.elems = append(x.elems, z)
+			if err := elemsAppender.Append(z); err != nil {
+				return err
+			}
+		}
+		if err := iter.Err(); err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
 // getAttr implements x.dot.
@@ -865,33 +903,57 @@ func outOfRange(i, n int, x Value) error {
 	}
 }
 
-// setIndex implements x[y] = z.
-func setIndex(x, y, z Value) error {
-	switch x := x.(type) {
-	case HasSetKey:
-		if err := x.SetKey(y, z); err != nil {
-			return err
-		}
+func sanitizeIndex(collection Indexable, i int) (int, error) {
+	n := collection.Len()
+	origI := i
+	if i < 0 {
+		i += n
+	}
+	if i < 0 || i >= n {
+		return 0, outOfRange(origI, n, collection)
+	}
+	return i, nil
+}
 
-	case HasSetIndex:
-		n := x.Len()
+// setIndex implements x[y] = z.
+func setIndex(thread *Thread, x, y, z Value) error {
+	switch x := x.(type) {
+	case HasSafeSetKey:
+		return x.SafeSetKey(thread, y, z)
+
+	case HasSafeSetIndex:
 		i, err := AsInt32(y)
 		if err != nil {
 			return err
 		}
-		origI := i
-		if i < 0 {
-			i += n
+
+		if i, err = sanitizeIndex(x, i); err != nil {
+			return err
 		}
-		if i < 0 || i >= n {
-			return outOfRange(origI, n, x)
+		return x.SafeSetIndex(thread, i, z)
+
+	case HasSetKey:
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return err
+		}
+		return x.SetKey(y, z)
+
+	case HasSetIndex:
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return err
+		}
+		i, err := AsInt32(y)
+		if err != nil {
+			return err
+		}
+		if i, err = sanitizeIndex(x, i); err != nil {
+			return err
 		}
 		return x.SetIndex(i, z)
 
 	default:
 		return fmt.Errorf("%s value does not support item assignment", x.Type())
 	}
-	return nil
 }
 
 // Unary applies a unary operator (+, -, ~, not) to its operand.
@@ -1422,11 +1484,9 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		fr = new(frame)
 	}
 
-	if thread.stack == nil {
-		// one-time initialization of thread
-		if thread.maxSteps == 0 {
-			thread.maxSteps-- // (MaxUint64)
-		}
+	// one-time initialization of thread
+	if thread.maxSteps == 0 {
+		thread.maxSteps-- // (MaxUint64)
 	}
 
 	thread.stack = append(thread.stack, fr) // push

@@ -36,7 +36,7 @@ type entry struct {
 	prevLink   **entry // address of link to this entry (perhaps &head)
 }
 
-func (ht *hashtable) init(size int) {
+func (ht *hashtable) init(thread *Thread, size int) error {
 	if size < 0 {
 		panic("size < 0")
 	}
@@ -47,9 +47,15 @@ func (ht *hashtable) init(size int) {
 	if nb < 2 {
 		ht.table = ht.bucket0[:1]
 	} else {
+		if thread != nil {
+			if err := thread.AddAllocs(EstimateMakeSize([]bucket{}, nb)); err != nil {
+				return err
+			}
+		}
 		ht.table = make([]bucket, nb)
 	}
 	ht.tailLink = &ht.head
+	return nil
 }
 
 func (ht *hashtable) freeze() {
@@ -69,7 +75,7 @@ func (ht *hashtable) freeze() {
 	}
 }
 
-func (ht *hashtable) insert(k, v Value) error {
+func (ht *hashtable) insert(thread *Thread, k, v Value) error {
 	if ht.frozen {
 		return fmt.Errorf("cannot insert into frozen hash table")
 	}
@@ -77,7 +83,7 @@ func (ht *hashtable) insert(k, v Value) error {
 		return fmt.Errorf("cannot insert into hash table during iteration")
 	}
 	if ht.table == nil {
-		ht.init(1)
+		ht.init(thread, 1)
 	}
 	h, err := k.Hash()
 	if err != nil {
@@ -121,13 +127,20 @@ retry:
 
 	// Does the number of elements exceed the buckets' load factor?
 	if overloaded(int(ht.len), len(ht.table)) {
-		ht.grow()
+		if err := ht.grow(thread); err != nil {
+			return err
+		}
 		goto retry
 	}
 
 	if insert == nil {
 		// No space in existing buckets.  Add a new one to the bucket list.
 		b := new(bucket)
+		if thread != nil {
+			if err := thread.AddAllocs(EstimateSize(b)); err != nil {
+				return err
+			}
+		}
 		p.next = b
 		insert = &b.entries[0]
 	}
@@ -152,7 +165,7 @@ func overloaded(elems, buckets int) bool {
 	return elems >= bucketSize && float64(elems) >= loadFactor*float64(buckets)
 }
 
-func (ht *hashtable) grow() {
+func (ht *hashtable) grow(thread *Thread) error {
 	// Double the number of buckets and rehash.
 	// TODO(adonovan): opt:
 	// - avoid reentrant calls to ht.insert, and specialize it.
@@ -161,15 +174,23 @@ func (ht *hashtable) grow() {
 	// - saving the entire hash in the bucket would avoid the need to
 	//   recompute the hash.
 	// - save the old buckets on a free list.
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateMakeSize([]bucket{}, len(ht.table)<<1)); err != nil {
+			return err
+		}
+	}
 	ht.table = make([]bucket, len(ht.table)<<1)
 	oldhead := ht.head
 	ht.head = nil
 	ht.tailLink = &ht.head
 	ht.len = 0
 	for e := oldhead; e != nil; e = e.next {
-		ht.insert(e.key, e.value)
+		if err := ht.insert(thread, e.key, e.value); err != nil {
+			return err
+		}
 	}
 	ht.bucket0[0] = bucket{} // clear out unused initial bucket
+	return nil
 }
 
 func (ht *hashtable) lookup(k Value) (v Value, found bool, err error) {
@@ -227,6 +248,14 @@ func (ht *hashtable) keys() []Value {
 		keys = append(keys, e.key)
 	}
 	return keys
+}
+
+func (ht *hashtable) values() []Value {
+	values := make([]Value, 0, ht.len)
+	for e := ht.head; e != nil; e = e.next {
+		values = append(values, e.value)
+	}
+	return values
 }
 
 func (ht *hashtable) delete(k Value) (v Value, found bool, err error) {

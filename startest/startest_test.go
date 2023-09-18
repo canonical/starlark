@@ -221,12 +221,10 @@ func TestKeepAlive(t *testing.T) {
 func TestStepBounding(t *testing.T) {
 	t.Run("steps=safe", func(t *testing.T) {
 		st := startest.From(t)
-		st.SetMaxExecutionSteps(1000)
-
-		st.AddBuiltin(safeRange)
+		st.SetMaxExecutionSteps(10)
 
 		st.RunString(`
-			for _ in range(st.n):
+			for _ in st.ntimes():
 				pass
 		`)
 	})
@@ -237,11 +235,11 @@ func TestStepBounding(t *testing.T) {
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
 		st.SetMaxExecutionSteps(1)
-		st.AddBuiltin(safeRange)
 		st.RunString(`
-			for _ in range(st.n):
-				for _ in range(2):
-					pass
+			i = 0
+			for _ in st.ntimes():
+				i += 1
+				i += 1
 		`)
 
 		if !st.Failed() {
@@ -839,35 +837,22 @@ func (iter *dummyRangeIterator) Next(p *starlark.Value) bool {
 func (iter *dummyRangeIterator) Done()      {}
 func (iter *dummyRangeIterator) Err() error { return nil }
 
-var safeRange *starlark.Builtin
-
-func init() {
-	rangeValue, ok := starlark.Universe["range"]
-	if !ok {
-		panic("range builtin not defined")
-	}
-	rangeBuiltin, ok := rangeValue.(*starlark.Builtin)
-	if !ok {
-		panic("range is not a builtin")
-	}
-
-	s := *rangeBuiltin
-	safeRange = &s
-	safeRange.DeclareSafety(startest.STSafe)
-}
-
 func TestRunStringMemSafety(t *testing.T) {
 	t.Run("safety=safe", func(t *testing.T) {
+		allocateResultSize := starlark.EstimateSize(starlark.Tuple{}) +
+			starlark.EstimateMakeSize(starlark.Tuple{}, 100)
 		allocate := starlark.NewBuiltinWithSafety("allocate", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-			return starlark.String(make([]byte, 100)), thread.AddAllocs(128)
+			if err := thread.AddAllocs(allocateResultSize); err != nil {
+				return nil, err
+			}
+			return make(starlark.Tuple, 100), nil
 		})
 
 		st := startest.From(t)
-		st.SetMaxAllocs(128)
+		st.SetMaxAllocs(uint64(allocateResultSize))
 		st.AddBuiltin(allocate)
-		st.AddBuiltin(safeRange)
 		ok := st.RunString(`
-			for _ in range(st.n):
+			for _ in st.ntimes():
 				st.keep_alive(allocate())
 		`)
 		if !ok {
@@ -876,19 +861,20 @@ func TestRunStringMemSafety(t *testing.T) {
 	})
 
 	t.Run("safety=unsafe", func(t *testing.T) {
-		const expected = "measured memory is above declared allocations (128 > 0)"
+		const expected = "measured memory is above declared allocations"
 
+		overallocateResultSize := starlark.EstimateSize(starlark.Tuple{}) +
+			starlark.EstimateMakeSize(starlark.Tuple{}, 100)
 		overallocate := starlark.NewBuiltinWithSafety("overallocate", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-			return starlark.String(make([]byte, 100)), nil
+			return make(starlark.Tuple, 100), nil
 		})
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
-		st.SetMaxAllocs(128)
+		st.SetMaxAllocs(uint64(overallocateResultSize * 2)) // test correct error when within max
 		st.AddBuiltin(overallocate)
-		st.AddBuiltin(safeRange)
 		ok := st.RunString(`
-			for _ in range(st.n):
+			for _ in st.ntimes():
 				st.keep_alive(overallocate())
 		`)
 		if !ok {
@@ -899,22 +885,21 @@ func TestRunStringMemSafety(t *testing.T) {
 			t.Error("expected failure")
 		}
 
-		if errLog := dummy.Errors(); errLog != expected {
+		if errLog := dummy.Errors(); !strings.HasPrefix(errLog, expected) {
 			t.Errorf("unexpected error(s): %#v", errLog)
 		}
 	})
 
 	t.Run("safety=notsafe", func(t *testing.T) {
 		overallocate := starlark.NewBuiltinWithSafety("overallocate", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-			return starlark.String(make([]byte, 100)), nil
+			return make(starlark.Tuple, 100), nil
 		})
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.NotSafe)
 		st.AddBuiltin(overallocate)
-		st.AddBuiltin(safeRange)
 		ok := st.RunString(`
-			for _ in range(st.n):
+			for _ in st.ntimes():
 				st.keep_alive(overallocate())
 		`)
 		if !ok {

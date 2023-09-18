@@ -80,8 +80,8 @@ var Module = &starlarkstruct.Module{
 }
 var safeties = map[string]starlark.Safety{
 	"encode": starlark.IOSafe,
-	"decode": starlark.IOSafe,
-	"indent": starlark.IOSafe,
+	"decode": starlark.MemSafe | starlark.IOSafe,
+	"indent": starlark.MemSafe | starlark.IOSafe,
 }
 
 func init() {
@@ -254,10 +254,43 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	if err := starlark.UnpackPositionalArgs(b.Name(), args, nil, 1, &str); err != nil {
 		return nil, err
 	}
-
 	buf := new(bytes.Buffer)
+	buf.Grow(len(str)) // Preallocate since that's the least amount of bytes written
+
+	// There is no way to overload the `buf` calls, so either the entire
+	// logic is rewritten or an estimation is made.
+	// In general, this function will allocate transiently at least 3 times
+	// the original string (best case):
+	//  - once in the converision `[]byte(str)`;
+	//  - once while copying the result (+ indentation) in `buf`;
+	//  - once in the `buf.String()` call (+ indentation).
+	// To be on the safe side, unfortunately, the worst case should considered.
+	// In case of indentation, the worst case is a recursive list of lists as
+	// it adds a new level of indentation every 2 characters. Clearly, this is
+	// a quadratic growth as the increment grows linearly.
+
+	n := strings.Count(str, "[") + strings.Count(str, "{")
+	// Taking into account tabs and newlines and working out the algebra, the
+	// worst case can be compacted in the quadratic formula:
+	worstCase := n*n + 2*n - 1
+
+	// This makes this function most likely unusable in the context of a
+	// script, but there are only two other approaces to tackle this part:
+	// - mark the function as **not** MemSafe, which makes the function
+	//   unusable as well;
+	// - copy-paste (e.g. rewrite) the indenting logic, so that it uses
+	//   a `StringBuilder` instead.
+	// The second approach has the potential of actually reduce the
+	// transient allocation and speed up the execution, but it's probably
+	// not worthy for a "pretty print" function.
+	if err := thread.CheckAllocs(int64(len(str) + worstCase*2)); err != nil {
+		return nil, err
+	}
 	if err := json.Indent(buf, []byte(str), prefix, indent); err != nil {
 		return nil, fmt.Errorf("%s: %v", b.Name(), err)
+	}
+	if err := thread.AddAllocs(int64(buf.Cap()) + starlark.StringTypeOverhead); err != nil {
+		return nil, err
 	}
 	return starlark.String(buf.String()), nil
 }
@@ -274,12 +307,16 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	// control the returned types, but there's no compelling need yet.
 
 	// Use panic/recover with a distinguished type (failure) for error handling.
-	type failure string
+	i := 0
+
+	type forward struct{ underlying error }
 	fail := func(format string, args ...interface{}) {
-		panic(failure(fmt.Sprintf(format, args...)))
+		panic(forward{fmt.Errorf("json.decode: at offset %d, %s", i, fmt.Sprintf(format, args...))})
 	}
 
-	i := 0
+	failWith := func(err error) {
+		panic(forward{err})
+	}
 
 	// skipSpace consumes leading spaces, and reports whether there is more input.
 	skipSpace := func() bool {
@@ -340,9 +377,17 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 
 			// unquote
 			if safe {
+				if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
+					failWith(err)
+				}
 				r = r[1 : len(r)-1]
-			} else if err := json.Unmarshal([]byte(r), &r); err != nil {
-				fail("%s", err)
+			} else {
+				if err := json.Unmarshal([]byte(r), &r); err != nil {
+					fail("%s", err)
+				}
+				if err := thread.AddAllocs(starlark.EstimateSize(r)); err != nil {
+					failWith(err)
+				}
 			}
 			return starlark.String(r)
 
@@ -367,13 +412,16 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 		case '[':
 			// array
 			var elems []starlark.Value
+			elemsAppender := starlark.NewSafeAppender(thread, &elems)
 
 			i++ // '['
 			b = next()
 			if b != ']' {
 				for {
 					elem := parse()
-					elems = append(elems, elem)
+					if err := elemsAppender.Append(elem); err != nil {
+						failWith(err)
+					}
 					b = next()
 					if b != ',' {
 						if b != ']' {
@@ -385,11 +433,17 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				}
 			}
 			i++ // ']'
+			if err := thread.AddAllocs(starlark.EstimateSize(&starlark.List{})); err != nil {
+				failWith(err)
+			}
 			return starlark.NewList(elems)
 
 		case '{':
 			// object
 			dict := new(starlark.Dict)
+			if err := thread.AddAllocs(starlark.EstimateSize(dict)); err != nil {
+				failWith(err)
+			}
 
 			i++ // '{'
 			b = next()
@@ -405,7 +459,9 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 					}
 					i++ // ':'
 					value := parse()
-					dict.SetKey(key, value) // can't fail
+					if err := dict.SafeSetKey(thread, key, value); err != nil {
+						failWith(err)
+					}
 					b = next()
 					if b != ',' {
 						if b != '}' {
@@ -458,13 +514,21 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 					if err != nil {
 						fail("invalid number: %s", num)
 					}
-					return starlark.Float(x)
+					res := starlark.Value(starlark.Float(x))
+					if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+						failWith(err)
+					}
+					return res
 				} else {
 					x, ok := new(big.Int).SetString(num, 10)
 					if !ok {
 						fail("invalid number: %s", num)
 					}
-					return starlark.MakeBigInt(x)
+					res := starlark.Value(starlark.MakeBigInt(x))
+					if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+						failWith(err)
+					}
+					return res
 				}
 			}
 		}
@@ -474,8 +538,8 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	defer func() {
 		x := recover()
 		switch x := x.(type) {
-		case failure:
-			err = fmt.Errorf("json.decode: at offset %d, %s", i, x)
+		case forward:
+			err = x.underlying
 		case nil:
 			// nop
 		default:
