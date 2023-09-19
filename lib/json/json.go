@@ -79,9 +79,9 @@ var Module = &starlarkstruct.Module{
 	},
 }
 var safeties = map[string]starlark.Safety{
-	"encode": starlark.NotSafe,
-	"decode": starlark.MemSafe,
-	"indent": starlark.MemSafe,
+	"encode": starlark.IOSafe,
+	"decode": starlark.MemSafe | starlark.IOSafe,
+	"indent": starlark.MemSafe | starlark.IOSafe,
 }
 
 func init() {
