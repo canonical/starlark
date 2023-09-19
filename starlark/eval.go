@@ -807,24 +807,26 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 
 // getAttr implements x.dot.
 func getAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
-	var getAttrs func() []string
+	var getAttrNames func() []string
 	var attr Value
 	var err error
 
 	switch x := x.(type) {
 	case HasSafeAttrs:
-		getAttrs = x.AttrNames
+		getAttrNames = x.AttrNames
 		attr, err = x.SafeAttr(thread, name)
 	case HasAttrs:
 		if err := CheckSafety(thread, NotSafe); err != nil {
 			return nil, err
 		}
 
-		getAttrs = x.AttrNames
+		getAttrNames = x.AttrNames
 		attr, err = x.Attr(name)
 		if attr == nil && err == nil {
 			err = ErrNoSuchAttr
 		}
+	default:
+		return nil, fmt.Errorf("%s has no .%s field or method", x.Type(), name)
 	}
 
 	if err != nil {
@@ -839,7 +841,7 @@ func getAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
 
 		// add spelling hint
 		if hint {
-			if n := spell.Nearest(name, getAttrs()); n != "" {
+			if n := spell.Nearest(name, getAttrNames()); n != "" {
 				errmsg = fmt.Sprintf("%s (did you mean .%s?)", errmsg, n)
 			}
 		}
