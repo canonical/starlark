@@ -420,8 +420,8 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	//    positive infinity.
 	// The second point is particularly important as Go doesn't define what
 	// happens during division by 0 - it could either be infinity or panic.
-	ns, timeSamples = ns[1:], timeSamples[1:]
 	timeSamples = removeNoise(timeSamples)
+	ns, timeSamples = ns[1:], timeSamples[1:]
 	for maxSeen, i := .0, 1; i < len(timeSamples); i++ {
 		if maxSeen < timeSamples[i-1] {
 			maxSeen = timeSamples[i-1]
