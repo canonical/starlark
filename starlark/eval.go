@@ -978,7 +978,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 						return nil, err
 					}
 					result := Value(x.Add(y))
-					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+					if err := thread.AddAllocs(result); err != nil {
 						return nil, err
 					}
 					return result, nil
@@ -990,7 +990,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					return nil, err
 				}
 				if thread != nil {
-					if err := thread.AddAllocs(EstimateSize(floatSize)); err != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
 						return nil, err
 					}
 				}
@@ -1000,7 +1000,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			switch y := y.(type) {
 			case Float:
 				if thread != nil {
-					if err := thread.AddAllocs(EstimateSize(floatSize)); err != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
 						return nil, err
 					}
 				}
@@ -1011,7 +1011,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					return nil, err
 				}
 				if thread != nil {
-					if err := thread.AddAllocs(EstimateSize(floatSize)); err != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
 						return nil, err
 					}
 				}
