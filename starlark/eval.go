@@ -949,8 +949,9 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 	return safeBinary(nil, op, x, y)
 }
 
+var floatSize = EstimateSize(Float(0))
+
 func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
-	floatSize := EstimateSize(Float(0))
 	max := func(a, b int64) int64 {
 		if a > b {
 			return a
