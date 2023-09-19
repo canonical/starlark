@@ -414,6 +414,10 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		retried = false
 	}
 
+	if st.Failed() {
+		return executionStats{}
+	}
+
 	// It's best to discard the first sample as:
 	//  - it usually includes warmup time for the function;
 	//  - it's log would be zero so maxNegligibleElapsed would become
@@ -430,10 +434,6 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		if timeSamples[i] > maxNegligibleElapsed {
 			unaccountedCpuTime = true
 		}
-	}
-
-	if st.Failed() {
-		return executionStats{}
 	}
 
 	if valueTrackerOverhead > allocSum {

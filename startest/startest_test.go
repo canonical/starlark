@@ -1097,14 +1097,14 @@ func TestStepsCheck(t *testing.T) {
 	t.Run("log", func(t *testing.T) {
 		st := startest.From(t)
 		st.RunThread(func(t *starlark.Thread) {
-			st.KeepAlive(make([]int, int(math.Log(float64(st.N)))))
+			st.KeepAlive(make([]int, int(math.Log(float64(st.N)*100))))
 		})
 	})
 
 	t.Run("linear", func(t *testing.T) {
 		st := startest.From(&dummyBase{})
 		st.RunThread(func(t *starlark.Thread) {
-			st.KeepAlive(make([]int, st.N))
+			st.KeepAlive(make([]int, st.N*100))
 		})
 		if !st.Failed() {
 			t.Error("expected failure for linear function")
