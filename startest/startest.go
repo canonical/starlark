@@ -295,15 +295,15 @@ func removeNoise(signal []float64) []float64 {
 	// n^k, e^n) will appear to have a low frequency compared with
 	// measured noise.
 	filter := iir2{
-		// Butterworth weights for 1/40th of the sampling frequency
+		// Butterworth weights for 1/32th of the sampling frequency
 		B: [3]float64{
-			5.542717210280681e-03,
-			1.108543442056136e-02,
-			5.542717210280681e-03,
+			8.442692929079947e-03,
+			1.688538585815989e-02,
+			8.442692929079947e-03,
 		},
 		A: [2]float64{
-			-1.778631777824585,
-			0.800802646665708,
+			-1.723776172762509,
+			0.757546944478829,
 		},
 	}
 	return filter.BatchFilter(signal)
