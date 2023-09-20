@@ -1021,7 +1021,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 						return nil, err
 					}
 					result := Value(x.Add(y))
-					if err := thread.AddAllocs(result); err != nil {
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 						return nil, err
 					}
 					return result, nil
