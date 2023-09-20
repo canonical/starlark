@@ -990,7 +990,6 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 var floatSize = EstimateSize(Float(0))
 
 func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
-	const safety = MemSafe
 	if err := CheckSafety(thread, MemSafe); err != nil {
 		return nil, err
 	}
