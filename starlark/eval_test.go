@@ -1240,13 +1240,13 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 	}
 }
 
-type safeBinaryTest struct {
+type safeBinaryAllocTest struct {
 	name           string
 	inputs         func(n int) (starlark.Value, syntax.Token, starlark.Value)
 	assertNoAllocs bool
 }
 
-func (b safeBinaryTest) Run(t *testing.T) {
+func (b safeBinaryAllocTest) Run(t *testing.T) {
 	t.Run(b.name, func(t *testing.T) {
 		if b.inputs == nil {
 			t.Fatalf("binary test '%v' missing inputs field", b.name)
@@ -1274,6 +1274,7 @@ func (b safeBinaryTest) Run(t *testing.T) {
 			if b.assertNoAllocs {
 				st.SetMaxAllocs(0)
 			}
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				x, op, y := b.inputs(1)
 				for i := 0; i < st.N; i++ {
@@ -1291,6 +1292,7 @@ func (b safeBinaryTest) Run(t *testing.T) {
 			if b.assertNoAllocs {
 				st.SetMaxAllocs(0)
 			}
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				x, op, y := b.inputs(st.N)
 				result, err := starlark.SafeBinary(thread, op, x, y)
@@ -1355,7 +1357,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 			`)
 		})
 
-		tests := []safeBinaryTest{{
+		tests := []safeBinaryAllocTest{{
 			name: "string + string",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				str := starlark.String(strings.Repeat("x", n/2))
