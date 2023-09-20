@@ -28,25 +28,49 @@ func TestModuleSafeties(t *testing.T) {
 	}
 }
 
+func TestProtoFileSteps(t *testing.T) {
+}
+
 func TestProtoFileAllocs(t *testing.T) {
+}
+
+func TestProtoHasSteps(t *testing.T) {
 }
 
 func TestProtoHasAllocs(t *testing.T) {
 }
 
+func TestProtoMarshalSteps(t *testing.T) {
+}
+
 func TestProtoMarshalAllocs(t *testing.T) {
+}
+
+func TestProtoMarshalTextSteps(t *testing.T) {
 }
 
 func TestProtoMarshalTextAllocs(t *testing.T) {
 }
 
+func TestProtoSetFieldSteps(t *testing.T) {
+}
+
 func TestProtoSetFieldAllocs(t *testing.T) {
+}
+
+func TestProtoGetFieldSteps(t *testing.T) {
 }
 
 func TestProtoGetFieldAllocs(t *testing.T) {
 }
 
+func TestProtoUnmarshalSteps(t *testing.T) {
+}
+
 func TestProtoUnmarshalAllocs(t *testing.T) {
+}
+
+func TestProtoUnmarshalTextSteps(t *testing.T) {
 }
 
 func TestProtoUnmarshalTextAllocs(t *testing.T) {

@@ -384,7 +384,7 @@ loop:
 			y := stack[sp-2]
 			x := stack[sp-3]
 			sp -= 3
-			err = setIndex(x, y, z)
+			err = setIndex(thread, x, y, z)
 			if err != nil {
 				break loop
 			}
@@ -435,7 +435,7 @@ loop:
 			v := stack[sp-1]
 			sp -= 3
 			oldlen := dict.Len()
-			if err2 := dict.SetKey(k, v); err2 != nil {
+			if err2 := dict.SafeSetKey(thread, k, v); err2 != nil {
 				err = err2
 				break loop
 			}
@@ -448,7 +448,11 @@ loop:
 			elem := stack[sp-1]
 			list := stack[sp-2].(*List)
 			sp -= 2
-			list.elems = append(list.elems, elem)
+			listAppender := NewSafeAppender(thread, &list.elems)
+			if err2 := listAppender.Append(elem); err2 != nil {
+				err = err2
+				break loop
+			}
 
 		case compile.SLICE:
 			x := stack[sp-4]
@@ -468,10 +472,13 @@ loop:
 			n := int(arg)
 			iterable := stack[sp-1]
 			sp--
-			// TODO: use SafeIterate
-			iter := Iterate(iterable)
-			if iter == nil {
-				err = fmt.Errorf("got %s in sequence assignment", iterable.Type())
+			iter, err2 := SafeIterate(thread, iterable)
+			if err2 != nil {
+				if err2 == ErrUnsupported {
+					err = fmt.Errorf("got %s in sequence assignment", iterable.Type())
+				} else {
+					err = err2
+				}
 				break loop
 			}
 			i := 0
@@ -486,6 +493,10 @@ loop:
 				break loop
 			}
 			iter.Done()
+			if err2 := iter.Err(); err2 != nil {
+				err = err2
+				break loop
+			}
 			if i < n {
 				err = fmt.Errorf("too few values to unpack (got %d, want %d)", i, n)
 				break loop

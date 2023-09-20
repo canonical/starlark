@@ -68,10 +68,10 @@ var Module = &starlarkstruct.Module{
 	},
 }
 var safeties = map[string]starlark.Safety{
-	"from_timestamp":    starlark.MemSafe,
+	"from_timestamp":    starlark.MemSafe | starlark.IOSafe,
 	"is_valid_timezone": starlark.MemSafe,
-	"now":               starlark.NotSafe,
-	"parse_duration":    starlark.MemSafe,
+	"now":               starlark.MemSafe | starlark.IOSafe,
+	"parse_duration":    starlark.MemSafe | starlark.IOSafe,
 	"parse_time":        starlark.NotSafe,
 	"time":              starlark.NotSafe,
 }
@@ -90,6 +90,7 @@ func init() {
 // so that it can be overridden, for example by applications that require their
 // Starlark scripts to be fully deterministic.
 var NowFunc = time.Now
+var NowFuncSafety = starlark.MemSafe
 
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var d Duration
@@ -155,6 +156,12 @@ func fromTimestamp(thread *starlark.Thread, _ *starlark.Builtin, args starlark.T
 }
 
 func now(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	if err := thread.CheckPermits(NowFuncSafety); err != nil {
+		return nil, err
+	}
+	if err := thread.AddAllocs(starlark.EstimateSize(Time{})); err != nil {
+		return nil, err
+	}
 	return Time(NowFunc()), nil
 }
 
@@ -466,7 +473,7 @@ var timeMethods = map[string]builtinMethod{
 
 var timeMethodSafeties = map[string]starlark.Safety{
 	"in_location": starlark.NotSafe,
-	"format":      starlark.NotSafe,
+	"format":      starlark.IOSafe,
 }
 
 func timeFormat(fnname string, recV starlark.Value, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
