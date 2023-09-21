@@ -1089,6 +1089,7 @@ func TestRunStringErrorPositions(t *testing.T) {
 func TestStepsCheck(t *testing.T) {
 	t.Run("constant", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(t *starlark.Thread) {
 			st.KeepAlive(make([]int, 400))
 		})
@@ -1096,6 +1097,7 @@ func TestStepsCheck(t *testing.T) {
 
 	t.Run("log", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(t *starlark.Thread) {
 			st.KeepAlive(make([]int, int(math.Log(float64(st.N)*100))))
 		})
@@ -1103,6 +1105,7 @@ func TestStepsCheck(t *testing.T) {
 
 	t.Run("linear", func(t *testing.T) {
 		st := startest.From(&dummyBase{})
+		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(t *starlark.Thread) {
 			st.KeepAlive(make([]int, st.N*100))
 		})
@@ -1113,6 +1116,7 @@ func TestStepsCheck(t *testing.T) {
 
 	t.Run("quadratic", func(t *testing.T) {
 		st := startest.From(&dummyBase{})
+		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(t *starlark.Thread) {
 			st.KeepAlive(make([]int, st.N*st.N/64))
 		})
