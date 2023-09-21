@@ -1256,7 +1256,7 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 			t.Fatalf("binary test of %v %v %v has empty name field", x.Type(), op, y.Type())
 		}
 
-		t.Run("nil-thread soundness", func(t *testing.T) {
+		t.Run("nil-thread", func(t *testing.T) {
 			defer func() {
 				if err := recover(); err != nil {
 					t.Errorf("unexpected panic: %v", err)
