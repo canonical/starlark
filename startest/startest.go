@@ -334,7 +334,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		}
 		n := memoryMax * prevN / prevMemory
 		n += n / 5
-		maxGrowth := prevN + 64
+		maxGrowth := prevN + 100
 		minGrowth := prevN + 1
 		if n > maxGrowth {
 			n = maxGrowth
