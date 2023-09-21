@@ -334,7 +334,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		}
 		n := memoryMax * prevN / prevMemory
 		n += n / 5
-		maxGrowth := prevN * 2
+		maxGrowth := prevN + 64
 		minGrowth := prevN + 1
 		if n > maxGrowth {
 			n = maxGrowth
@@ -370,9 +370,8 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		runtime.ReadMemStats(&after)
 		runtime.KeepAlive(alive)
 
-		if st.requiredSafety.Contains(starlark.CPUSafe) && prevN > 1 {
-			maxNegligibleElapsed := float64(prevElapsed) * math.Log(float64(n)) / math.Log(float64(prevN))
-			if float64(st.elapsed) > maxNegligibleElapsed {
+		if st.requiredSafety.Contains(starlark.CPUSafe) && prevElapsed > 0 {
+			if st.elapsed > prevElapsed*2 {
 				// confirming that the quick increase in time comes
 				// from the function execution and not external factors
 				if !retried {
