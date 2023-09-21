@@ -1442,10 +1442,8 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 	// user-defined types
 	// (nil, nil) => unhandled
 	// TODO: use SafeIterate (SafeBinary?)
-	if thread != nil {
-		if err := thread.CheckPermits(NotSafe); err != nil {
-			return nil, err
-		}
+	if err := CheckSafety(thread, NotSafe); err != nil {
+		return nil, err
 	}
 	if x, ok := x.(HasBinary); ok {
 		z, err := x.Binary(op, y, Left)
