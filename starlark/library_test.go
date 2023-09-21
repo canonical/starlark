@@ -3473,7 +3473,7 @@ func TestStringRsplitAllocs(t *testing.T) {
 			// I must count the string content as well since it will
 			// be kept alive by the slices taken by the delimeter.
 			str := starlark.String(strings.Repeat("deadbeef", st.N))
-			if err := thread.AddAllocs(int64(len(str))); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, st.N)); err != nil {
 				st.Error(err)
 			}
 
@@ -3495,7 +3495,7 @@ func TestStringRsplitAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("go    go", st.N))
-			if err := thread.AddAllocs(int64(len(str))); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, st.N)); err != nil {
 				st.Error(err)
 			}
 
@@ -3526,7 +3526,7 @@ func TestStringSplitAllocs(t *testing.T) {
 			// I must count the string content as well since it will
 			// be kept alive by the slices taken by the delimeter.
 			str := starlark.String(strings.Repeat("deadbeef", st.N))
-			if err := thread.AddAllocs(int64(len(str))); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, st.N)); err != nil {
 				st.Error(err)
 			}
 
@@ -3548,7 +3548,7 @@ func TestStringSplitAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("go    go", st.N))
-			if err := thread.AddAllocs(int64(len(str))); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, st.N)); err != nil {
 				st.Error(err)
 			}
 
