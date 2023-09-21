@@ -932,6 +932,7 @@ func TestAssertModuleIntegration(t *testing.T) {
 
 		for _, passingTest := range passingTests {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe) // TODO: remove this once full safety reached
 			st.AddValue("fail", &safeFail)
 			if ok := st.RunString(passingTest); !ok {
 				t.Errorf("RunString returned false")
@@ -981,6 +982,7 @@ func TestAssertModuleIntegration(t *testing.T) {
 		for _, test := range tests {
 			dummy := &dummyBase{}
 			st := startest.From(dummy)
+			st.RequireSafety(starlark.MemSafe) // TODO: remove this once full safety reached
 			st.AddBuiltin(no_error)
 			if ok := st.RunString(test.input); !ok {
 				t.Errorf("%s: RunString returned false on '%s'", test.name, test.input)
