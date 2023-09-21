@@ -425,11 +425,8 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	// happens during division by 0 - it could either be infinity or panic.
 	timeSamples = removeNoise(timeSamples)
 	ns, timeSamples = ns[1:], timeSamples[1:]
-	for maxSeen, i := .0, 1; i < len(timeSamples); i++ {
-		if maxSeen < timeSamples[i-1] {
-			maxSeen = timeSamples[i-1]
-		}
-		maxNegligibleElapsed := maxSeen * math.Log(float64(ns[i])) / math.Log(float64(ns[i-1]))
+	for i := 1; i < len(timeSamples); i++ {
+		maxNegligibleElapsed := timeSamples[0] * math.Log(float64(ns[i]))
 		if timeSamples[i] > maxNegligibleElapsed {
 			unaccountedCpuTime = true
 		}

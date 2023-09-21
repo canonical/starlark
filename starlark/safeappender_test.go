@@ -266,7 +266,7 @@ func TestSafeAppenderAppendSlice(t *testing.T) {
 			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				slice := []int{1, 3, 5}
-				if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
+				if err := thread.AddAllocs(starlark.EstimateSize(slice) + starlark.SliceTypeOverhead); err != nil {
 					st.Error(err)
 				}
 				st.KeepAlive(slice)
@@ -280,6 +280,9 @@ func TestSafeAppenderAppendSlice(t *testing.T) {
 
 				sa := starlark.NewSafeAppender(thread, &slice)
 				if err := sa.AppendSlice(toAppend); err != nil {
+					st.Error(err)
+				}
+				if err := thread.AddAllocs(starlark.SliceTypeOverhead); err != nil {
 					st.Error(err)
 				}
 				st.KeepAlive(slice)
