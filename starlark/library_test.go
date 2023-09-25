@@ -2262,7 +2262,6 @@ func TestBytesElemsSteps(t *testing.T) {
 }
 
 func TestBytesElemsAllocs(t *testing.T) {
-
 	t.Run("iterator-acquisition", func(t *testing.T) {
 		bytes_elems, _ := starlark.Bytes("arbitrary-string").Attr("elems")
 		if bytes_elems == nil {
