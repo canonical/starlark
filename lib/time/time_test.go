@@ -41,6 +41,71 @@ func TestMethodSafetiesExist(t *testing.T) {
 	}
 }
 
+func TestTimeNowSafety(t *testing.T) {
+	now, ok := time.Module.Members["now"]
+	if !ok {
+		t.Fatal("no such builtin: now")
+	}
+
+	nowSafety, ok := time.Safeties["now"]
+	if !ok {
+		t.Fatal("no safety for builtin: now")
+	}
+	if nowSafety == starlark.NotSafe {
+		t.Fatal("now builtin is not safe")
+	}
+
+	safeThreadSafety := nowSafety
+	safeThread := &starlark.Thread{}
+	safeThread.RequireSafety(safeThreadSafety)
+
+	tests := []struct {
+		name          string
+		thread        *starlark.Thread
+		nowFuncSafety starlark.Safety
+		expect        string
+	}{{
+		name:          "default",
+		thread:        &starlark.Thread{},
+		nowFuncSafety: time.NowFuncSafety,
+	}, {
+		name:          "no-safety-required",
+		thread:        &starlark.Thread{},
+		nowFuncSafety: starlark.NotSafe,
+	}, {
+		name:          "not-safe",
+		thread:        safeThread,
+		nowFuncSafety: starlark.NotSafe,
+		expect:        "feature unavailable to the sandbox",
+	}, {
+		name:          "safe",
+		thread:        safeThread,
+		nowFuncSafety: safeThreadSafety,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			originalNowFuncSafety := time.NowFuncSafety
+			time.NowFuncSafety = test.nowFuncSafety
+			defer func() { time.NowFuncSafety = originalNowFuncSafety }()
+
+			_, err := starlark.Call(test.thread, now, nil, nil)
+			if test.expect != "" && err == nil {
+				t.Errorf("now returned no error, expected: %v", test.expect)
+			}
+			if err != nil {
+				if test.expect == "" {
+					t.Errorf("unexpected error: %v", err)
+				} else if test.expect != err.Error() {
+					t.Errorf("unexpected error: expected %#v but got %#v", test.expect, err)
+				}
+			}
+		})
+	}
+}
+
+func TestTimeFromTimestampSteps(t *testing.T) {
+}
+
 func TestTimeFromTimestampAllocs(t *testing.T) {
 	from_timestamp, ok := time.Module.Members["from_timestamp"]
 	if !ok {
@@ -58,6 +123,9 @@ func TestTimeFromTimestampAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		}
 	})
+}
+
+func TestTimeIsValidTimezoneSteps(t *testing.T) {
 }
 
 func TestTimeIsValidTimezoneAllocs(t *testing.T) {
@@ -97,7 +165,29 @@ func TestTimeIsValidTimezoneAllocs(t *testing.T) {
 	})
 }
 
+func TestTimeNowSteps(t *testing.T) {
+}
+
 func TestTimeNowAllocs(t *testing.T) {
+	now, ok := time.Module.Members["now"]
+	if !ok {
+		t.Fatal("no such builtin: now")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, now, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
+}
+
+func TestTimeParseDurationSteps(t *testing.T) {
 }
 
 func TestTimeParseDurationAllocs(t *testing.T) {
@@ -136,7 +226,13 @@ func TestTimeParseDurationAllocs(t *testing.T) {
 	})
 }
 
+func TestTimeParseTimeSteps(t *testing.T) {
+}
+
 func TestTimeParseTimeAllocs(t *testing.T) {
+}
+
+func TestTimeTimeSteps(t *testing.T) {
 }
 
 func TestTimeTimeAllocs(t *testing.T) {

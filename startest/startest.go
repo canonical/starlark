@@ -261,7 +261,9 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		if meanDeclaredAllocs > st.maxAllocs {
 			st.Errorf("declared allocations are above maximum (%d > %d)", meanDeclaredAllocs, st.maxAllocs)
 		}
-		if meanMeasuredAllocs > meanDeclaredAllocs {
+
+		// Check memory usage is safe, within mean rounding error (i.e. round(alloc error per N) == 0)
+		if stats.allocSum > thread.Allocs() && (stats.allocSum-thread.Allocs())*2 >= stats.nSum {
 			st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasuredAllocs, meanDeclaredAllocs)
 		}
 	}
