@@ -2294,11 +2294,7 @@ func TestBytesElemsAllocs(t *testing.T) {
 			if err != nil {
 				st.Fatal(err)
 			}
-			iterable, ok := value.(starlark.Iterable)
-			if !ok {
-				st.Fatal("bytes.elems did not return iterable")
-			}
-			iter, err := starlark.SafeIterate(thread, iterable)
+			iter, err := starlark.SafeIterate(thread, value)
 			if err != nil {
 				st.Fatal(err)
 			}
