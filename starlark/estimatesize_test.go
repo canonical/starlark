@@ -605,18 +605,18 @@ func TestSizeConstants(t *testing.T) {
 }
 
 func TestSizeAware(t *testing.T) {
-	obj := starlark.Value(starlark.MakeInt(1).Lsh(800))
+	obj := starlark.MakeInt(1).Lsh(800)
 	objSize := starlark.EstimateSize(obj)
 
 	t.Run("slice", func(t *testing.T) {
-		tupleSize := starlark.EstimateSize([]starlark.Value{obj})
-		if tupleSize < objSize {
-			t.Errorf("unaccounted memory: expected at least %d bytes, got %d", objSize, tupleSize)
+		sliceSize := starlark.EstimateSize([]interface{}{obj})
+		if sliceSize < objSize {
+			t.Errorf("unaccounted memory: expected at least %d bytes, got %d", objSize, sliceSize)
 		}
 	})
 
 	t.Run("array", func(t *testing.T) {
-		arraySize := starlark.EstimateSize([1]starlark.Value{obj})
+		arraySize := starlark.EstimateSize([1]interface{}{obj})
 		if arraySize < objSize {
 			t.Errorf("unaccounted memory: expected at least %d bytes, got %d", objSize, arraySize)
 		}
@@ -630,9 +630,9 @@ func TestSizeAware(t *testing.T) {
 	})
 
 	t.Run("struct", func(t *testing.T) {
-		mapSize := starlark.EstimateSize(struct{ Obj interface{} }{obj})
-		if mapSize < objSize {
-			t.Errorf("unaccounted memory: expected at least %d bytes, got %d", objSize, mapSize)
+		structSize := starlark.EstimateSize(struct{ Obj interface{} }{obj})
+		if structSize < objSize {
+			t.Errorf("unaccounted memory: expected at least %d bytes, got %d", objSize, structSize)
 		}
 	})
 }
