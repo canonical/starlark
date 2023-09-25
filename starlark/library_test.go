@@ -2168,19 +2168,52 @@ func TestZipAllocs(t *testing.T) {
 func TestBytesElemsAllocs(t *testing.T) {
 	bytes_elems, _ := starlark.Bytes("arbitrary-string").Attr("elems")
 	if bytes_elems == nil {
-		t.Fatalf("no such method: bytes.elems")
+		t.Fatal("no such method: bytes.elems")
 	}
 
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunThread(func (thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, bytes_elems, nil, nil)
+	t.Run("iterator-acquisition", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, bytes_elems, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("iterator-usage", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			bytes_elems, _ := starlark.Bytes(strings.Repeat("hello world", st.N)).Attr("elems")
+			if bytes_elems == nil {
+				st.Fatal("no such method: bytes.elems")
+			}
+			value, err := starlark.Call(thread, bytes_elems, nil, nil)
 			if err != nil {
+				st.Fatal(err)
+			}
+			iterable, ok := value.(starlark.Iterable)
+			if !ok {
+				st.Fatal("bytes.elems did not return iterable")
+			}
+			iter, err := starlark.SafeIterate(thread, iterable)
+			if err != nil {
+				st.Fatal(err)
+			}
+			defer iter.Done()
+			var x starlark.Value
+			for iter.Next(&x) {
+				st.KeepAlive(x)
+			}
+			if err := iter.Err(); err != nil {
 				st.Error(err)
 			}
-			st.KeepAlive(result)
-		}
+		})
 	})
 }
 
