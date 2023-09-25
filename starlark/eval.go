@@ -975,40 +975,99 @@ func Unary(op syntax.Token, x Value) (Value, error) {
 	return nil, fmt.Errorf("unknown unary op: %s %s", op, x.Type())
 }
 
+// SafeBinary applies a strict binary operator (not AND or OR) to its operands,
+// respecting safety.
+func SafeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
+	return safeBinary(thread, op, x, y)
+}
+
 // Binary applies a strict binary operator (not AND or OR) to its operands.
 // For equality tests or ordered comparisons, use Compare instead.
 func Binary(op syntax.Token, x, y Value) (Value, error) {
+	return safeBinary(nil, op, x, y)
+}
+
+var floatSize = EstimateSize(Float(0))
+
+func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
+
+	max := func(a, b int64) int64 {
+		if a > b {
+			return a
+		}
+		return b
+	}
 	switch op {
 	case syntax.PLUS:
 		switch x := x.(type) {
 		case String:
 			if y, ok := y.(String); ok {
+				if thread != nil {
+					resultSize := EstimateMakeSize([]byte{}, len(x)+len(y)) + StringTypeOverhead
+					if err := thread.AddAllocs(resultSize); err != nil {
+						return nil, err
+					}
+				}
 				return x + y, nil
 			}
 		case Int:
 			switch y := y.(type) {
 			case Int:
+				if thread != nil {
+					if err := thread.CheckAllocs(max(EstimateSize(x), EstimateSize(y))); err != nil {
+						return nil, err
+					}
+					result := Value(x.Add(y))
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+						return nil, err
+					}
+					return result, nil
+				}
 				return x.Add(y), nil
 			case Float:
 				xf, err := x.finiteFloat()
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return xf + y, nil
 			}
 		case Float:
 			switch y := y.(type) {
 			case Float:
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x + y, nil
 			case Int:
 				yf, err := y.finiteFloat()
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x + yf, nil
 			}
 		case *List:
 			if y, ok := y.(*List); ok {
+				if thread != nil {
+					resultSize := EstimateMakeSize([]Value{}, x.Len()+y.Len()) + EstimateSize(&List{})
+					if err := thread.AddAllocs(resultSize); err != nil {
+						return nil, err
+					}
+				}
 				z := make([]Value, 0, x.Len()+y.Len())
 				z = append(z, x.elems...)
 				z = append(z, y.elems...)
@@ -1016,6 +1075,12 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case Tuple:
 			if y, ok := y.(Tuple); ok {
+				if thread != nil {
+					zSize := EstimateMakeSize(Tuple{}, len(x)+len(y)) + SliceTypeOverhead
+					if err := thread.AddAllocs(zSize); err != nil {
+						return nil, err
+					}
+				}
 				z := make(Tuple, 0, len(x)+len(y))
 				z = append(z, x...)
 				z = append(z, y...)
@@ -1377,6 +1442,9 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 	// user-defined types
 	// (nil, nil) => unhandled
 	// TODO: use SafeIterate (SafeBinary?)
+	if err := CheckSafety(thread, NotSafe); err != nil {
+		return nil, err
+	}
 	if x, ok := x.(HasBinary); ok {
 		z, err := x.Binary(op, y, Left)
 		if z != nil || err != nil {

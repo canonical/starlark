@@ -1240,8 +1240,189 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 	}
 }
 
+type safeBinaryAllocTest struct {
+	name           string
+	inputs         func(n int) (starlark.Value, syntax.Token, starlark.Value)
+	assertNoAllocs bool
+}
+
+func (b safeBinaryAllocTest) Run(t *testing.T) {
+	t.Run(b.name, func(t *testing.T) {
+		if b.inputs == nil {
+			t.Fatalf("binary test '%v' missing inputs field", b.name)
+		}
+		if b.name == "" {
+			x, op, y := b.inputs(1)
+			t.Fatalf("binary test of %v %v %v has empty name field", x.Type(), op, y.Type())
+		}
+
+		t.Run("nil-thread", func(t *testing.T) {
+			defer func() {
+				if err := recover(); err != nil {
+					t.Errorf("unexpected panic: %v", err)
+				}
+			}()
+			x, op, y := b.inputs(1)
+			_, err := starlark.SafeBinary(nil, op, x, y)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+
+		t.Run("small", func(t *testing.T) {
+			st := startest.From(t)
+			if b.assertNoAllocs {
+				st.SetMaxAllocs(0)
+			}
+			st.RequireSafety(starlark.MemSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				x, op, y := b.inputs(1)
+				for i := 0; i < st.N; i++ {
+					result, err := starlark.SafeBinary(thread, op, x, y)
+					if err != nil {
+						st.Error(err)
+					}
+					st.KeepAlive(result)
+				}
+			})
+		})
+
+		t.Run("large", func(t *testing.T) {
+			st := startest.From(t)
+			if b.assertNoAllocs {
+				st.SetMaxAllocs(0)
+			}
+			st.RequireSafety(starlark.MemSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				x, op, y := b.inputs(st.N)
+				result, err := starlark.SafeBinary(thread, op, x, y)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			})
+		})
+	})
+}
+
+type unsafeTestValue struct{}
+
+var _ starlark.Value = unsafeTestValue{}
+
+func (uv unsafeTestValue) Freeze() {}
+func (uv unsafeTestValue) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", uv.Type())
+}
+func (uv unsafeTestValue) String() string       { return "unsafeTestValue" }
+func (uv unsafeTestValue) Truth() starlark.Bool { return starlark.False }
+func (uv unsafeTestValue) Type() string         { return "unsafeTestValue" }
+
 func TestSafeBinaryAllocs(t *testing.T) {
-	t.Run("+", func(t *testing.T) {})
+	t.Run("safety-respected", func(t *testing.T) {
+		t.Run("unsafe-left", func(t *testing.T) {
+			const expected = "feature unavailable to the sandbox"
+
+			thread := &starlark.Thread{}
+			thread.RequireSafety(starlark.Safe)
+			_, err := starlark.SafeBinary(thread, syntax.PLUS, unsafeTestValue{}, starlark.True)
+			if err == nil {
+				t.Error("expected error")
+			} else if err.Error() != expected {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+
+		t.Run("unsafe-right", func(t *testing.T) {
+			const expected = "feature unavailable to the sandbox"
+
+			thread := &starlark.Thread{}
+			thread.RequireSafety(starlark.Safe)
+			_, err := starlark.SafeBinary(thread, syntax.PLUS, starlark.True, unsafeTestValue{})
+			if err == nil {
+				t.Error("expected error")
+			} else if err.Error() != expected {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	})
+
+	t.Run("+", func(t *testing.T) {
+		t.Run("in-starlark", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.AddValue("t", starlark.Tuple{starlark.True})
+			st.RunString(`
+				for _ in st.ntimes():
+					st.keep_alive(t + t)
+			`)
+		})
+
+		tests := []safeBinaryAllocTest{{
+			name: "string + string",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				str := starlark.String(strings.Repeat("x", n/2))
+				return str, syntax.PLUS, str
+			},
+		}, {
+			name: "int + int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				shift := n - 1
+				if shift < 0 {
+					shift = 0
+				}
+				num := starlark.MakeInt(1).Lsh(uint(shift))
+				return num, syntax.PLUS, num
+			},
+		}, {
+			name: "int + float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(1).Lsh(308)
+				r := starlark.Float(n)
+				return l, syntax.PLUS, r
+			},
+		}, {
+			name: "float + int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(n)
+				r := starlark.MakeInt(1).Lsh(308)
+				return l, syntax.PLUS, r
+			},
+		}, {
+			name: "float + float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				num := starlark.Float(n)
+				return num, syntax.PLUS, num
+			},
+		}, {
+			name: "list + list",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				lElems := make([]starlark.Value, n/2)
+				rElems := make([]starlark.Value, n/2)
+				for i := 0; i < n/2; i++ {
+					lElems[i] = starlark.String("a")
+					rElems[i] = starlark.String("b")
+				}
+				l := starlark.NewList(lElems)
+				r := starlark.NewList(rElems)
+				return l, syntax.PLUS, r
+			},
+		}, {
+			name: "tuple + tuple",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := make(starlark.Tuple, n/2)
+				r := make(starlark.Tuple, n/2)
+				for i := 0; i < n/2; i++ {
+					l[i] = starlark.String("a")
+					r[i] = starlark.String("b")
+				}
+				return l, syntax.PLUS, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+
+	})
 
 	t.Run("-", func(t *testing.T) {})
 
