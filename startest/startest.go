@@ -417,18 +417,26 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		return executionStats{}
 	}
 
-	// It's best to discard the first sample as:
-	//  - it usually includes warmup time for the function;
-	//  - it's log would be zero so maxNegligibleElapsed would become
-	//    positive infinity.
-	// The second point is particularly important as Go doesn't define what
-	// happens during division by 0 - it could either be infinity or panic.
-	timeSamples = removeNoise(timeSamples)
-	ns, timeSamples = ns[1:], timeSamples[1:]
-	for i := 1; i < len(timeSamples); i++ {
-		maxNegligibleElapsed := timeSamples[0] * math.Log(float64(ns[i]))
-		if timeSamples[i] > maxNegligibleElapsed {
+	if st.requiredSafety.Contains(starlark.CPUSafe) {
+		// Very slow functions (~1ms) can be a problem on their own,
+		// even if they don't grow much with their inputs.
+		if len(timeSamples) < 10 {
 			unaccountedCpuTime = true
+		} else {
+			// It's best to discard the first sample as:
+			//  - it usually includes warmup time for the function;
+			//  - it's log would be zero so maxNegligibleElapsed would become
+			//    positive infinity.
+			// The second point is particularly important as Go doesn't define what
+			// happens during division by 0 - it could either be infinity or panic.
+			timeSamples = removeNoise(timeSamples)
+			ns, timeSamples = ns[1:], timeSamples[1:]
+			for i := 1; i < len(timeSamples); i++ {
+				maxNegligibleElapsed := timeSamples[0] * math.Log(float64(ns[i]))
+				if timeSamples[i] > maxNegligibleElapsed {
+					unaccountedCpuTime = true
+				}
+			}
 		}
 	}
 
