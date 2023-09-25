@@ -289,12 +289,16 @@ type executionStats struct {
 	unaccountedCpuTime bool
 }
 
-// removeNoise smooths and returns a copy of the input sequence.
+// removeNoise returns the low frequency part of the signal, under the
+// assumption that noise is higher in frequency.
 func removeNoise(signal []float64) []float64 {
 	// The main idea is that monotonic functions (such as log(n),
 	// n^k, e^n) will appear to have a low frequency compared with
 	// measured noise.
-	filter := iir2{
+	// To remove high frequency noise from the signal, this function
+	// uses a IIR filter as simpler methods like the average does not
+	// remove enough noise to make measurements reliable.
+	filter := filterIIR{
 		// Butterworth weights for 1/32 of the sampling frequency
 		B: [3]float64{
 			8.442692929079947e-03,

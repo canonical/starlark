@@ -1,16 +1,16 @@
 package startest
 
-// iir2 represents a 2nd order IIR filter in Direct-Form II (transposed).
+// filterIIR represents a 2nd order IIR filter in Direct-Form II (transposed).
 // The filter weights must be already normalized.
-type iir2 struct {
+type filterIIR struct {
 	B [3]float64
-	A [2]float64
+	A [2]float64 // A_0 is fixed at 1 and thus excluded.
 	w [2]float64
 }
 
 // Filter applies the filter to the given samples, updating the internal state.
 // It returns the filtered sample.
-func (f *iir2) Filter(sample float64) float64 {
+func (f *filterIIR) Filter(sample float64) float64 {
 	y := f.w[0] + f.B[0]*sample
 	f.w[0] = f.w[1] - f.A[0]*y + f.B[1]*sample
 	f.w[1] = f.B[2]*sample - f.A[1]*y
@@ -25,7 +25,7 @@ func (f *iir2) Filter(sample float64) float64 {
 //		"Determining the initial states in forward-backward filtering."
 //		IEEE Transactions on signal processing 44.4 (1996): 988-992.
 //		https://www.diva-portal.org/smash/get/diva2:315708/FULLTEXT02
-func (f *iir2) BatchFilter(signal []float64) []float64 {
+func (f *filterIIR) BatchFilter(signal []float64) []float64 {
 	// The zero-phase technique we use requires more than 3*order samples.
 	if len(signal) <= 6 {
 		return signal // too small
