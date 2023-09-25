@@ -152,6 +152,12 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 			return 0
 		}
 
+		if v.CanInterface() {
+			if sizeAware, ok := v.Interface().(SizeAware); ok {
+				return uintptr(sizeAware.EstimateSize())
+			}
+		}
+
 		elem := v.Elem()
 		if elem.Kind() == reflect.Ptr {
 			return estimateSizeIndirect(elem, seen)
