@@ -2289,11 +2289,11 @@ func TestBytesElemsAllocs(t *testing.T) {
 			if bytes_elems == nil {
 				st.Fatal("no such method: bytes.elems")
 			}
-			value, err := starlark.Call(thread, bytes_elems, nil, nil)
+			elems, err := starlark.Call(thread, bytes_elems, nil, nil)
 			if err != nil {
 				st.Fatal(err)
 			}
-			iter, err := starlark.SafeIterate(thread, value)
+			iter, err := starlark.SafeIterate(thread, elems)
 			if err != nil {
 				st.Fatal(err)
 			}
