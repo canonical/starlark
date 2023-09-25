@@ -33,12 +33,47 @@ func TestListCreation(t *testing.T) {
 	`)
 }
 
+func TestListComprehension(t *testing.T) {
+	t.Run("big", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunString(`
+			st.keep_alive([v for v in st.ntimes()])
+		`)
+	})
+
+	t.Run("small", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunString(`
+			for _ in st.ntimes():
+				st.keep_alive([v for v in range(2)])
+		`)
+	})
+}
+
 func TestDictCreation(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunString(`
 		for _ in st.ntimes():
 			st.keep_alive({})
+	`)
+	st.RunString(`
+		for _ in st.ntimes():
+			st.keep_alive({ 1: False, 2: "2", 3: 3.0 })
+	`)
+}
+
+func TestDictComprehension(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunString(`
+		for _ in st.ntimes():
+			st.keep_alive({i:i for i in range(10)})
+	`)
+	st.RunString(`
+		st.keep_alive({i:i for i in range(st.n)})
 	`)
 }
 
