@@ -5,8 +5,9 @@ package startest
 import (
 	"syscall"
 	"unsafe"
-	"time"
 )
+
+type instant int64
 
 var (
 	queryPerformanceCounter          uintptr
@@ -20,8 +21,8 @@ func init() {
 	queryPerformanceCounter = kernel32.NewProc("QueryPerformanceCounter").Addr()
 }
 
-func nanotime() time.Duration {
+func nanotime() instant {
 	var now int64
 	syscall.Syscall(queryPerformanceCounter, 1, uintptr(unsafe.Pointer(&now)), 0, 0)
-	return time.Duration(now * (1e9 / queryPerformanceCounterFrequency))
+	return instant(now * (1e9 / queryPerformanceCounterFrequency))
 }

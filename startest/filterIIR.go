@@ -1,16 +1,17 @@
 package startest
 
 // filterIIR represents a 2nd order IIR filter in Direct-Form II (transposed).
-// The filter weights must be already normalized.
 type filterIIR struct {
 	B [3]float64
-	A [2]float64 // A_0 is fixed at 1 and thus excluded.
+	A [3]float64
 	w [2]float64
 }
 
 // Filter applies the filter to the given samples, updating the internal state.
 // It returns the filtered sample.
 func (f *filterIIR) Filter(sample float64) float64 {
+	f.normalise()
+
 	y := f.w[0] + f.B[0]*sample
 	f.w[0] = f.w[1] - f.A[0]*y + f.B[1]*sample
 	f.w[1] = f.B[2]*sample - f.A[1]*y
@@ -31,6 +32,7 @@ func (f *filterIIR) BatchFilter(signal []float64) []float64 {
 		return signal // too small
 	}
 
+	f.normalise()
 	kdc := (f.B[0] + f.B[1] + f.B[2]) / (1 + f.A[0] + f.A[1])
 	si := [2]float64{}
 	si[1] = f.B[2] - kdc*f.A[1]
@@ -63,4 +65,16 @@ func (f *filterIIR) BatchFilter(signal []float64) []float64 {
 	}
 
 	return v[6 : len(signal)+6]
+}
+
+func (f *filterIIR) normalise() {
+	if f.A[0] != 1 {
+		for i := range f.B {
+			f.B[i] /= f.A[0]
+		}
+		for i := range f.A[1:] {
+			f.A[i] /= f.A[0]
+		}
+		f.A[0] = 1
+	}
 }

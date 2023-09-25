@@ -62,7 +62,7 @@ type ST struct {
 	alive             []interface{}
 	N                 int
 	timerOn           bool
-	timerStart        time.Duration
+	timerStart        instant
 	elapsed           time.Duration
 	requiredSafety    starlark.Safety
 	safetyGiven       bool
@@ -160,7 +160,7 @@ func (st *ST) StartTimer() {
 //go:inline
 func (st *ST) StopTimer() {
 	if st.timerOn {
-		st.elapsed += nanotime() - st.timerStart
+		st.elapsed += time.Duration(nanotime() - st.timerStart)
 		st.timerOn = false
 	}
 }
@@ -275,7 +275,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		st.Errorf("execution steps are below minimum (%d < %d)", meanExecutionSteps, st.minExecutionSteps)
 	}
 	if st.requiredSafety.Contains(starlark.CPUSafe) {
-		if stats.unaccountedCpuTime && st.maxExecutionSteps == math.MaxUint64 {
+		if stats.unaccountedCPUTime && st.maxExecutionSteps == math.MaxUint64 {
 			st.Errorf("execution uses CPU time which is not accounted for")
 		}
 	}
@@ -288,31 +288,7 @@ func (st *ST) KeepAlive(values ...interface{}) {
 
 type executionStats struct {
 	nSum, allocSum     uint64
-	unaccountedCpuTime bool
-}
-
-// removeNoise returns the low frequency part of the signal, under the
-// assumption that noise is higher in frequency.
-func removeNoise(signal []float64) []float64 {
-	// The main idea is that monotonic functions (such as log(n),
-	// n^k, e^n) will appear to have a low frequency compared with
-	// measured noise.
-	// To remove high frequency noise from the signal, this function
-	// uses a IIR filter as simpler methods like the average does not
-	// remove enough noise to make measurements reliable.
-	filter := filterIIR{
-		// Butterworth weights for 1/32 of the sampling frequency
-		B: [3]float64{
-			8.442692929079947e-03,
-			1.688538585815989e-02,
-			8.442692929079947e-03,
-		},
-		A: [2]float64{
-			-1.723776172762509,
-			0.757546944478829,
-		},
-	}
-	return filter.BatchFilter(signal)
+	unaccountedCPUTime bool
 }
 
 func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) executionStats {
@@ -325,7 +301,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	var allocSum uint64
 	var valueTrackerOverhead uint64
 	nSum := uint64(0)
-	unaccountedCpuTime := false
+	unaccountedCPUTime := false
 	retried := false
 	lastRetryElapsed := time.Duration(0)
 	prevElapsed := time.Duration(0)
@@ -424,23 +400,24 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	}
 
 	if st.requiredSafety.Contains(starlark.CPUSafe) {
-		// Very slow functions (~1ms) can be a problem on their own,
-		// even if they don't grow much with their inputs.
-		if len(timeSamples) < 10 {
-			unaccountedCpuTime = true
+		if nSum < 1000 {
+			// Very slow functions (e.g. ~1ms per N) can be problematic on
+			// their own, even if they don't grow much with their inputs.
+			unaccountedCPUTime = true
 		} else {
 			// It's best to discard the first sample as:
-			//  - it usually includes warmup time for the function;
-			//  - it's log would be zero so maxNegligibleElapsed would become
-			//    positive infinity.
-			// The second point is particularly important as Go doesn't define what
-			// happens during division by 0 - it could either be infinity or panic.
+			// - it usually includes warmup time for the function;
+			// - it's log would be zero so maxNegligibleElapsed would become
+			//   positive infinity.
+			// The second point is particularly important as Go doesn't define
+			// what happens when dividing by 0 - it could either panic or be
+			// infinity.
 			timeSamples = removeNoise(timeSamples)
 			ns, timeSamples = ns[1:], timeSamples[1:]
 			for i := 1; i < len(timeSamples); i++ {
 				maxNegligibleElapsed := timeSamples[0] * math.Log(float64(ns[i]))
 				if timeSamples[i] > maxNegligibleElapsed {
-					unaccountedCpuTime = true
+					unaccountedCPUTime = true
 				}
 			}
 		}
@@ -455,8 +432,33 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	return executionStats{
 		nSum:               nSum,
 		allocSum:           allocSum,
-		unaccountedCpuTime: unaccountedCpuTime,
+		unaccountedCPUTime: unaccountedCPUTime,
 	}
+}
+
+// removeNoise returns the given signal without spikes.
+func removeNoise(signal []float64) []float64 {
+	// The main idea is that monotonic functions (such as log(n), n^k, e^n)
+	// will appear to have a low frequency compared with measurement noise
+	// caused for example by interactions with the OS.
+	//
+	// To remove high frequency noise from the signal, this function uses an
+	// IIR filter as simpler methods such as a moving average do not remove
+	// enough noise to reliably determine function growth.
+	filter := filterIIR{
+		// Butterworth weights for 1/32 of the sampling frequency
+		B: [3]float64{
+			8.442692929079947e-03,
+			1.688538585815989e-02,
+			8.442692929079947e-03,
+		},
+		A: [3]float64{
+			1,
+			-1.723776172762509,
+			0.757546944478829,
+		},
+	}
+	return filter.BatchFilter(signal)
 }
 
 func (st *ST) String() string        { return "<startest.ST>" }
