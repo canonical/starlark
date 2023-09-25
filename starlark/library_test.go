@@ -2262,12 +2262,13 @@ func TestBytesElemsSteps(t *testing.T) {
 }
 
 func TestBytesElemsAllocs(t *testing.T) {
-	bytes_elems, _ := starlark.Bytes("arbitrary-string").Attr("elems")
-	if bytes_elems == nil {
-		t.Fatal("no such method: bytes.elems")
-	}
 
 	t.Run("iterator-acquisition", func(t *testing.T) {
+		bytes_elems, _ := starlark.Bytes("arbitrary-string").Attr("elems")
+		if bytes_elems == nil {
+			t.Fatal("no such method: bytes.elems")
+		}
+
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
