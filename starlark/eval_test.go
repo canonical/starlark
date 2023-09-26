@@ -1429,7 +1429,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	t.Run("*", func(t *testing.T) {})
 
 	t.Run("/", func(t *testing.T) {
-		tests := []safeBinaryTest{{
+		tests := []safeBinaryAllocTest{{
 			name: "int / int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.MakeInt(n * n)
