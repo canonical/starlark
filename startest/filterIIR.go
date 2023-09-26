@@ -13,8 +13,8 @@ func (f *filterIIR) Filter(sample float64) float64 {
 	f.normalise()
 
 	y := f.w[0] + f.B[0]*sample
-	f.w[0] = f.w[1] - f.A[0]*y + f.B[1]*sample
-	f.w[1] = f.B[2]*sample - f.A[1]*y
+	f.w[0] = f.w[1] - f.A[1]*y + f.B[1]*sample
+	f.w[1] = f.B[2]*sample - f.A[2]*y
 	return y
 }
 
@@ -33,10 +33,10 @@ func (f *filterIIR) BatchFilter(signal []float64) []float64 {
 	}
 
 	f.normalise()
-	kdc := (f.B[0] + f.B[1] + f.B[2]) / (1 + f.A[0] + f.A[1])
+	kdc := (f.B[0] + f.B[1] + f.B[2]) / (1 + f.A[1] + f.A[2])
 	si := [2]float64{}
-	si[1] = f.B[2] - kdc*f.A[1]
-	si[0] = si[1] + f.B[1] - kdc*f.A[0]
+	si[1] = f.B[2] - kdc*f.A[2]
+	si[0] = si[1] + f.B[1] - kdc*f.A[1]
 
 	v := make([]float64, 0, len(signal)+12)
 
