@@ -604,35 +604,35 @@ func TestSizeConstants(t *testing.T) {
 	})
 }
 
+type testSizeAware struct{}
+
+var _ starlark.SizeAware = &testSizeAware{}
+
+func (*testSizeAware) EstimateSize() int64 { return 1000 }
+
 func TestSizeAware(t *testing.T) {
-	obj := starlark.MakeInt(1).Lsh(800)
-	objSize := starlark.EstimateSize(obj)
+	number := starlark.MakeInt(1).Lsh(800)
 
-	t.Run("slice", func(t *testing.T) {
-		sliceSize := starlark.EstimateSize([]interface{}{obj})
-		if sliceSize < objSize {
-			t.Errorf("unaccounted memory: expected at least %d bytes, got %d", objSize, sliceSize)
-		}
-	})
+	testCases := []struct {
+		name     string
+		obj      interface{}
+		composed interface{}
+	}{
+		{"slice", number, []interface{}{number}},
+		{"array", number, [1]interface{}{number}},
+		{"map", number, map[int]interface{}{1: number}},
+		{"struct-interface", number, struct{ Obj interface{} }{number}},
+		{"struct-typed", number, struct{ Int starlark.Int }{number}},
+		{"struct-pointer", &testSizeAware{}, struct{ SzAware *testSizeAware }{&testSizeAware{}}},
+	}
 
-	t.Run("array", func(t *testing.T) {
-		arraySize := starlark.EstimateSize([1]interface{}{obj})
-		if arraySize < objSize {
-			t.Errorf("unaccounted memory: expected at least %d bytes, got %d", objSize, arraySize)
-		}
-	})
-
-	t.Run("map", func(t *testing.T) {
-		mapSize := starlark.EstimateSize(map[int]interface{}{1: obj})
-		if mapSize < objSize {
-			t.Errorf("unaccounted memory: expected at least %d bytes, got %d", objSize, mapSize)
-		}
-	})
-
-	t.Run("struct", func(t *testing.T) {
-		structSize := starlark.EstimateSize(struct{ Obj interface{} }{obj})
-		if structSize < objSize {
-			t.Errorf("unaccounted memory: expected at least %d bytes, got %d", objSize, structSize)
-		}
-	})
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			objSize := starlark.EstimateSize(test.obj)
+			composedSize := starlark.EstimateSize(test.composed)
+			if objSize > composedSize {
+				t.Errorf("unaccounted memory: expected at least %d bytes, got %d", objSize, composedSize)
+			}
+		})
+	}
 }
