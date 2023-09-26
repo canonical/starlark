@@ -1261,7 +1261,7 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 				const expected = "feature unavailable to the sandbox"
 
 				thread := &starlark.Thread{}
-				thread.RequireSafety(starlark.Safe)
+				thread.RequireSafety(starlark.MemSafe)
 				_, err := starlark.SafeBinary(thread, syntax.PLUS, unsafeTestValue{}, starlark.True)
 				if err == nil {
 					t.Error("expected error")
@@ -1274,7 +1274,7 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 				const expected = "feature unavailable to the sandbox"
 
 				thread := &starlark.Thread{}
-				thread.RequireSafety(starlark.Safe)
+				thread.RequireSafety(starlark.MemSafe)
 				_, err := starlark.SafeBinary(thread, syntax.PLUS, starlark.True, unsafeTestValue{})
 				if err == nil {
 					t.Error("expected error")
