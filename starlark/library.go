@@ -121,7 +121,7 @@ var (
 		"elems": NewBuiltin("elems", bytes_elems),
 	}
 	bytesMethodSafeties = map[string]Safety{
-		"elems": IOSafe,
+		"elems": MemSafe | IOSafe,
 	}
 
 	dictMethods = map[string]*Builtin{
@@ -2016,8 +2016,11 @@ func string_iterable(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Va
 
 // bytes_elems returns an unspecified iterable value whose
 // iterator yields the int values of successive elements.
-func bytes_elems(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func bytes_elems(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
+		return nil, err
+	}
+	if err := thread.AddAllocs(EstimateSize(bytesIterable{})); err != nil {
 		return nil, err
 	}
 	return bytesIterable{b.Receiver().(Bytes)}, nil
@@ -2034,23 +2037,45 @@ func (bi bytesIterable) Type() string          { return "bytes.elems" }
 func (bi bytesIterable) Freeze()               {} // immutable
 func (bi bytesIterable) Truth() Bool           { return True }
 func (bi bytesIterable) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", bi.Type()) }
-func (bi bytesIterable) Iterate() Iterator     { return &bytesIterator{bi.bytes} }
+func (bi bytesIterable) Iterate() Iterator     { return &bytesIterator{bytes: bi.bytes} }
 
-type bytesIterator struct{ bytes Bytes }
+type bytesIterator struct {
+	bytes  Bytes
+	thread *Thread
+	err    error
+}
+
+var _ SafeIterator = &bytesIterator{}
+
+func (it *bytesIterator) BindThread(thread *Thread) {
+	it.thread = thread
+}
 
 func (it *bytesIterator) Next(p *Value) bool {
+	if it.err != nil {
+		return false
+	}
+
 	if it.bytes == "" {
 		return false
 	}
-	*p = MakeInt(int(it.bytes[0]))
+	value := Value(MakeInt(int(it.bytes[0])))
+	if it.thread != nil {
+		if err := it.thread.AddAllocs(EstimateSize(value)); err != nil {
+			it.err = err
+			return false
+		}
+	}
+	*p = value
+
 	it.bytes = it.bytes[1:]
 	return true
 }
 
 func (*bytesIterator) Done() {}
 
-func (it *bytesIterator) Err() error     { return nil }
-func (it *bytesIterator) Safety() Safety { return NotSafe }
+func (it *bytesIterator) Err() error     { return it.err }
+func (it *bytesIterator) Safety() Safety { return MemSafe }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·count
 func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {

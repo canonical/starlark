@@ -2262,6 +2262,51 @@ func TestBytesElemsSteps(t *testing.T) {
 }
 
 func TestBytesElemsAllocs(t *testing.T) {
+	t.Run("iterator-acquisition", func(t *testing.T) {
+		bytes_elems, _ := starlark.Bytes("arbitrary-string").Attr("elems")
+		if bytes_elems == nil {
+			t.Fatal("no such method: bytes.elems")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, bytes_elems, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("iterator-usage", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			bytes_elems, _ := starlark.Bytes(strings.Repeat("hello world", st.N)).Attr("elems")
+			if bytes_elems == nil {
+				st.Fatal("no such method: bytes.elems")
+			}
+			elems, err := starlark.Call(thread, bytes_elems, nil, nil)
+			if err != nil {
+				st.Fatal(err)
+			}
+			iter, err := starlark.SafeIterate(thread, elems)
+			if err != nil {
+				st.Fatal(err)
+			}
+			defer iter.Done()
+			var x starlark.Value
+			for iter.Next(&x) {
+				st.KeepAlive(x)
+			}
+			if err := iter.Err(); err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestDictClearSteps(t *testing.T) {
