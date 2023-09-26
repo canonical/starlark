@@ -53,7 +53,7 @@ Build the code:
 ```shell
 # check out the code and dependencies,
 # and install interpreter in $GOPATH/bin
-$ go get -u go.starlark.net/cmd/starlark
+$ go install go.starlark.net/cmd/starlark@latest
 ```
 
 Run the interpreter:
@@ -153,6 +153,10 @@ We reserve the right to make breaking language and API changes at this
 stage in the project, although we will endeavor to keep them to a minimum.
 Once the Bazel team has finalized the version 1 language specification,
 we will be more rigorous with interface stability.
+
+We aim to support the most recent four (go1.x) releases of the Go
+toolchain. For example, if the latest release is go1.20, we support it
+along with go1.19, go1.18, and go1.17, but not go1.16.
 
 ### Credits
 

@@ -13,7 +13,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -40,8 +39,10 @@ var (
 
 // Starlark dialect flags
 func init() {
-	flag.BoolVar(&resolve.AllowFloat, "fp", true, "allow floating-point numbers")
 	flag.BoolVar(&resolve.AllowSet, "set", resolve.AllowSet, "allow set data type")
+
+	// obsolete, no effect:
+	flag.BoolVar(&resolve.AllowFloat, "fp", true, "allow floating-point numbers")
 	flag.BoolVar(&resolve.AllowLambda, "lambda", resolve.AllowLambda, "allow lambda expressions")
 	flag.BoolVar(&resolve.AllowNestedDef, "nesteddef", resolve.AllowNestedDef, "allow nested def statements")
 }
@@ -64,7 +65,7 @@ func main() {
 	if *descriptors != "" {
 		var fdset descriptorpb.FileDescriptorSet
 		for i, filename := range strings.Split(*descriptors, ",") {
-			data, err := ioutil.ReadFile(filename)
+			data, err := os.ReadFile(filename)
 			if err != nil {
 				log.Fatalf("--descriptors[%d]: %s", i, err)
 			}
