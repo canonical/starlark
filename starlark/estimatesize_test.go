@@ -604,29 +604,48 @@ func TestSizeConstants(t *testing.T) {
 	})
 }
 
-type testSizeAware struct{}
+type dummySizeAware struct{}
 
-var _ starlark.SizeAware = &testSizeAware{}
+var _ starlark.SizeAware = &dummySizeAware{}
+var _ starlark.SizeAware = dummySizeAware{}
 
-func (*testSizeAware) EstimateSize() int64 { return 1000 }
+func (dummySizeAware) EstimateSize() int64 { return 1000 }
 
 func TestSizeAware(t *testing.T) {
-	number := starlark.MakeInt(1).Lsh(800)
-
-	testCases := []struct {
+	sizeAware := dummySizeAware{}
+	tests := []struct {
 		name     string
 		obj      interface{}
 		composed interface{}
 	}{
-		{"slice", number, []interface{}{number}},
-		{"array", number, [1]interface{}{number}},
-		{"map", number, map[int]interface{}{1: number}},
-		{"struct-interface", number, struct{ Obj interface{} }{number}},
-		{"struct-typed", number, struct{ Int starlark.Int }{number}},
-		{"struct-pointer", &testSizeAware{}, struct{ SzAware *testSizeAware }{&testSizeAware{}}},
+		{
+			"slice",
+			sizeAware,
+			[]interface{}{sizeAware},
+		}, {
+			"array",
+			sizeAware,
+			[1]interface{}{sizeAware},
+		}, {
+			"map",
+			sizeAware,
+			map[int]interface{}{1: sizeAware},
+		}, {
+			"struct-interface",
+			sizeAware,
+			struct{ Obj interface{} }{sizeAware},
+		}, {
+			"struct-typed",
+			sizeAware,
+			struct{ Obj dummySizeAware }{sizeAware},
+		}, {
+			"struct-pointer",
+			&sizeAware,
+			struct{ Obj *dummySizeAware }{&dummySizeAware{}},
+		},
 	}
 
-	for _, test := range testCases {
+	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			objSize := starlark.EstimateSize(test.obj)
 			composedSize := starlark.EstimateSize(test.composed)
