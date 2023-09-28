@@ -257,7 +257,7 @@ var (
 	setMethodSafeties = map[string]Safety{
 		"add":                  MemSafe | IOSafe,
 		"clear":                MemSafe | IOSafe,
-		"difference":           IOSafe,
+		"difference":           MemSafe | IOSafe,
 		"discard":              MemSafe | IOSafe,
 		"intersection":         IOSafe,
 		"issubset":             IOSafe,
@@ -2898,17 +2898,29 @@ func set_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·difference.
-func set_difference(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_difference(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	// TODO: support multiple others: s.difference(*others)
 	var other Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
-	defer iter.Done()
-	diff, err := b.Receiver().(*Set).Difference(iter)
+	diff, err := b.Receiver().(*Set).clone(thread)
 	if err != nil {
-		return nil, nameErr(b, err)
+		return nil, err
+	}
+	iter, err := SafeIterate(thread, other)
+	if err != nil {
+		return nil, err
+	}
+	defer iter.Done()
+	var x Value
+	for iter.Next(&x) {
+		if _, err := diff.Delete(x); err != nil {
+			return nil, err
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	return diff, nil
 }
