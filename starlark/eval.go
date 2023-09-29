@@ -1094,7 +1094,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			switch y := y.(type) {
 			case Int:
 				if thread != nil {
-					if err := thread.CheckAllocs(1 + max(EstimateSize(x), EstimateSize(y))); err != nil {
+					if err := thread.CheckAllocs(max(EstimateSize(x), EstimateSize(y))); err != nil {
 						return nil, err
 					}
 					result := Value(x.Sub(y))
