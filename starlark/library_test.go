@@ -4105,6 +4105,36 @@ func TestStringUpperAllocs(t *testing.T) {
 	})
 }
 
+func TestSetRemoveAllocs(t *testing.T) {
+	const setsize = 1000
+	keys := make([]starlark.Value, setsize)
+	set := starlark.NewSet(setsize)
+	for i := 0; i < setsize; i++ {
+		key := starlark.Value(starlark.MakeInt(i))
+		keys[i] = key
+		set.Insert(key)
+	}
+	set_remove, _ := set.Attr("remove")
+	if set_remove == nil {
+		t.Fatal("no such method: set.remove")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			key := keys[i%setsize]
+			result, err := starlark.Call(thread, set_remove, starlark.Tuple{key}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+			set.Insert(key)
+		}
+	})
+}
+
 func TestSetUnionSteps(t *testing.T) {
 }
 
