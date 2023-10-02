@@ -4105,6 +4105,32 @@ func TestStringUpperAllocs(t *testing.T) {
 	})
 }
 
+func TestSetPopAllocs(t *testing.T) {
+	const setsize = 1000
+	set := starlark.NewSet(setsize)
+	for i := 0; i < setsize; i++ {
+		set.Insert(starlark.MakeInt(i))
+	}
+	set_pop, _ := set.Attr("pop")
+	if set_pop == nil {
+		t.Fatal("no such method: set.pop")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, set_pop, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+			set.Insert(result)
+		}
+	})
+}
+
 func TestSetUnionSteps(t *testing.T) {
 }
 
