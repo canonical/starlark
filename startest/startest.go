@@ -295,6 +295,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	startTime := time.Now()
 
 	const nMax = 100_000
+	const maxTargetNDelta = 100
 	const memoryMax = 200 * (1 << 20)
 	const timeMax = time.Second
 
@@ -310,20 +311,25 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 
 	for prevN := int64(0); !st.Failed() && allocSum < memoryMax+valueTrackerOverhead && nSum < nMax && time.Since(startTime) < timeMax; {
 	retry:
+		n := prevN + 1
 		prevMemory := int64(allocSum)
 		if prevMemory <= 0 {
 			prevMemory = 1
 		}
-		n := memoryMax * prevN / prevMemory
-		n += n / 5
-		maxGrowth := prevN + 100
-		minGrowth := prevN + 1
-		if n > maxGrowth {
-			n = maxGrowth
-		} else if n < minGrowth {
-			n = minGrowth
+		prevTime := int64(time.Since(startTime))
+		if prevTime <= 0 {
+			prevTime = 1
 		}
-
+		if memoryTargetN := prevN * memoryMax / prevMemory; n < memoryTargetN {
+			n = memoryTargetN
+		}
+		if timeTargetN := prevN * int64(timeMax) / prevTime; n < timeTargetN {
+			n = timeTargetN
+		}
+		maxTargetN := prevN + maxTargetNDelta
+		if n > maxTargetN {
+			n = maxTargetN
+		}
 		if n > nMax {
 			n = nMax
 		}
