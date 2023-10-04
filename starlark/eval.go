@@ -125,7 +125,11 @@ func (thread *Thread) AddExecutionSteps(delta uint64) error {
 	nextSteps, err := thread.simulateExecutionSteps(delta)
 	thread.Steps = nextSteps
 	if err != nil {
-		thread.Cancel(err.Error())
+		if thread.OnMaxSteps != nil {
+			return thread.OnMaxSteps(thread)
+		} else {
+			thread.Cancel("too many steps")
+		}
 	}
 
 	return err
