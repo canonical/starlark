@@ -8,7 +8,7 @@ func (thread *Thread) SubtractExecutionSteps(delta uint64) {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
-	thread.Steps -= delta
+	thread.steps -= delta
 }
 
 const Safe = safetyFlagsLimit - 1
