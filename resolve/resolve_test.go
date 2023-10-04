@@ -14,11 +14,16 @@ import (
 	"github.com/canonical/starlark/syntax"
 )
 
-func setOptions(src string) {
-	resolve.AllowGlobalReassign = option(src, "globalreassign")
-	resolve.AllowRecursion = option(src, "recursion")
-	resolve.AllowSet = option(src, "set")
-	resolve.LoadBindsGlobally = option(src, "loadbindsglobally")
+// A test may enable non-standard options by containing (e.g.) "option:recursion".
+func getOptions(src string) *syntax.FileOptions {
+	return &syntax.FileOptions{
+		Set:               option(src, "set"),
+		While:             option(src, "while"),
+		TopLevelControl:   option(src, "toplevelcontrol"),
+		GlobalReassign:    option(src, "globalreassign"),
+		LoadBindsGlobally: option(src, "loadbindsglobally"),
+		Recursion:         option(src, "recursion"),
+	}
 }
 
 func option(chunk, name string) bool {
@@ -26,17 +31,16 @@ func option(chunk, name string) bool {
 }
 
 func TestResolve(t *testing.T) {
-	defer setOptions("")
 	filename := starlarktest.DataFile("resolve", "testdata/resolve.star")
 	for _, chunk := range chunkedfile.Read(filename, t) {
-		f, err := syntax.Parse(filename, chunk.Source, 0)
+		// A chunk may set options by containing e.g. "option:recursion".
+		opts := getOptions(chunk.Source)
+
+		f, err := opts.Parse(filename, chunk.Source, 0)
 		if err != nil {
 			t.Error(err)
 			continue
 		}
-
-		// A chunk may set options by containing e.g. "option:recursion".
-		setOptions(chunk.Source)
 
 		if err := resolve.File(f, isPredeclared, isUniversal); err != nil {
 			for _, err := range err.(resolve.ErrorList) {

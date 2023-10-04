@@ -104,7 +104,7 @@ reproducibility is paramount, such as build tools.
     * [For loops](#for-loops)
     * [Break and Continue](#break-and-continue)
     * [Load statements](#load-statements)
-    * [Module execution](#module-execution)
+  * [Module execution](#module-execution)
   * [Built-in constants and functions](#built-in-constants-and-functions)
     * [None](#none)
     * [True and False](#true-and-false)
@@ -153,6 +153,16 @@ reproducibility is paramount, such as build tools.
     * [list·insert](#list·insert)
     * [list·pop](#list·pop)
     * [list·remove](#list·remove)
+    * [set·add](#set·add)
+    * [set·clear](#set·clear)
+    * [set·difference](#set·difference)
+    * [set·discard](#set·discard)
+    * [set·intersection](#set·intersection)
+    * [set·issubset](#set·issubset)
+    * [set·issuperset](#set·issuperset)
+    * [set·pop](#set·pop)
+    * [set·remove](#set·remove)
+    * [set·symmetric_difference](#set·symmetric_difference)
     * [set·union](#set·union)
     * [string·capitalize](#string·capitalize)
     * [string·codepoint_ords](#string·codepoint_ords)
@@ -260,12 +270,14 @@ appear in the grammar; they are reserved as possible future keywords:
 <!-- and to remain a syntactic subset of Python -->
 
 ```text
-as             finally        nonlocal
-assert         from           raise
-class          global         try
-del            import         with
-except         is             yield
+as              except          nonlocal
+assert          finally         raise
+async           from            try
+await           global          with
+class           import          yield
+del             is   
 ```
+<!-- NB: bazelbuild/starlark puts `while` in the second list -->
 
 <b>Implementation note:</b>
 The Go implementation permits `assert` to be used as an identifier,
@@ -741,11 +753,9 @@ The concatenation operation `x + y` yields a new list containing all
 the elements of the two lists x and y.
 
 For most types, `x += y` is equivalent to `x = x + y`, except that it
-evaluates `x` only once, that is, it allocates a new list to hold
-the concatenation of `x` and `y`.
-However, if `x` refers to a list, the statement does not allocate a
-new list but instead mutates the original list in place, similar to
-`x.extend(y)`.
+evaluates `x` only once. However, if `x` refers to a list, the statement
+`x += y` does not allocate a new list as `x = x + y` would, but instead 
+mutates the original list in place, similar to `x.extend(y)`.
 
 Lists are not hashable, so may not be used in the keys of a dictionary.
 
@@ -906,6 +916,20 @@ fail.
 A dictionary used in a Boolean context is considered true if it is
 non-empty.
 
+The binary `|` operation may be applied to two dictionaries.
+It yields a new dictionary whose set of keys is the union of the sets
+of keys of the two operands. The corresponding values are taken from
+the operands, where the value taken from the right operand takes
+precedence if both contain a given key.  Iterating over the keys in
+the resulting dictionary first yields all keys in the left operand in
+insertion order, then all keys in the right operand that were not
+present in the left operand, again in insertion order.
+
+There is also an augmented assignment version of the `|` operation.
+For two dictionaries `x` and `y`, the statement `x |= y` behaves
+similar to `x = x | y`, but updates `x` in place rather than assigning
+a new dictionary to it.
+
 Dictionaries may be compared for equality using `==` and `!=`.  Two
 dictionaries compare equal if they contain the same number of items
 and each key/value item (k, v) found in one dictionary is also present
@@ -952,7 +976,20 @@ Sets are instantiated by calling the built-in `set` function, which
 returns a set containing all the elements of its optional argument,
 which must be an iterable sequence.  Sets have no literal syntax.
 
-The only method of a set is `union`, which is equivalent to the `|` operator.
+A set has these methods:
+
+* [`add`](#set·add)
+* [`clear`](#set·clear)
+* [`difference`](#set·difference)
+* [`discard`](#set·discard)
+* [`intersection`](#set·intersection)
+* [`issubset`](#set·issubset)
+* [`issuperset`](#set·issuperset)
+* [`pop`](#set·pop)
+* [`remove`](#set·remove)
+* [`symmetric_difference`](#set·symmetric_difference)
+* [`union`](#set·union)
+
 
 A set used in a Boolean context is considered true if it is non-empty.
 
@@ -1178,8 +1215,8 @@ The [type](#type) of a built-in function is `"builtin_function_or_method"`.
 
 A built-in function value used in a Boolean context is always considered true.
 
-Many built-in functions are predeclared in the environment
-(see [Name Resolution](#name-resolution)).
+Many [built-in functions](#built-in-constants-and-functions) are predeclared 
+in the environment (see [Name binding and variables](#name-binding-and-variables)).
 Some built-in functions such as `len` are _universal_, that is,
 available to all Starlark programs.
 The host application may predeclare additional built-in functions
@@ -1425,7 +1462,7 @@ on the value returned by `get_filename()`.
 ## Value concepts
 
 Starlark has eleven core [data types](#data-types).  An application
-that embeds the Starlark intepreter may define additional types that
+that embeds the Starlark interpreter may define additional types that
 behave like Starlark values.  All values, whether core or
 application-defined, implement a few basic behaviors:
 
@@ -1968,6 +2005,11 @@ which breaks several mathematical identities.  For example, if `x` is
 a `NaN` value, the comparisons `x < y`, `x == y`, and `x > y` all
 yield false for all values of `y`.
 
+When used to compare two `set` objects, the `<=`, and `>=` operators will report
+whether one set is a subset or superset of another. Similarly, using `<` or `>` will
+report whether a set is a proper subset or superset of another, thus `x > y` is
+equivalent to `x >= y and x != y`.
+
 Applications may define additional types that support ordered
 comparison.
 
@@ -2018,6 +2060,11 @@ Sets
       int & int                 # bitwise intersection (AND)
       set & set                 # set intersection
       set ^ set                 # set symmetric difference
+      set - set                 # set difference
+
+
+Dict
+      dict | dict               # ordered union
 ```
 
 The operands of the arithmetic operators `+`, `-`, `*`, `//`, and
@@ -2056,10 +2103,14 @@ For sets, it yields a new set containing the intersection of the
 elements of the operand sets, preserving the element order of the left
 operand.
 
-The `|` operator likewise computes bitwise or set unions.
+The `|` operator likewise computes bitwise, set, or dict unions.
 The result of `set | set` is a new set whose elements are the
 union of the operands, preserving the order of the elements of the
 operands, left before right.
+Similarly, the result of `dict | dict` is a new dict whose entries are
+the union of the operands, preserving the order in which keys first
+appear, but using the value from the right operand for each key
+common to both dicts.
 
 The `^` operator accepts operands of either `int` or `set` type.
 For integers, it yields the bitwise XOR (exclusive OR) of its operands.
@@ -2081,6 +2132,7 @@ Implementations may impose a limit on the second operand of a left shift.
 set([1, 2]) & set([2, 3])       # set([2])
 set([1, 2]) | set([2, 3])       # set([1, 2, 3])
 set([1, 2]) ^ set([2, 3])       # set([1, 3])
+set([1, 2]) - set([2, 3])       # set([1])
 ```
 
 <b>Implementation note:</b>
@@ -2501,7 +2553,7 @@ Example:
 def map(f, list):
     return [f(x) for x in list]
 
-map(lambda x: 2*x, range(3))    # [2, 4, 6]
+map(lambda x: 2*x, range(3))    # [0, 2, 4]
 ```
 
 As with functions created by a `def` statement, a lambda function
@@ -2582,7 +2634,7 @@ m.f = ""
 
 Compound targets may consist of a comma-separated list of
 subtargets, optionally surrounded by parentheses or square brackets,
-and targets may be nested arbitarily in this way.
+and targets may be nested arbitrarily in this way.
 An assignment to a compound target checks that the right-hand value is a
 sequence with the same number of elements as the target.
 Each element of the sequence is then assigned to the corresponding
@@ -3441,14 +3493,14 @@ type(0.0)               # "float"
 `zip()` returns a new list of n-tuples formed from corresponding
 elements of each of the n iterable sequences provided as arguments to
 `zip`.  That is, the first tuple contains the first element of each of
-the sequences, the second element contains the second element of each
+the sequences, the second tuple contains the second element of each
 of the sequences, and so on.  The result list is only as long as the
 shortest of the input sequences.
 
 ```python
 zip()                                   # []
 zip(range(5))                           # [(0,), (1,), (2,), (3,), (4,)]
-zip(range(5), "abc")                    # [(0, "a"), (1, "b"), (2, "c")]
+zip(range(5), "abc".elems())            # [(0, "a"), (1, "b"), (2, "c")]
 ```
 
 ## Built-in methods
@@ -3719,6 +3771,141 @@ x.remove(2)                             # None (x == [1, 3])
 x.remove(2)                             # error: element not found
 ```
 
+<a id='set·add'></a>
+### set·add
+
+If `x` is not an element of set `S`, `S.add(x)` adds it to the set or fails if the set is frozen.
+If `x` already an element of the set, `add(x)` has no effect.
+
+It returns None.
+
+```python
+x = set([1, 2])
+x.add(3)                             # None
+x                                    # set([1, 2, 3])
+x.add(3)                             # None
+x                                    # set([1, 2, 3])
+```
+
+<a id='set·clear'></a>
+### set·clear
+
+`S.clear()` removes all items from the set or fails if the set is non-empty and frozen.
+
+It returns None.
+
+```python
+x = set([1, 2, 3])
+x.clear(2)                               # None
+x                                        # set([])
+```
+
+<a id='set·difference'></a>
+### set·difference
+
+`S.difference(y)` returns a new set into which have been inserted all the elements of set S which are not in y.
+
+y can be any type of iterable (e.g. set, list, tuple).
+
+```python
+x = set([1, 2, 3])
+x.difference([3, 4, 5])                   # set([1, 2])
+```
+
+<a id='set·discard'></a>
+### set·discard
+
+If `x` is an element of set `S`, `S.discard(x)` removes `x` from the set, or fails if the
+set is frozen. If `x` is not an element of the set, discard has no effect.
+
+It returns None.
+
+```python
+x = set([1, 2, 3])
+x.discard(2)                             # None
+x                                        # set([1, 3])
+x.discard(2)                             # None
+x                                        # set([1, 3])
+```
+
+<a id='set·intersection'></a>
+### set·intersection
+
+`S.intersection(y)` returns a new set into which have been inserted all the elements of set S which are also in y.
+
+y can be any type of iterable (e.g. set, list, tuple).
+
+```python
+x = set([1, 2, 3])
+x.intersection([3, 4, 5])                # set([3])
+```
+
+<a id='set·issubset'></a>
+### set·issubset
+
+`S.issubset(y)` returns True if all items in S are also in y, otherwise it returns False.
+
+y can be any type of iterable (e.g. set, list, tuple).
+
+```python
+x = set([1, 2])
+x.issubset([1, 2, 3])                # True
+x.issubset([1, 3, 4])                # False
+```
+
+<a id='set·issuperset'></a>
+### set·issuperset
+
+`S.issuperset(y)` returns True if all items in y are also in S, otherwise it returns False.
+
+y can be any type of iterable (e.g. set, list, tuple).
+
+```python
+x = set([1, 2, 3])
+x.issuperset([1, 2])                 # True
+x.issuperset([1, 3, 4])              # False
+```
+
+<a id='set·pop'></a>
+### set·pop
+
+`S.pop()` removes the first inserted item from the set and returns it.
+
+`pop` fails if the set is empty or frozen.
+
+```python
+x = set([1, 2])
+x.pop()                                 # 1
+x.pop()                                 # 2
+x.pop()                                 # error: empty set
+```
+
+<a id='set·remove'></a>
+### set·remove
+
+`S.remove(x)` removes `x` from the set and returns None.
+
+`remove` fails if the set does not contain `x` or is frozen.
+
+```python
+x = set([1, 2, 3])
+x.remove(2)                             # None
+x                                       # set([1, 3])
+x.remove(2)                             # error: element not found
+```
+
+<a id='set·symmetric_difference'></a>
+### set·symmetric_difference
+
+`S.symmetric_difference(y)` creates a new set into which is inserted all of the items which are in S but not y, followed by all of the items which are in y but not S.
+
+y can be any type of iterable (e.g. set, list, tuple).
+
+```python
+x = set([1, 2, 3])
+x.symmetric_difference([3, 4, 5])         # set([1, 2, 4, 5])
+```
+
 <a id='set·union'></a>
 ### set·union
 
@@ -3882,7 +4069,7 @@ Currently it must be empty, but it is reserved for future use.
 "a{x}b{y}c{}".format(1, x=2, y=3)               # "a2b3c1"
 "a{}b{}c".format(1, 2)                          # "a1b2c"
 "({1}, {0})".format("zero", "one")              # "(one, zero)"
-"Is {0!r} {0!s}?".format('heterological')       # 'is "heterological" heterological?'
+"Is {0!r} {0!s}?".format('heterological')       # 'Is "heterological" heterological?'
 ```
 
 <a id='string·index'></a>

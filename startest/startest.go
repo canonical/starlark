@@ -39,9 +39,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/canonical/starlark/resolve"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarktest"
+	"github.com/canonical/starlark/syntax"
 	"gopkg.in/check.v1"
 )
 
@@ -184,11 +184,13 @@ func (st *ST) RunString(code string) (ok bool) {
 		return false
 	}
 
-	allowGlobalReassign := resolve.AllowGlobalReassign
-	defer func() {
-		resolve.AllowGlobalReassign = allowGlobalReassign
-	}()
-	resolve.AllowGlobalReassign = true
+	options := &syntax.FileOptions{
+		Set:             true,
+		While:           true,
+		TopLevelControl: true,
+		GlobalReassign:  true,
+		Recursion:       true,
+	}
 
 	assertMembers, err := starlarktest.LoadAssertModule()
 	if err != nil {
@@ -205,7 +207,7 @@ func (st *ST) RunString(code string) (ok bool) {
 	st.AddLocal("Reporter", st) // Set starlarktest reporter outside of RunThread
 	st.AddValue("assert", assert)
 
-	_, mod, err := starlark.SourceProgram("startest.RunString", code, func(name string) bool {
+	_, mod, err := starlark.SourceProgramOptions(options, "startest.RunString", code, func(name string) bool {
 		_, ok := st.predecls[name]
 		return ok
 	})
