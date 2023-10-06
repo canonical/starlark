@@ -1127,6 +1127,9 @@ func TestStepsCheck(t *testing.T) {
 			}
 			st.KeepAlive(s)
 		})
+		if log := dummy.Logs(); log != "" {
+			t.Log(log)
+		}
 		if !st.Failed() {
 			t.Error("expected failure")
 		}
@@ -1148,6 +1151,9 @@ func TestStepsCheck(t *testing.T) {
 			}
 			st.KeepAlive(s)
 		})
+		if log := dummy.Logs(); log != "" {
+			t.Log(log)
+		}
 		if !st.Failed() {
 			t.Error("expected failure")
 		}
