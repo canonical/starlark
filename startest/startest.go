@@ -463,7 +463,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 
 func decimate(samples []float64) []float64 {
 	for i := 0; i < len(samples)/2; i++ {
-		samples[i] = samples[i*2+1]
+		samples[i] = samples[i*2]
 	}
 	return samples[:len(samples)/2]
 }
