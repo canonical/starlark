@@ -1101,7 +1101,7 @@ func TestStepsCheck(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(t *starlark.Thread) {
-			st.KeepAlive(make([]int, int(math.Log(float64(st.N)*100))))
+			st.KeepAlive(make([]int, int(math.Log(float64(st.N))*100)))
 		})
 	})
 
@@ -1109,7 +1109,7 @@ func TestStepsCheck(t *testing.T) {
 		st := startest.From(&dummyBase{})
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(t *starlark.Thread) {
-			st.KeepAlive(make([]int, st.N*100))
+			st.KeepAlive(make([]int, st.N))
 		})
 		if !st.Failed() {
 			t.Error("expected failure for linear function")
@@ -1120,7 +1120,7 @@ func TestStepsCheck(t *testing.T) {
 		st := startest.From(&dummyBase{})
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(t *starlark.Thread) {
-			st.KeepAlive(make([]int, st.N*st.N/64))
+			st.KeepAlive(make([]int, st.N*st.N))
 		})
 		if !st.Failed() {
 			t.Error("expected failure for quadratic function")
