@@ -432,6 +432,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	}
 
 	unaccountedCPUTime := false
+	st.Log(samplingInterval, timeSamples)
 	if st.requiredSafety.Contains(starlark.CPUSafe) {
 		if nSum < 1000 {
 			// Very slow functions (e.g. ~1ms per N) can be problematic on
@@ -463,7 +464,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 
 func decimate(samples []float64) []float64 {
 	for i := 0; i < len(samples)/2; i++ {
-		samples[i] = samples[i*2]
+		samples[i] = samples[i*2+1]
 	}
 	return samples[:len(samples)/2]
 }
