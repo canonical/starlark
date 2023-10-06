@@ -193,7 +193,7 @@ func (ht *hashtable) grow(thread *Thread) error {
 	return nil
 }
 
-func (ht *hashtable) lookup(k Value) (v Value, found bool, err error) {
+func (ht *hashtable) lookup(thread *Thread, k Value) (v Value, found bool, err error) {
 	h, err := k.Hash()
 	if err != nil {
 		return nil, false, err // unhashable
@@ -207,6 +207,11 @@ func (ht *hashtable) lookup(k Value) (v Value, found bool, err error) {
 
 	// Inspect each bucket in the bucket list.
 	for p := &ht.table[h&(uint32(len(ht.table)-1))]; p != nil; p = p.next {
+		if thread != nil {
+			if err := thread.AddExecutionSteps(1); err != nil {
+				return nil, false, err
+			}
+		}
 		for i := range p.entries {
 			e := &p.entries[i]
 			if e.hash == h {
@@ -258,7 +263,7 @@ func (ht *hashtable) values() []Value {
 	return values
 }
 
-func (ht *hashtable) delete(k Value) (v Value, found bool, err error) {
+func (ht *hashtable) delete(thread *Thread, k Value) (v Value, found bool, err error) {
 	if err := ht.checkMutable("delete from"); err != nil {
 		return nil, false, err
 	}
@@ -275,6 +280,11 @@ func (ht *hashtable) delete(k Value) (v Value, found bool, err error) {
 
 	// Inspect each bucket in the bucket list.
 	for p := &ht.table[h&(uint32(len(ht.table)-1))]; p != nil; p = p.next {
+		if thread != nil {
+			if err := thread.AddExecutionSteps(1); err != nil {
+				return nil, false, err
+			}
+		}
 		for i := range p.entries {
 			e := &p.entries[i]
 			if e.hash == h {

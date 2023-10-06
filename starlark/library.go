@@ -1701,12 +1701,12 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 // ---- methods of built-in types ---
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·get
-func dict_get(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_get(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var key, dflt Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &key, &dflt); err != nil {
 		return nil, err
 	}
-	if v, ok, err := b.Receiver().(*Dict).Get(key); err != nil {
+	if v, ok, err := b.Receiver().(*Dict).ht.lookup(thread, key); err != nil {
 		return nil, nameErr(b, err)
 	} else if ok {
 		return v, nil
@@ -1781,12 +1781,12 @@ func dict_keys(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·pop
-func dict_pop(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_pop(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var k, d Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &k, &d); err != nil {
 		return nil, err
 	}
-	if v, found, err := b.Receiver().(*Dict).Delete(k); err != nil {
+	if v, found, err := b.Receiver().(*Dict).ht.delete(thread, k); err != nil {
 		return nil, nameErr(b, err) // dict is frozen or key is unhashable
 	} else if found {
 		return v, nil
@@ -1807,7 +1807,7 @@ func dict_popitem(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if !ok {
 		return nil, nameErr(b, "empty dict")
 	}
-	v, _, err := recv.Delete(k)
+	v, _, err := recv.ht.delete(thread, k)
 	if err != nil {
 		return nil, nameErr(b, err) // dict is frozen
 	}

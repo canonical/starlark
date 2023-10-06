@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand"
 	"regexp"
 	"strings"
 	"testing"
@@ -1094,7 +1095,11 @@ func TestStepsCheck(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(t *starlark.Thread) {
-			st.KeepAlive(make([]int, 400))
+			s := 0
+			for i := 0; i < 400; i++ {
+				s += rand.Int()
+			}
+			st.KeepAlive(s)
 		})
 	})
 
@@ -1102,7 +1107,11 @@ func TestStepsCheck(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(t *starlark.Thread) {
-			st.KeepAlive(make([]int, int(math.Log(float64(st.N))*100)))
+			s := 0
+			for i := 0; i < int(math.Log(float64(st.N))*100); i++ {
+				s += rand.Int()
+			}
+			st.KeepAlive(s)
 		})
 	})
 
@@ -1110,11 +1119,15 @@ func TestStepsCheck(t *testing.T) {
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
 		st.RequireSafety(starlark.CPUSafe)
-		st.RunThread(func(t *starlark.Thread) {
-			st.KeepAlive(make([]int, st.N))
+		st.RunThread(func(thread *starlark.Thread) {
+			s := 0
+			for i := 0; i < st.N; i++ {
+				s += rand.Int()
+			}
+			st.KeepAlive(s)
 		})
+		t.Log(dummy.Logs())
 		if !st.Failed() {
-			t.Log(dummy.Logs())
 			t.Error("expected failure for linear function")
 		}
 	})
@@ -1124,10 +1137,14 @@ func TestStepsCheck(t *testing.T) {
 		st := startest.From(dummy)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(t *starlark.Thread) {
-			st.KeepAlive(make([]int, st.N*st.N))
+			s := 0
+			for i := 0; i < st.N*st.N/1000; i++ {
+				s += rand.Int()
+			}
+			st.KeepAlive(s)
 		})
+		t.Log(dummy.Logs())
 		if !st.Failed() {
-			t.Log(dummy.Logs())
 			t.Error("expected failure for quadratic function")
 		}
 	})

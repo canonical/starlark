@@ -36,6 +36,7 @@ import (
 	"math"
 	"math/bits"
 	"runtime"
+	"runtime/metrics"
 	"strings"
 	"testing"
 	"time"
@@ -294,8 +295,27 @@ type executionStats struct {
 	cpuDangerous   bool
 }
 
+func (st *ST) readAllocs() uint64 {
+	if st.requiredSafety.Contains(starlark.MemSafe) {
+		runtime.GC()
+		runtime.GC()
+		var stats runtime.MemStats
+		runtime.ReadMemStats(&stats)
+		return stats.Alloc
+	}
+
+	sample := []metrics.Sample{
+		{Name: "/gc/heap/allocs:objects"},
+	}
+	metrics.Read(sample)
+	if sample[0].Value.Kind() == metrics.KindBad {
+		return 0
+	}
+	return sample[0].Value.Uint64()
+}
+
 func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) executionStats {
-	const nMax = 100_000
+	const nMax = 150_000
 	const memoryMax = 200 * (1 << 20)
 	const timeMax = time.Second
 	const targetSamples = 50
@@ -305,12 +325,13 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	timeSamples := make([]float64, 0, targetSamples)
 
 	startTime := time.Now()
+	prevN, elapsed := int64(0), time.Duration(0)
 	retried := false
 	lastRetryElapsed := time.Duration(0)
 	prevElapsed := time.Duration(0)
-	prevN, elapsed := int64(0), time.Duration(0)
 	for allocSum < memoryMax+valueTrackerAllocs && prevN < nMax && elapsed < timeMax {
 	retry:
+		var alive []interface{}
 		var n int64
 		if nSum == 0 {
 			n = 1
@@ -318,17 +339,16 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 			if len(timeSamples) >= targetSamples {
 				const sampleIntervalIncreaseRate = 2
 
-				resampleCount := int64(targetSamples / sampleIntervalIncreaseRate)
+				resampleCount := targetSamples - int64(len(timeSamples)/sampleIntervalIncreaseRate)
 				targetNSumIncrease := resampleCount*int64(prevN) + sampleInterval*resampleCount*(resampleCount-1)
-				timePerN := elapsed / time.Duration(nSum)
-				if timeMax-elapsed < time.Duration(targetNSumIncrease)*timePerN {
-					break // There are already enough samples at this point, more are unnecessary.
+				timePerN := time.Duration(uint64(elapsed) / nSum)
+				if timeMax-elapsed > time.Duration(targetNSumIncrease)*timePerN {
+					sampleInterval *= sampleIntervalIncreaseRate
+					timeSamples = decimate(timeSamples, sampleIntervalIncreaseRate) // Decimate to keep linear sample spacing.
 				}
-
-				sampleInterval *= sampleIntervalIncreaseRate
-				timeSamples = decimate(timeSamples, sampleIntervalIncreaseRate) // Decimate to keep linear sample spacing.
 			}
 			n = prevN + sampleInterval
+			alive = make([]interface{}, targetSamples)
 		} else if st.requiredSafety.Contains(starlark.MemSafe) {
 			allocsPerN := int64(uint64(allocSum) / nSum)
 			if allocsPerN <= 0 {
@@ -341,6 +361,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 					n = memoryTargetN
 				}
 			}
+			alive = make([]interface{}, 0, n)
 		} else {
 			// Even if there is no resource target set, it is still best to run
 			// the logic few times with increasing N. It is not necessary to do
@@ -349,7 +370,6 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 			n = prevN * 2
 		}
 
-		alive := make([]interface{}, 0, n)
 		st.alive = alive
 		st.elapsed = 0
 		st.N = int(n)
@@ -357,26 +377,17 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		prevAllocs := thread.Allocs()
 		prevSteps := thread.ExecutionSteps()
 
-		var before, after runtime.MemStats
-		runtime.GC()
-		runtime.GC()
-		runtime.ReadMemStats(&before)
-
-		runtime.LockOSThread()
+		beforeAllocs := st.readAllocs()
 		st.StartTimer()
 		fn(thread)
 		st.StopTimer()
-		runtime.UnlockOSThread()
+		afterAllocs := st.readAllocs()
 
-		runtime.GC()
-		runtime.GC()
-		runtime.ReadMemStats(&after)
 		runtime.KeepAlive(alive)
 
 		if st.Failed() {
 			return executionStats{}
 		}
-
 		if st.requiredSafety.Contains(starlark.CPUSafe) && prevElapsed > 0 {
 			if st.elapsed > prevElapsed*2 {
 				// Confirm that the quick increase in time comes from the
@@ -407,31 +418,37 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		if cap(st.alive) != cap(alive) {
 			valueTrackerAllocs += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
 		}
-		if after.Alloc > before.Alloc {
-			allocSum += after.Alloc - before.Alloc
+		if afterAllocs > beforeAllocs {
+			allocSum += afterAllocs - beforeAllocs
 		}
 
 		timeSamples = append(timeSamples, float64(st.elapsed))
 		nSum += uint64(n)
 		prevN = int64(n)
 		prevElapsed = st.elapsed
-		st.alive = nil
-		retried = false
 		elapsed = time.Since(startTime)
+		retried = false
+		st.alive = nil
 	}
 
 	cpuDangerous := false
-	st.Log(sampleInterval, timeSamples)
+	st.Logf("x = (1:%d) * %d; y = %v", len(timeSamples), sampleInterval, timeSamples)
 	if st.requiredSafety.Contains(starlark.CPUSafe) {
-		if nSum < 1000 {
+		if len(timeSamples) < targetSamples/2 {
 			// Very slow functions (e.g. ~1ms per N) can be problematic on
 			// their own, even if they don't grow much with their inputs.
 			cpuDangerous = true
 		} else {
-			timeSamples = removeNoise(timeSamples)
-			for i := 1; i < len(timeSamples); i++ {
-				maxNegligibleElapsed := timeSamples[0] * math.Log(float64(sampleInterval*int64(i+1)+1))
-				if timeSamples[i] > maxNegligibleElapsed {
+			denoisedTimeSamples := removeNoise(timeSamples)
+			slope := logDeterminant(denoisedTimeSamples, float64(sampleInterval))
+			errf := diff(timeSamples, denoisedTimeSamples)
+			margin := stdDev(errf) * math.Sqrt2
+			k := denoisedTimeSamples[0] - slope*math.Log(float64(sampleInterval)) + margin
+			for i := 1; i < len(denoisedTimeSamples); i++ {
+				sample := denoisedTimeSamples[i]
+				n := sampleInterval * int64(i+1)
+				limit := slope*math.Log(float64(n)) + k
+				if sample > limit {
 					cpuDangerous = true
 				}
 			}
@@ -451,6 +468,69 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	}
 }
 
+func minfilt(x []float64, size int) []float64 {
+	// halfSize := size / 2
+	result := make([]float64, len(x)-size)
+
+	for i := range result {
+		result[i] = min(x[i : i+size])
+	}
+
+	return result
+}
+
+func min(window []float64) float64 {
+	min := window[0]
+	for _, s := range window[1:] {
+		if s < min {
+			min = s
+		}
+	}
+	return min
+}
+
+func diff(a, b []float64) []float64 {
+	var size int
+	if len(a) < len(b) {
+		size = len(a)
+	} else {
+		size = len(b)
+	}
+	result := make([]float64, size)
+	for i := range result {
+		result[i] = a[i] - b[i]
+	}
+	return result
+}
+
+func stdDev(samples []float64) float64 {
+	mean := mean(samples)
+	variance := float64(0)
+	for _, sample := range samples {
+		diff := sample - mean
+		variance += diff * diff
+	}
+	return math.Sqrt(variance / float64(len(samples)))
+}
+
+func mean(samples []float64) float64 {
+	sum := float64(0)
+	for _, sample := range samples {
+		sum += sample
+	}
+	return sum / float64(len(samples))
+}
+
+func logDeterminant(samples []float64, sampleInterval float64) float64 {
+	sampleSum := float64(0)
+	for _, sample := range samples {
+		sampleSum += math.Abs(sample-samples[0]) * sampleInterval
+	}
+	// ∫[b1,b2] |a log(x) - a * log(b1)|  = a (b2 * (log(b2) - log(b1) - 1) + b1)
+	b1, b2 := float64(sampleInterval), float64(len(samples))*sampleInterval
+	return sampleSum / (b2*(math.Log(b2)-math.Log(b1)-1) + b1)
+}
+
 func decimate(samples []float64, factor int) []float64 {
 	result := samples[:0]
 	for i := factor; i < len(samples); i += factor {
@@ -468,6 +548,8 @@ func log2_64(n uint64) int {
 
 // removeNoise returns the given signal without spikes.
 func removeNoise(signal []float64) []float64 {
+	const minFilterWindowSize = 6
+
 	// The main idea is that monotonic functions (such as log(n), n^k, e^n)
 	// will appear to have a low frequency compared with measurement noise
 	// caused for example by interactions with the OS.
@@ -488,7 +570,8 @@ func removeNoise(signal []float64) []float64 {
 			0.757546944478829,
 		},
 	}
-	return filter.BatchFilter(signal)
+
+	return filter.BatchFilter(minfilt(signal, minFilterWindowSize))
 }
 
 func (st *ST) String() string        { return "<startest.ST>" }
