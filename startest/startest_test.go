@@ -1107,23 +1107,27 @@ func TestStepsCheck(t *testing.T) {
 	})
 
 	t.Run("linear", func(t *testing.T) {
-		st := startest.From(&dummyBase{})
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(t *starlark.Thread) {
 			st.KeepAlive(make([]int, st.N))
 		})
 		if !st.Failed() {
+			t.Log(dummy.Logs())
 			t.Error("expected failure for linear function")
 		}
 	})
 
 	t.Run("quadratic", func(t *testing.T) {
-		st := startest.From(&dummyBase{})
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(t *starlark.Thread) {
 			st.KeepAlive(make([]int, st.N*st.N))
 		})
 		if !st.Failed() {
+			t.Log(dummy.Logs())
 			t.Error("expected failure for quadratic function")
 		}
 	})
