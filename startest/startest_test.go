@@ -3,6 +3,7 @@ package startest_test
 import (
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"testing"
@@ -1085,4 +1086,44 @@ func TestRunStringErrorPositions(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestStepsCheck(t *testing.T) {
+	t.Run("constant", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(t *starlark.Thread) {
+			st.KeepAlive(make([]int, 400))
+		})
+	})
+
+	t.Run("log", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(t *starlark.Thread) {
+			st.KeepAlive(make([]int, int(math.Log(float64(st.N))*100)))
+		})
+	})
+
+	t.Run("linear", func(t *testing.T) {
+		st := startest.From(&dummyBase{})
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(t *starlark.Thread) {
+			st.KeepAlive(make([]int, st.N))
+		})
+		if !st.Failed() {
+			t.Error("expected failure for linear function")
+		}
+	})
+
+	t.Run("quadratic", func(t *testing.T) {
+		st := startest.From(&dummyBase{})
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(t *starlark.Thread) {
+			st.KeepAlive(make([]int, st.N*st.N))
+		})
+		if !st.Failed() {
+			t.Error("expected failure for quadratic function")
+		}
+	})
 }
