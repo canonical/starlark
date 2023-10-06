@@ -323,7 +323,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 			// any time/space estimation, so N can just grow exponentially,
 			// bound by nMax.
 			n = prevN * 2
-		} else {
+		} else if nSum > 0 {
 			if st.requiredSafety.Contains(starlark.MemSafe) {
 				allocsPerN := int64(uint64(allocSum) / nSum)
 				if allocsPerN <= 0 {
@@ -338,7 +338,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 				}
 			}
 
-			if st.requiredSafety.Contains(starlark.CPUSafe) && prevN != 0 {
+			if st.requiredSafety.Contains(starlark.CPUSafe) {
 				if len(timeSamples) >= targetSamples {
 					// Check if there's enough time to resample with a bigger sampling interval
 					timePerN := elapsed / time.Duration(nSum)
