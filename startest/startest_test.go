@@ -560,6 +560,7 @@ func TestRequireSafetyDefault(t *testing.T) {
 					t.Errorf("RunString returned true testing %v", safety)
 				}
 				if errLog := dummy.Errors(); errLog != expected {
+					t.Log(dummy.Logs())
 					t.Errorf("unexpected error(s) testing %v: %#v", safety, errLog)
 				}
 			})
