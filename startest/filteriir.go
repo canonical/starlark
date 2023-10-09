@@ -1,6 +1,12 @@
 package startest
 
-// filterIIR represents a 2nd order IIR filter in Direct-Form II (transposed).
+// filterIIR represents a filter which remove high-pitch noise from a sequence
+// of measurements. An IIR (Infinite Impulse Response) filter usually removes
+// significantly more noise than a simpler one, such as a moving average.
+// Specifically, this struct implements a 2nd order IIR filter in Direct-Form II
+// (transposed).
+//
+// More info at https://en.wikipedia.org/wiki/Infinite_impulse_response
 type filterIIR struct {
 	B [3]float64
 	A [3]float64

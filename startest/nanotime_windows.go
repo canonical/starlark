@@ -1,4 +1,5 @@
-//+build windows
+//go:build windows
+// +build windows
 
 package startest
 
@@ -6,8 +7,6 @@ import (
 	"syscall"
 	"unsafe"
 )
-
-type instant int64
 
 var (
 	queryPerformanceCounter          uintptr
@@ -21,8 +20,8 @@ func init() {
 	queryPerformanceCounter = kernel32.NewProc("QueryPerformanceCounter").Addr()
 }
 
-func nanotime() instant {
+func nanotime_impl() int64 {
 	var now int64
 	syscall.Syscall(queryPerformanceCounter, 1, uintptr(unsafe.Pointer(&now)), 0, 0)
-	return instant(now * (1e9 / queryPerformanceCounterFrequency))
+	return now * (1e9 / queryPerformanceCounterFrequency)
 }

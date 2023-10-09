@@ -90,17 +90,19 @@ func From(base TestBase) *ST {
 	}
 }
 
-// SetMaxAllocs optionally sets the max allocations allowed per st.N.
+// SetMaxAllocs optionally sets the max allocations allowed per unit of st.N.
 func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
 }
 
-// SetMaxExecutionSteps optionally sets the max execution steps allowed per st.N.
+// SetMaxExecutionSteps optionally sets the max execution steps allowed per unit
+// of st.N.
 func (st *ST) SetMaxExecutionSteps(maxExecutionSteps uint64) {
 	st.maxExecutionSteps = maxExecutionSteps
 }
 
-// SetMinExecutionSteps optionally sets the min execution steps allowed per st.N.
+// SetMinExecutionSteps optionally sets the min execution steps allowed per unit
+// of st.N.
 func (st *ST) SetMinExecutionSteps(minExecutionSteps uint64) {
 	st.minExecutionSteps = minExecutionSteps
 }
@@ -150,6 +152,10 @@ func (st *ST) AddLocal(name string, value interface{}) {
 	st.locals[name] = value
 }
 
+// StartTimer starts timing a test. This function is called automatically
+// before a test starts, but it can also be used to resume timing after
+// a call to StopTimer.
+//
 //go:inline
 func (st *ST) StartTimer() {
 	if !st.timerOn {
@@ -158,6 +164,9 @@ func (st *ST) StartTimer() {
 	}
 }
 
+// StopTimer stops timing a test. This can be used to pause the timer
+// while performing complex initialization that you don't want to measure.
+//
 //go:inline
 func (st *ST) StopTimer() {
 	if st.timerOn {
@@ -166,6 +175,9 @@ func (st *ST) StopTimer() {
 	}
 }
 
+// ResetTimer zeroes the elapsed test time. It does not affect whether the
+// timer is running.
+//
 //go:inline
 func (st *ST) ResetTimer() {
 	if st.timerOn {
@@ -295,13 +307,13 @@ type executionStats struct {
 }
 
 func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) executionStats {
-	const nMax = 100_000
+	const nMax = 120_000
 	const memoryMax = 200 * (1 << 20)
 	const timeMax = time.Second
 	const targetSamples = 50
 
 	nSum, allocSum, valueTrackerAllocs := uint64(0), uint64(0), uint64(0)
-	samplingInterval := int64(100)
+	sampleInterval := int64(100)
 	timeSamples := make([]float64, 0, targetSamples)
 
 	startTime := time.Now()
@@ -309,56 +321,42 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	lastRetryElapsed := time.Duration(0)
 	prevElapsed := time.Duration(0)
 	prevN, elapsed := int64(0), time.Duration(0)
-	for ; allocSum < memoryMax+valueTrackerAllocs && prevN < nMax && elapsed < timeMax; elapsed = time.Since(startTime) {
+	for allocSum < memoryMax+valueTrackerAllocs && prevN < nMax && elapsed < timeMax {
 	retry:
 		var n int64
-		prevTime := st.elapsed
-		if prevTime <= 0 {
-			prevTime = 1
-		}
+		if nSum == 0 {
+			n = 1
+		} else if st.requiredSafety.Contains(starlark.CPUSafe) {
+			if len(timeSamples) >= targetSamples {
+				const sampleIntervalIncreaseRate = 2
 
-		if !st.requiredSafety.Contains(starlark.CPUSafe) && !st.requiredSafety.Contains(starlark.CPUSafe) {
+				resampleCount := targetSamples - int64(len(timeSamples)/sampleIntervalIncreaseRate)
+				targetNSumIncrease := resampleCount*int64(prevN) + sampleInterval*resampleCount*(resampleCount-1)
+				timePerN := time.Duration(uint64(elapsed) / nSum)
+				if timeMax-elapsed > time.Duration(targetNSumIncrease)*timePerN {
+					sampleInterval *= sampleIntervalIncreaseRate
+					timeSamples = decimate(timeSamples, sampleIntervalIncreaseRate) // Decimate to keep linear sample spacing.
+				}
+			}
+			n = prevN + sampleInterval
+		} else if st.requiredSafety.Contains(starlark.MemSafe) {
+			allocsPerN := int64(uint64(allocSum) / nSum)
+			if allocsPerN <= 0 {
+				allocsPerN = 1
+			}
+			memoryTargetN := (memoryMax - int64(allocSum)) / allocsPerN
+			if n < memoryTargetN {
+				n = prevN * 2 // max growth
+				if memoryTargetN < n {
+					n = memoryTargetN
+				}
+			}
+		} else {
 			// Even if there is no resource target set, it is still best to run
 			// the logic few times with increasing N. It is not necessary to do
 			// any time/space estimation, so N can just grow exponentially,
 			// bound by nMax.
 			n = prevN * 2
-		} else if nSum > 0 {
-			if st.requiredSafety.Contains(starlark.MemSafe) {
-				allocsPerN := int64(uint64(allocSum) / nSum)
-				if allocsPerN <= 0 {
-					allocsPerN = 1
-				}
-				memoryTargetN := (memoryMax - int64(allocSum)) / allocsPerN
-				if n < memoryTargetN {
-					n = prevN * 2 // max growth
-					if memoryTargetN < n {
-						n = memoryTargetN
-					}
-				}
-			}
-
-			if st.requiredSafety.Contains(starlark.CPUSafe) {
-				if len(timeSamples) >= targetSamples {
-					// Check if there's enough time to resample with a bigger sampling interval
-					timePerN := elapsed / time.Duration(nSum)
-					remainingTime := timeMax - elapsed
-					resampleCount := int64(targetSamples / 2)
-					totalN := resampleCount*int64(prevN) + samplingInterval*resampleCount*(resampleCount-1)/2
-					if remainingTime < time.Duration(totalN)*timePerN {
-						break
-					}
-					samplingInterval *= 2
-					// Doubling the sampling interval means that some of old
-					// samples will be discarded (the odd ones!).
-					timeSamples = decimate(timeSamples)
-				}
-				n = prevN + samplingInterval
-			}
-		}
-
-		if n <= prevN {
-			n = prevN + 1
 		}
 
 		alive := make([]interface{}, 0, n)
@@ -391,8 +389,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 
 		if st.requiredSafety.Contains(starlark.CPUSafe) && prevElapsed > 0 {
 			if st.elapsed > prevElapsed*2 {
-				// Confirm that the quick increase in time comes from the
-				// function execution and not external factors.
+				// Retry sample to avoid analysing sharp increases caused by external factors.
 				if !retried {
 					st.alive = nil
 					if delta := int64(thread.Allocs()) - int64(prevAllocs); delta > 0 {
@@ -427,8 +424,9 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		nSum += uint64(n)
 		prevN = int64(n)
 		prevElapsed = st.elapsed
-		st.alive = nil
+		elapsed = time.Since(startTime)
 		retried = false
+		st.alive = nil
 	}
 
 	unaccountedCPUTime := false
@@ -440,7 +438,8 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		} else {
 			timeSamples = removeNoise(timeSamples)
 			for i := 1; i < len(timeSamples); i++ {
-				maxNegligibleElapsed := timeSamples[0] * math.Log(float64(samplingInterval*int64(i+1)+1))
+				// Check that function doesn't grow too fast.
+				maxNegligibleElapsed := timeSamples[0] * math.Log(float64(sampleInterval*int64(i+1)+1))
 				if timeSamples[i] > maxNegligibleElapsed {
 					unaccountedCPUTime = true
 				}
@@ -461,11 +460,15 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	}
 }
 
-func decimate(samples []float64) []float64 {
-	for i := 0; i < len(samples)/2; i++ {
-		samples[i] = samples[i*2+1]
+// decimate returns a subset of the samples containing every
+// n-th sample effectively increasing the sample interval by
+// a factor of n.
+func decimate(samples []float64, n int) []float64 {
+	result := samples[:0]
+	for i := 1; i < len(samples); i += n {
+		result = append(result, samples[i])
 	}
-	return samples[:len(samples)/2]
+	return result
 }
 
 func log2_64(n uint64) int {
@@ -484,17 +487,21 @@ func removeNoise(signal []float64) []float64 {
 	// To remove high frequency noise from the signal, this function uses an
 	// IIR filter as simpler methods such as a moving average do not remove
 	// enough noise to reliably determine function growth.
+	//
+	// See https://en.wikipedia.org/wiki/Butterworth_filter
 	filter := filterIIR{
-		// Butterworth weights for 1/32 of the sampling frequency
+		// Butterworth weights for 1/25 of the sampling frequency. This value is
+		// chosen as the measurement loop aims to collect 50 samples and most of
+		// the power is expected to be in the first frequency bucket.
 		B: [3]float64{
-			8.442692929079947e-03,
-			1.688538585815989e-02,
-			8.442692929079947e-03,
+			1.335920002785651e-02,
+			2.671840005571301e-02,
+			1.335920002785651e-02,
 		},
 		A: [3]float64{
 			1,
-			-1.723776172762509,
-			0.757546944478829,
+			-1.647459981076977,
+			0.700896781188403,
 		},
 	}
 	return filter.BatchFilter(signal)
