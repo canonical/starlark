@@ -481,18 +481,24 @@ func log2_64(n uint64) int {
 // removeNoise returns the given signal without spikes.
 func removeNoise(signal []float64) []float64 {
 	// The main idea is that monotonic functions (such as log(n), n^k, e^n)
-	// will appear to have a low frequency compared with measurement noise
-	// caused for example by interactions with the OS.
+	// will appear to have a low frequency compared with measurement noise.
+	// In the noise model it's also present a "salt noise"[1], caused by
+	// interactions with the OS and the Go runtime.
 	//
-	// To remove high frequency noise from the signal, this function uses an
-	// IIR filter as simpler methods such as a moving average do not remove
-	// enough noise to reliably determine function growth.
+	// The simplest way to remove most of the salt noise is to use a min filter
+	// which will just take the min value in a window (windowed min).
 	//
-	// See https://en.wikipedia.org/wiki/Butterworth_filter
+	// To remove the remaining high frequency noise from the signal, this
+	// function uses an IIR filter as simpler methods such as a moving
+	// average do not remove enough noise to reliably determine function growth.
+	//
+	//   [1]: https://en.wikipedia.org/wiki/Salt-and-pepper_noise
 	filter := filterIIR{
-		// Butterworth weights for 1/25 of the sampling frequency. This value is
-		// chosen as the measurement loop aims to collect 50 samples and most of
-		// the power is expected to be in the first frequency bucket.
+		// Low-pass Butterworth filter[2] weights for 1/25 of the sampling frequency.
+		// This value is chosen as the measurement loop aims to collect 50 samples
+		// and most of the power is expected to be in the first frequency bucket.
+		//
+		//   [2]: https://en.wikipedia.org/wiki/Butterworth_filter
 		B: [3]float64{
 			1.335920002785651e-02,
 			2.671840005571301e-02,
@@ -504,7 +510,29 @@ func removeNoise(signal []float64) []float64 {
 			0.700896781188403,
 		},
 	}
-	return filter.BatchFilter(signal)
+
+	const minFilterWindowSize = 6
+	return filter.BatchFilter(minfilt(signal, minFilterWindowSize))
+}
+
+func minfilt(x []float64, size int) []float64 {
+	result := make([]float64, len(x)-size)
+
+	for i := range result {
+		result[i] = min(x[i : i+size])
+	}
+
+	return result
+}
+
+func min(window []float64) float64 {
+	min := window[0]
+	for _, s := range window[1:] {
+		if s < min {
+			min = s
+		}
+	}
+	return min
 }
 
 func (st *ST) String() string        { return "<startest.ST>" }
