@@ -1,6 +1,8 @@
 package startest
 
-import "github.com/canonical/starlark/starlark"
+import (
+	"github.com/canonical/starlark/starlark"
+)
 
 const STSafe = stSafe
 

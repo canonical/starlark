@@ -104,7 +104,7 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 //
 // It is safe to call CheckExecutionSteps from any goroutine, even if the thread
 // is actively executing.
-func (thread *Thread) CheckExecutionSteps(delta uint64) error {
+func (thread *Thread) CheckExecutionSteps(delta int64) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
@@ -118,7 +118,7 @@ func (thread *Thread) CheckExecutionSteps(delta uint64) error {
 //
 // It is safe to call AddExecutionSteps from any goroutine, even if the thread
 // is actively executing.
-func (thread *Thread) AddExecutionSteps(delta uint64) error {
+func (thread *Thread) AddExecutionSteps(delta int64) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
@@ -134,14 +134,25 @@ func (thread *Thread) AddExecutionSteps(delta uint64) error {
 // simulateExecutionSteps simulates a call to AddExecutionSteps returning the
 // new total step-count and any error this would entail. No change is
 // recorded.
-func (thread *Thread) simulateExecutionSteps(delta uint64) (uint64, error) {
+func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
 		return thread.Steps, errors.New(*(*string)(cancelReason))
 	}
 
 	var nextExecutionSteps uint64
-	if delta <= math.MaxUint64-thread.Steps {
-		nextExecutionSteps = thread.Steps + delta
+	if delta < 0 {
+		udelta := uint64(-delta)
+		if udelta < thread.Steps {
+			nextExecutionSteps = thread.Steps - udelta
+		} else {
+			nextExecutionSteps = 0
+		}
+		return nextExecutionSteps, nil
+	}
+
+	udelta := uint64(delta)
+	if udelta <= math.MaxInt64-thread.Steps {
+		nextExecutionSteps = thread.Steps + udelta
 	} else {
 		nextExecutionSteps = math.MaxUint64
 	}

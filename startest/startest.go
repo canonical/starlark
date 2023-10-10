@@ -34,6 +34,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/bits"
 	"runtime"
 	"strings"
 	"testing"
@@ -58,8 +59,12 @@ type TestBase interface {
 type ST struct {
 	maxAllocs         uint64
 	maxExecutionSteps uint64
+	minExecutionSteps uint64
 	alive             []interface{}
 	N                 int
+	timerOn           bool
+	timerStart        instant
+	elapsed           time.Duration
 	requiredSafety    starlark.Safety
 	safetyGiven       bool
 	predecls          starlark.StringDict
@@ -85,14 +90,21 @@ func From(base TestBase) *ST {
 	}
 }
 
-// SetMaxAllocs optionally sets the max allocations allowed per st.N.
+// SetMaxAllocs optionally sets the max allocations allowed per unit of st.N.
 func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
 }
 
-// SetMaxExecutionSteps optionally sets the max execution steps allowed per st.N.
+// SetMaxExecutionSteps optionally sets the max execution steps allowed per unit
+// of st.N.
 func (st *ST) SetMaxExecutionSteps(maxExecutionSteps uint64) {
 	st.maxExecutionSteps = maxExecutionSteps
+}
+
+// SetMinExecutionSteps optionally sets the min execution steps allowed per unit
+// of st.N.
+func (st *ST) SetMinExecutionSteps(minExecutionSteps uint64) {
+	st.minExecutionSteps = minExecutionSteps
 }
 
 // RequireSafety optionally sets the required safety of tested code.
@@ -138,6 +150,39 @@ func (st *ST) AddLocal(name string, value interface{}) {
 		st.locals = make(map[string]interface{})
 	}
 	st.locals[name] = value
+}
+
+// StartTimer starts timing a test. This function is called automatically
+// before a test starts, but it can also be used to resume timing after
+// a call to StopTimer.
+//
+//go:inline
+func (st *ST) StartTimer() {
+	if !st.timerOn {
+		st.timerOn = true
+		st.timerStart = nanotime()
+	}
+}
+
+// StopTimer stops timing a test. This can be used to pause the timer
+// while performing complex initialization that you don't want to measure.
+//
+//go:inline
+func (st *ST) StopTimer() {
+	if st.timerOn {
+		st.elapsed += time.Duration(nanotime() - st.timerStart)
+		st.timerOn = false
+	}
+}
+
+// ResetTimer zeroes the elapsed test time. It does not affect whether the
+// timer is running.
+//
+//go:inline
+func (st *ST) ResetTimer() {
+	if st.timerOn {
+		st.timerStart = nanotime()
+	}
 }
 
 // RunString tests a string of Starlark code. On unexpected error, reports it,
@@ -214,36 +259,40 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		thread.SetLocal(k, v)
 	}
 
-	allocSum, nSum := st.measureMemory(func() {
-		fn(thread)
-	})
-
+	stats := st.measureExecution(thread, fn)
 	if st.Failed() {
 		return
 	}
 
-	mean := func(x uint64) uint64 { return (x + nSum/2) / nSum }
-	meanMeasuredAllocs := mean(allocSum)
+	mean := func(x uint64) uint64 { return (x + stats.nSum/2) / stats.nSum }
+	meanMeasuredAllocs := mean(stats.allocSum)
 	meanDeclaredAllocs := mean(thread.Allocs())
 	meanExecutionSteps := mean(thread.ExecutionSteps())
 
 	if st.maxAllocs != math.MaxUint64 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
 	}
-
 	if st.requiredSafety.Contains(starlark.MemSafe) {
 		if meanDeclaredAllocs > st.maxAllocs {
 			st.Errorf("declared allocations are above maximum (%d > %d)", meanDeclaredAllocs, st.maxAllocs)
 		}
 
 		// Check memory usage is safe, within mean rounding error (i.e. round(alloc error per N) == 0)
-		if allocSum > thread.Allocs() && (allocSum-thread.Allocs())*2 >= nSum {
+		if stats.allocSum > thread.Allocs() && (stats.allocSum-thread.Allocs())*2 >= stats.nSum {
 			st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasuredAllocs, meanDeclaredAllocs)
 		}
 	}
 
 	if st.maxExecutionSteps != math.MaxUint64 && meanExecutionSteps > st.maxExecutionSteps {
 		st.Errorf("execution steps are above maximum (%d > %d)", meanExecutionSteps, st.maxExecutionSteps)
+	}
+	if meanExecutionSteps < st.minExecutionSteps {
+		st.Errorf("execution steps are below minimum (%d < %d)", meanExecutionSteps, st.minExecutionSteps)
+	}
+	if st.requiredSafety.Contains(starlark.CPUSafe) {
+		if stats.unaccountedCPUTime && st.maxExecutionSteps == math.MaxUint64 {
+			st.Errorf("execution uses CPU time which is not accounted for")
+		}
 	}
 }
 
@@ -252,79 +301,238 @@ func (st *ST) KeepAlive(values ...interface{}) {
 	st.alive = append(st.alive, values...)
 }
 
-func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
-	startTime := time.Now()
+type executionStats struct {
+	nSum, allocSum     uint64
+	unaccountedCPUTime bool
+}
 
-	const nMax = 100_000
+func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) executionStats {
+	const nMax = 120_000
 	const memoryMax = 200 * (1 << 20)
 	const timeMax = time.Second
+	const targetSamples = 50
 
-	var memoryUsed uint64
-	var valueTrackerOverhead uint64
-	st.N = 0
-	nSum = 0
+	nSum, allocSum, valueTrackerAllocs := uint64(0), uint64(0), uint64(0)
+	sampleInterval := int64(100)
+	timeSamples := make([]float64, 0, targetSamples)
 
-	for n := uint64(0); !st.Failed() && memoryUsed < memoryMax+valueTrackerOverhead && n < nMax && time.Since(startTime) < timeMax; {
-		last := n
-		prevIters := uint64(st.N)
-		prevMemory := memoryUsed
-		if prevMemory <= 0 {
-			prevMemory = 1
+	startTime := time.Now()
+	retried := false
+	lastRetryElapsed := time.Duration(0)
+	prevElapsed := time.Duration(0)
+	prevN, elapsed := int64(0), time.Duration(0)
+	for allocSum < memoryMax+valueTrackerAllocs && prevN < nMax && elapsed < timeMax {
+	retry:
+		var n int64
+		if nSum == 0 {
+			n = 1
+		} else if st.requiredSafety.Contains(starlark.CPUSafe) {
+			if len(timeSamples) >= targetSamples {
+				const sampleIntervalIncreaseRate = 2
+
+				resampleCount := targetSamples - int64(len(timeSamples)/sampleIntervalIncreaseRate)
+				targetNSumIncrease := resampleCount*int64(prevN) + sampleInterval*resampleCount*(resampleCount-1)
+				timePerN := time.Duration(uint64(elapsed) / nSum)
+				if timeMax-elapsed > time.Duration(targetNSumIncrease)*timePerN {
+					sampleInterval *= sampleIntervalIncreaseRate
+					timeSamples = decimate(timeSamples, sampleIntervalIncreaseRate) // Decimate to keep linear sample spacing.
+				}
+			}
+			n = prevN + sampleInterval
+		} else if st.requiredSafety.Contains(starlark.MemSafe) {
+			allocsPerN := int64(uint64(allocSum) / nSum)
+			if allocsPerN <= 0 {
+				allocsPerN = 1
+			}
+			memoryTargetN := (memoryMax - int64(allocSum)) / allocsPerN
+			if n < memoryTargetN {
+				n = prevN * 2 // max growth
+				if memoryTargetN < n {
+					n = memoryTargetN
+				}
+			}
+		} else {
+			// Even if there is no resource target set, it is still best to run
+			// the logic few times with increasing N. It is not necessary to do
+			// any time/space estimation, so N can just grow exponentially,
+			// bound by nMax.
+			n = prevN * 2
 		}
-		n = memoryMax * prevIters / prevMemory
-		n += n / 5
-		maxGrowth := last * 2
-		minGrowth := last + 1
-		if n > maxGrowth {
-			n = maxGrowth
-		} else if n < minGrowth {
-			n = minGrowth
-		}
 
-		if n > nMax {
-			n = nMax
-		}
-
-		st.N = int(n)
 		alive := make([]interface{}, 0, n)
 		st.alive = alive
-		nSum += n
+		st.elapsed = 0
+		st.N = int(n)
+
+		prevAllocs := thread.Allocs()
+		prevSteps := thread.ExecutionSteps()
 
 		var before, after runtime.MemStats
 		runtime.GC()
 		runtime.GC()
 		runtime.ReadMemStats(&before)
 
-		fn()
+		runtime.LockOSThread()
+		st.StartTimer()
+		fn(thread)
+		st.StopTimer()
+		runtime.UnlockOSThread()
 
 		runtime.GC()
 		runtime.GC()
 		runtime.ReadMemStats(&after)
 		runtime.KeepAlive(alive)
 
-		if after.Alloc > before.Alloc {
-			memoryUsed += after.Alloc - before.Alloc
+		if st.Failed() {
+			return executionStats{}
 		}
+
+		if st.requiredSafety.Contains(starlark.CPUSafe) && prevElapsed > 0 {
+			if st.elapsed > prevElapsed*2 {
+				// Retry sample to avoid analysing sharp increases caused by external factors.
+				if !retried {
+					st.alive = nil
+					if delta := int64(thread.Allocs()) - int64(prevAllocs); delta > 0 {
+						thread.AddAllocs(-delta)
+					}
+					if delta := int64(thread.ExecutionSteps()) - int64(prevSteps); delta > 0 {
+						thread.AddExecutionSteps(-delta)
+					}
+
+					lastRetryElapsed = st.elapsed
+					retried = true
+					goto retry
+				}
+
+				if lastRetryElapsed < st.elapsed {
+					st.elapsed = lastRetryElapsed
+				}
+			}
+		}
+
 		// If st.alive was reallocated, the cost of its new memory block is
 		// included in the measurement. This overhead must be discounted
 		// when reasoning about the measurement.
 		if cap(st.alive) != cap(alive) {
-			valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
+			valueTrackerAllocs += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
 		}
+		if after.Alloc > before.Alloc {
+			allocSum += after.Alloc - before.Alloc
+		}
+
+		timeSamples = append(timeSamples, float64(st.elapsed))
+		nSum += uint64(n)
+		prevN = int64(n)
+		prevElapsed = st.elapsed
+		elapsed = time.Since(startTime)
+		retried = false
 		st.alive = nil
 	}
 
-	if st.Failed() {
-		return 0, 1
+	unaccountedCPUTime := false
+	if st.requiredSafety.Contains(starlark.CPUSafe) {
+		if nSum < 1000 {
+			// Very slow functions (e.g. ~1ms per N) can be problematic on
+			// their own, even if they don't grow much with their inputs.
+			unaccountedCPUTime = true
+		} else {
+			timeSamples = removeNoise(timeSamples)
+			for i := 1; i < len(timeSamples); i++ {
+				// Check that function doesn't grow too fast.
+				maxNegligibleElapsed := timeSamples[0] * math.Log(float64(sampleInterval*int64(i+1)+1))
+				if timeSamples[i] > maxNegligibleElapsed {
+					unaccountedCPUTime = true
+				}
+			}
+		}
 	}
 
-	if valueTrackerOverhead > memoryUsed {
-		memoryUsed = 0
+	if valueTrackerAllocs > allocSum {
+		allocSum = 0
 	} else {
-		memoryUsed -= valueTrackerOverhead
+		allocSum -= valueTrackerAllocs
 	}
 
-	return memoryUsed, nSum
+	return executionStats{
+		nSum:               nSum,
+		allocSum:           allocSum,
+		unaccountedCPUTime: unaccountedCPUTime,
+	}
+}
+
+// decimate returns a subset of the samples containing every
+// n-th sample effectively increasing the sample interval by
+// a factor of n.
+func decimate(samples []float64, n int) []float64 {
+	result := samples[:0]
+	for i := 1; i < len(samples); i += n {
+		result = append(result, samples[i])
+	}
+	return result
+}
+
+func log2_64(n uint64) int {
+	if n == 0 {
+		return 0
+	}
+	return 63 - bits.LeadingZeros64(n)
+}
+
+// removeNoise returns the given signal without spikes.
+func removeNoise(signal []float64) []float64 {
+	// The main idea is that monotonic functions (such as log(n), n^k, e^n)
+	// will appear to have a low frequency compared with measurement noise.
+	// In the noise model it's also present a "salt noise"[1], caused by
+	// interactions with the OS and the Go runtime.
+	//
+	// The simplest way to remove most of the salt noise is to use a min filter
+	// which will just take the min value in a window (windowed min).
+	//
+	// To remove the remaining high frequency noise from the signal, this
+	// function uses an IIR filter as simpler methods such as a moving
+	// average do not remove enough noise to reliably determine function growth.
+	//
+	//   [1]: https://en.wikipedia.org/wiki/Salt-and-pepper_noise
+	filter := filterIIR{
+		// Low-pass Butterworth filter[2] weights for 1/25 of the sampling frequency.
+		// This value is chosen as the measurement loop aims to collect 50 samples
+		// and most of the power is expected to be in the first frequency bucket.
+		//
+		//   [2]: https://en.wikipedia.org/wiki/Butterworth_filter
+		B: [3]float64{
+			1.335920002785651e-02,
+			2.671840005571301e-02,
+			1.335920002785651e-02,
+		},
+		A: [3]float64{
+			1,
+			-1.647459981076977,
+			0.700896781188403,
+		},
+	}
+
+	const minFilterWindowSize = 6
+	return filter.BatchFilter(minfilt(signal, minFilterWindowSize))
+}
+
+func minfilt(x []float64, size int) []float64 {
+	result := make([]float64, len(x)-size)
+
+	for i := range result {
+		result[i] = min(x[i : i+size])
+	}
+
+	return result
+}
+
+func min(window []float64) float64 {
+	min := window[0]
+	for _, s := range window[1:] {
+		if s < min {
+			min = s
+		}
+	}
+	return min
 }
 
 func (st *ST) String() string        { return "<startest.ST>" }

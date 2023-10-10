@@ -3,6 +3,8 @@ package startest_test
 import (
 	"errors"
 	"fmt"
+	"math"
+	"math/rand"
 	"regexp"
 	"strings"
 	"testing"
@@ -1085,4 +1087,72 @@ func TestRunStringErrorPositions(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestStepsCheck(t *testing.T) {
+	t.Run("constant", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(t *starlark.Thread) {
+			s := 0
+			for i := 0; i < 400; i++ {
+				s += rand.Int()
+			}
+			st.KeepAlive(s)
+		})
+	})
+
+	t.Run("log", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(t *starlark.Thread) {
+			s := 0
+			for i := 0; i < int(math.Log(float64(st.N))*100); i++ {
+				s += rand.Int()
+			}
+			st.KeepAlive(s)
+		})
+	})
+
+	t.Run("linear", func(t *testing.T) {
+		const expected = "execution uses CPU time which is not accounted for"
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			s := 0
+			for i := 0; i < st.N; i++ {
+				s += rand.Int()
+			}
+			st.KeepAlive(s)
+		})
+		if !st.Failed() {
+			t.Error("expected failure")
+		}
+		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("unexpected error(s): %s", errLog)
+		}
+	})
+
+	t.Run("quadratic", func(t *testing.T) {
+		const expected = "execution uses CPU time which is not accounted for"
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(t *starlark.Thread) {
+			s := 0
+			for i := 0; i < st.N*st.N/1000; i++ {
+				s += rand.Int()
+			}
+			st.KeepAlive(s)
+		})
+		if !st.Failed() {
+			t.Error("expected failure")
+		}
+		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("unexpected error(s): %s", errLog)
+		}
+	})
 }
