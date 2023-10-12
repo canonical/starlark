@@ -258,7 +258,7 @@ var (
 		"add":                  MemSafe | IOSafe,
 		"clear":                IOSafe,
 		"difference":           IOSafe,
-		"discard":              IOSafe,
+		"discard":              MemSafe | IOSafe,
 		"intersection":         IOSafe,
 		"issubset":             IOSafe,
 		"issuperset":           IOSafe,
