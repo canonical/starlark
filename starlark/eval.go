@@ -56,7 +56,7 @@ type Thread struct {
 	// computing the difference in its value before and after a computation.
 	//
 	// The precise meaning of "step" is not specified and may change.
-	Steps, maxSteps uint64
+	steps, maxSteps uint64
 	stepsLock       sync.Mutex
 
 	// OnMaxSteps is called when the thread reaches the limit set by SetMaxExecutionSteps.
@@ -87,7 +87,7 @@ func (thread *Thread) ExecutionSteps() uint64 {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
-	return thread.Steps
+	return thread.steps
 }
 
 // SetMaxExecutionSteps sets a limit on the number of Starlark
@@ -123,7 +123,7 @@ func (thread *Thread) AddExecutionSteps(delta int64) error {
 	defer thread.stepsLock.Unlock()
 
 	nextSteps, err := thread.simulateExecutionSteps(delta)
-	thread.Steps = nextSteps
+	thread.steps = nextSteps
 	if err != nil {
 		thread.Cancel(err.Error())
 	}
@@ -136,14 +136,14 @@ func (thread *Thread) AddExecutionSteps(delta int64) error {
 // recorded.
 func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
-		return thread.Steps, errors.New(*(*string)(cancelReason))
+		return thread.steps, errors.New(*(*string)(cancelReason))
 	}
 
 	var nextExecutionSteps uint64
 	if delta < 0 {
 		udelta := uint64(-delta)
-		if udelta < thread.Steps {
-			nextExecutionSteps = thread.Steps - udelta
+		if udelta < thread.steps {
+			nextExecutionSteps = thread.steps - udelta
 		} else {
 			nextExecutionSteps = 0
 		}
@@ -151,8 +151,8 @@ func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 	}
 
 	udelta := uint64(delta)
-	if udelta <= math.MaxInt64-thread.Steps {
-		nextExecutionSteps = thread.Steps + udelta
+	if udelta <= math.MaxInt64-thread.steps {
+		nextExecutionSteps = thread.steps + udelta
 	} else {
 		nextExecutionSteps = math.MaxUint64
 	}
@@ -2093,7 +2093,7 @@ func (thread *Thread) simulateAllocs(delta int64) (uint64, error) {
 	}
 
 	if vmdebug {
-		fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.Steps, thread.allocs, thread.maxAllocs)
+		fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs, thread.maxAllocs)
 	}
 
 	if thread.maxAllocs != 0 && nextAllocs > thread.maxAllocs {

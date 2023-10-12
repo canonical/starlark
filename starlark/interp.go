@@ -101,8 +101,8 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (_ 
 loop:
 	for {
 		thread.stepsLock.Lock()
-		thread.Steps++
-		if thread.Steps >= thread.maxSteps {
+		thread.steps++
+		if thread.steps >= thread.maxSteps {
 			if thread.OnMaxSteps != nil {
 				thread.OnMaxSteps(thread)
 			} else {
