@@ -6,6 +6,7 @@ package starlark_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math"
 	"os/exec"
@@ -19,30 +20,32 @@ import (
 	"github.com/canonical/starlark/internal/chunkedfile"
 	"github.com/canonical/starlark/lib/json"
 	starlarkmath "github.com/canonical/starlark/lib/math"
+	"github.com/canonical/starlark/lib/proto"
 	"github.com/canonical/starlark/lib/time"
-	"github.com/canonical/starlark/resolve"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarkstruct"
 	"github.com/canonical/starlark/starlarktest"
 	"github.com/canonical/starlark/startest"
 	"github.com/canonical/starlark/syntax"
+	"google.golang.org/protobuf/reflect/protoregistry"
+
+	_ "google.golang.org/protobuf/types/descriptorpb" // example descriptor needed for lib/proto tests
 )
 
 // A test may enable non-standard options by containing (e.g.) "option:recursion".
-func setOptions(src string) {
-	resolve.AllowGlobalReassign = option(src, "globalreassign")
-	resolve.LoadBindsGlobally = option(src, "loadbindsglobally")
-	resolve.AllowRecursion = option(src, "recursion")
-	resolve.AllowSet = option(src, "set")
+func getOptions(src string) *syntax.FileOptions {
+	return &syntax.FileOptions{
+		Set:               option(src, "set"),
+		While:             option(src, "while"),
+		TopLevelControl:   option(src, "toplevelcontrol"),
+		GlobalReassign:    option(src, "globalreassign"),
+		LoadBindsGlobally: option(src, "loadbindsglobally"),
+		Recursion:         option(src, "recursion"),
+	}
 }
 
 func option(chunk, name string) bool {
 	return strings.Contains(chunk, "option:"+name)
-}
-
-// Wrapper is the type of errors with an Unwrap method; see https://golang.org/pkg/errors.
-type Wrapper interface {
-	Unwrap() error
 }
 
 func TestEvalExpr(t *testing.T) {
@@ -111,10 +114,10 @@ func TestEvalExpr(t *testing.T) {
 }
 
 func TestExecFile(t *testing.T) {
-	defer setOptions("")
 	testdata := starlarktest.DataFile("starlark", ".")
 	thread := &starlark.Thread{Load: load}
 	starlarktest.SetReporter(thread, t)
+	proto.SetPool(thread, protoregistry.GlobalFiles)
 	for _, file := range []string{
 		"testdata/assign.star",
 		"testdata/bool.star",
@@ -129,12 +132,14 @@ func TestExecFile(t *testing.T) {
 		"testdata/list.star",
 		"testdata/math.star",
 		"testdata/misc.star",
+		"testdata/proto.star",
 		"testdata/set.star",
 		"testdata/string.star",
 		"testdata/time.star",
 		"testdata/tuple.star",
 		"testdata/recursion.star",
 		"testdata/module.star",
+		"testdata/while.star",
 	} {
 		filename := filepath.Join(testdata, file)
 		for _, chunk := range chunkedfile.Read(filename, t) {
@@ -144,9 +149,8 @@ func TestExecFile(t *testing.T) {
 				"struct":    starlark.NewBuiltin("struct", starlarkstruct.Make),
 			}
 
-			setOptions(chunk.Source)
-
-			_, err := starlark.ExecFile(thread, filename, chunk.Source, predeclared)
+			opts := getOptions(chunk.Source)
+			_, err := starlark.ExecFileOptions(opts, thread, filename, chunk.Source, predeclared)
 			switch err := err.(type) {
 			case *starlark.EvalError:
 				found := false
@@ -205,6 +209,9 @@ func load(thread *starlark.Thread, module string) (starlark.StringDict, error) {
 	}
 	if module == "math.star" {
 		return starlark.StringDict{"math": starlarkmath.Module}, nil
+	}
+	if module == "proto.star" {
+		return starlark.StringDict{"proto": proto.Module}, nil
 	}
 
 	// TODO(adonovan): test load() using this execution path.
@@ -602,12 +609,10 @@ Error: cannot load crash.star: floored division by zero`
 				result = evalErr
 			}
 
-			// TODO: use errors.Unwrap when go >=1.13 is everywhere.
-			wrapper, isWrapper := err.(Wrapper)
-			if !isWrapper {
+			err = errors.Unwrap(err)
+			if err == nil {
 				break
 			}
-			err = wrapper.Unwrap()
 		}
 		return result
 	}
@@ -976,6 +981,13 @@ func TestExecutionSteps(t *testing.T) {
 	if fmt.Sprint(err) != "Starlark computation cancelled: too many steps" {
 		t.Errorf("execution returned error %q, want cancellation", err)
 	}
+
+	thread.SetMaxExecutionSteps(thread.ExecutionSteps() + 100)
+	thread.Uncancel()
+	_, err = countSteps(1)
+	if err != nil {
+		t.Errorf("execution returned error %q, want nil", err)
+	}
 }
 
 // TestDeps fails if the interpreter proper (not the REPL, etc) sprouts new external dependencies.
@@ -997,6 +1009,55 @@ func TestDeps(t *testing.T) {
 			}
 			t.Errorf("new interpreter dependency: %s", pkg)
 		}
+	}
+}
+
+// TestPanicSafety ensures that a panic from an application-defined
+// built-in may traverse the interpreter safely; see issue #411.
+func TestPanicSafety(t *testing.T) {
+	predeclared := starlark.StringDict{
+		"panic": starlark.NewBuiltin("panic", func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			panic(args[0])
+		}),
+		"list": starlark.NewList([]starlark.Value{starlark.MakeInt(0)}),
+	}
+
+	// This program is executed twice, using the same Thread,
+	// and panics both times, with values 1 and 2, while
+	// main is on the stack and a for-loop is active.
+	//
+	// It mutates list, a predeclared variable.
+	// This operation would fail if the previous
+	// for-loop failed to close its iterator during the panic.
+	//
+	// It also calls main a second time without recursion enabled.
+	// This operation would fail if the previous
+	// call failed to pop main from the stack during the panic.
+	const src = `
+list[0] += 1
+
+def main():
+    for x in list:
+        panic(x)
+
+main()
+`
+	thread := new(starlark.Thread)
+	for _, i := range []int{1, 2} {
+		// Use a func to limit the scope of recover.
+		func() {
+			defer func() {
+				if got := fmt.Sprint(recover()); got != fmt.Sprint(i) {
+					t.Fatalf("recover: got %v, want %v", got, i)
+				}
+			}()
+			v, err := starlark.ExecFile(thread, "panic.star", src, predeclared)
+			if err != nil {
+				t.Fatalf("ExecFile returned error %q, expected panic", err)
+			} else {
+				t.Fatalf("ExecFile returned %v, expected panic", v)
+			}
+		}()
 	}
 }
 

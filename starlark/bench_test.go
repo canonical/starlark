@@ -7,17 +7,18 @@ package starlark_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/canonical/starlark/lib/json"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarktest"
 )
 
-func Benchmark(b *testing.B) {
-	defer setOptions("")
+func BenchmarkStarlark(b *testing.B) {
+	starlark.Universe["json"] = json.Module
 
 	testdata := starlarktest.DataFile("starlark", ".")
 	thread := new(starlark.Thread)
@@ -28,15 +29,15 @@ func Benchmark(b *testing.B) {
 
 		filename := filepath.Join(testdata, file)
 
-		src, err := ioutil.ReadFile(filename)
+		src, err := os.ReadFile(filename)
 		if err != nil {
 			b.Error(err)
 			continue
 		}
-		setOptions(string(src))
+		opts := getOptions(string(src))
 
 		// Evaluate the file once.
-		globals, err := starlark.ExecFile(thread, filename, src, nil)
+		globals, err := starlark.ExecFileOptions(opts, thread, filename, src, nil)
 		if err != nil {
 			reportEvalError(b, err)
 		}
@@ -60,9 +61,9 @@ func Benchmark(b *testing.B) {
 // It provides b.n, the number of iterations that must be executed by the function,
 // which is typically of the form:
 //
-//   def bench_foo(b):
-//      for _ in range(b.n):
-//         ...work...
+//	def bench_foo(b):
+//	   for _ in range(b.n):
+//	      ...work...
 //
 // It also provides stop, start, and restart methods to stop the clock in case
 // there is significant set-up work that should not count against the measured
@@ -125,7 +126,7 @@ func BenchmarkProgram(b *testing.B) {
 	b.Run("read", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			var err error
-			src, err = ioutil.ReadFile(filename)
+			src, err = os.ReadFile(filename)
 			if err != nil {
 				b.Fatal(err)
 			}

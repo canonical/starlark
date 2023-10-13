@@ -4105,6 +4105,33 @@ func TestStringUpperAllocs(t *testing.T) {
 	})
 }
 
+func TestSetAddAllocs(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		set := starlark.NewSet(0)
+		if err := thread.AddAllocs(starlark.EstimateSize(set)); err != nil {
+			st.Error(err)
+		}
+		set_add, _ := set.Attr("add")
+		if set_add == nil {
+			t.Fatal("no such method: set.add")
+		}
+		for i := 0; i < st.N; i++ {
+			n := starlark.Value(starlark.MakeInt(i))
+			if err := thread.AddAllocs(starlark.EstimateSize(n)); err != nil {
+				st.Error(err)
+			}
+			result, err := starlark.Call(thread, set_add, starlark.Tuple{n}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+		st.KeepAlive(set)
+	})
+}
+
 func TestSetUnionSteps(t *testing.T) {
 }
 
