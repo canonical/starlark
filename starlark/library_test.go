@@ -4106,9 +4106,9 @@ func TestStringUpperAllocs(t *testing.T) {
 }
 
 func TestSetPopAllocs(t *testing.T) {
-	const setsize = 1000
-	set := starlark.NewSet(setsize)
-	for i := 0; i < setsize; i++ {
+	const setSize = 1000
+	set := starlark.NewSet(setSize)
+	for i := 0; i < setSize; i++ {
 		set.Insert(starlark.MakeInt(i))
 	}
 	set_pop, _ := set.Attr("pop")
