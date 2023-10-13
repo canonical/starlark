@@ -4105,6 +4105,33 @@ func TestStringUpperAllocs(t *testing.T) {
 	})
 }
 
+func TestSetAddAllocs(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		set := starlark.NewSet(0)
+		if err := thread.AddAllocs(starlark.EstimateSize(set)); err != nil {
+			st.Error(err)
+		}
+		set_add, _ := set.Attr("add")
+		if set_add == nil {
+			t.Fatal("no such method: set.add")
+		}
+		for i := 0; i < st.N; i++ {
+			n := starlark.Value(starlark.MakeInt(i))
+			if err := thread.AddAllocs(starlark.EstimateSize(n)); err != nil {
+				st.Error(err)
+			}
+			result, err := starlark.Call(thread, set_add, starlark.Tuple{n}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+		st.KeepAlive(set)
+	})
+}
+
 func TestSetClearAllocs(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
@@ -4129,6 +4156,60 @@ func TestSetClearAllocs(t *testing.T) {
 }
 
 func TestSetUnionSteps(t *testing.T) {
+}
+
+func TestSetDiscardAllocs(t *testing.T) {
+	t.Run("present", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			set := starlark.NewSet(st.N)
+			if err := thread.AddAllocs(starlark.EstimateSize(set)); err != nil {
+				st.Error(err)
+			}
+			for i := 0; i < st.N; i++ {
+				n := starlark.Value(starlark.MakeInt(i))
+				set.Insert(n)
+			}
+			set_discard, _ := set.Attr("discard")
+			if set_discard == nil {
+				st.Fatal("no such method: set.discard")
+			}
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, set_discard, starlark.Tuple{starlark.MakeInt(i)}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+			st.KeepAlive(set)
+		})
+	})
+
+	t.Run("missing", func(t *testing.T) {
+		set := starlark.NewSet(10)
+		for i := 0; i < 10; i++ {
+			n := starlark.Value(starlark.MakeInt(-i))
+			set.Insert(n)
+		}
+		set_discard, _ := set.Attr("discard")
+		if set_discard == nil {
+			t.Fatal("no such method: set.discard")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, set_discard, starlark.Tuple{starlark.MakeInt(i)}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+			st.KeepAlive(set)
+		})
+	})
 }
 
 func TestSetUnionAllocs(t *testing.T) {
