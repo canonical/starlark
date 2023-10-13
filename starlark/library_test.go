@@ -4132,6 +4132,29 @@ func TestSetAddAllocs(t *testing.T) {
 	})
 }
 
+func TestSetClearAllocs(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		set := starlark.NewSet(st.N)
+		for i := 0; i < st.N; i++ {
+			set.Insert(starlark.MakeInt(i))
+		}
+		if err := thread.AddAllocs(starlark.EstimateSize(set)); err != nil {
+			st.Error(err)
+		}
+		set_clear, _ := set.Attr("clear")
+		if set_clear == nil {
+			st.Fatal("no such method: set.clear")
+		}
+		result, err := starlark.Call(thread, set_clear, nil, nil)
+		if err != nil {
+			st.Error(err)
+		}
+		st.KeepAlive(result)
+	})
+}
+
 func TestSetUnionSteps(t *testing.T) {
 }
 

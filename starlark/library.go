@@ -256,7 +256,7 @@ var (
 	}
 	setMethodSafeties = map[string]Safety{
 		"add":                  MemSafe | IOSafe,
-		"clear":                IOSafe,
+		"clear":                MemSafe | IOSafe,
 		"difference":           IOSafe,
 		"discard":              MemSafe | IOSafe,
 		"intersection":         IOSafe,
