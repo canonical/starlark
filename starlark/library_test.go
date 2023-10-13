@@ -4106,9 +4106,9 @@ func TestStringUpperAllocs(t *testing.T) {
 }
 
 func TestSetIssupersetAllocs(t *testing.T) {
-	const N = 1000
-	set := starlark.NewSet(N)
-	for i := 0; i < N; i++ {
+	const setSize = 1000
+	set := starlark.NewSet(setSize)
+	for i := 0; i < setSize; i++ {
 		set.Insert(starlark.Value(starlark.MakeInt(i)))
 	}
 	set_issuperset, _ := set.Attr("issuperset")
@@ -4135,13 +4135,13 @@ func TestSetIssupersetAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
-			iter := testIterable{
+			iter := &testIterable{
 				maxN: st.N,
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 					return starlark.MakeInt(n), nil
 				},
 			}
-			result, err := starlark.Call(thread, set_issuperset, starlark.Tuple{&iter}, nil)
+			result, err := starlark.Call(thread, set_issuperset, starlark.Tuple{iter}, nil)
 			if err != nil {
 				st.Error(err)
 			}
