@@ -299,9 +299,9 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		st.alive = alive
 		st.N = int(n)
 
-		beforeAllocs := st.readAllocs()
+		beforeAllocs := readMemoryUsage(st.requiredSafety.Contains(starlark.MemSafe))
 		fn(thread)
-		afterAllocs := st.readAllocs()
+		afterAllocs := readMemoryUsage(st.requiredSafety.Contains(starlark.MemSafe))
 
 		runtime.KeepAlive(alive)
 
@@ -337,10 +337,14 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	}
 }
 
-func (st *ST) readAllocs() uint64 {
-	if st.requiredSafety.Contains(starlark.MemSafe) {
+// readMemoryUsage returns the number of bytes in use by the Go runtime. If
+// accurate measurement is required, a full GC will be performed.
+func readMemoryUsage(precise bool) uint64 {
+	if precise {
+		// Running the GC twice to take into account finalizers.
 		runtime.GC()
 		runtime.GC()
+
 		var stats runtime.MemStats
 		runtime.ReadMemStats(&stats)
 		return stats.Alloc
