@@ -274,7 +274,7 @@ func (st *ST) readAllocs() uint64 {
 	}
 
 	sample := []metrics.Sample{
-		{Name: "/gc/heap/allocs:objects"},
+		{Name: "/gc/heap/allocs:bytes"},
 	}
 	metrics.Read(sample)
 	if sample[0].Value.Kind() == metrics.KindBad {
