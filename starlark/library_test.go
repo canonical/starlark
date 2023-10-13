@@ -4106,19 +4106,17 @@ func TestStringUpperAllocs(t *testing.T) {
 }
 
 func TestSetSymmetricDifferenceAllocs(t *testing.T) {
-	const setsize = 100
-	ints := make([]starlark.Value, setsize)
-	set := starlark.NewSet(setsize)
-	for i := 0; i < setsize; i++ {
-		n := starlark.Value(starlark.MakeInt(i))
-		set.Insert(n)
+	const setSize = 100
+	set := starlark.NewSet(setSize)
+	set2 := starlark.NewList(make([]starlark.Value, 0, setSize))
+	for i := 0; i < setSize; i++ {
+		set.Insert(starlark.MakeInt(i))
 		if i%2 == 0 {
-			ints[i] = n
+			set2.Append(starlark.MakeInt(i))
 		} else {
-			ints[i] = starlark.None
+			set2.Append(starlark.MakeInt(-i))
 		}
 	}
-
 	set_symmetric_difference, _ := set.Attr("symmetric_difference")
 	if set_symmetric_difference == nil {
 		t.Fatal("no such method: set.symmetric_difference")
@@ -4143,7 +4141,7 @@ func TestSetSymmetricDifferenceAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{starlark.NewList(ints)}, nil)
+				result, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{set2}, nil)
 				if err != nil {
 					st.Error(err)
 				}
