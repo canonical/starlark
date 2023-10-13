@@ -4105,6 +4105,9 @@ func TestStringUpperAllocs(t *testing.T) {
 	})
 }
 
+func TestSetAddSteps(t *testing.T) {
+}
+
 func TestSetAddAllocs(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
@@ -4132,6 +4135,9 @@ func TestSetAddAllocs(t *testing.T) {
 	})
 }
 
+func TestSetClearSteps(t *testing.T) {
+}
+
 func TestSetClearAllocs(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
@@ -4155,7 +4161,13 @@ func TestSetClearAllocs(t *testing.T) {
 	})
 }
 
-func TestSetUnionSteps(t *testing.T) {
+func TestSetDifferenceSteps(t *testing.T) {
+}
+
+func TestSetDifferenceAllocs(t *testing.T) {
+}
+
+func TestSetDiscardSteps(t *testing.T) {
 }
 
 func TestSetDiscardAllocs(t *testing.T) {
@@ -4210,6 +4222,45 @@ func TestSetDiscardAllocs(t *testing.T) {
 			st.KeepAlive(set)
 		})
 	})
+}
+
+func TestSetIntersectionSteps(t *testing.T) {
+}
+
+func TestSetIntersectionAllocs(t *testing.T) {
+}
+
+func TestSetIsSubsetSteps(t *testing.T) {
+}
+
+func TestSetIsSubsetAllocs(t *testing.T) {
+}
+
+func TestSetIsSupersetSteps(t *testing.T) {
+}
+
+func TestSetIsSupersetAllocs(t *testing.T) {
+}
+
+func TestSetPopSteps(t *testing.T) {
+}
+
+func TestSetPopAllocs(t *testing.T) {
+}
+
+func TestSetRemoveSteps(t *testing.T) {
+}
+
+func TestSetRemoveAllocs(t *testing.T) {
+}
+
+func TestSetSymmetricDifferenceSteps(t *testing.T) {
+}
+
+func TestSetSymmetricDifferenceAllocs(t *testing.T) {
+}
+
+func TestSetUnionSteps(t *testing.T) {
 }
 
 func TestSetUnionAllocs(t *testing.T) {
