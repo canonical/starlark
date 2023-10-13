@@ -338,10 +338,10 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 }
 
 // readMemoryUsage returns the number of bytes in use by the Go runtime. If
-// accurate measurement is required, a full GC will be performed.
+// precise measurement is required, a full GC will be performed.
 func readMemoryUsage(precise bool) uint64 {
 	if precise {
-		// Running the GC twice to take into account finalizers.
+		// Run the GC twice to account for finalizers.
 		runtime.GC()
 		runtime.GC()
 
