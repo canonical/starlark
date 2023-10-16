@@ -428,7 +428,10 @@ func (ht *hashtable) iterate() *keyIterator {
 type keyIterator struct {
 	ht *hashtable
 	e  *entry
+	thread *Thread
 }
+
+var _ SafeIterator = &keyIterator{}
 
 func (it *keyIterator) Next(k *Value) bool {
 	if it.e != nil {
@@ -446,7 +449,8 @@ func (it *keyIterator) Done() {
 }
 
 func (ki *keyIterator) Err() error     { return nil }
-func (ki *keyIterator) Safety() Safety { return NotSafe }
+func (ki *keyIterator) Safety() Safety { return MemSafe }
+func (ki *keyIterator) BindThread(thread *Thread) { ki.thread = thread }
 
 // TODO(adonovan): use go1.19's maphash.String.
 
