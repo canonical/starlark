@@ -606,8 +606,8 @@ func TestSizeConstants(t *testing.T) {
 
 type dummySizeAware struct{}
 
-var _ starlark.SizeAware = &dummySizeAware{}
 var _ starlark.SizeAware = dummySizeAware{}
+var _ starlark.SizeAware = &dummySizeAware{}
 
 func (dummySizeAware) EstimateSize() int64 { return 1000 }
 
