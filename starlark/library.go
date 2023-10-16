@@ -262,7 +262,7 @@ var (
 		"intersection":         IOSafe,
 		"issubset":             IOSafe,
 		"issuperset":           IOSafe,
-		"pop":                  IOSafe,
+		"pop":                  MemSafe | IOSafe,
 		"remove":               MemSafe | IOSafe,
 		"symmetric_difference": IOSafe,
 		"union":                MemSafe | IOSafe,
