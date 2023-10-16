@@ -341,16 +341,14 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		st.alive = nil
 	}
 
-	cpuDangerous := false
-	if timePerN := elapsed / time.Duration(nSum); timePerN > time.Millisecond {
-		cpuDangerous = true
-	}
-
 	if valueTrackerAllocs > allocSum {
 		allocSum = 0
 	} else {
 		allocSum -= valueTrackerAllocs
 	}
+
+	timePerN := elapsed / time.Duration(nSum)
+	cpuDangerous := timePerN > time.Millisecond
 
 	return executionStats{
 		nSum:         nSum,
