@@ -2904,20 +2904,14 @@ func set_difference(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	diff, err := b.Receiver().(*Set).clone(thread)
-	if err != nil {
-		return nil, err
-	}
 	iter, err := SafeIterate(thread, other)
 	if err != nil {
 		return nil, err
 	}
 	defer iter.Done()
-	var x Value
-	for iter.Next(&x) {
-		if _, err := diff.Delete(x); err != nil {
-			return nil, err
-		}
+	diff, err := b.Receiver().(*Set).safeDifference(thread, iter)
+	if err != nil {
+		return nil, err
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
