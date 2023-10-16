@@ -4258,15 +4258,15 @@ func TestSetSymmetricDifferenceSteps(t *testing.T) {
 }
 
 func TestSetSymmetricDifferenceAllocs(t *testing.T) {
-	const setSize = 100
-	set := starlark.NewSet(setSize)
-	set2 := starlark.NewList(make([]starlark.Value, 0, setSize))
-	for i := 0; i < setSize; i++ {
+	const elems = 100
+	set := starlark.NewSet(elems)
+	list := starlark.NewList(make([]starlark.Value, 0, elems))
+	for i := 0; i < elems; i++ {
 		set.Insert(starlark.MakeInt(i))
 		if i%2 == 0 {
-			set2.Append(starlark.MakeInt(i))
+			list.Append(starlark.MakeInt(i))
 		} else {
-			set2.Append(starlark.MakeInt(-i))
+			list.Append(starlark.MakeInt(-i))
 		}
 	}
 	set_symmetric_difference, _ := set.Attr("symmetric_difference")
@@ -4293,7 +4293,7 @@ func TestSetSymmetricDifferenceAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{set2}, nil)
+				result, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{list}, nil)
 				if err != nil {
 					st.Error(err)
 				}
