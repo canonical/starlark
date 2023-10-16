@@ -250,7 +250,7 @@ func TestStepBounding(t *testing.T) {
 	})
 
 	t.Run("steps=not-safe-min", func(t *testing.T) {
-		expected := regexp.MustCompile(`execution steps are below minimum \(\d+ < 10\)`)
+		expected := regexp.MustCompile(`execution steps are below minimum \(\d+ < 100\)`)
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
