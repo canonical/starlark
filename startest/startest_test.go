@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -1112,5 +1113,22 @@ func TestRunStringErrorPositions(t *testing.T) {
 				t.Errorf("%s: expected error at %s but got %#v", name, expectedLoc, errLog)
 			}
 		}
+	}
+}
+
+func TestTriviallySlowFunction(t *testing.T) {
+	const expected = "execution uses CPU time which is not accounted for"
+
+	dummy := &dummyBase{}
+	st := startest.From(dummy)
+	st.RequireSafety(starlark.CPUSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		time.Sleep(time.Millisecond * time.Duration(st.N))
+	})
+	if !st.Failed() {
+		t.Error("expected failure")
+	}
+	if errLog := dummy.Errors(); errLog != expected {
+		t.Errorf("unexpected error(s): %s", errLog)
 	}
 }

@@ -253,6 +253,11 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	if meanExecutionSteps < st.minExecutionSteps {
 		st.Errorf("execution steps are below minimum (%d < %d)", meanExecutionSteps, st.minExecutionSteps)
 	}
+	if st.requiredSafety.Contains(starlark.CPUSafe) {
+		if stats.cpuDangerous && meanExecutionSteps == 0 {
+			st.Errorf("execution uses CPU time which is not accounted for")
+		}
+	}
 }
 
 // KeepAlive causes the memory of the passed objects to be measured.
@@ -262,6 +267,7 @@ func (st *ST) KeepAlive(values ...interface{}) {
 
 type executionStats struct {
 	nSum, allocSum uint64
+	cpuDangerous   bool
 }
 
 func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) executionStats {
@@ -335,6 +341,11 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		st.alive = nil
 	}
 
+	cpuDangerous := false
+	if timePerN := elapsed / time.Duration(nSum); timePerN > time.Millisecond {
+		cpuDangerous = true
+	}
+
 	if valueTrackerAllocs > allocSum {
 		allocSum = 0
 	} else {
@@ -342,8 +353,9 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	}
 
 	return executionStats{
-		nSum:     nSum,
-		allocSum: allocSum,
+		nSum:         nSum,
+		allocSum:     allocSum,
+		cpuDangerous: cpuDangerous,
 	}
 }
 
