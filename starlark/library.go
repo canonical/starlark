@@ -255,10 +255,10 @@ var (
 		"union":                NewBuiltin("union", set_union),
 	}
 	setMethodSafeties = map[string]Safety{
-		"add":                  IOSafe,
-		"clear":                IOSafe,
+		"add":                  MemSafe | IOSafe,
+		"clear":                MemSafe | IOSafe,
 		"difference":           IOSafe,
-		"discard":              IOSafe,
+		"discard":              MemSafe | IOSafe,
 		"intersection":         IOSafe,
 		"issubset":             IOSafe,
 		"issuperset":           IOSafe,
@@ -2867,7 +2867,7 @@ func string_splitlines(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·add.
-func set_add(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_add(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var elem Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &elem); err != nil {
 		return nil, err
@@ -2877,7 +2877,7 @@ func set_add(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	} else if found {
 		return None, nil
 	}
-	err := b.Receiver().(*Set).Insert(elem)
+	err := b.Receiver().(*Set).ht.insert(thread, elem, None)
 	if err != nil {
 		return nil, nameErr(b, err)
 	}
