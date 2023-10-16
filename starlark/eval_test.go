@@ -1492,22 +1492,44 @@ func TestSafeBinaryAllocs(t *testing.T) {
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				sqrtN := int(math.Sqrt(float64(n)))
 				l := starlark.MakeInt(sqrtN)
-				rElems := make([]starlark.Value, sqrtN)
-				for i := 0; i < len(rElems); i++ {
-					rElems[i] = starlark.String("a")
+				rightElems := make([]starlark.Value, sqrtN)
+				for i := 0; i < len(rightElems); i++ {
+					rightElems[i] = starlark.String("a")
 				}
-				r := starlark.NewList(rElems)
+				r := starlark.NewList(rightElems)
 				return l, syntax.STAR, r
 			},
 		}, {
 			name: "list * int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				sqrtN := int(math.Sqrt(float64(n)))
-				lElems := make([]starlark.Value, sqrtN)
-				for i := 0; i < len(lElems); i++ {
-					lElems[i] = starlark.String("a")
+				leftElems := make([]starlark.Value, sqrtN)
+				for i := 0; i < len(leftElems); i++ {
+					leftElems[i] = starlark.String("a")
 				}
-				l := starlark.NewList(lElems)
+				l := starlark.NewList(leftElems)
+				r := starlark.MakeInt(sqrtN)
+				return l, syntax.STAR, r
+			},
+		}, {
+			name: "int * tuple",
+			inputs: func(n int) (starlark.Value,syntax.Token, starlark.Value) {
+				sqrtN := int(math.Sqrt(float64(n)))
+				l := starlark.MakeInt(sqrtN)
+				r := make(starlark.Tuple, sqrtN)
+				for i := 0; i < len(r); i++ {
+					r[i] = starlark.String("r")
+				}
+				return l, syntax.STAR, r
+			},
+		}, {
+			name: "tuple * int",
+			inputs: func(n int) (starlark.Value,syntax.Token, starlark.Value) {
+				sqrtN := int(math.Sqrt(float64(n)))
+				l := make(starlark.Tuple, sqrtN)
+				for i := 0; i < len(l); i++ {
+					l[i] = starlark.String("l")
+				}
 				r := starlark.MakeInt(sqrtN)
 				return l, syntax.STAR, r
 			},
