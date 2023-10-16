@@ -1079,7 +1079,7 @@ func TestCheckExecutionSteps(t *testing.T) {
 }
 
 func TestConcurrentCheckExecutionStepsUsage(t *testing.T) {
-	const stepPeak = math.MaxUint64 ^ (math.MaxUint64 >> 1)
+	const stepPeak = math.MaxInt64 ^ (math.MaxInt64 >> 1)
 	const maxSteps = stepPeak + 1
 	const repetitions = 1_000_000
 
@@ -1094,7 +1094,7 @@ func TestConcurrentCheckExecutionStepsUsage(t *testing.T) {
 		// Flip between 1000...00 and 0111...11 allocations
 		for i := 0; i < repetitions; i++ {
 			thread.AddExecutionSteps(1)
-			thread.SubtractExecutionSteps(1)
+			thread.AddExecutionSteps(-1)
 		}
 		wg.Done()
 	}()

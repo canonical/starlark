@@ -225,18 +225,47 @@ func TestKeepAlive(t *testing.T) {
 }
 
 func TestStepBounding(t *testing.T) {
-	t.Run("steps=safe", func(t *testing.T) {
+	t.Run("steps=safe-min", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMinExecutionSteps(1)
+		st.RunString(`
+			i = 0
+			for _ in st.ntimes():
+				i += 1
+				i += 1
+		`)
+	})
+
+	t.Run("steps=safe-max", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxExecutionSteps(10)
-
 		st.RunString(`
 			for _ in st.ntimes():
 				pass
 		`)
 	})
 
-	t.Run("steps=not-safe", func(t *testing.T) {
+	t.Run("steps=not-safe-min", func(t *testing.T) {
+		expected := regexp.MustCompile(`execution steps are below minimum \(\d+ < 100\)`)
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+		st.SetMinExecutionSteps(100)
+		st.RunString(`
+			for _ in st.ntimes():
+				pass
+		`)
+		if !st.Failed() {
+			t.Error("expected failure")
+		}
+		if errLog := dummy.Errors(); !expected.Match([]byte(errLog)) {
+			t.Errorf("unexpected error(s): %s", errLog)
+		}
+	})
+
+	t.Run("steps=not-safe-max", func(t *testing.T) {
 		expected := regexp.MustCompile(`execution steps are above maximum \(\d+ > 1\)`)
 
 		dummy := &dummyBase{}
@@ -248,7 +277,6 @@ func TestStepBounding(t *testing.T) {
 				i += 1
 				i += 1
 		`)
-
 		if !st.Failed() {
 			t.Error("expected failure")
 		}
