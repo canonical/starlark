@@ -1520,7 +1520,18 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				if y.Sign() == 0 {
 					return nil, fmt.Errorf("integer modulo by zero")
 				}
-				return x.Mod(y), nil
+				if thread != nil {
+					if err := thread.CheckAllocs(EstimateSize(y)); err != nil {
+						return nil, err
+					}
+				}
+				result := Value(x.Mod(y))
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+						return nil, err
+					}
+				}
+				return result, nil
 			case Float:
 				xf, err := x.finiteFloat()
 				if err != nil {
@@ -1529,6 +1540,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				if y == 0 {
 					return nil, fmt.Errorf("floating-point modulo by zero")
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return xf.Mod(y), nil
 			}
 		case Float:
@@ -1536,6 +1552,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			case Float:
 				if y == 0.0 {
 					return nil, fmt.Errorf("floating-point modulo by zero")
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
 				}
 				return x.Mod(y), nil
 			case Int:
@@ -1546,10 +1567,15 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x.Mod(yf), nil
 			}
 		case String:
-			return interpolate(string(x), y)
+			return interpolate(thread, string(x), y)
 		}
 
 	case syntax.NOT_IN:
@@ -2120,7 +2146,7 @@ func findParam(params []compile.Binding, name string) int {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string-interpolation
-func interpolate(format string, x Value) (Value, error) {
+func interpolate(thread *Thread, format string, x Value) (Value, error) {
 	buf := new(strings.Builder)
 	index := 0
 	nargs := 1

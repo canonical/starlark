@@ -1777,7 +1777,61 @@ func TestSafeBinaryAllocs(t *testing.T) {
 
 	})
 
-	t.Run("%", func(t *testing.T) {})
+	t.Run("%", func(t *testing.T) {
+		t.Run("in-starlark", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.AddValue("a", starlark.MakeInt(10000))
+			st.AddValue("b", starlark.MakeInt(127))
+			st.RunString(`
+				for _ in st.ntimes():
+					st.keep_alive(a % b)
+			`)
+		})
+
+		tests := []safeBinaryAllocTest{{
+			name: "int % int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				r := starlark.MakeInt(1).Lsh(uint(n) + 1)
+				l := starlark.MakeInt(1).Lsh(uint(n)).Add(r)
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "int % float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(10000)
+				r := starlark.Float(1e9)
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "float % float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(n*3)
+				r := starlark.Float(n*2)
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "float % int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(1e32)
+				r := starlark.MakeInt(2047)
+				return l, syntax.PERCENT, r
+			},
+		// }, {
+		// 	name: "string % string",
+		// }, {
+		// 	name: "string % int",
+		// }, {
+		// 	name: "string % float",
+		// }, {
+		// 	name: "string % rune",
+		// }, {
+		// 	name: "string % mapping",
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
 
 	t.Run("in", func(t *testing.T) {})
 
