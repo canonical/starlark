@@ -229,7 +229,6 @@ func TestStepBounding(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMinExecutionSteps(1)
-
 		st.RunString(`
 			i = 0
 			for _ in st.ntimes():
@@ -242,7 +241,6 @@ func TestStepBounding(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxExecutionSteps(10)
-
 		st.RunString(`
 			for _ in st.ntimes():
 				pass
@@ -259,7 +257,6 @@ func TestStepBounding(t *testing.T) {
 			for _ in st.ntimes():
 				pass
 		`)
-
 		if !st.Failed() {
 			t.Error("expected failure")
 		}
@@ -280,7 +277,6 @@ func TestStepBounding(t *testing.T) {
 				i += 1
 				i += 1
 		`)
-
 		if !st.Failed() {
 			t.Error("expected failure")
 		}
