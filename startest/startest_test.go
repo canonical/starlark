@@ -254,7 +254,7 @@ func TestStepBounding(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
-		st.SetMinExecutionSteps(10)
+		st.SetMinExecutionSteps(100)
 		st.RunString(`
 			for _ in st.ntimes():
 				pass
