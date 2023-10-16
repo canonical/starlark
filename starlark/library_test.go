@@ -224,7 +224,7 @@ func TestAbsSteps(t *testing.T) {
 	}
 
 	t.Run("const-size", func(t *testing.T) {
-		numbers := []starlark.Value{
+		inputs := []starlark.Value{
 			starlark.MakeInt(0),
 			starlark.MakeInt(-1),
 			starlark.MakeInt(-1000),
@@ -232,12 +232,12 @@ func TestAbsSteps(t *testing.T) {
 			starlark.Float(-1e20),
 		}
 
-		for _, n := range numbers {
+		for _, input := range inputs {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
 			st.SetMaxExecutionSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
-				_, err := starlark.Call(thread, abs, starlark.Tuple{n}, nil)
+				_, err := starlark.Call(thread, abs, starlark.Tuple{input}, nil)
 				if err != nil {
 					st.Error(err)
 				}
