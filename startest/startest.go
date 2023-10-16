@@ -264,25 +264,6 @@ type executionStats struct {
 	nSum, allocSum uint64
 }
 
-func (st *ST) readAllocs() uint64 {
-	if st.requiredSafety.Contains(starlark.MemSafe) {
-		runtime.GC()
-		runtime.GC()
-		var stats runtime.MemStats
-		runtime.ReadMemStats(&stats)
-		return stats.Alloc
-	}
-
-	sample := []metrics.Sample{
-		{Name: "/gc/heap/allocs:bytes"},
-	}
-	metrics.Read(sample)
-	if sample[0].Value.Kind() == metrics.KindBad {
-		return 0
-	}
-	return sample[0].Value.Uint64()
-}
-
 func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) executionStats {
 	const nMax = 100_000
 	const memoryMax = 200 * (1 << 20)
@@ -320,17 +301,17 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 
 		var alive []interface{}
 		if st.requiredSafety.Contains(starlark.MemSafe) {
-			alive = make([]interface{}, n)
+			alive = make([]interface{}, 0, n)
 		} else {
-			alive = make([]interface{}, 1)
+			alive = make([]interface{}, 0, 1)
 		}
 
 		st.alive = alive
 		st.N = int(n)
 
-		beforeAllocs := st.readAllocs()
+		beforeAllocs := readMemoryUsage(st.requiredSafety.Contains(starlark.MemSafe))
 		fn(thread)
-		afterAllocs := st.readAllocs()
+		afterAllocs := readMemoryUsage(st.requiredSafety.Contains(starlark.MemSafe))
 
 		runtime.KeepAlive(alive)
 
@@ -364,6 +345,29 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		nSum:     nSum,
 		allocSum: allocSum,
 	}
+}
+
+// readMemoryUsage returns the number of bytes in use by the Go runtime. If
+// precise measurement is required, a full GC will be performed.
+func readMemoryUsage(precise bool) uint64 {
+	if precise {
+		// Run the GC twice to account for finalizers.
+		runtime.GC()
+		runtime.GC()
+
+		var stats runtime.MemStats
+		runtime.ReadMemStats(&stats)
+		return stats.Alloc
+	}
+
+	sample := []metrics.Sample{
+		{Name: "/gc/heap/allocs:bytes"},
+	}
+	metrics.Read(sample)
+	if sample[0].Value.Kind() == metrics.KindBad {
+		return 0
+	}
+	return sample[0].Value.Uint64()
 }
 
 func (st *ST) String() string        { return "<startest.ST>" }
