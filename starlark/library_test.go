@@ -467,20 +467,20 @@ func TestBoolSteps(t *testing.T) {
 	t.Run("const-size", func(t *testing.T) {
 		tests := []struct {
 			name  string
-			value starlark.Value
+			input starlark.Value
 		}{
 			{
 				name:  "none",
-				value: starlark.None,
+				input: starlark.None,
 			}, {
 				name:  "true",
-				value: starlark.True,
+				input: starlark.True,
 			}, {
 				name:  "int",
-				value: starlark.MakeInt(0),
+				input: starlark.MakeInt(0),
 			}, {
 				name:  "float",
-				value: starlark.Float(0.5),
+				input: starlark.Float(0.5),
 			},
 		}
 
@@ -490,7 +490,7 @@ func TestBoolSteps(t *testing.T) {
 				st.RequireSafety(starlark.CPUSafe)
 				st.SetMaxExecutionSteps(0)
 				st.RunThread(func(thread *starlark.Thread) {
-					_, err := starlark.Call(thread, bool_, starlark.Tuple{test.value}, nil)
+					_, err := starlark.Call(thread, bool_, starlark.Tuple{test.input}, nil)
 					if err != nil {
 						st.Error(err)
 					}
@@ -504,8 +504,8 @@ func TestBoolSteps(t *testing.T) {
 		dict := starlark.NewDict(0)
 		list := starlark.NewList(nil)
 		tests := []struct {
-			name string
-			gen  func(n int) starlark.Value
+			name  string
+			input func(n int) starlark.Value
 		}{
 			{
 				"big-int",
@@ -554,7 +554,7 @@ func TestBoolSteps(t *testing.T) {
 				st.RequireSafety(starlark.CPUSafe)
 				st.SetMaxExecutionSteps(0)
 				st.RunThread(func(thread *starlark.Thread) {
-					value := test.gen(st.N)
+					value := test.input(st.N)
 					_, err := starlark.Call(thread, bool_, starlark.Tuple{value}, nil)
 					if err != nil {
 						st.Error(err)
