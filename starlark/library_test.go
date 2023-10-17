@@ -2464,6 +2464,97 @@ func TestDictClearAllocs(t *testing.T) {
 }
 
 func TestDictGetSteps(t *testing.T) {
+	const dictSize = 500
+
+	t.Run("few-collisions", func(t *testing.T) {
+		dict := starlark.NewDict(dictSize)
+		for i := 0; i < dictSize; i++ {
+			dict.SetKey(starlark.Float(i), starlark.None)
+		}
+		dict_get, _ := dict.Attr("get")
+		if dict_get == nil {
+			t.Fatal("no such method: dict.get")
+		}
+
+		t.Run("present", func(t *testing.T) {
+			st := startest.From(t)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
+			st.RequireSafety(starlark.CPUSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					elem := starlark.Value(starlark.MakeInt(i % dictSize))
+					_, err := starlark.Call(thread, dict_get, starlark.Tuple{elem}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+
+		t.Run("missing", func(t *testing.T) {
+			st := startest.From(t)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
+			st.RequireSafety(starlark.CPUSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					elem := starlark.Value(starlark.MakeInt(dictSize))
+					_, err := starlark.Call(thread, dict_get, starlark.Tuple{elem}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		dict := starlark.NewDict(dictSize)
+		for i := 0; i < dictSize; i++ {
+			// Int hash only uses the least 32 bits.
+			// Leaving them blank creates collisions.
+			key := starlark.MakeInt64(int64(i) << 32)
+			dict.SetKey(key, starlark.None)
+		}
+		dict_get, _ := dict.Attr("get")
+		if dict_get == nil {
+			t.Fatal("no such method: dict.get")
+		}
+
+		t.Run("present", func(t *testing.T) {
+			st := startest.From(t)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps((dictSize + 7) / 8)
+			st.RequireSafety(starlark.CPUSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					elem := starlark.Value(starlark.MakeInt64(int64(i%dictSize) << 32))
+					_, err := starlark.Call(thread, dict_get, starlark.Tuple{elem}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+
+		t.Run("missing", func(t *testing.T) {
+			st := startest.From(t)
+			// Each bucket can contain 8 elements tops
+			st.SetMinExecutionSteps((dictSize + 7) / 8)
+			st.SetMaxExecutionSteps((dictSize + 7) / 8)
+			st.RequireSafety(starlark.CPUSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					elem := starlark.Value(starlark.MakeInt(dictSize << 32))
+					_, err := starlark.Call(thread, dict_get, starlark.Tuple{elem}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+	})
 }
 
 func TestDictGetAllocs(t *testing.T) {
