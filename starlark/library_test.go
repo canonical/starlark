@@ -999,7 +999,7 @@ func TestGetattrSteps(t *testing.T) {
 }
 
 func TestGetattrAllocs(t *testing.T) {
-	values := []starlark.HasAttrs{
+	inputs := []starlark.HasAttrs{
 		starlark.NewList(nil),
 		starlark.NewDict(1),
 		starlark.NewSet(1),
@@ -1008,18 +1008,17 @@ func TestGetattrAllocs(t *testing.T) {
 	}
 	getattr := starlark.Universe["getattr"]
 
-	for _, value := range values {
-		attr := starlark.String(value.AttrNames()[0])
-		t.Run(value.Type(), func(t *testing.T) {
+	for _, input := range inputs {
+		attr := starlark.String(input.AttrNames()[0])
+		t.Run(input.Type(), func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
-					result, err := starlark.Call(thread, getattr, starlark.Tuple{value, attr}, nil)
+					result, err := starlark.Call(thread, getattr, starlark.Tuple{input, attr}, nil)
 					if err != nil {
 						st.Error(err)
 					}
-
 					st.KeepAlive(result)
 				}
 			})
