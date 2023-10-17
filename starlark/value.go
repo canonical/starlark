@@ -385,9 +385,9 @@ type HasAttrs interface {
 // respecting the safety of the thread.
 // Attribute names may be listed using the built-in 'dir' function.
 //
-// In contrast with HasAttrs, SafeAttr method follows standard Go conventions
-// and returns either a value or an error. In case the attribute does not exists,
-// it returns ErrNoSuchAttr.
+// In contrast to HasAttrs, the SafeAttr method follows standard the Go convention
+// and returns either a value or an error. If the attribute does not exist, it
+// returns ErrNoSuchAttr.
 type HasSafeAttrs interface {
 	SafeAttr(thread *Thread, name string) (Value, error)
 	AttrNames() []string

@@ -1007,7 +1007,6 @@ func TestGetattrAllocs(t *testing.T) {
 		starlark.Bytes("1"),
 	}
 	getattr := starlark.Universe["getattr"]
-
 	for _, input := range inputs {
 		attr := starlark.String(input.AttrNames()[0])
 		t.Run(input.Type(), func(t *testing.T) {

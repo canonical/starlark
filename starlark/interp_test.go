@@ -122,7 +122,6 @@ func TestAttrAccessAllocs(t *testing.T) {
 		starlark.String("1"),
 		starlark.Bytes("1"),
 	}
-
 	for _, input := range inputs {
 		attr := input.AttrNames()[0]
 		t.Run(input.Type(), func(t *testing.T) {
