@@ -257,7 +257,7 @@ var (
 	}
 	setMethodSafeties = map[string]Safety{
 		"add":                  MemSafe | IOSafe,
-		"clear":                MemSafe | IOSafe,
+		"clear":                MemSafe | IOSafe | CPUSafe,
 		"difference":           MemSafe | IOSafe,
 		"discard":              MemSafe | IOSafe,
 		"intersection":         MemSafe | IOSafe,
@@ -2889,12 +2889,16 @@ func set_add(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·clear.
-func set_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	if b.Receiver().(*Set).Len() > 0 {
-		if err := b.Receiver().(*Set).Clear(); err != nil {
+	recv := b.Receiver().(*Set)
+	if recv.Len() > 0 {
+		if err := thread.AddExecutionSteps(int64(len(recv.ht.table))); err != nil {
+			return nil, err
+		}
+		if err := recv.Clear(); err != nil {
 			return nil, nameErr(b, err)
 		}
 	}
