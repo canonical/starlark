@@ -254,7 +254,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		st.Errorf("execution steps are below minimum (%d < %d)", meanExecutionSteps, st.minExecutionSteps)
 	}
 	if st.requiredSafety.Contains(starlark.CPUSafe) {
-		if stats.cpuDangerous && meanExecutionSteps == 0 {
+		if stats.executionStepsRequired && meanExecutionSteps == 0 {
 			st.Errorf("execution uses CPU time which is not accounted for")
 		}
 	}
@@ -265,12 +265,12 @@ func (st *ST) KeepAlive(values ...interface{}) {
 	st.alive = append(st.alive, values...)
 }
 
-type executionStats struct {
-	nSum, allocSum uint64
-	cpuDangerous   bool
+type runStats struct {
+	nSum, allocSum         uint64
+	executionStepsRequired bool
 }
 
-func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) executionStats {
+func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) runStats {
 	const nMax = 100_000
 	const memoryMax = 200 * (1 << 20)
 	const timeMax = time.Second
@@ -322,7 +322,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		runtime.KeepAlive(alive)
 
 		if st.Failed() {
-			return executionStats{}
+			return runStats{}
 		}
 
 		// If st.alive was reallocated, the cost of its new memory block is
@@ -348,11 +348,11 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	}
 
 	timePerN := elapsed / time.Duration(nSum)
-	cpuDangerous := timePerN > time.Millisecond
-	return executionStats{
-		nSum:         nSum,
-		allocSum:     allocSum,
-		cpuDangerous: cpuDangerous,
+	executionStepsRequired := timePerN > time.Millisecond
+	return runStats{
+		nSum:                   nSum,
+		allocSum:               allocSum,
+		executionStepsRequired: executionStepsRequired,
 	}
 }
 
