@@ -1600,7 +1600,40 @@ func TestSafeBinaryAllocs(t *testing.T) {
 		}
 	})
 
-	t.Run("/", func(t *testing.T) {})
+	t.Run("/", func(t *testing.T) {
+		tests := []safeBinaryAllocTest{{
+			name: "int / int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(n * n)
+				r := starlark.MakeInt(n)
+				return l, syntax.SLASH, r
+			},
+		}, {
+			name: "int / float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(100)
+				r := starlark.Float(n * 100)
+				return l, syntax.SLASH, r
+			},
+		}, {
+			name: "float / int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(n * 100)
+				r := starlark.MakeInt(100)
+				return l, syntax.SLASH, r
+			},
+		}, {
+			name: "float / float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(1)
+				r := starlark.Float(1 / float64(n))
+				return l, syntax.SLASH, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
 
 	t.Run("//", func(t *testing.T) {})
 
