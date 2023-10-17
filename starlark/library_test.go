@@ -4165,6 +4165,56 @@ func TestSetDifferenceSteps(t *testing.T) {
 }
 
 func TestSetDifferenceAllocs(t *testing.T) {
+	t.Run("safety-respected", func(t *testing.T) {
+		const expected = "feature unavailable to the sandbox"
+
+		set := starlark.NewSet(0)
+		set_difference, _ := set.Attr("difference")
+		if set_difference == nil {
+			t.Fatal("no such method: set.difference")
+		}
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, set_difference, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if err.Error() != expected {
+			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		}
+	})
+
+	t.Run("allocation", func(t *testing.T) {
+		const elems = 100
+
+		set := starlark.NewSet(elems)
+		list := starlark.NewList(make([]starlark.Value, 0, elems))
+		for i := 0; i < elems; i++ {
+			set.Insert(starlark.MakeInt(i))
+			if i%2 == 0 {
+				list.Append(starlark.MakeInt(i))
+			} else {
+				list.Append(starlark.MakeInt(-i))
+			}
+		}
+		set_difference, _ := set.Attr("difference")
+		if set_difference == nil {
+			t.Fatal("no such method: set.difference")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, set_difference, starlark.Tuple{list}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestSetDiscardSteps(t *testing.T) {
@@ -4281,7 +4331,49 @@ func TestSetIsSubsetAllocs(t *testing.T) {
 func TestSetIsSupersetSteps(t *testing.T) {
 }
 
-func TestSetIsSupersetAllocs(t *testing.T) {
+func TestSetIssupersetAllocs(t *testing.T) {
+	const setSize = 1000
+	set := starlark.NewSet(setSize)
+	for i := 0; i < setSize; i++ {
+		set.Insert(starlark.Value(starlark.MakeInt(i)))
+	}
+	set_issuperset, _ := set.Attr("issuperset")
+	if set_issuperset == nil {
+		t.Fatal("no such method: set.issuperset")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		const expected = "feature unavailable to the sandbox"
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, set_issuperset, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if err.Error() != expected {
+			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		}
+	})
+
+	t.Run("no-allocations", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				maxN: st.N,
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.MakeInt(n), nil
+				},
+			}
+			result, err := starlark.Call(thread, set_issuperset, starlark.Tuple{iter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
 }
 
 func TestSetPopSteps(t *testing.T) {
