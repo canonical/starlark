@@ -3,6 +3,7 @@ package starlark_test
 import (
 	"math"
 	"strings"
+	"sync"
 	"testing"
 	"unicode/utf8"
 
@@ -194,7 +195,8 @@ func TestConcurrentCheckAllocsUsage(t *testing.T) {
 	thread.SetMaxAllocs(maxAllocs)
 	thread.AddAllocs(allocPeak - 1)
 
-	done := make(chan struct{}, 2)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
 	go func() {
 		// Flip between 1000...00 and 0111...11 allocations
@@ -202,7 +204,7 @@ func TestConcurrentCheckAllocsUsage(t *testing.T) {
 			thread.AddAllocs(1)
 			thread.AddAllocs(-1)
 		}
-		done <- struct{}{}
+		wg.Done()
 	}()
 	go func() {
 		for i := 0; i < repetitions; i++ {
@@ -212,17 +214,10 @@ func TestConcurrentCheckAllocsUsage(t *testing.T) {
 				break
 			}
 		}
-		done <- struct{}{}
+		wg.Done()
 	}()
 
-	// Await goroutine completion
-	totDone := 0
-	for totDone != 2 {
-		select {
-		case <-done:
-			totDone++
-		}
-	}
+	wg.Wait()
 }
 
 func TestConcurrentAddAllocsUsage(t *testing.T) {
@@ -231,26 +226,20 @@ func TestConcurrentAddAllocsUsage(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
 
-	done := make(chan struct{}, 2)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
 	callAddAlloc := func(n uint) {
 		for i := uint(0); i < n; i++ {
 			thread.AddAllocs(1)
 		}
-		done <- struct{}{}
+		wg.Done()
 	}
 
 	go callAddAlloc(expectedAllocs / 2)
 	go callAddAlloc(expectedAllocs / 2)
 
-	// Await goroutine completion
-	totDone := 0
-	for totDone != 2 {
-		select {
-		case <-done:
-			totDone++
-		}
-	}
+	wg.Wait()
 
 	if allocs := thread.Allocs(); allocs != expectedAllocs {
 		t.Errorf("concurrent thread.AddAlloc contains a race, expected %d allocs recorded but got %d", expectedAllocs, allocs)
@@ -347,6 +336,7 @@ func TestSafeStringBuilder(t *testing.T) {
 	t.Run("counting", func(t *testing.T) {
 		t.Run("small", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.SetMaxAllocs(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
@@ -358,6 +348,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("Grow", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -374,6 +365,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("Write", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -389,6 +381,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("WriteString", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -404,6 +397,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("WriteByte", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -421,6 +415,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("WriteRune", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -439,6 +434,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 	t.Run("allocs", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			sb := starlark.NewSafeStringBuilder(thread)
 			initialAllocs := thread.Allocs()

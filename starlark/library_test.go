@@ -217,6 +217,9 @@ func (ui *unsafeTestIterator) Next(p *starlark.Value) bool {
 func (ui *unsafeTestIterator) Done()      {}
 func (ui *unsafeTestIterator) Err() error { return fmt.Errorf("Err called") }
 
+func TestAbsSteps(t *testing.T) {
+}
+
 func TestAbsAllocs(t *testing.T) {
 	abs, ok := starlark.Universe["abs"]
 	if !ok {
@@ -314,6 +317,9 @@ func TestAbsAllocs(t *testing.T) {
 	})
 }
 
+func TestAnySteps(t *testing.T) {
+}
+
 func TestAnyAllocs(t *testing.T) {
 	any, ok := starlark.Universe["any"]
 	if !ok {
@@ -379,6 +385,9 @@ func TestAnyAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		})
 	})
+}
+
+func TestAllSteps(t *testing.T) {
 }
 
 func TestAllAllocs(t *testing.T) {
@@ -449,6 +458,9 @@ func TestAllAllocs(t *testing.T) {
 	})
 }
 
+func TestBoolSteps(t *testing.T) {
+}
+
 func TestBoolAllocs(t *testing.T) {
 	bool_, ok := starlark.Universe["bool"]
 	if !ok {
@@ -481,6 +493,9 @@ func TestBoolAllocs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBytesSteps(t *testing.T) {
 }
 
 func TestBytesAllocs(t *testing.T) {
@@ -618,6 +633,9 @@ func TestBytesAllocs(t *testing.T) {
 	})
 }
 
+func TestChrSteps(t *testing.T) {
+}
+
 func TestChrAllocs(t *testing.T) {
 	chr, ok := starlark.Universe["chr"]
 	if !ok {
@@ -637,6 +655,9 @@ func TestChrAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		}
 	})
+}
+
+func TestDictSteps(t *testing.T) {
 }
 
 func TestDictAllocs(t *testing.T) {
@@ -700,6 +721,9 @@ func TestDictAllocs(t *testing.T) {
 	})
 }
 
+func TestDirSteps(t *testing.T) {
+}
+
 func TestDirAllocs(t *testing.T) {
 	values := starlark.Tuple{
 		starlark.None,
@@ -728,6 +752,9 @@ func TestDirAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		})
 	}
+}
+
+func TestEnumerateSteps(t *testing.T) {
 }
 
 func TestEnumerateAllocs(t *testing.T) {
@@ -895,6 +922,9 @@ func TestEnumerateAllocs(t *testing.T) {
 	})
 }
 
+func TestFailSteps(t *testing.T) {
+}
+
 func TestFailAllocs(t *testing.T) {
 	listLoopContent := []starlark.Value{nil}
 	var listLoop starlark.Value = starlark.NewList(listLoopContent)
@@ -932,6 +962,9 @@ func TestFailAllocs(t *testing.T) {
 	})
 }
 
+func TestFloatSteps(t *testing.T) {
+}
+
 func TestFloatAllocs(t *testing.T) {
 	float, ok := starlark.Universe["float"]
 	if !ok {
@@ -962,6 +995,9 @@ func TestFloatAllocs(t *testing.T) {
 	}
 }
 
+func TestGetattrSteps(t *testing.T) {
+}
+
 func TestGetattrAllocs(t *testing.T) {
 	values := []starlark.HasAttrs{
 		starlark.NewList(nil),
@@ -989,6 +1025,9 @@ func TestGetattrAllocs(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestHasattrSteps(t *testing.T) {
 }
 
 func TestHasattrAllocs(t *testing.T) {
@@ -1048,6 +1087,9 @@ func TestHasattrAllocs(t *testing.T) {
 	})
 }
 
+func TestHashSteps(t *testing.T) {
+}
+
 func TestHashAllocs(t *testing.T) {
 	hash, ok := starlark.Universe["hash"]
 	if !ok {
@@ -1087,6 +1129,9 @@ func TestHashAllocs(t *testing.T) {
 	})
 }
 
+func TestIntSteps(t *testing.T) {
+}
+
 func TestIntAllocs(t *testing.T) {
 	int_, ok := starlark.Universe["int"]
 	if !ok {
@@ -1124,6 +1169,9 @@ func TestIntAllocs(t *testing.T) {
 	})
 }
 
+func TestLenSteps(t *testing.T) {
+}
+
 func TestLenAllocs(t *testing.T) {
 	len_, ok := starlark.Universe["len"]
 	if !ok {
@@ -1141,6 +1189,9 @@ func TestLenAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		}
 	})
+}
+
+func TestListSteps(t *testing.T) {
 }
 
 func TestListAllocs(t *testing.T) {
@@ -1260,6 +1311,9 @@ func TestListAllocs(t *testing.T) {
 	})
 }
 
+func testMinMaxSteps(t *testing.T) {
+}
+
 func testMinMaxAllocs(t *testing.T, name string) {
 	minOrMax, ok := starlark.Universe[name]
 	if !ok {
@@ -1306,12 +1360,21 @@ func testMinMaxAllocs(t *testing.T, name string) {
 	})
 }
 
+func TestMaxSteps(t *testing.T) {
+}
+
 func TestMaxAllocs(t *testing.T) {
 	testMinMaxAllocs(t, "max")
 }
 
+func TestMinSteps(t *testing.T) {
+}
+
 func TestMinAllocs(t *testing.T) {
 	testMinMaxAllocs(t, "min")
+}
+
+func TestOrdSteps(t *testing.T) {
 }
 
 func TestOrdAllocs(t *testing.T) {
@@ -1349,6 +1412,9 @@ func TestOrdAllocs(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestPrintSteps(t *testing.T) {
 }
 
 func TestPrintAllocs(t *testing.T) {
@@ -1392,6 +1458,9 @@ func TestPrintAllocs(t *testing.T) {
 			st.KeepAlive(res)
 		}
 	})
+}
+
+func TestRangeSteps(t *testing.T) {
 }
 
 func TestRangeAllocs(t *testing.T) {
@@ -1445,6 +1514,9 @@ func TestRangeAllocs(t *testing.T) {
 	})
 }
 
+func TestReprSteps(t *testing.T) {
+}
+
 func TestReprAllocs(t *testing.T) {
 	listLoopContent := []starlark.Value{nil}
 	var listLoop starlark.Value = starlark.NewList(listLoopContent)
@@ -1479,6 +1551,9 @@ func TestReprAllocs(t *testing.T) {
 			st.KeepAlive(res)
 		}
 	})
+}
+
+func TestReversedSteps(t *testing.T) {
 }
 
 func TestReversedAllocs(t *testing.T) {
@@ -1650,6 +1725,9 @@ func TestReversedAllocs(t *testing.T) {
 	})
 }
 
+func TestSetSteps(t *testing.T) {
+}
+
 func TestSetAllocs(t *testing.T) {
 	set, ok := starlark.Universe["set"]
 	if !ok {
@@ -1675,6 +1753,9 @@ func TestSetAllocs(t *testing.T) {
 		}
 		st.KeepAlive(result)
 	})
+}
+
+func TestSortedSteps(t *testing.T) {
 }
 
 func TestSortedAllocs(t *testing.T) {
@@ -1844,6 +1925,9 @@ func TestSortedAllocs(t *testing.T) {
 	})
 }
 
+func TestStrSteps(t *testing.T) {
+}
+
 func TestStrAllocs(t *testing.T) {
 	listLoopContent := []starlark.Value{nil}
 	var listLoop starlark.Value = starlark.NewList(listLoopContent)
@@ -1895,6 +1979,9 @@ func TestStrAllocs(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestTupleSteps(t *testing.T) {
 }
 
 func TestTupleAllocs(t *testing.T) {
@@ -2080,6 +2167,9 @@ func TestTupleAllocs(t *testing.T) {
 	})
 }
 
+func TestTypeSteps(t *testing.T) {
+}
+
 func TestTypeAllocs(t *testing.T) {
 	type_, ok := starlark.Universe["type"]
 	if !ok {
@@ -2109,6 +2199,9 @@ func TestTypeAllocs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestZipSteps(t *testing.T) {
 }
 
 func TestZipAllocs(t *testing.T) {
@@ -2191,7 +2284,58 @@ func TestZipAllocs(t *testing.T) {
 	})
 }
 
+func TestBytesElemsSteps(t *testing.T) {
+}
+
 func TestBytesElemsAllocs(t *testing.T) {
+	t.Run("iterator-acquisition", func(t *testing.T) {
+		bytes_elems, _ := starlark.Bytes("arbitrary-string").Attr("elems")
+		if bytes_elems == nil {
+			t.Fatal("no such method: bytes.elems")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, bytes_elems, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("iterator-usage", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			bytes_elems, _ := starlark.Bytes(strings.Repeat("hello world", st.N)).Attr("elems")
+			if bytes_elems == nil {
+				st.Fatal("no such method: bytes.elems")
+			}
+			elems, err := starlark.Call(thread, bytes_elems, nil, nil)
+			if err != nil {
+				st.Fatal(err)
+			}
+			iter, err := starlark.SafeIterate(thread, elems)
+			if err != nil {
+				st.Fatal(err)
+			}
+			defer iter.Done()
+			var x starlark.Value
+			for iter.Next(&x) {
+				st.KeepAlive(x)
+			}
+			if err := iter.Err(); err != nil {
+				st.Error(err)
+			}
+		})
+	})
+}
+
+func TestDictClearSteps(t *testing.T) {
 }
 
 func TestDictClearAllocs(t *testing.T) {
@@ -2221,6 +2365,9 @@ func TestDictClearAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		}
 	})
+}
+
+func TestDictGetSteps(t *testing.T) {
 }
 
 func TestDictGetAllocs(t *testing.T) {
@@ -2273,6 +2420,9 @@ func TestDictGetAllocs(t *testing.T) {
 			st.KeepAlive(dict)
 		})
 	})
+}
+
+func TestDictItemsSteps(t *testing.T) {
 }
 
 func TestDictItemsAllocs(t *testing.T) {
@@ -2328,6 +2478,9 @@ func TestDictItemsAllocs(t *testing.T) {
 	})
 }
 
+func TestDictKeysSteps(t *testing.T) {
+}
+
 func TestDictKeysAllocs(t *testing.T) {
 	t.Run("average", func(t *testing.T) {
 		st := startest.From(t)
@@ -2381,6 +2534,9 @@ func TestDictKeysAllocs(t *testing.T) {
 	})
 }
 
+func TestDictPopSteps(t *testing.T) {
+}
+
 func TestDictPopAllocs(t *testing.T) {
 	dict := starlark.NewDict(100)
 	for i := 0; i < 100; i++ {
@@ -2406,6 +2562,9 @@ func TestDictPopAllocs(t *testing.T) {
 			dict.SetKey(result, result)
 		}
 	})
+}
+
+func TestDictPopitemSteps(t *testing.T) {
 }
 
 func TestDictPopitemAllocs(t *testing.T) {
@@ -2441,6 +2600,9 @@ func TestDictPopitemAllocs(t *testing.T) {
 	})
 }
 
+func TestDictSetdefaultSteps(t *testing.T) {
+}
+
 func TestDictSetdefaultAllocs(t *testing.T) {
 	dict := starlark.NewDict(0)
 	dict_setdefault, _ := dict.Attr("setdefault")
@@ -2465,6 +2627,9 @@ func TestDictSetdefaultAllocs(t *testing.T) {
 
 		st.KeepAlive(dict)
 	})
+}
+
+func TestDictUpdateSteps(t *testing.T) {
 }
 
 func TestDictUpdateAllocs(t *testing.T) {
@@ -2509,6 +2674,9 @@ func TestDictUpdateAllocs(t *testing.T) {
 			st.KeepAlive(dict)
 		})
 	})
+}
+
+func TestDictValuesSteps(t *testing.T) {
 }
 
 func TestDictValuesAllocs(t *testing.T) {
@@ -2564,6 +2732,9 @@ func TestDictValuesAllocs(t *testing.T) {
 	})
 }
 
+func TestListAppendSteps(t *testing.T) {
+}
+
 func TestListAppendAllocs(t *testing.T) {
 	list := starlark.NewList([]starlark.Value{})
 	list_append, _ := list.Attr("append")
@@ -2583,6 +2754,9 @@ func TestListAppendAllocs(t *testing.T) {
 
 		st.KeepAlive(list)
 	})
+}
+
+func TestListClearSteps(t *testing.T) {
 }
 
 func TestListClearAllocs(t *testing.T) {
@@ -2612,6 +2786,9 @@ func TestListClearAllocs(t *testing.T) {
 			st.KeepAlive(list)
 		}
 	})
+}
+
+func TestListExtendSteps(t *testing.T) {
 }
 
 func TestListExtendAllocs(t *testing.T) {
@@ -2755,6 +2932,9 @@ func TestListExtendAllocs(t *testing.T) {
 	})
 }
 
+func TestListIndexSteps(t *testing.T) {
+}
+
 func TestListIndexAllocs(t *testing.T) {
 	list := starlark.NewList([]starlark.Value{
 		starlark.None,
@@ -2779,6 +2959,9 @@ func TestListIndexAllocs(t *testing.T) {
 	})
 }
 
+func TestListInsertSteps(t *testing.T) {
+}
+
 func TestListInsertAllocs(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
@@ -2797,6 +2980,9 @@ func TestListInsertAllocs(t *testing.T) {
 		}
 		st.KeepAlive(list)
 	})
+}
+
+func TestListPopSteps(t *testing.T) {
 }
 
 func TestListPopAllocs(t *testing.T) {
@@ -2829,6 +3015,9 @@ func TestListPopAllocs(t *testing.T) {
 	})
 }
 
+func TestListRemoveSteps(t *testing.T) {
+}
+
 func TestListRemoveAllocs(t *testing.T) {
 	const numTestElems = 10
 	preallocatedInts := make([]starlark.Value, numTestElems)
@@ -2859,6 +3048,9 @@ func TestListRemoveAllocs(t *testing.T) {
 
 		st.KeepAlive(list)
 	})
+}
+
+func TestStringCapitalizeSteps(t *testing.T) {
 }
 
 func TestStringCapitalizeAllocs(t *testing.T) {
@@ -2899,12 +3091,21 @@ func testStringIterable(t *testing.T, methodName string) {
 	})
 }
 
+func TestStringCodepointOrdsSteps(t *testing.T) {
+}
+
 func TestStringCodepointOrdsAllocs(t *testing.T) {
 	testStringIterable(t, "codepoint_ords")
 }
 
+func TestStringCodepointsSteps(t *testing.T) {
+}
+
 func TestStringCodepointsAllocs(t *testing.T) {
 	testStringIterable(t, "codepoints")
+}
+
+func TestStringCountSteps(t *testing.T) {
 }
 
 func TestStringCountAllocs(t *testing.T) {
@@ -2930,12 +3131,21 @@ func TestStringCountAllocs(t *testing.T) {
 	})
 }
 
+func TestStringElemOrdsSteps(t *testing.T) {
+}
+
 func TestStringElemOrdsAllocs(t *testing.T) {
 	testStringIterable(t, "elem_ords")
 }
 
+func TestStringElemsSteps(t *testing.T) {
+}
+
 func TestStringElemsAllocs(t *testing.T) {
 	testStringIterable(t, "elems")
+}
+
+func testStringFixSteps(t *testing.T) {
 }
 
 func testStringFixAllocs(t *testing.T, method_name string) {
@@ -2959,8 +3169,14 @@ func testStringFixAllocs(t *testing.T, method_name string) {
 	})
 }
 
+func TestStringEndswithSteps(t *testing.T) {
+}
+
 func TestStringEndswithAllocs(t *testing.T) {
 	testStringFixAllocs(t, "endswith")
+}
+
+func testStringFindMethodSteps(t *testing.T) {
 }
 
 func testStringFindMethodAllocs(t *testing.T, name string) {
@@ -2985,8 +3201,14 @@ func testStringFindMethodAllocs(t *testing.T, name string) {
 	})
 }
 
+func TestStringFindSteps(t *testing.T) {
+}
+
 func TestStringFindAllocs(t *testing.T) {
 	testStringFindMethodAllocs(t, "find")
+}
+
+func TestStringFormatSteps(t *testing.T) {
 }
 
 func TestStringFormatAllocs(t *testing.T) {
@@ -3053,8 +3275,14 @@ func TestStringFormatAllocs(t *testing.T) {
 	})
 }
 
+func TestStringIndexSteps(t *testing.T) {
+}
+
 func TestStringIndexAllocs(t *testing.T) {
 	testStringFindMethodAllocs(t, "index")
+}
+
+func TestStringIsalnumSteps(t *testing.T) {
 }
 
 func TestStringIsalnumAllocs(t *testing.T) {
@@ -3077,6 +3305,9 @@ func TestStringIsalnumAllocs(t *testing.T) {
 	})
 }
 
+func TestStringIsalphaSteps(t *testing.T) {
+}
+
 func TestStringIsalphaAllocs(t *testing.T) {
 	string_isalpha, _ := starlark.String("hello, world!").Attr("isalpha")
 	if string_isalpha == nil {
@@ -3095,6 +3326,9 @@ func TestStringIsalphaAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		}
 	})
+}
+
+func TestStringIsdigitSteps(t *testing.T) {
 }
 
 func TestStringIsdigitAllocs(t *testing.T) {
@@ -3117,6 +3351,9 @@ func TestStringIsdigitAllocs(t *testing.T) {
 	})
 }
 
+func TestStringIslowerSteps(t *testing.T) {
+}
+
 func TestStringIslowerAllocs(t *testing.T) {
 	string_islower, _ := starlark.String("sphinx of black quartz, judge my vow").Attr("islower")
 	if string_islower == nil {
@@ -3135,6 +3372,9 @@ func TestStringIslowerAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		}
 	})
+}
+
+func TestStringIsspaceSteps(t *testing.T) {
 }
 
 func TestStringIsspaceAllocs(t *testing.T) {
@@ -3157,6 +3397,9 @@ func TestStringIsspaceAllocs(t *testing.T) {
 	})
 }
 
+func TestStringIstitleSteps(t *testing.T) {
+}
+
 func TestStringIstitleAllocs(t *testing.T) {
 	string_istitle, _ := starlark.String("Hello, world!").Attr("istitle")
 	if string_istitle == nil {
@@ -3177,7 +3420,30 @@ func TestStringIstitleAllocs(t *testing.T) {
 	})
 }
 
+func TestStringIsupperSteps(t *testing.T) {
+}
+
 func TestStringIsupperAllocs(t *testing.T) {
+	string_istitle, _ := starlark.String("Hello, world!").Attr("isupper")
+	if string_istitle == nil {
+		t.Fatal("no such method: string.istitle")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, string_istitle, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+	})
+}
+
+func TestStringJoinSteps(t *testing.T) {
 }
 
 func TestStringJoinAllocs(t *testing.T) {
@@ -3239,6 +3505,9 @@ func TestStringJoinAllocs(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestStringLowerSteps(t *testing.T) {
 }
 
 func TestStringLowerAllocs(t *testing.T) {
@@ -3332,6 +3601,9 @@ func TestStringLowerAllocs(t *testing.T) {
 	})
 }
 
+func testStringStripSteps(t *testing.T) {
+}
+
 func testStringStripAllocs(t *testing.T, method_name string) {
 	method, _ := starlark.String("     ababaZZZZZababa     ").Attr(method_name)
 	if method == nil {
@@ -3368,8 +3640,14 @@ func testStringStripAllocs(t *testing.T, method_name string) {
 	})
 }
 
+func TestStringLstripSteps(t *testing.T) {
+}
+
 func TestStringLstripAllocs(t *testing.T) {
 	testStringStripAllocs(t, "lstrip")
+}
+
+func testStringPartitionMethodSteps(t *testing.T) {
 }
 
 func testStringPartitionMethodAllocs(t *testing.T, name string) {
@@ -3408,8 +3686,14 @@ func testStringPartitionMethodAllocs(t *testing.T, name string) {
 	})
 }
 
+func TestStringPartitionSteps(t *testing.T) {
+}
+
 func TestStringPartitionAllocs(t *testing.T) {
 	testStringPartitionMethodAllocs(t, "partition")
+}
+
+func testStringRemovefixSteps(t *testing.T) {
 }
 
 func testStringRemovefixAllocs(t *testing.T, method_name string) {
@@ -3432,12 +3716,21 @@ func testStringRemovefixAllocs(t *testing.T, method_name string) {
 	})
 }
 
+func TestStringRemoveprefixSteps(t *testing.T) {
+}
+
 func TestStringRemoveprefixAllocs(t *testing.T) {
 	testStringRemovefixAllocs(t, "removeprefix")
 }
 
+func TestStringRemovesuffixSteps(t *testing.T) {
+}
+
 func TestStringRemovesuffixAllocs(t *testing.T) {
 	testStringRemovefixAllocs(t, "removesuffix")
+}
+
+func TestStringReplaceSteps(t *testing.T) {
 }
 
 func TestStringReplaceAllocs(t *testing.T) {
@@ -3461,16 +3754,28 @@ func TestStringReplaceAllocs(t *testing.T) {
 	})
 }
 
+func TestStringRfindSteps(t *testing.T) {
+}
+
 func TestStringRfindAllocs(t *testing.T) {
 	testStringFindMethodAllocs(t, "rfind")
+}
+
+func TestStringRindexSteps(t *testing.T) {
 }
 
 func TestStringRindexAllocs(t *testing.T) {
 	testStringFindMethodAllocs(t, "rindex")
 }
 
+func TestStringRpartitionSteps(t *testing.T) {
+}
+
 func TestStringRpartitionAllocs(t *testing.T) {
 	testStringPartitionMethodAllocs(t, "rpartition")
+}
+
+func TestStringRsplitSteps(t *testing.T) {
 }
 
 func TestStringRsplitAllocs(t *testing.T) {
@@ -3482,7 +3787,7 @@ func TestStringRsplitAllocs(t *testing.T) {
 			// I must count the string content as well since it will
 			// be kept alive by the slices taken by the delimeter.
 			str := starlark.String(strings.Repeat("deadbeef", st.N))
-			if err := thread.AddAllocs(int64(len(str))); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, len(str))); err != nil {
 				st.Error(err)
 			}
 
@@ -3504,7 +3809,7 @@ func TestStringRsplitAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("go    go", st.N))
-			if err := thread.AddAllocs(int64(len(str))); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, len(str))); err != nil {
 				st.Error(err)
 			}
 
@@ -3522,8 +3827,14 @@ func TestStringRsplitAllocs(t *testing.T) {
 	})
 }
 
+func TestStringRstripSteps(t *testing.T) {
+}
+
 func TestStringRstripAllocs(t *testing.T) {
 	testStringStripAllocs(t, "rstrip")
+}
+
+func TestStringSplitSteps(t *testing.T) {
 }
 
 func TestStringSplitAllocs(t *testing.T) {
@@ -3535,7 +3846,7 @@ func TestStringSplitAllocs(t *testing.T) {
 			// I must count the string content as well since it will
 			// be kept alive by the slices taken by the delimeter.
 			str := starlark.String(strings.Repeat("deadbeef", st.N))
-			if err := thread.AddAllocs(int64(len(str))); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, len(str))); err != nil {
 				st.Error(err)
 			}
 
@@ -3557,7 +3868,7 @@ func TestStringSplitAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("go    go", st.N))
-			if err := thread.AddAllocs(int64(len(str))); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, len(str))); err != nil {
 				st.Error(err)
 			}
 
@@ -3595,6 +3906,9 @@ func TestStringSplitAllocs(t *testing.T) {
 	})
 }
 
+func TestStringSplitlinesSteps(t *testing.T) {
+}
+
 func TestStringSplitlinesAllocs(t *testing.T) {
 	str := starlark.String(`
 Lorem ipsum dolor sit amet, consectetur adipiscing elit.
@@ -3620,15 +3934,99 @@ Curabitur nec velit fringilla arcu lacinia commodo.`)
 	})
 }
 
+func TestStringStartswithSteps(t *testing.T) {
+}
+
 func TestStringStartswithAllocs(t *testing.T) {
 	testStringFixAllocs(t, "startswith")
+}
+
+func TestStringStripSteps(t *testing.T) {
 }
 
 func TestStringStripAllocs(t *testing.T) {
 	testStringStripAllocs(t, "strip")
 }
 
+func TestStringTitleSteps(t *testing.T) {
+}
+
 func TestStringTitleAllocs(t *testing.T) {
+	t.Run("ASCII", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("dEaDbEeF", st.N))
+			string_title, _ := str.Attr("title")
+			if string_title == nil {
+				t.Fatal("no such method: string.title")
+			}
+
+			result, err := starlark.Call(thread, string_title, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("Unicode", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+
+		// Same byte-length capitals
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("δηαδβηηφ", st.N))
+			string_title, _ := str.Attr("title")
+			if string_title == nil {
+				t.Fatal("no such method: string.title")
+			}
+
+			result, err := starlark.Call(thread, string_title, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+
+		// Different byte-length capitals
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("ı ", st.N))
+			string_title, _ := str.Attr("title")
+			if string_title == nil {
+				t.Fatal("no such method: string.title")
+			}
+
+			result, err := starlark.Call(thread, string_title, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+
+	t.Run("Unicode-single", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String("φ")
+			string_title, _ := str.Attr("title")
+			if string_title == nil {
+				t.Fatalf("no such method: string.title")
+			}
+
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, string_title, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+}
+
+func TestStringUpperSteps(t *testing.T) {
 }
 
 func TestStringUpperAllocs(t *testing.T) {
@@ -3733,7 +4131,267 @@ func TestStringUpperAllocs(t *testing.T) {
 	})
 }
 
+func TestSetAddSteps(t *testing.T) {
+}
+
+func TestSetAddAllocs(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		set := starlark.NewSet(0)
+		if err := thread.AddAllocs(starlark.EstimateSize(set)); err != nil {
+			st.Error(err)
+		}
+		set_add, _ := set.Attr("add")
+		if set_add == nil {
+			t.Fatal("no such method: set.add")
+		}
+		for i := 0; i < st.N; i++ {
+			n := starlark.Value(starlark.MakeInt(i))
+			if err := thread.AddAllocs(starlark.EstimateSize(n)); err != nil {
+				st.Error(err)
+			}
+			result, err := starlark.Call(thread, set_add, starlark.Tuple{n}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		}
+		st.KeepAlive(set)
+	})
+}
+
+func TestSetClearSteps(t *testing.T) {
+}
+
+func TestSetClearAllocs(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		set := starlark.NewSet(st.N)
+		for i := 0; i < st.N; i++ {
+			set.Insert(starlark.MakeInt(i))
+		}
+		if err := thread.AddAllocs(starlark.EstimateSize(set)); err != nil {
+			st.Error(err)
+		}
+		set_clear, _ := set.Attr("clear")
+		if set_clear == nil {
+			st.Fatal("no such method: set.clear")
+		}
+		result, err := starlark.Call(thread, set_clear, nil, nil)
+		if err != nil {
+			st.Error(err)
+		}
+		st.KeepAlive(result)
+	})
+}
+
+func TestSetDifferenceSteps(t *testing.T) {
+}
+
+func TestSetDifferenceAllocs(t *testing.T) {
+}
+
+func TestSetDiscardSteps(t *testing.T) {
+}
+
+func TestSetDiscardAllocs(t *testing.T) {
+	t.Run("present", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			set := starlark.NewSet(st.N)
+			if err := thread.AddAllocs(starlark.EstimateSize(set)); err != nil {
+				st.Error(err)
+			}
+			for i := 0; i < st.N; i++ {
+				n := starlark.Value(starlark.MakeInt(i))
+				set.Insert(n)
+			}
+			set_discard, _ := set.Attr("discard")
+			if set_discard == nil {
+				st.Fatal("no such method: set.discard")
+			}
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, set_discard, starlark.Tuple{starlark.MakeInt(i)}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+			st.KeepAlive(set)
+		})
+	})
+
+	t.Run("missing", func(t *testing.T) {
+		set := starlark.NewSet(10)
+		for i := 0; i < 10; i++ {
+			n := starlark.Value(starlark.MakeInt(-i))
+			set.Insert(n)
+		}
+		set_discard, _ := set.Attr("discard")
+		if set_discard == nil {
+			t.Fatal("no such method: set.discard")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, set_discard, starlark.Tuple{starlark.MakeInt(i)}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+			st.KeepAlive(set)
+		})
+	})
+}
+
+func TestSetIntersectionSteps(t *testing.T) {
+}
+
+func TestSetIntersectionAllocs(t *testing.T) {
+}
+
+func TestSetIsSubsetSteps(t *testing.T) {
+}
+
+func TestSetIsSubsetAllocs(t *testing.T) {
+}
+
+func TestSetIsSupersetSteps(t *testing.T) {
+}
+
+func TestSetIsSupersetAllocs(t *testing.T) {
+}
+
+func TestSetPopSteps(t *testing.T) {
+}
+
+func TestSetPopAllocs(t *testing.T) {
+	const setSize = 1000
+	set := starlark.NewSet(setSize)
+	for i := 0; i < setSize; i++ {
+		set.Insert(starlark.MakeInt(i))
+	}
+	set_pop, _ := set.Attr("pop")
+	if set_pop == nil {
+		t.Fatal("no such method: set.pop")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, set_pop, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+			set.Insert(result)
+		}
+	})
+}
+
+func TestSetRemoveSteps(t *testing.T) {
+}
+
+func TestSetRemoveAllocs(t *testing.T) {
+}
+
+func TestSetSymmetricDifferenceSteps(t *testing.T) {
+}
+
+func TestSetSymmetricDifferenceAllocs(t *testing.T) {
+	const elems = 100
+	set := starlark.NewSet(elems)
+	list := starlark.NewList(make([]starlark.Value, 0, elems))
+	for i := 0; i < elems; i++ {
+		set.Insert(starlark.MakeInt(i))
+		if i%2 == 0 {
+			list.Append(starlark.MakeInt(i))
+		} else {
+			list.Append(starlark.MakeInt(-i))
+		}
+	}
+	set_symmetric_difference, _ := set.Attr("symmetric_difference")
+	if set_symmetric_difference == nil {
+		t.Fatal("no such method: set.symmetric_difference")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		const expected = "feature unavailable to the sandbox"
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if err.Error() != expected {
+			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		}
+	})
+
+	t.Run("allocation", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{list}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+}
+
+func TestSetUnionSteps(t *testing.T) {
+}
+
 func TestSetUnionAllocs(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		set := starlark.NewSet(st.N / 2)
+		for i := 0; i < st.N/2; i++ {
+			n := starlark.Value(starlark.MakeInt(i))
+			if err := thread.AddAllocs(starlark.EstimateSize(n)); err != nil {
+				st.Error(err)
+			}
+			set.Insert(n)
+		}
+
+		set_union, _ := set.Attr("union")
+		if set_union == nil {
+			t.Fatal("no such method: set.union")
+		}
+
+		iter := testIterable{
+			maxN: st.N,
+			nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+				result := starlark.MakeInt(n)
+				if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+					return nil, err
+				}
+				return result, nil
+			},
+		}
+		result, err := starlark.Call(thread, set_union, starlark.Tuple{&iter}, nil)
+		if err != nil {
+			st.Error(err)
+		}
+		st.KeepAlive(result)
+	})
+}
+
+func TestSafeIterateSteps(t *testing.T) {
 }
 
 func TestSafeIterateAllocs(t *testing.T) {

@@ -76,36 +76,36 @@ func init() {
 	}
 
 	universeSafeties = map[string]Safety{
-		"abs":       MemSafe,
-		"any":       MemSafe,
-		"all":       MemSafe,
-		"bool":      MemSafe,
-		"bytes":     MemSafe,
-		"chr":       MemSafe,
-		"dict":      MemSafe,
-		"dir":       MemSafe,
-		"enumerate": MemSafe,
-		"fail":      MemSafe,
-		"float":     MemSafe,
-		"getattr":   MemSafe,
-		"hasattr":   MemSafe,
-		"hash":      MemSafe,
-		"int":       MemSafe,
-		"len":       MemSafe,
-		"list":      MemSafe,
-		"max":       MemSafe,
-		"min":       MemSafe,
-		"ord":       MemSafe,
+		"abs":       MemSafe | IOSafe,
+		"any":       MemSafe | IOSafe,
+		"all":       MemSafe | IOSafe,
+		"bool":      MemSafe | IOSafe,
+		"bytes":     MemSafe | IOSafe,
+		"chr":       MemSafe | IOSafe,
+		"dict":      MemSafe | IOSafe,
+		"dir":       MemSafe | IOSafe,
+		"enumerate": MemSafe | IOSafe,
+		"fail":      MemSafe | IOSafe,
+		"float":     MemSafe | IOSafe,
+		"getattr":   MemSafe | IOSafe,
+		"hasattr":   MemSafe | IOSafe,
+		"hash":      MemSafe | IOSafe,
+		"int":       MemSafe | IOSafe,
+		"len":       MemSafe | IOSafe,
+		"list":      MemSafe | IOSafe,
+		"max":       MemSafe | IOSafe,
+		"min":       MemSafe | IOSafe,
+		"ord":       MemSafe | IOSafe,
 		"print":     MemSafe,
-		"range":     MemSafe,
-		"repr":      MemSafe,
-		"reversed":  MemSafe,
-		"set":       MemSafe,
-		"sorted":    MemSafe,
-		"str":       MemSafe,
-		"tuple":     MemSafe,
-		"type":      MemSafe,
-		"zip":       MemSafe,
+		"range":     MemSafe | IOSafe,
+		"repr":      MemSafe | IOSafe,
+		"reversed":  MemSafe | IOSafe,
+		"set":       MemSafe | IOSafe,
+		"sorted":    MemSafe | IOSafe,
+		"str":       MemSafe | IOSafe,
+		"tuple":     MemSafe | IOSafe,
+		"type":      MemSafe | IOSafe,
+		"zip":       MemSafe | IOSafe,
 	}
 
 	for name, flags := range universeSafeties {
@@ -122,7 +122,7 @@ var (
 		"elems": NewBuiltin("elems", bytes_elems),
 	}
 	bytesMethodSafeties = map[string]Safety{
-		"elems": NotSafe,
+		"elems": MemSafe | IOSafe,
 	}
 
 	dictMethods = map[string]*Builtin{
@@ -137,15 +137,15 @@ var (
 		"values":     NewBuiltin("values", dict_values),
 	}
 	dictMethodSafeties = map[string]Safety{
-		"clear":      MemSafe,
-		"get":        MemSafe,
-		"items":      MemSafe,
-		"keys":       MemSafe,
-		"pop":        MemSafe,
-		"popitem":    MemSafe,
-		"setdefault": MemSafe,
-		"update":     MemSafe,
-		"values":     MemSafe,
+		"clear":      MemSafe | IOSafe,
+		"get":        MemSafe | IOSafe,
+		"items":      MemSafe | IOSafe,
+		"keys":       MemSafe | IOSafe,
+		"pop":        MemSafe | IOSafe,
+		"popitem":    MemSafe | IOSafe,
+		"setdefault": MemSafe | IOSafe,
+		"update":     MemSafe | IOSafe,
+		"values":     MemSafe | IOSafe,
 	}
 
 	listMethods = map[string]*Builtin{
@@ -158,13 +158,13 @@ var (
 		"remove": NewBuiltin("remove", list_remove),
 	}
 	listMethodSafeties = map[string]Safety{
-		"append": MemSafe,
-		"clear":  MemSafe,
-		"extend": MemSafe,
-		"index":  MemSafe,
-		"insert": MemSafe,
-		"pop":    MemSafe,
-		"remove": MemSafe,
+		"append": MemSafe | IOSafe,
+		"clear":  MemSafe | IOSafe,
+		"extend": MemSafe | IOSafe,
+		"index":  MemSafe | IOSafe,
+		"insert": MemSafe | IOSafe,
+		"pop":    MemSafe | IOSafe,
+		"remove": MemSafe | IOSafe,
 	}
 
 	stringMethods = map[string]*Builtin{
@@ -205,48 +205,68 @@ var (
 		"upper":          NewBuiltin("upper", string_upper),
 	}
 	stringMethodSafeties = map[string]Safety{
-		"capitalize":     MemSafe,
-		"codepoint_ords": MemSafe,
-		"codepoints":     MemSafe,
-		"count":          MemSafe,
-		"elem_ords":      MemSafe,
-		"elems":          MemSafe,
-		"endswith":       MemSafe,
-		"find":           MemSafe,
-		"format":         MemSafe,
-		"index":          MemSafe,
-		"isalnum":        MemSafe,
-		"isalpha":        MemSafe,
-		"isdigit":        MemSafe,
-		"islower":        MemSafe,
-		"isspace":        MemSafe,
-		"istitle":        MemSafe,
-		"isupper":        NotSafe,
-		"join":           MemSafe,
-		"lower":          MemSafe,
-		"lstrip":         MemSafe,
-		"partition":      MemSafe,
-		"removeprefix":   MemSafe,
-		"removesuffix":   MemSafe,
-		"replace":        MemSafe,
-		"rfind":          MemSafe,
-		"rindex":         MemSafe,
-		"rpartition":     MemSafe,
-		"rsplit":         MemSafe,
-		"rstrip":         MemSafe,
-		"split":          MemSafe,
-		"splitlines":     MemSafe,
-		"startswith":     MemSafe,
-		"strip":          MemSafe,
-		"title":          NotSafe,
-		"upper":          MemSafe,
+		"capitalize":     MemSafe | IOSafe,
+		"codepoint_ords": MemSafe | IOSafe,
+		"codepoints":     MemSafe | IOSafe,
+		"count":          MemSafe | IOSafe,
+		"elem_ords":      MemSafe | IOSafe,
+		"elems":          MemSafe | IOSafe,
+		"endswith":       MemSafe | IOSafe,
+		"find":           MemSafe | IOSafe,
+		"format":         MemSafe | IOSafe,
+		"index":          MemSafe | IOSafe,
+		"isalnum":        MemSafe | IOSafe,
+		"isalpha":        MemSafe | IOSafe,
+		"isdigit":        MemSafe | IOSafe,
+		"islower":        MemSafe | IOSafe,
+		"isspace":        MemSafe | IOSafe,
+		"istitle":        MemSafe | IOSafe,
+		"isupper":        MemSafe | IOSafe,
+		"join":           MemSafe | IOSafe,
+		"lower":          MemSafe | IOSafe,
+		"lstrip":         MemSafe | IOSafe,
+		"partition":      MemSafe | IOSafe,
+		"removeprefix":   MemSafe | IOSafe,
+		"removesuffix":   MemSafe | IOSafe,
+		"replace":        MemSafe | IOSafe,
+		"rfind":          MemSafe | IOSafe,
+		"rindex":         MemSafe | IOSafe,
+		"rpartition":     MemSafe | IOSafe,
+		"rsplit":         MemSafe | IOSafe,
+		"rstrip":         MemSafe | IOSafe,
+		"split":          MemSafe | IOSafe,
+		"splitlines":     MemSafe | IOSafe,
+		"startswith":     MemSafe | IOSafe,
+		"strip":          MemSafe | IOSafe,
+		"title":          MemSafe | IOSafe,
+		"upper":          MemSafe | IOSafe,
 	}
 
 	setMethods = map[string]*Builtin{
-		"union": NewBuiltin("union", set_union),
+		"add":                  NewBuiltin("add", set_add),
+		"clear":                NewBuiltin("clear", set_clear),
+		"difference":           NewBuiltin("difference", set_difference),
+		"discard":              NewBuiltin("discard", set_discard),
+		"intersection":         NewBuiltin("intersection", set_intersection),
+		"issubset":             NewBuiltin("issubset", set_issubset),
+		"issuperset":           NewBuiltin("issuperset", set_issuperset),
+		"pop":                  NewBuiltin("pop", set_pop),
+		"remove":               NewBuiltin("remove", set_remove),
+		"symmetric_difference": NewBuiltin("symmetric_difference", set_symmetric_difference),
+		"union":                NewBuiltin("union", set_union),
 	}
 	setMethodSafeties = map[string]Safety{
-		"union": NotSafe,
+		"add":                  MemSafe | IOSafe,
+		"clear":                MemSafe | IOSafe,
+		"difference":           IOSafe,
+		"discard":              MemSafe | IOSafe,
+		"intersection":         IOSafe,
+		"issubset":             IOSafe,
+		"issuperset":           IOSafe,
+		"pop":                  MemSafe | IOSafe,
+		"remove":               IOSafe,
+		"symmetric_difference": MemSafe | IOSafe,
+		"union":                MemSafe | IOSafe,
 	}
 )
 
@@ -2020,8 +2040,11 @@ func string_iterable(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Va
 
 // bytes_elems returns an unspecified iterable value whose
 // iterator yields the int values of successive elements.
-func bytes_elems(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func bytes_elems(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
+		return nil, err
+	}
+	if err := thread.AddAllocs(EstimateSize(bytesIterable{})); err != nil {
 		return nil, err
 	}
 	return bytesIterable{b.Receiver().(Bytes)}, nil
@@ -2038,23 +2061,45 @@ func (bi bytesIterable) Type() string          { return "bytes.elems" }
 func (bi bytesIterable) Freeze()               {} // immutable
 func (bi bytesIterable) Truth() Bool           { return True }
 func (bi bytesIterable) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", bi.Type()) }
-func (bi bytesIterable) Iterate() Iterator     { return &bytesIterator{bi.bytes} }
+func (bi bytesIterable) Iterate() Iterator     { return &bytesIterator{bytes: bi.bytes} }
 
-type bytesIterator struct{ bytes Bytes }
+type bytesIterator struct {
+	bytes  Bytes
+	thread *Thread
+	err    error
+}
+
+var _ SafeIterator = &bytesIterator{}
+
+func (it *bytesIterator) BindThread(thread *Thread) {
+	it.thread = thread
+}
 
 func (it *bytesIterator) Next(p *Value) bool {
+	if it.err != nil {
+		return false
+	}
+
 	if it.bytes == "" {
 		return false
 	}
-	*p = MakeInt(int(it.bytes[0]))
+	value := Value(MakeInt(int(it.bytes[0])))
+	if it.thread != nil {
+		if err := it.thread.AddAllocs(EstimateSize(value)); err != nil {
+			it.err = err
+			return false
+		}
+	}
+	*p = value
+
 	it.bytes = it.bytes[1:]
 	return true
 }
 
 func (*bytesIterator) Done() {}
 
-func (it *bytesIterator) Err() error     { return nil }
-func (it *bytesIterator) Safety() Safety { return NotSafe }
+func (it *bytesIterator) Err() error     { return it.err }
+func (it *bytesIterator) Safety() Safety { return MemSafe }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·count
 func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
@@ -2125,11 +2170,14 @@ func string_isdigit(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·islower
-func string_islower(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_islower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
+	if err := thread.CheckAllocs(EstimateSize(recv)); err != nil {
+		return nil, err
+	}
 	return Bool(isCasedString(recv) && recv == strings.ToLower(recv)), nil
 }
 
@@ -2197,11 +2245,14 @@ func string_istitle(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·isupper
-func string_isupper(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_isupper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
+	if err := thread.CheckAllocs(EstimateSize(recv)); err != nil {
+		return nil, err
+	}
 	return Bool(isCasedString(recv) && recv == strings.ToUpper(recv)), nil
 }
 
@@ -2613,7 +2664,7 @@ func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·title
-func string_title(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_title(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
@@ -2623,7 +2674,7 @@ func string_title(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	// Python semantics differ from x==strings.{To,}Title(x) in Go:
 	// "uppercase characters may only follow uncased characters and
 	// lowercase characters only cased ones."
-	buf := new(strings.Builder)
+	buf := NewSafeStringBuilder(thread)
 	buf.Grow(len(s))
 	var prevCased bool
 	for _, r := range s {
@@ -2633,7 +2684,15 @@ func string_title(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 			r = unicode.ToTitle(r)
 		}
 		prevCased = isCasedRune(r)
-		buf.WriteRune(r)
+		if _, err := buf.WriteRune(r); err != nil {
+			return nil, err
+		}
+	}
+	if err := buf.Err(); err != nil {
+		return nil, err
+	}
+	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
 	}
 	return String(buf.String()), nil
 }
@@ -2811,17 +2870,208 @@ func string_splitlines(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 	return NewList(list), nil
 }
 
+// https://github.com/google/starlark-go/blob/master/doc/spec.md#set·add.
+func set_add(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	var elem Value
+	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &elem); err != nil {
+		return nil, err
+	}
+	if found, err := b.Receiver().(*Set).Has(elem); err != nil {
+		return nil, nameErr(b, err)
+	} else if found {
+		return None, nil
+	}
+	err := b.Receiver().(*Set).ht.insert(thread, elem, None)
+	if err != nil {
+		return nil, nameErr(b, err)
+	}
+	return None, nil
+}
+
+// https://github.com/google/starlark-go/blob/master/doc/spec.md#set·clear.
+func set_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
+		return nil, err
+	}
+	if b.Receiver().(*Set).Len() > 0 {
+		if err := b.Receiver().(*Set).Clear(); err != nil {
+			return nil, nameErr(b, err)
+		}
+	}
+	return None, nil
+}
+
+// https://github.com/google/starlark-go/blob/master/doc/spec.md#set·difference.
+func set_difference(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	// TODO: support multiple others: s.difference(*others)
+	var other Iterable
+	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
+		return nil, err
+	}
+	iter := other.Iterate()
+	defer iter.Done()
+	diff, err := b.Receiver().(*Set).Difference(iter)
+	if err != nil {
+		return nil, nameErr(b, err)
+	}
+	return diff, nil
+}
+
+// https://github.com/google/starlark-go/blob/master/doc/spec.md#set_intersection.
+func set_intersection(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	// TODO: support multiple others: s.difference(*others)
+	var other Iterable
+	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
+		return nil, err
+	}
+	iter := other.Iterate()
+	defer iter.Done()
+	diff, err := b.Receiver().(*Set).Intersection(iter)
+	if err != nil {
+		return nil, nameErr(b, err)
+	}
+	return diff, nil
+}
+
+// https://github.com/google/starlark-go/blob/master/doc/spec.md#set_issubset.
+func set_issubset(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	var other Iterable
+	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
+		return nil, err
+	}
+	iter := other.Iterate()
+	defer iter.Done()
+	diff, err := b.Receiver().(*Set).IsSubset(iter)
+	if err != nil {
+		return nil, nameErr(b, err)
+	}
+	return Bool(diff), nil
+}
+
+// https://github.com/google/starlark-go/blob/master/doc/spec.md#set_issuperset.
+func set_issuperset(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	var other Iterable
+	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
+		return nil, err
+	}
+	iter := other.Iterate()
+	defer iter.Done()
+	diff, err := b.Receiver().(*Set).IsSuperset(iter)
+	if err != nil {
+		return nil, nameErr(b, err)
+	}
+	return Bool(diff), nil
+}
+
+// https://github.com/google/starlark-go/blob/master/doc/spec.md#set·discard.
+func set_discard(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	var k Value
+	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &k); err != nil {
+		return nil, err
+	}
+	if found, err := b.Receiver().(*Set).Has(k); err != nil {
+		return nil, nameErr(b, err)
+	} else if !found {
+		return None, nil
+	}
+	if _, err := b.Receiver().(*Set).Delete(k); err != nil {
+		return nil, nameErr(b, err) // set is frozen
+	}
+	return None, nil
+}
+
+// https://github.com/google/starlark-go/blob/master/doc/spec.md#set·pop.
+func set_pop(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
+		return nil, err
+	}
+	recv := b.Receiver().(*Set)
+	k, ok := recv.ht.first()
+	if !ok {
+		return nil, nameErr(b, "empty set")
+	}
+	_, err := recv.Delete(k)
+	if err != nil {
+		return nil, nameErr(b, err) // set is frozen
+	}
+	return k, nil
+}
+
+// https://github.com/google/starlark-go/blob/master/doc/spec.md#set·remove.
+func set_remove(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	var k Value
+	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &k); err != nil {
+		return nil, err
+	}
+	if found, err := b.Receiver().(*Set).Delete(k); err != nil {
+		return nil, nameErr(b, err) // dict is frozen or key is unhashable
+	} else if found {
+		return None, nil
+	}
+	return nil, nameErr(b, "missing key")
+}
+
+// https://github.com/google/starlark-go/blob/master/doc/spec.md#set·symmetric_difference.
+func set_symmetric_difference(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	var other Iterable
+	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
+		return nil, err
+	}
+	recv := b.Receiver().(*Set)
+	diff, err := recv.clone(thread)
+	if err != nil {
+		return nil, err
+	}
+	iter, err := SafeIterate(thread, other)
+	if err != nil {
+		return nil, err
+	}
+	defer iter.Done()
+	var x Value
+	for iter.Next(&x) {
+		found, err := diff.Delete(x)
+		if err != nil {
+			return nil, err
+		}
+		if !found {
+			if err := diff.ht.insert(thread, x, None); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, nameErr(b, err)
+	}
+	return diff, nil
+}
+
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·union.
-func set_union(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_union(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var iterable Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &iterable); err != nil {
 		return nil, err
 	}
-	// TODO: use SafeIterate
-	iter := iterable.Iterate()
-	defer iter.Done()
-	union, err := b.Receiver().(*Set).Union(iter)
+	iter, err := SafeIterate(thread, iterable)
 	if err != nil {
+		return nil, err
+	}
+	defer iter.Done()
+	if err := thread.AddAllocs(EstimateSize(&Set{})); err != nil {
+		return nil, err
+	}
+	union := new(Set)
+	for e := b.Receiver().(*Set).ht.head; e != nil; e = e.next {
+		if err := union.ht.insert(thread, e.key, None); err != nil {
+			return nil, err
+		}
+	}
+	var x Value
+	for iter.Next(&x) {
+		if err := union.ht.insert(thread, x, None); err != nil {
+			return nil, err
+		}
+	}
+	if err := iter.Err(); err != nil {
 		return nil, nameErr(b, err)
 	}
 	return union, nil

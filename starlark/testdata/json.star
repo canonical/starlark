@@ -37,6 +37,18 @@ encode_error(struct(x=[1, {"x": len}]), # nested failure
              'in field .x: at list index 1: in dict key "x": cannot encode...')
 encode_error({1: 2}, 'dict has int key, want string')
 
+recursive_map = {}
+recursive_map["r"] = recursive_map
+encode_error(recursive_map, 'json.encode: in dict key "r": cycle in JSON structure')
+
+recursive_list = []
+recursive_list.append(recursive_list)
+encode_error(recursive_list, 'json.encode: at list index 0: cycle in JSON structure')
+
+recursive_tuple = (1, 2, [])
+recursive_tuple[2].append(recursive_tuple)
+encode_error(recursive_tuple, 'json.encode: at tuple index 2: at list index 0: cycle in JSON structure')
+
 ## json.decode
 
 assert.eq(json.decode("null"), None)
@@ -98,6 +110,20 @@ decode_error('{"one": 1 "two": 2', "in object, got '\"', want ',' or '}'")
 decode_error('{"one": 1,', "unexpected end of file")
 decode_error('{"one": 1, }', "unexpected character '}'")
 decode_error('{"one": 1]', "in object, got ']', want ',' or '}'")
+
+## json.decode with default specified
+
+assert.eq(json.decode('{"valid": "json"}', default = "default value"), {"valid": "json"})
+assert.eq(json.decode('{"valid": "json"}', "default value"), {"valid": "json"})
+assert.eq(json.decode('{"invalid": "json"', default = "default value"), "default value")
+assert.eq(json.decode('{"invalid": "json"', "default value"), "default value")
+assert.eq(json.decode('{"invalid": "json"', default = None), None)
+assert.eq(json.decode('{"invalid": "json"', None), None)
+
+assert.fails(
+    lambda: json.decode(x = '{"invalid": "json"', default = "default value"),
+    "unexpected keyword argument x"
+)
 
 def codec(x):
     return json.decode(json.encode(x))

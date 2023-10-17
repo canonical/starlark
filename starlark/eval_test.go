@@ -6,6 +6,7 @@ package starlark_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math"
 	"os/exec"
@@ -13,34 +14,38 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/canonical/starlark/internal/chunkedfile"
 	"github.com/canonical/starlark/lib/json"
 	starlarkmath "github.com/canonical/starlark/lib/math"
+	"github.com/canonical/starlark/lib/proto"
 	"github.com/canonical/starlark/lib/time"
-	"github.com/canonical/starlark/resolve"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarkstruct"
 	"github.com/canonical/starlark/starlarktest"
+	"github.com/canonical/starlark/startest"
 	"github.com/canonical/starlark/syntax"
+	"google.golang.org/protobuf/reflect/protoregistry"
+
+	_ "google.golang.org/protobuf/types/descriptorpb" // example descriptor needed for lib/proto tests
 )
 
 // A test may enable non-standard options by containing (e.g.) "option:recursion".
-func setOptions(src string) {
-	resolve.AllowGlobalReassign = option(src, "globalreassign")
-	resolve.LoadBindsGlobally = option(src, "loadbindsglobally")
-	resolve.AllowRecursion = option(src, "recursion")
-	resolve.AllowSet = option(src, "set")
+func getOptions(src string) *syntax.FileOptions {
+	return &syntax.FileOptions{
+		Set:               option(src, "set"),
+		While:             option(src, "while"),
+		TopLevelControl:   option(src, "toplevelcontrol"),
+		GlobalReassign:    option(src, "globalreassign"),
+		LoadBindsGlobally: option(src, "loadbindsglobally"),
+		Recursion:         option(src, "recursion"),
+	}
 }
 
 func option(chunk, name string) bool {
 	return strings.Contains(chunk, "option:"+name)
-}
-
-// Wrapper is the type of errors with an Unwrap method; see https://golang.org/pkg/errors.
-type Wrapper interface {
-	Unwrap() error
 }
 
 func TestEvalExpr(t *testing.T) {
@@ -109,10 +114,10 @@ func TestEvalExpr(t *testing.T) {
 }
 
 func TestExecFile(t *testing.T) {
-	defer setOptions("")
 	testdata := starlarktest.DataFile("starlark", ".")
 	thread := &starlark.Thread{Load: load}
 	starlarktest.SetReporter(thread, t)
+	proto.SetPool(thread, protoregistry.GlobalFiles)
 	for _, file := range []string{
 		"testdata/assign.star",
 		"testdata/bool.star",
@@ -127,12 +132,14 @@ func TestExecFile(t *testing.T) {
 		"testdata/list.star",
 		"testdata/math.star",
 		"testdata/misc.star",
+		"testdata/proto.star",
 		"testdata/set.star",
 		"testdata/string.star",
 		"testdata/time.star",
 		"testdata/tuple.star",
 		"testdata/recursion.star",
 		"testdata/module.star",
+		"testdata/while.star",
 	} {
 		filename := filepath.Join(testdata, file)
 		for _, chunk := range chunkedfile.Read(filename, t) {
@@ -142,9 +149,8 @@ func TestExecFile(t *testing.T) {
 				"struct":    starlark.NewBuiltin("struct", starlarkstruct.Make),
 			}
 
-			setOptions(chunk.Source)
-
-			_, err := starlark.ExecFile(thread, filename, chunk.Source, predeclared)
+			opts := getOptions(chunk.Source)
+			_, err := starlark.ExecFileOptions(opts, thread, filename, chunk.Source, predeclared)
 			switch err := err.(type) {
 			case *starlark.EvalError:
 				found := false
@@ -203,6 +209,9 @@ func load(thread *starlark.Thread, module string) (starlark.StringDict, error) {
 	}
 	if module == "math.star" {
 		return starlark.StringDict{"math": starlarkmath.Module}, nil
+	}
+	if module == "proto.star" {
+		return starlark.StringDict{"proto": proto.Module}, nil
 	}
 
 	// TODO(adonovan): test load() using this execution path.
@@ -600,12 +609,10 @@ Error: cannot load crash.star: floored division by zero`
 				result = evalErr
 			}
 
-			// TODO: use errors.Unwrap when go >=1.13 is everywhere.
-			wrapper, isWrapper := err.(Wrapper)
-			if !isWrapper {
+			err = errors.Unwrap(err)
+			if err == nil {
 				break
 			}
-			err = wrapper.Unwrap()
 		}
 		return result
 	}
@@ -974,6 +981,13 @@ func TestExecutionSteps(t *testing.T) {
 	if fmt.Sprint(err) != "Starlark computation cancelled: too many steps" {
 		t.Errorf("execution returned error %q, want cancellation", err)
 	}
+
+	thread.SetMaxExecutionSteps(thread.ExecutionSteps() + 100)
+	thread.Uncancel()
+	_, err = countSteps(1)
+	if err != nil {
+		t.Errorf("execution returned error %q, want nil", err)
+	}
 }
 
 // TestDeps fails if the interpreter proper (not the REPL, etc) sprouts new external dependencies.
@@ -998,6 +1012,55 @@ func TestDeps(t *testing.T) {
 	}
 }
 
+// TestPanicSafety ensures that a panic from an application-defined
+// built-in may traverse the interpreter safely; see issue #411.
+func TestPanicSafety(t *testing.T) {
+	predeclared := starlark.StringDict{
+		"panic": starlark.NewBuiltin("panic", func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			panic(args[0])
+		}),
+		"list": starlark.NewList([]starlark.Value{starlark.MakeInt(0)}),
+	}
+
+	// This program is executed twice, using the same Thread,
+	// and panics both times, with values 1 and 2, while
+	// main is on the stack and a for-loop is active.
+	//
+	// It mutates list, a predeclared variable.
+	// This operation would fail if the previous
+	// for-loop failed to close its iterator during the panic.
+	//
+	// It also calls main a second time without recursion enabled.
+	// This operation would fail if the previous
+	// call failed to pop main from the stack during the panic.
+	const src = `
+list[0] += 1
+
+def main():
+    for x in list:
+        panic(x)
+
+main()
+`
+	thread := new(starlark.Thread)
+	for _, i := range []int{1, 2} {
+		// Use a func to limit the scope of recover.
+		func() {
+			defer func() {
+				if got := fmt.Sprint(recover()); got != fmt.Sprint(i) {
+					t.Fatalf("recover: got %v, want %v", got, i)
+				}
+			}()
+			v, err := starlark.ExecFile(thread, "panic.star", src, predeclared)
+			if err != nil {
+				t.Fatalf("ExecFile returned error %q, expected panic", err)
+			} else {
+				t.Fatalf("ExecFile returned %v, expected panic", v)
+			}
+		}()
+	}
+}
+
 func TestCheckExecutionSteps(t *testing.T) {
 	const maxSteps = 10000
 
@@ -1016,7 +1079,7 @@ func TestCheckExecutionSteps(t *testing.T) {
 }
 
 func TestConcurrentCheckExecutionStepsUsage(t *testing.T) {
-	const stepPeak = math.MaxUint64 ^ (math.MaxUint64 >> 1)
+	const stepPeak = math.MaxInt64 ^ (math.MaxInt64 >> 1)
 	const maxSteps = stepPeak + 1
 	const repetitions = 1_000_000
 
@@ -1024,15 +1087,16 @@ func TestConcurrentCheckExecutionStepsUsage(t *testing.T) {
 	thread.SetMaxExecutionSteps(maxSteps)
 	thread.AddExecutionSteps(stepPeak - 1)
 
-	done := make(chan struct{}, 2)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
 	go func() {
 		// Flip between 1000...00 and 0111...11 allocations
 		for i := 0; i < repetitions; i++ {
 			thread.AddExecutionSteps(1)
-			thread.SubtractExecutionSteps(1)
+			thread.AddExecutionSteps(-1)
 		}
-		done <- struct{}{}
+		wg.Done()
 	}()
 	go func() {
 		for i := 0; i < repetitions; i++ {
@@ -1042,17 +1106,10 @@ func TestConcurrentCheckExecutionStepsUsage(t *testing.T) {
 				break
 			}
 		}
-		done <- struct{}{}
+		wg.Done()
 	}()
 
-	// Await goroutine completion
-	totDone := 0
-	for totDone != 2 {
-		select {
-		case <-done:
-			totDone++
-		}
-	}
+	wg.Wait()
 }
 
 func TestAddExecutionStepsOk(t *testing.T) {
@@ -1109,7 +1166,8 @@ func TestConcurrentAddExecutionStepsUsage(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxExecutionSteps(expectedSteps)
 
-	done := make(chan struct{}, 2)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
 	callAddExecutionSteps := func(n uint) {
 		for i := uint(0); i < n; i++ {
@@ -1118,20 +1176,13 @@ func TestConcurrentAddExecutionStepsUsage(t *testing.T) {
 				break
 			}
 		}
-		done <- struct{}{}
+		wg.Done()
 	}
 
 	go callAddExecutionSteps(expectedSteps / 2)
 	go callAddExecutionSteps(expectedSteps / 2)
 
-	// Await goroutine completion
-	totDone := 0
-	for totDone != 2 {
-		select {
-		case <-done:
-			totDone++
-		}
-	}
+	wg.Wait()
 
 	if steps := thread.ExecutionSteps(); steps != expectedSteps {
 		t.Errorf("concurrent thread.AddExecutionSteps contains a race, expected %d steps recorded but got %d", expectedSteps, steps)
@@ -1250,8 +1301,189 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 	}
 }
 
+type safeBinaryAllocTest struct {
+	name           string
+	inputs         func(n int) (starlark.Value, syntax.Token, starlark.Value)
+	assertNoAllocs bool
+}
+
+func (b safeBinaryAllocTest) Run(t *testing.T) {
+	t.Run(b.name, func(t *testing.T) {
+		if b.inputs == nil {
+			t.Fatalf("binary test '%v' missing inputs field", b.name)
+		}
+		if b.name == "" {
+			x, op, y := b.inputs(1)
+			t.Fatalf("binary test of %v %v %v has empty name field", x.Type(), op, y.Type())
+		}
+
+		t.Run("nil-thread", func(t *testing.T) {
+			defer func() {
+				if err := recover(); err != nil {
+					t.Errorf("unexpected panic: %v", err)
+				}
+			}()
+			x, op, y := b.inputs(1)
+			_, err := starlark.SafeBinary(nil, op, x, y)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+
+		t.Run("small", func(t *testing.T) {
+			st := startest.From(t)
+			if b.assertNoAllocs {
+				st.SetMaxAllocs(0)
+			}
+			st.RequireSafety(starlark.MemSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				x, op, y := b.inputs(1)
+				for i := 0; i < st.N; i++ {
+					result, err := starlark.SafeBinary(thread, op, x, y)
+					if err != nil {
+						st.Error(err)
+					}
+					st.KeepAlive(result)
+				}
+			})
+		})
+
+		t.Run("large", func(t *testing.T) {
+			st := startest.From(t)
+			if b.assertNoAllocs {
+				st.SetMaxAllocs(0)
+			}
+			st.RequireSafety(starlark.MemSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				x, op, y := b.inputs(st.N)
+				result, err := starlark.SafeBinary(thread, op, x, y)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			})
+		})
+	})
+}
+
+type unsafeTestValue struct{}
+
+var _ starlark.Value = unsafeTestValue{}
+
+func (uv unsafeTestValue) Freeze() {}
+func (uv unsafeTestValue) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", uv.Type())
+}
+func (uv unsafeTestValue) String() string       { return "unsafeTestValue" }
+func (uv unsafeTestValue) Truth() starlark.Bool { return starlark.False }
+func (uv unsafeTestValue) Type() string         { return "unsafeTestValue" }
+
 func TestSafeBinaryAllocs(t *testing.T) {
-	t.Run("+", func(t *testing.T) {})
+	t.Run("safety-respected", func(t *testing.T) {
+		t.Run("unsafe-left", func(t *testing.T) {
+			const expected = "feature unavailable to the sandbox"
+
+			thread := &starlark.Thread{}
+			thread.RequireSafety(starlark.Safe)
+			_, err := starlark.SafeBinary(thread, syntax.PLUS, unsafeTestValue{}, starlark.True)
+			if err == nil {
+				t.Error("expected error")
+			} else if err.Error() != expected {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+
+		t.Run("unsafe-right", func(t *testing.T) {
+			const expected = "feature unavailable to the sandbox"
+
+			thread := &starlark.Thread{}
+			thread.RequireSafety(starlark.Safe)
+			_, err := starlark.SafeBinary(thread, syntax.PLUS, starlark.True, unsafeTestValue{})
+			if err == nil {
+				t.Error("expected error")
+			} else if err.Error() != expected {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	})
+
+	t.Run("+", func(t *testing.T) {
+		t.Run("in-starlark", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.AddValue("t", starlark.Tuple{starlark.True})
+			st.RunString(`
+				for _ in st.ntimes():
+					st.keep_alive(t + t)
+			`)
+		})
+
+		tests := []safeBinaryAllocTest{{
+			name: "string + string",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				str := starlark.String(strings.Repeat("x", n/2))
+				return str, syntax.PLUS, str
+			},
+		}, {
+			name: "int + int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				shift := n - 1
+				if shift < 0 {
+					shift = 0
+				}
+				num := starlark.MakeInt(1).Lsh(uint(shift))
+				return num, syntax.PLUS, num
+			},
+		}, {
+			name: "int + float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(1).Lsh(308)
+				r := starlark.Float(n)
+				return l, syntax.PLUS, r
+			},
+		}, {
+			name: "float + int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(n)
+				r := starlark.MakeInt(1).Lsh(308)
+				return l, syntax.PLUS, r
+			},
+		}, {
+			name: "float + float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				num := starlark.Float(n)
+				return num, syntax.PLUS, num
+			},
+		}, {
+			name: "list + list",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				lElems := make([]starlark.Value, n/2)
+				rElems := make([]starlark.Value, n/2)
+				for i := 0; i < n/2; i++ {
+					lElems[i] = starlark.String("a")
+					rElems[i] = starlark.String("b")
+				}
+				l := starlark.NewList(lElems)
+				r := starlark.NewList(rElems)
+				return l, syntax.PLUS, r
+			},
+		}, {
+			name: "tuple + tuple",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := make(starlark.Tuple, n/2)
+				r := make(starlark.Tuple, n/2)
+				for i := 0; i < n/2; i++ {
+					l[i] = starlark.String("a")
+					r[i] = starlark.String("b")
+				}
+				return l, syntax.PLUS, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+
+	})
 
 	t.Run("-", func(t *testing.T) {})
 
@@ -1276,4 +1508,29 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	t.Run("<<", func(t *testing.T) {})
 
 	t.Run(">>", func(t *testing.T) {})
+}
+
+func TestThreadEnsureStack(t *testing.T) {
+	t.Run("positive-size", func(t *testing.T) {
+		dummy := &testing.T{}
+		st := startest.From(dummy)
+		st.SetMaxAllocs(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.EnsureStack(st.N)
+		})
+		if !dummy.Failed() {
+			t.Error("no new frames preallocated")
+		}
+	})
+
+	t.Run("negative-size", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err == nil {
+				t.Error("expected panic")
+			}
+		}()
+		thread := &starlark.Thread{}
+		thread.EnsureStack(10)
+		thread.EnsureStack(-1)
+	})
 }
