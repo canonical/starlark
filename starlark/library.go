@@ -257,14 +257,14 @@ var (
 	setMethodSafeties = map[string]Safety{
 		"add":                  MemSafe | IOSafe,
 		"clear":                MemSafe | IOSafe,
-		"difference":           IOSafe,
+		"difference":           MemSafe | IOSafe,
 		"discard":              MemSafe | IOSafe,
 		"intersection":         IOSafe,
 		"issubset":             IOSafe,
-		"issuperset":           IOSafe,
+		"issuperset":           MemSafe | IOSafe,
 		"pop":                  MemSafe | IOSafe,
 		"remove":               MemSafe | IOSafe,
-		"symmetric_difference": IOSafe,
+		"symmetric_difference": MemSafe | IOSafe,
 		"union":                MemSafe | IOSafe,
 	}
 )
@@ -2898,17 +2898,29 @@ func set_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·difference.
-func set_difference(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_difference(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	// TODO: support multiple others: s.difference(*others)
 	var other Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
-	defer iter.Done()
-	diff, err := b.Receiver().(*Set).Difference(iter)
+	diff, err := b.Receiver().(*Set).clone(thread)
 	if err != nil {
-		return nil, nameErr(b, err)
+		return nil, err
+	}
+	iter, err := SafeIterate(thread, other)
+	if err != nil {
+		return nil, err
+	}
+	defer iter.Done()
+	var x Value
+	for iter.Next(&x) {
+		if _, err := diff.Delete(x); err != nil {
+			return nil, err
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	return diff, nil
 }
@@ -2945,16 +2957,22 @@ func set_issubset(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set_issuperset.
-func set_issuperset(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_issuperset(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var other Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
+	iter, err := SafeIterate(thread, other)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 	diff, err := b.Receiver().(*Set).IsSuperset(iter)
 	if err != nil {
 		return nil, nameErr(b, err)
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	return Bool(diff), nil
 }
@@ -3008,15 +3026,34 @@ func set_remove(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·symmetric_difference.
-func set_symmetric_difference(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_symmetric_difference(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var other Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
-	defer iter.Done()
-	diff, err := b.Receiver().(*Set).SymmetricDifference(iter)
+	recv := b.Receiver().(*Set)
+	diff, err := recv.clone(thread)
 	if err != nil {
+		return nil, err
+	}
+	iter, err := SafeIterate(thread, other)
+	if err != nil {
+		return nil, err
+	}
+	defer iter.Done()
+	var x Value
+	for iter.Next(&x) {
+		found, err := diff.Delete(x)
+		if err != nil {
+			return nil, err
+		}
+		if !found {
+			if err := diff.ht.insert(thread, x, None); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if err := iter.Err(); err != nil {
 		return nil, nameErr(b, err)
 	}
 	return diff, nil

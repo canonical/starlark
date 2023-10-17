@@ -59,6 +59,7 @@ type TestBase interface {
 type ST struct {
 	maxAllocs         uint64
 	maxExecutionSteps uint64
+	minExecutionSteps uint64
 	alive             []interface{}
 	N                 int
 	requiredSafety    starlark.Safety
@@ -95,6 +96,12 @@ func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 // of st.N.
 func (st *ST) SetMaxExecutionSteps(maxExecutionSteps uint64) {
 	st.maxExecutionSteps = maxExecutionSteps
+}
+
+// SetMinExecutionSteps optionally sets the min execution steps allowed per unit
+// of st.N.
+func (st *ST) SetMinExecutionSteps(minExecutionSteps uint64) {
+	st.minExecutionSteps = minExecutionSteps
 }
 
 // RequireSafety optionally sets the required safety of tested code.
@@ -242,6 +249,9 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 
 	if st.maxExecutionSteps != math.MaxUint64 && meanExecutionSteps > st.maxExecutionSteps {
 		st.Errorf("execution steps are above maximum (%d > %d)", meanExecutionSteps, st.maxExecutionSteps)
+	}
+	if meanExecutionSteps < st.minExecutionSteps {
+		st.Errorf("execution steps are below minimum (%d < %d)", meanExecutionSteps, st.minExecutionSteps)
 	}
 }
 
