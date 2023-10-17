@@ -468,22 +468,19 @@ func TestBoolSteps(t *testing.T) {
 		tests := []struct {
 			name  string
 			input starlark.Value
-		}{
-			{
-				name:  "none",
-				input: starlark.None,
-			}, {
-				name:  "true",
-				input: starlark.True,
-			}, {
-				name:  "int",
-				input: starlark.MakeInt(0),
-			}, {
-				name:  "float",
-				input: starlark.Float(0.5),
-			},
-		}
-
+		}{{
+			name:  "none",
+			input: starlark.None,
+		}, {
+			name:  "true",
+			input: starlark.True,
+		}, {
+			name:  "int",
+			input: starlark.MakeInt(0),
+		}, {
+			name:  "float",
+			input: starlark.Float(0.5),
+		}}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
@@ -506,48 +503,41 @@ func TestBoolSteps(t *testing.T) {
 		tests := []struct {
 			name  string
 			input func(n int) starlark.Value
-		}{
-			{
-				"big-int",
-				func(n int) starlark.Value {
-					return starlark.MakeInt(1).Lsh(uint(n))
-				},
+		}{{
+			"big-int",
+			func(n int) starlark.Value {
+				return starlark.MakeInt(1).Lsh(uint(n))
 			},
-			{
-				"string",
-				func(n int) starlark.Value {
-					return starlark.String(strings.Repeat("a", n))
-				},
+		}, {
+			"string",
+			func(n int) starlark.Value {
+				return starlark.String(strings.Repeat("a", n))
 			},
-			{
-				"set",
-				func(n int) starlark.Value {
-					for i := set.Len(); i < n; i++ {
-						set.Insert(starlark.MakeInt(i))
-					}
-					return set
-				},
+		}, {
+			"set",
+			func(n int) starlark.Value {
+				for i := set.Len(); i < n; i++ {
+					set.Insert(starlark.MakeInt(i))
+				}
+				return set
 			},
-			{
-				"dict",
-				func(n int) starlark.Value {
-					for i := dict.Len(); i < n; i++ {
-						dict.SetKey(starlark.MakeInt(i), starlark.None)
-					}
-					return dict
-				},
+		}, {
+			"dict",
+			func(n int) starlark.Value {
+				for i := dict.Len(); i < n; i++ {
+					dict.SetKey(starlark.MakeInt(i), starlark.None)
+				}
+				return dict
 			},
-			{
-				"list",
-				func(n int) starlark.Value {
-					for i := list.Len(); i < n; i++ {
-						list.Append(starlark.None)
-					}
-					return list
-				},
+		}, {
+			"list",
+			func(n int) starlark.Value {
+				for i := list.Len(); i < n; i++ {
+					list.Append(starlark.None)
+				}
+				return list
 			},
-		}
-
+		}}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
