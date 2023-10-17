@@ -999,6 +999,11 @@ func TestGetattrSteps(t *testing.T) {
 }
 
 func TestGetattrAllocs(t *testing.T) {
+	getattr, ok := starlark.Universe["getattr"]
+	if !ok {
+		t.Fatal("no such builtin: getattr")
+	}
+
 	inputs := []starlark.HasAttrs{
 		starlark.NewList(nil),
 		starlark.NewDict(1),
@@ -1006,7 +1011,6 @@ func TestGetattrAllocs(t *testing.T) {
 		starlark.String("1"),
 		starlark.Bytes("1"),
 	}
-	getattr := starlark.Universe["getattr"]
 	for _, input := range inputs {
 		attr := starlark.String(input.AttrNames()[0])
 		t.Run(input.Type(), func(t *testing.T) {
