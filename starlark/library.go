@@ -1704,10 +1704,15 @@ func dict_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		return nil, err
 	}
 	recv := b.Receiver().(*Dict)
-	if err := thread.AddExecutionSteps(int64(len(recv.ht.table))); err != nil {
-		return nil, err
+	if recv.Len() > 0 {
+		if err := thread.AddExecutionSteps(int64(len(recv.ht.table))); err != nil {
+			return nil, err
+		}
+		if err := recv.Clear(); err != nil {
+			return nil, err
+		}
 	}
-	return None, recv.Clear()
+	return None, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·items

@@ -2311,23 +2311,41 @@ func TestBytesElemsAllocs(t *testing.T) {
 
 func TestDictClearSteps(t *testing.T) {
 	const dictSize = 200
+
 	dict := starlark.NewDict(dictSize)
 	dict_clear, _ := dict.Attr("clear")
 	if dict_clear == nil {
 		t.Fatal("no such method: dict.clear")
 	}
 
-	st := startest.From(t)
-	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(dictSize / 8)
-	st.SetMaxExecutionSteps(2 * dictSize / 8)
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			_, err := starlark.Call(thread, dict_clear, nil, nil)
-			if err != nil {
-				st.Error(err)
+	t.Run("empty", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, dict_clear, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
 			}
-		}
+		})
+	})
+
+	t.Run("not-empty", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(dictSize / 8)
+		st.SetMaxExecutionSteps(2 * dictSize / 8)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				dict.SetKey(starlark.None, starlark.None)
+				_, err := starlark.Call(thread, dict_clear, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
 	})
 }
 
