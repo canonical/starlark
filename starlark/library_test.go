@@ -2342,11 +2342,11 @@ func TestDictClearAllocs(t *testing.T) {
 }
 
 func TestDictGetSteps(t *testing.T) {
-	const setSize = 500
+	const dictSize = 500
 
 	t.Run("few-collisions", func(t *testing.T) {
-		dict := starlark.NewDict(setSize)
-		for i := 0; i < setSize; i++ {
+		dict := starlark.NewDict(dictSize)
+		for i := 0; i < dictSize; i++ {
 			dict.SetKey(starlark.Float(i), starlark.None)
 		}
 		dict_get, _ := dict.Attr("get")
@@ -2361,7 +2361,7 @@ func TestDictGetSteps(t *testing.T) {
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
-					elem := starlark.Value(starlark.MakeInt(i % setSize))
+					elem := starlark.Value(starlark.MakeInt(i % dictSize))
 					_, err := starlark.Call(thread, dict_get, starlark.Tuple{elem}, nil)
 					if err != nil {
 						st.Error(err)
@@ -2377,7 +2377,7 @@ func TestDictGetSteps(t *testing.T) {
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
-					elem := starlark.Value(starlark.MakeInt(setSize))
+					elem := starlark.Value(starlark.MakeInt(dictSize))
 					_, err := starlark.Call(thread, dict_get, starlark.Tuple{elem}, nil)
 					if err != nil {
 						st.Error(err)
@@ -2388,8 +2388,8 @@ func TestDictGetSteps(t *testing.T) {
 	})
 
 	t.Run("many-collisions", func(t *testing.T) {
-		dict := starlark.NewDict(setSize)
-		for i := 0; i < setSize; i++ {
+		dict := starlark.NewDict(dictSize)
+		for i := 0; i < dictSize; i++ {
 			// Int hash only uses the least 32 bits.
 			// Leaving them blank creates collisions.
 			key := starlark.MakeInt64(int64(i) << 32)
@@ -2403,11 +2403,11 @@ func TestDictGetSteps(t *testing.T) {
 		t.Run("present", func(t *testing.T) {
 			st := startest.From(t)
 			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps((setSize + 7) / 8)
+			st.SetMaxExecutionSteps((dictSize + 7) / 8)
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
-					elem := starlark.Value(starlark.MakeInt64(int64(i%setSize) << 32))
+					elem := starlark.Value(starlark.MakeInt64(int64(i%dictSize) << 32))
 					_, err := starlark.Call(thread, dict_get, starlark.Tuple{elem}, nil)
 					if err != nil {
 						st.Error(err)
@@ -2419,12 +2419,12 @@ func TestDictGetSteps(t *testing.T) {
 		t.Run("missing", func(t *testing.T) {
 			st := startest.From(t)
 			// Each bucket can contain 8 elements tops
-			st.SetMinExecutionSteps((setSize + 7) / 8)
-			st.SetMaxExecutionSteps((setSize + 7) / 8)
+			st.SetMinExecutionSteps((dictSize + 7) / 8)
+			st.SetMaxExecutionSteps((dictSize + 7) / 8)
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
-					elem := starlark.Value(starlark.MakeInt(setSize << 32))
+					elem := starlark.Value(starlark.MakeInt(dictSize << 32))
 					_, err := starlark.Call(thread, dict_get, starlark.Tuple{elem}, nil)
 					if err != nil {
 						st.Error(err)
