@@ -35,6 +35,7 @@ var Universe StringDict
 var universeSafeties map[string]Safety
 
 var ErrUnsupported = errors.New("unsupported operation")
+var ErrNoSuchAttr = errors.New("no such attribute")
 
 func init() {
 	// https://github.com/google/starlark-go/blob/master/doc/spec.md#built-in-constants-and-functions
@@ -86,7 +87,7 @@ func init() {
 		"enumerate": MemSafe | IOSafe,
 		"fail":      MemSafe | IOSafe,
 		"float":     MemSafe | IOSafe,
-		"getattr":   NotSafe | IOSafe,
+		"getattr":   MemSafe | IOSafe,
 		"hasattr":   MemSafe | IOSafe,
 		"hash":      MemSafe | IOSafe,
 		"int":       MemSafe | IOSafe,
@@ -305,6 +306,19 @@ func builtinAttr(recv Value, name string, methods map[string]*Builtin) (Value, e
 	b := methods[name]
 	if b == nil {
 		return nil, nil // no such method
+	}
+	return b.BindReceiver(recv), nil
+}
+
+func safeBuiltinAttr(thread *Thread, recv Value, name string, methods map[string]*Builtin) (Value, error) {
+	b := methods[name]
+	if b == nil {
+		return nil, ErrNoSuchAttr
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateSize(&Builtin{})); err != nil {
+			return nil, err
+		}
 	}
 	return b.BindReceiver(recv), nil
 }
@@ -710,25 +724,15 @@ func getattr(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	if err := UnpackPositionalArgs("getattr", args, kwargs, 2, &object, &name, &dflt); err != nil {
 		return nil, err
 	}
-	if object, ok := object.(HasAttrs); ok {
-		v, err := object.Attr(name)
-		if err != nil {
-			// An error could mean the field doesn't exist,
-			// or it exists but could not be computed.
-			if dflt != nil {
-				return dflt, nil
-			}
-			return nil, nameErr(b, err)
+
+	v, err := getAttr(thread, object, name, false)
+	if err != nil {
+		if dflt != nil {
+			return dflt, nil
 		}
-		if v != nil {
-			return v, nil
-		}
-		// (nil, nil) => no such field
+		return nil, nameErr(b, err)
 	}
-	if dflt != nil {
-		return dflt, nil
-	}
-	return nil, fmt.Errorf("getattr: %s has no .%s field or method", object.Type(), name)
+	return v, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#hasattr

@@ -397,6 +397,10 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 	return nil, nil
 }
 
+func (st *ST) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	return st.Attr(name) // Assume test code is safe.
+}
+
 func (st *ST) AttrNames() []string {
 	return []string{
 		"error",
