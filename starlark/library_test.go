@@ -2344,7 +2344,7 @@ func TestDictClearAllocs(t *testing.T) {
 func TestDictGetSteps(t *testing.T) {
 	const setSize = 500
 
-	t.Run("balanced", func(t *testing.T) {
+	t.Run("few-collisions", func(t *testing.T) {
 		dict := starlark.NewDict(setSize)
 		for i := 0; i < setSize; i++ {
 			dict.SetKey(starlark.Float(i), starlark.None)
@@ -2387,7 +2387,7 @@ func TestDictGetSteps(t *testing.T) {
 		})
 	})
 
-	t.Run("unbalanced", func(t *testing.T) {
+	t.Run("many-collisions", func(t *testing.T) {
 		dict := starlark.NewDict(setSize)
 		for i := 0; i < setSize; i++ {
 			// Int hash only uses the least 32 bits.
@@ -2402,8 +2402,8 @@ func TestDictGetSteps(t *testing.T) {
 
 		t.Run("present", func(t *testing.T) {
 			st := startest.From(t)
-			st.SetMinExecutionSteps(20)
-			st.SetMaxExecutionSteps(200)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps((setSize + 7) / 8)
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
