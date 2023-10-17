@@ -1810,6 +1810,39 @@ func Iterate(x Value) Iterator {
 	return nil
 }
 
+type stepCountingIterator struct {
+	thread *Thread
+	iter   Iterator
+	err    error
+}
+
+var _ SafeIterator = &stepCountingIterator{}
+
+func (sci *stepCountingIterator) Next(p *Value) bool {
+	if sci.err != nil {
+		return false
+	}
+
+	if sci.thread != nil {
+		if err := sci.thread.AddExecutionSteps(1); err != nil {
+			sci.err = err
+			return false
+		}
+	}
+	return sci.iter.Next(p)
+}
+func (sci *stepCountingIterator) Done()                     {}
+func (sci *stepCountingIterator) Err() error                { return sci.err }
+func (sci *stepCountingIterator) BindThread(thread *Thread) { sci.thread = thread }
+
+func (sci *stepCountingIterator) Safety() Safety {
+	var iterSafety Safety
+	if iter, ok := sci.iter.(SafetyAware); ok {
+		iterSafety = iter.Safety()
+	}
+	return CPUSafe & iterSafety
+}
+
 // SafeIterate creates an iterator which is bound then to the given
 // thread. This iterator will check safety and respect sandboxing
 // bounds as required. As a convenience for functions that may have
@@ -1825,6 +1858,10 @@ func SafeIterate(thread *Thread, x Value) (Iterator, error) {
 
 				if err := thread.CheckPermits(safeIter); err != nil {
 					return nil, err
+				}
+				if thread != nil && thread.requiredSafety.Contains(CPUSafe) {
+					safeIter = &stepCountingIterator{iter: safeIter}
+					safeIter.BindThread(thread)
 				}
 				return safeIter, nil
 			} else if err := thread.CheckPermits(NotSafe); err != nil {

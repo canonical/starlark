@@ -4534,6 +4534,58 @@ func TestSetUnionAllocs(t *testing.T) {
 }
 
 func TestSafeIterateSteps(t *testing.T) {
+	t.Run("nil-thread", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+
+		iterable := &testSequence{
+			maxN: 100,
+			nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+				return starlark.MakeInt(n), nil
+			},
+		}
+		iter, err := starlark.SafeIterate(nil, iterable)
+		if err != nil {
+			t.Fatal(err)
+		}
+		iter.Done()
+		var v starlark.Value
+		for iter.Next(&v) {
+		}
+		if err := iter.Err(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("step-counting", func(t *testing.T) {
+		st := startest.From(t)
+		st.SetMaxExecutionSteps(1)
+		st.SetMinExecutionSteps(1)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.SetMaxExecutionSteps(math.MaxInt64)
+
+			iterable := &testSequence{
+				maxN: st.N,
+				nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.MakeInt(n), nil
+				},
+			}
+			iter, err := starlark.SafeIterate(thread, iterable)
+			if err != nil {
+				st.Fatal(err)
+			}
+			var v starlark.Value
+			for iter.Next(&v) {
+			}
+			if err := iter.Err(); err != nil {
+				st.Fatal(err)
+			}
+		})
+	})
 }
 
 func TestSafeIterateAllocs(t *testing.T) {
