@@ -4263,13 +4263,13 @@ func TestSetIsSubsetAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
-			testIterable := &testIterable{
+			iter := &testIterable{
 				maxN: st.N,
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 					return starlark.MakeInt(n), nil
 				},
 			}
-			result, err := starlark.Call(thread, set_issubset, starlark.Tuple{testIterable}, nil)
+			result, err := starlark.Call(thread, set_issubset, starlark.Tuple{iter}, nil)
 			if err != nil {
 				st.Error(err)
 			}
