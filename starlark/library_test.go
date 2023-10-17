@@ -459,6 +459,100 @@ func TestAllAllocs(t *testing.T) {
 }
 
 func TestBoolSteps(t *testing.T) {
+	bool_, ok := starlark.Universe["bool"]
+	if !ok {
+		t.Fatal("no such builtin: bool")
+	}
+
+	t.Run("const-size", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			input starlark.Value
+		}{{
+			name:  "none",
+			input: starlark.None,
+		}, {
+			name:  "true",
+			input: starlark.True,
+		}, {
+			name:  "int",
+			input: starlark.MakeInt(0),
+		}, {
+			name:  "float",
+			input: starlark.Float(0.5),
+		}}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.CPUSafe)
+				st.SetMaxExecutionSteps(0)
+				st.RunThread(func(thread *starlark.Thread) {
+					_, err := starlark.Call(thread, bool_, starlark.Tuple{test.input}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				})
+			})
+		}
+	})
+
+	t.Run("var-size", func(t *testing.T) {
+		set := starlark.NewSet(0)
+		dict := starlark.NewDict(0)
+		list := starlark.NewList(nil)
+		tests := []struct {
+			name  string
+			input func(n int) starlark.Value
+		}{{
+			"big-int",
+			func(n int) starlark.Value {
+				return starlark.MakeInt(1).Lsh(uint(n))
+			},
+		}, {
+			"string",
+			func(n int) starlark.Value {
+				return starlark.String(strings.Repeat("a", n))
+			},
+		}, {
+			"set",
+			func(n int) starlark.Value {
+				for i := set.Len(); i < n; i++ {
+					set.Insert(starlark.MakeInt(i))
+				}
+				return set
+			},
+		}, {
+			"dict",
+			func(n int) starlark.Value {
+				for i := dict.Len(); i < n; i++ {
+					dict.SetKey(starlark.MakeInt(i), starlark.None)
+				}
+				return dict
+			},
+		}, {
+			"list",
+			func(n int) starlark.Value {
+				for i := list.Len(); i < n; i++ {
+					list.Append(starlark.None)
+				}
+				return list
+			},
+		}}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.CPUSafe)
+				st.SetMaxExecutionSteps(0)
+				st.RunThread(func(thread *starlark.Thread) {
+					value := test.input(st.N)
+					_, err := starlark.Call(thread, bool_, starlark.Tuple{value}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				})
+			})
+		}
+	})
 }
 
 func TestBoolAllocs(t *testing.T) {
