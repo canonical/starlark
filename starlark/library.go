@@ -259,7 +259,7 @@ var (
 		"clear":                MemSafe | IOSafe,
 		"difference":           MemSafe | IOSafe,
 		"discard":              MemSafe | IOSafe,
-		"intersection":         IOSafe,
+		"intersection":         MemSafe | IOSafe,
 		"issubset":             IOSafe,
 		"issuperset":           MemSafe | IOSafe,
 		"pop":                  MemSafe | IOSafe,
@@ -2926,17 +2926,23 @@ func set_difference(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set_intersection.
-func set_intersection(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_intersection(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	// TODO: support multiple others: s.difference(*others)
 	var other Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
+	iter, err := SafeIterate(thread, other)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
-	diff, err := b.Receiver().(*Set).Intersection(iter)
+	diff, err := b.Receiver().(*Set).safeIntersection(thread, iter)
 	if err != nil {
 		return nil, nameErr(b, err)
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	return diff, nil
 }
