@@ -1294,16 +1294,24 @@ func setFromIterator(iter Iterator) (*Set, error) {
 	return set, nil
 }
 
-func (s *Set) clone() *Set {
+func (s *Set) clone(thread *Thread) (*Set, error) {
 	set := new(Set)
-	for e := s.ht.head; e != nil; e = e.next {
-		set.Insert(e.key) // can't fail
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateSize(set)); err != nil {
+			return nil, err
+		}
 	}
-	return set
+	set.ht.init(thread, int(s.ht.len))
+	for e := s.ht.head; e != nil; e = e.next {
+		if err := set.ht.insert(thread, e.key, None); err != nil {
+			return nil, err
+		}
+	}
+	return set, nil
 }
 
 func (s *Set) Union(iter Iterator) (Value, error) {
-	set := s.clone()
+	set, _ := s.clone(nil) // can't fail
 	var x Value
 	for iter.Next(&x) {
 		if err := set.Insert(x); err != nil {
@@ -1314,7 +1322,7 @@ func (s *Set) Union(iter Iterator) (Value, error) {
 }
 
 func (s *Set) Difference(other Iterator) (Value, error) {
-	diff := s.clone()
+	diff, _ := s.clone(nil) // can't fail
 	var x Value
 	for other.Next(&x) {
 		if _, err := diff.Delete(x); err != nil {
@@ -1339,13 +1347,11 @@ func (s *Set) IsSuperset(other Iterator) (bool, error) {
 }
 
 func (s *Set) IsSubset(other Iterator) (bool, error) {
-	otherset, err := setFromIterator(other)
-	if err != nil {
+	if count, err := s.ht.count(other); err != nil {
 		return false, err
+	} else {
+		return count == s.Len(), nil
 	}
-	iter := s.Iterate()
-	defer iter.Done()
-	return otherset.IsSuperset(iter)
 }
 
 func (s *Set) Intersection(other Iterator) (Value, error) {
@@ -1367,7 +1373,7 @@ func (s *Set) Intersection(other Iterator) (Value, error) {
 }
 
 func (s *Set) SymmetricDifference(other Iterator) (Value, error) {
-	diff := s.clone()
+	diff, _ := s.clone(nil) // can't fail
 	var x Value
 	for other.Next(&x) {
 		found, err := diff.Delete(x)

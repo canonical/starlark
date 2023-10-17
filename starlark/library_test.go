@@ -4105,6 +4105,9 @@ func TestStringUpperAllocs(t *testing.T) {
 	})
 }
 
+func TestSetAddSteps(t *testing.T) {
+}
+
 func TestSetAddAllocs(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
@@ -4132,6 +4135,9 @@ func TestSetAddAllocs(t *testing.T) {
 	})
 }
 
+func TestSetClearSteps(t *testing.T) {
+}
+
 func TestSetClearAllocs(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
@@ -4155,7 +4161,13 @@ func TestSetClearAllocs(t *testing.T) {
 	})
 }
 
-func TestSetUnionSteps(t *testing.T) {
+func TestSetDifferenceSteps(t *testing.T) {
+}
+
+func TestSetDifferenceAllocs(t *testing.T) {
+}
+
+func TestSetDiscardSteps(t *testing.T) {
 }
 
 func TestSetDiscardAllocs(t *testing.T) {
@@ -4212,6 +4224,21 @@ func TestSetDiscardAllocs(t *testing.T) {
 	})
 }
 
+func TestSetIntersectionSteps(t *testing.T) {
+}
+
+func TestSetIntersectionAllocs(t *testing.T) {
+}
+
+func TestSetIsSubsetSteps(t *testing.T) {
+}
+
+func TestSetIsSubsetAllocs(t *testing.T) {
+}
+
+func TestSetIsSupersetSteps(t *testing.T) {
+}
+
 func TestSetIssupersetAllocs(t *testing.T) {
 	const setSize = 1000
 	set := starlark.NewSet(setSize)
@@ -4255,6 +4282,93 @@ func TestSetIssupersetAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		})
 	})
+}
+
+func TestSetPopSteps(t *testing.T) {
+}
+
+func TestSetPopAllocs(t *testing.T) {
+	const setSize = 1000
+	set := starlark.NewSet(setSize)
+	for i := 0; i < setSize; i++ {
+		set.Insert(starlark.MakeInt(i))
+	}
+	set_pop, _ := set.Attr("pop")
+	if set_pop == nil {
+		t.Fatal("no such method: set.pop")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, set_pop, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+			set.Insert(result)
+		}
+	})
+}
+
+func TestSetRemoveSteps(t *testing.T) {
+}
+
+func TestSetRemoveAllocs(t *testing.T) {
+}
+
+func TestSetSymmetricDifferenceSteps(t *testing.T) {
+}
+
+func TestSetSymmetricDifferenceAllocs(t *testing.T) {
+	const elems = 100
+	set := starlark.NewSet(elems)
+	list := starlark.NewList(make([]starlark.Value, 0, elems))
+	for i := 0; i < elems; i++ {
+		set.Insert(starlark.MakeInt(i))
+		if i%2 == 0 {
+			list.Append(starlark.MakeInt(i))
+		} else {
+			list.Append(starlark.MakeInt(-i))
+		}
+	}
+	set_symmetric_difference, _ := set.Attr("symmetric_difference")
+	if set_symmetric_difference == nil {
+		t.Fatal("no such method: set.symmetric_difference")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		const expected = "feature unavailable to the sandbox"
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if err.Error() != expected {
+			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		}
+	})
+
+	t.Run("allocation", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{list}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+}
+
+func TestSetUnionSteps(t *testing.T) {
 }
 
 func TestSetUnionAllocs(t *testing.T) {
