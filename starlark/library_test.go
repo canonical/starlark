@@ -4278,6 +4278,56 @@ func TestSetIntersectionSteps(t *testing.T) {
 }
 
 func TestSetIntersectionAllocs(t *testing.T) {
+	t.Run("safety-respected", func(t *testing.T) {
+		const expected = "feature unavailable to the sandbox"
+
+		set := starlark.NewSet(0)
+		set_intersection, _ := set.Attr("intersection")
+		if set_intersection == nil {
+			t.Fatal("no such method: set.intersection")
+		}
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, set_intersection, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if err.Error() != expected {
+			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		}
+	})
+
+	t.Run("allocation", func(t *testing.T) {
+		const elems = 100
+
+		set := starlark.NewSet(elems)
+		list := starlark.NewList(make([]starlark.Value, 0, elems))
+		for i := 0; i < elems; i++ {
+			set.Insert(starlark.MakeInt(i))
+			if i%2 == 0 {
+				list.Append(starlark.MakeInt(i))
+			} else {
+				list.Append(starlark.MakeInt(-i))
+			}
+		}
+		set_intersection, _ := set.Attr("intersection")
+		if set_intersection == nil {
+			t.Fatal("no such method: set.intersection")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, set_intersection, starlark.Tuple{list}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestSetIsSubsetSteps(t *testing.T) {

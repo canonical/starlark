@@ -1355,7 +1355,20 @@ func (s *Set) IsSubset(other Iterator) (bool, error) {
 }
 
 func (s *Set) Intersection(other Iterator) (Value, error) {
+	return s.safeIntersection(nil, other)
+}
+
+func (s *Set) safeIntersection(thread *Thread, other Iterator) (*Set, error) {
+	if err := CheckSafety(thread, MemSafe|IOSafe); err != nil {
+		return nil, err
+	}
+
 	intersect := new(Set)
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateSize(intersect)); err != nil {
+			return nil, err
+		}
+	}
 	var x Value
 	for other.Next(&x) {
 		found, err := s.Has(x)
@@ -1363,7 +1376,7 @@ func (s *Set) Intersection(other Iterator) (Value, error) {
 			return nil, err
 		}
 		if found {
-			err = intersect.Insert(x)
+			err = intersect.ht.insert(thread, x, None)
 			if err != nil {
 				return nil, err
 			}
