@@ -1810,50 +1810,67 @@ func Iterate(x Value) Iterator {
 	return nil
 }
 
-type stepCountingIterator struct {
-	thread *Thread
+// iterWrapper provides a wrapper around an iterator which performs optional
+// actions on Next calls.
+type iterWrapper struct {
 	iter   Iterator
+	flags  SafeIterateBehaviour
+	thread *Thread
 	err    error
 }
 
-var _ SafeIterator = &stepCountingIterator{}
+var _ SafeIterator = &iterWrapper{}
 
-func (sci *stepCountingIterator) Next(p *Value) bool {
+func (sci *iterWrapper) Next(p *Value) bool {
 	if sci.err != nil {
 		return false
 	}
 
-	if sci.thread != nil {
+	if sci.flags & CountSteps != 0 {
 		if err := sci.thread.AddExecutionSteps(1); err != nil {
 			sci.err = err
 			return false
 		}
 	}
+
 	return sci.iter.Next(p)
 }
-func (sci *stepCountingIterator) Done() { sci.iter.Done() }
-func (sci *stepCountingIterator) Err() error {
+func (sci *iterWrapper) Done() { sci.iter.Done() }
+func (sci *iterWrapper) Err() error {
 	if sci.err != nil {
 		return sci.err
 	}
 	return sci.iter.Err()
 }
 
-func (sci *stepCountingIterator) Safety() Safety {
+func (sci *iterWrapper) Safety() Safety {
+	const wrapperSafety = CPUSafe
+
 	var iterSafety Safety
 	if iter, ok := sci.iter.(SafetyAware); ok {
 		iterSafety = iter.Safety()
 	}
-	return CPUSafe & iterSafety
+
+	return wrapperSafety & iterSafety
 }
-func (sci *stepCountingIterator) BindThread(thread *Thread) { sci.thread = thread }
+func (sci *iterWrapper) BindThread(thread *Thread) { sci.thread = thread }
+
+type SafeIterateBehaviour uint
+
+const (
+	Default    SafeIterateBehaviour = 0
+	CountSteps SafeIterateBehaviour = 1 << (iota - 1)
+)
 
 // SafeIterate creates an iterator which is bound then to the given
 // thread. This iterator will check safety and respect sandboxing
 // bounds as required. As a convenience for functions that may have
 // a thread or not depending on external logic, if thread is nil
 // the iterator is still returned without its safety being checked.
-func SafeIterate(thread *Thread, x Value) (Iterator, error) {
+//
+// If flags contains CountSteps then calls to Next on the returned
+// iterator will count steps.
+func SafeIterate(thread *Thread, x Value, flags SafeIterateBehaviour) (Iterator, error) {
 	if x, ok := x.(Iterable); ok {
 		iter := x.Iterate()
 
@@ -1864,8 +1881,8 @@ func SafeIterate(thread *Thread, x Value) (Iterator, error) {
 				if err := thread.CheckPermits(safeIter); err != nil {
 					return nil, err
 				}
-				if thread.requiredSafety.Contains(CPUSafe) {
-					safeIter = &stepCountingIterator{iter: safeIter}
+				if flags != Default {
+					safeIter = &iterWrapper{iter: safeIter, flags: flags}
 					safeIter.BindThread(thread)
 				}
 				return safeIter, nil
