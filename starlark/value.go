@@ -1831,9 +1831,13 @@ func (sci *stepCountingIterator) Next(p *Value) bool {
 	}
 	return sci.iter.Next(p)
 }
-func (sci *stepCountingIterator) Done()                     {}
-func (sci *stepCountingIterator) Err() error                { return sci.err }
-func (sci *stepCountingIterator) BindThread(thread *Thread) { sci.thread = thread }
+func (sci *stepCountingIterator) Done() { sci.iter.Done() }
+func (sci *stepCountingIterator) Err() error {
+	if sci.err != nil {
+		return sci.err
+	}
+	return sci.iter.Err()
+}
 
 func (sci *stepCountingIterator) Safety() Safety {
 	var iterSafety Safety
@@ -1842,6 +1846,7 @@ func (sci *stepCountingIterator) Safety() Safety {
 	}
 	return CPUSafe & iterSafety
 }
+func (sci *stepCountingIterator) BindThread(thread *Thread) { sci.thread = thread }
 
 // SafeIterate creates an iterator which is bound then to the given
 // thread. This iterator will check safety and respect sandboxing
