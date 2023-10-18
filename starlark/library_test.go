@@ -1471,6 +1471,38 @@ func TestMinAllocs(t *testing.T) {
 }
 
 func TestOrdSteps(t *testing.T) {
+	ord, ok := starlark.Universe["ord"]
+	if !ok {
+		t.Fatal("no such builtin: ord")
+	}
+
+	t.Run("input=string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			input := starlark.String(strings.Repeat("a", st.N+1))
+			_, err := starlark.Call(thread, ord, starlark.Tuple{input}, nil)
+			if err == nil {
+				st.Error("ord succeded on malformed input")
+			}
+		})
+	})
+
+	t.Run("input=bytes", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(0)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			input := starlark.Bytes(strings.Repeat("a", st.N+1))
+			_, err := starlark.Call(thread, ord, starlark.Tuple{input}, nil)
+			if err == nil {
+				st.Error("ord succeded on malformed input")
+			}
+		})
+	})
 }
 
 func TestOrdAllocs(t *testing.T) {
