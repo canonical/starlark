@@ -389,7 +389,7 @@ loop:
 		case compile.ITERPUSH:
 			x := stack[sp-1]
 			sp--
-			iter, err2 := SafeIterate(thread, x)
+			iter, err2 := SafeIterate(thread, x, Default)
 			if err2 != nil {
 				if err2 == ErrUnsupported {
 					err = fmt.Errorf("%s value is not iterable", x.Type())
@@ -517,7 +517,7 @@ loop:
 			n := int(arg)
 			iterable := stack[sp-1]
 			sp--
-			iter, err2 := SafeIterate(thread, iterable)
+			iter, err2 := SafeIterate(thread, iterable, Default)
 			if err2 != nil {
 				if err2 == ErrUnsupported {
 					err = fmt.Errorf("got %s in sequence assignment", iterable.Type())

@@ -359,7 +359,7 @@ func all(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		return nil, err
 	}
 
-	iter, err := SafeIterate(thread, iterable)
+	iter, err := SafeIterate(thread, iterable, Default)
 	if err != nil {
 		return nil, err
 	}
@@ -383,7 +383,7 @@ func any(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		return nil, err
 	}
 
-	iter, err := SafeIterate(thread, iterable)
+	iter, err := SafeIterate(thread, iterable, Default)
 	if err != nil {
 		return nil, err
 	}
@@ -437,7 +437,7 @@ func bytes_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 			// common case: known length
 			buf.Grow(n)
 		}
-		iter, err := SafeIterate(thread, x)
+		iter, err := SafeIterate(thread, x, Default)
 		if err != nil {
 			return nil, err
 		}
@@ -542,7 +542,7 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 
-	iter, err := SafeIterate(thread, iterable)
+	iter, err := SafeIterate(thread, iterable, Default)
 	if err != nil {
 		return nil, err
 	}
@@ -960,7 +960,7 @@ func list(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	}
 	var elems []Value
 	if iterable != nil {
-		iter, err := SafeIterate(thread, iterable)
+		iter, err := SafeIterate(thread, iterable, Default)
 		if err != nil {
 			return nil, err
 		}
@@ -1009,7 +1009,7 @@ func minmax(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	} else {
 		iterable = args
 	}
-	iter, err := SafeIterate(thread, iterable)
+	iter, err := SafeIterate(thread, iterable, Default)
 	if err != nil {
 		if err == ErrUnsupported {
 			return nil, fmt.Errorf("%s: %s value is not iterable", b.Name(), iterable.Type())
@@ -1331,7 +1331,7 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 		return nil, err
 	}
 
-	iter, err := SafeIterate(thread, iterable)
+	iter, err := SafeIterate(thread, iterable, Default)
 	if err != nil {
 		return nil, err
 	}
@@ -1374,7 +1374,7 @@ func set(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	}
 	set := new(Set)
 	if iterable != nil {
-		iter, err := SafeIterate(thread, iterable)
+		iter, err := SafeIterate(thread, iterable, Default)
 		if err != nil {
 			return nil, err
 		}
@@ -1406,7 +1406,7 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		return nil, err
 	}
 
-	iter, err := SafeIterate(thread, iterable)
+	iter, err := SafeIterate(thread, iterable, Default)
 	if err != nil {
 		return nil, err
 	}
@@ -1550,7 +1550,7 @@ func tuple(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if len(args) == 0 {
 		return Tuple(nil), nil
 	}
-	iter, err := SafeIterate(thread, iterable)
+	iter, err := SafeIterate(thread, iterable, Default)
 	if err != nil {
 		return nil, err
 	}
@@ -1609,7 +1609,7 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		}
 	}()
 	for i, seq := range args {
-		it, err := SafeIterate(thread, seq)
+		it, err := SafeIterate(thread, seq, Default)
 		if err != nil {
 			if err == ErrUnsupported {
 				return nil, fmt.Errorf("zip: argument #%d is not iterable: %s", i+1, seq.Type())
@@ -2442,7 +2442,7 @@ func string_join(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		return nil, err
 	}
 
-	iter, err := SafeIterate(thread, iterable)
+	iter, err := SafeIterate(thread, iterable, Default)
 	if err != nil {
 		return nil, err
 	}
@@ -2908,7 +2908,7 @@ func set_difference(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 	if err != nil {
 		return nil, err
 	}
-	iter, err := SafeIterate(thread, other)
+	iter, err := SafeIterate(thread, other, Default)
 	if err != nil {
 		return nil, err
 	}
@@ -2932,7 +2932,7 @@ func set_intersection(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter, err := SafeIterate(thread, other)
+	iter, err := SafeIterate(thread, other, Default)
 	if err != nil {
 		return nil, err
 	}
@@ -2968,7 +2968,7 @@ func set_issuperset(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter, err := SafeIterate(thread, other)
+	iter, err := SafeIterate(thread, other, Default)
 	if err != nil {
 		return nil, err
 	}
@@ -3042,7 +3042,7 @@ func set_symmetric_difference(thread *Thread, b *Builtin, args Tuple, kwargs []T
 	if err != nil {
 		return nil, err
 	}
-	iter, err := SafeIterate(thread, other)
+	iter, err := SafeIterate(thread, other, Default)
 	if err != nil {
 		return nil, err
 	}
@@ -3071,7 +3071,7 @@ func set_union(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &iterable); err != nil {
 		return nil, err
 	}
-	iter, err := SafeIterate(thread, iterable)
+	iter, err := SafeIterate(thread, iterable, Default)
 	if err != nil {
 		return nil, err
 	}
@@ -3150,7 +3150,7 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 			}
 		default:
 			// all other sequences
-			iter, err := SafeIterate(thread, updates)
+			iter, err := SafeIterate(thread, updates, Default)
 			if err != nil {
 				if err == ErrUnsupported {
 					return fmt.Errorf("dictionary update value is not iterable (%s)", updates.Type())
@@ -3160,7 +3160,7 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 			defer iter.Done()
 			var pair Value
 			for i := 0; iter.Next(&pair); i++ {
-				iter2, err := SafeIterate(thread, pair)
+				iter2, err := SafeIterate(thread, pair, Default)
 				if err != nil {
 					if err == ErrUnsupported {
 						return fmt.Errorf("dictionary update sequence element #%d is not iterable (%s)", i, pair.Type())

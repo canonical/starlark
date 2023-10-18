@@ -855,7 +855,7 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 			return err
 		}
 	} else {
-		iter, err := SafeIterate(thread, y)
+		iter, err := SafeIterate(thread, y, Default)
 		if err != nil {
 			return err
 		}
