@@ -1864,7 +1864,7 @@ func SafeIterate(thread *Thread, x Value) (Iterator, error) {
 				if err := thread.CheckPermits(safeIter); err != nil {
 					return nil, err
 				}
-				if thread != nil && thread.requiredSafety.Contains(CPUSafe) {
+				if thread.requiredSafety.Contains(CPUSafe) {
 					safeIter = &stepCountingIterator{iter: safeIter}
 					safeIter.BindThread(thread)
 				}
