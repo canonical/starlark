@@ -1518,22 +1518,94 @@ func TestSafeBinaryAllocs(t *testing.T) {
 				r := starlark.Float(-n)
 				return l, syntax.MINUS, r
 			},
-		}, {
-			name: "set - set",
-			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				l := starlark.NewSet(2 * n)
-				r := starlark.NewSet(n)
-				for i := 0; i < n; i++ {
-					l.Insert(starlark.MakeInt(i))
-					l.Insert(starlark.MakeInt(2*i))
-					r.Insert(starlark.MakeInt(i))
-				}
-				return l, syntax.MINUS, r
-			},
+		// }, {
+		// 	name: "set - set",
+		// 	inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+		// 		l := starlark.NewSet(2 * n)
+		// 		r := starlark.NewSet(n)
+		// 		for i := 0; i < n; i++ {
+		// 			l.Insert(starlark.MakeInt(2*i))
+		// 			l.Insert(starlark.MakeInt(2*i+1))
+		// 			r.Insert(starlark.MakeInt(2*i+1))
+		// 		}
+		// 		return l, syntax.MINUS, r
+		// 	},
 		}}
 		for _, test := range tests {
 			test.Run(t)
 		}
+
+		t.Run("set - set", func(t *testing.T) {
+			inputs := func(thread *starlark.Thread, n int) (starlark.Value, syntax.Token, starlark.Value, error) {
+				l := starlark.NewSet(2 * n)
+				r := starlark.NewSet(n)
+				for i := 0; i < n; i++ {
+					if thread != nil {
+						if err := thread.AddAllocs(starlark.EstimateSize(starlark.Int{})); err != nil {
+							return nil, 0, nil, err
+						}
+					}
+					l.Insert(starlark.MakeInt(2*i))
+					l.Insert(starlark.MakeInt(2*i+1))
+					r.Insert(starlark.MakeInt(2*i+1))
+				}
+				return l, syntax.MINUS, r, nil
+			}
+
+			t.Run("nil-thread", func(t *testing.T) {
+				defer func() {
+					if err := recover(); err != nil {
+						t.Errorf("unexpected panic: %v", err)
+					}
+				}()
+				x, op, y, err := inputs(nil, 1)
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+					return
+				}
+
+				_, err = starlark.SafeBinary(nil, op, x, y)
+				if err != nil {
+					t.Errorf("unexpectd error: %v", err)
+				}
+			})
+
+			t.Run("small", func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
+				st.RunThread(func(thread *starlark.Thread) {
+					x, op, y, err := inputs(thread, 1)
+					if err != nil {
+						st.Fatal(err)
+					}
+
+					for i := 0; i < st.N; i++ {
+						result, err := starlark.SafeBinary(thread, op, x, y)
+						if err != nil {
+							st.Error(err)
+						}
+						st.KeepAlive(result)
+					}
+				})
+			})
+
+			t.Run("large", func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
+				st.RunThread(func(thread *starlark.Thread) {
+					x, op, y, err := inputs(thread, st.N)
+					if err != nil {
+						st.Fatal(err)
+					}
+
+					result, err := starlark.SafeBinary(thread, op, x, y)
+					if err != nil {
+						st.Error(err)
+					}
+					st.KeepAlive(result)
+				})
+			})
+		})
 	})
 
 	t.Run("*", func(t *testing.T) {})
