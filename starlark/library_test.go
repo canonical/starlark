@@ -4214,14 +4214,14 @@ func TestStringTitleAllocs(t *testing.T) {
 }
 
 func TestStringUpperSteps(t *testing.T) {
-	t.Run("short", func(t *testing.T){
+	t.Run("short", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
 		st.SetMaxExecutionSteps(16)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("δηαδβηηφ")
 			string_upper, _ := str.Attr("upper")
-			if string_upper == nil{
+			if string_upper == nil {
 				st.Fatalf("no such method: string.upper")
 			}
 
@@ -4234,14 +4234,14 @@ func TestStringUpperSteps(t *testing.T) {
 		})
 	})
 
-	t.Run("long", func(t *testing.T){
+	t.Run("long", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
 		st.SetMinExecutionSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("δηαδβηηφ", st.N))
 			string_upper, _ := str.Attr("upper")
-			if string_upper == nil{
+			if string_upper == nil {
 				st.Fatalf("no such method: string.upper")
 			}
 
