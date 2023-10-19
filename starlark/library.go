@@ -2636,6 +2636,9 @@ func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
+	if err := thread.CheckExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
 	var s string
 	switch b.Name()[0] {
 	case 's': // strip
@@ -2658,6 +2661,9 @@ func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		}
 	}
 	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
+	}
+	if err := thread.AddExecutionSteps(int64(len(s))); err != nil {
 		return nil, err
 	}
 	return String(s), nil
