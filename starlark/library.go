@@ -76,7 +76,7 @@ func init() {
 	}
 
 	universeSafeties = map[string]Safety{
-		"abs":       MemSafe | IOSafe,
+		"abs":       MemSafe | IOSafe | CPUSafe,
 		"any":       MemSafe | IOSafe,
 		"all":       MemSafe | IOSafe,
 		"bool":      MemSafe | IOSafe | CPUSafe,
@@ -356,6 +356,11 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			return x, nil
 		}
 
+		if _, xBig := tx.get(); xBig != nil {
+			if err := thread.AddExecutionSteps(int64(len(xBig.Bits()))); err != nil {
+				return nil, err
+			}
+		}
 		result := Value(zero.Sub(tx))
 		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
