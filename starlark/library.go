@@ -2957,7 +2957,7 @@ func set_issubset(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter, err := SafeIterate(thread, other)
+	iter, err := SafeIterate(thread, other, Default)
 	if err != nil {
 		return nil, err
 	}
