@@ -231,7 +231,6 @@ func TestAbsSteps(t *testing.T) {
 			starlark.MakeInt64(-(1 << 40)),
 			starlark.Float(-1e20),
 		}
-
 		for _, input := range inputs {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)

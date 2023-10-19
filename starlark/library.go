@@ -347,7 +347,6 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 				return nil, err
 			}
 		}
-
 		result := Value(zero.Sub(tx))
 		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
