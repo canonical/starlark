@@ -5484,6 +5484,54 @@ func TestStringUpperAllocs(t *testing.T) {
 }
 
 func TestSetAddSteps(t *testing.T) {
+	t.Run("few-collisions", func(t *testing.T) {
+		set := starlark.NewSet(0)
+		set_add, _ := set.Attr("add")
+		if set_add == nil {
+			t.Fatal("no such method: set.add")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(2)
+		st.SetMaxExecutionSteps(2)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				key := starlark.Value(starlark.MakeInt(i))
+				_, err := starlark.Call(thread, set_add, starlark.Tuple{key}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		const setSize = 1000
+		set := starlark.NewSet(setSize)
+		for i := 0; i < setSize; i++ {
+			set.Insert(starlark.MakeInt64(int64(i) << 32))
+		}
+		set_add, _ := set.Attr("add")
+		if set_add == nil {
+			t.Fatal("no such method: set.add")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps((setSize + 7) / 8)
+		st.SetMaxExecutionSteps(((setSize + 7) / 8) * 2)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				key := starlark.Value(starlark.MakeInt64(int64(i) << 32))
+				_, err := starlark.Call(thread, set_add, starlark.Tuple{key}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				set.Delete(key)
+			}
+		})
+	})
 }
 
 func TestSetAddAllocs(t *testing.T) {
