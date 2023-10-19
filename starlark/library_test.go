@@ -250,8 +250,8 @@ func TestAbsSteps(t *testing.T) {
 			st.RequireSafety(starlark.CPUSafe)
 			st.SetMaxExecutionSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
-				n := starlark.Value(starlark.MakeInt(1).Lsh(uint(st.N)))
-				_, err := starlark.Call(thread, abs, starlark.Tuple{n}, nil)
+				num := starlark.Value(starlark.MakeInt(1).Lsh(uint(st.N)))
+				_, err := starlark.Call(thread, abs, starlark.Tuple{num}, nil)
 				if err != nil {
 					st.Error(err)
 				}
@@ -262,7 +262,6 @@ func TestAbsSteps(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
 			st.SetMaxExecutionSteps(1)
-			st.SetMinExecutionSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				n := starlark.MakeInt(-1).Lsh(uint(st.N))
 				_, err := starlark.Call(thread, abs, starlark.Tuple{n}, nil)
