@@ -2674,7 +2674,7 @@ func string_title(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	// Python semantics differ from x==strings.{To,}Title(x) in Go:
 	// "uppercase characters may only follow uncased characters and
 	// lowercase characters only cased ones."
-	if thread := thread.AddExecutionSteps(int64(len(s))); err != nil {
+	if err := thread.AddExecutionSteps(int64(len(s))); err != nil {
 		return nil, err
 	}
 	buf := NewSafeStringBuilder(thread)
