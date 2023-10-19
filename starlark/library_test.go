@@ -4140,7 +4140,7 @@ func TestStringTitleSteps(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(thread *starlark.Thread) {
-			str := starlark.String("δηαδβηηφ ")
+			str := starlark.String("δηαδβηηφ")
 			string_title, _ := str.Attr("title")
 			if string_title == nil {
 				t.Fatal("no such method: string.title")
