@@ -4214,20 +4214,42 @@ func TestStringTitleAllocs(t *testing.T) {
 }
 
 func TestStringUpperSteps(t *testing.T) {
-	st := startest.From(t)
-	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(1)
-	st.RunThread(func(thread *starlark.Thread) {
-		str := starlark.String(strings.Repeat("δηαδβηηφ", st.N))
-		string_upper, _ := str.Attr("upper")
-		if string_upper == nil{
-			st.Fatalf("no such method: string.upper")
-		}
+	t.Run("short", func(t *testing.T){
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(16)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String("δηαδβηηφ")
+			string_upper, _ := str.Attr("upper")
+			if string_upper == nil{
+				st.Fatalf("no such method: string.upper")
+			}
 
-		_, err := starlark.Call(thread, string_upper, nil, nil)
-		if err != nil {
-			st.Error(err)
-		}
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, string_upper, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("long", func(t *testing.T){
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("δηαδβηηφ", st.N))
+			string_upper, _ := str.Attr("upper")
+			if string_upper == nil{
+				st.Fatalf("no such method: string.upper")
+			}
+
+			_, err := starlark.Call(thread, string_upper, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
 	})
 }
 
