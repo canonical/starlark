@@ -2788,6 +2788,56 @@ func TestDictPopitemAllocs(t *testing.T) {
 }
 
 func TestDictSetdefaultSteps(t *testing.T) {
+	t.Run("few-collisions", func(t *testing.T) {
+		dict := starlark.NewDict(0)
+		dict_setdefault, _ := dict.Attr("setdefault")
+		if dict_setdefault == nil {
+			t.Fatal("no such method: dict.setdefault")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(2)
+		st.SetMaxExecutionSteps(2)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				key := starlark.Value(starlark.MakeInt(i))
+				_, err := starlark.Call(thread, dict_setdefault, starlark.Tuple{key, starlark.None}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+
+			st.KeepAlive(dict)
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		const dictSize = 1000
+		dict := starlark.NewDict(dictSize)
+		for i := 0; i < dictSize; i++ {
+			dict.SetKey(starlark.MakeInt64(int64(i)<<32), starlark.None)
+		}
+		dict_setdefault, _ := dict.Attr("setdefault")
+		if dict_setdefault == nil {
+			t.Fatal("no such method: dict.setdefault")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps((dictSize + 7) / 8)
+		st.SetMaxExecutionSteps(((dictSize + 7) / 8) * 2)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				key := starlark.Value(starlark.MakeInt64(int64(i) << 32))
+				_, err := starlark.Call(thread, dict_setdefault, starlark.Tuple{key, starlark.None}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				dict.Delete(key)
+			}
+		})
+	})
 }
 
 func TestDictSetdefaultAllocs(t *testing.T) {

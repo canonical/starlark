@@ -101,6 +101,11 @@ retry:
 	// Inspect each bucket in the bucket list.
 	p := &ht.table[h&(uint32(len(ht.table)-1))]
 	for {
+		if thread != nil {
+			if err := thread.AddExecutionSteps(1); err != nil {
+				return err
+			}
+		}
 		for i := range p.entries {
 			e := &p.entries[i]
 			if e.hash != h {
