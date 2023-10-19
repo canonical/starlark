@@ -2663,7 +2663,7 @@ func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
 		return nil, err
 	}
-	if err := thread.AddExecutionSteps(int64(len(s))); err != nil {
+	if err := thread.AddExecutionSteps(int64(len(recv) - len(s))); err != nil {
 		return nil, err
 	}
 	return String(s), nil
