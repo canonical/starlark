@@ -238,7 +238,7 @@ var (
 		"splitlines":     MemSafe | IOSafe,
 		"startswith":     MemSafe | IOSafe,
 		"strip":          MemSafe | IOSafe,
-		"title":          MemSafe | IOSafe,
+		"title":          MemSafe | IOSafe | CPUSafe,
 		"upper":          MemSafe | IOSafe,
 	}
 
@@ -2674,6 +2674,9 @@ func string_title(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	// Python semantics differ from x==strings.{To,}Title(x) in Go:
 	// "uppercase characters may only follow uncased characters and
 	// lowercase characters only cased ones."
+	if thread := thread.AddExecutionSteps(int64(len(s))); err != nil {
+		return nil, err
+	}
 	buf := NewSafeStringBuilder(thread)
 	buf.Grow(len(s))
 	var prevCased bool
