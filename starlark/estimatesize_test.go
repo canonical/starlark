@@ -642,7 +642,6 @@ func TestSizeAware(t *testing.T) {
 		&sizeAware,
 		struct{ Obj *dummySizeAware }{&sizeAware},
 	}}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			objSize := starlark.EstimateSize(test.obj)
