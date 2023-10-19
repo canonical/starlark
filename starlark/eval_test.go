@@ -1518,18 +1518,6 @@ func TestSafeBinaryAllocs(t *testing.T) {
 				r := starlark.Float(-n)
 				return l, syntax.MINUS, r
 			},
-		// }, {
-		// 	name: "set - set",
-		// 	inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-		// 		l := starlark.NewSet(2 * n)
-		// 		r := starlark.NewSet(n)
-		// 		for i := 0; i < n; i++ {
-		// 			l.Insert(starlark.MakeInt(2*i))
-		// 			l.Insert(starlark.MakeInt(2*i+1))
-		// 			r.Insert(starlark.MakeInt(2*i+1))
-		// 		}
-		// 		return l, syntax.MINUS, r
-		// 	},
 		}}
 		for _, test := range tests {
 			test.Run(t)
