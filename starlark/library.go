@@ -158,7 +158,7 @@ var (
 		"remove": NewBuiltin("remove", list_remove),
 	}
 	listMethodSafeties = map[string]Safety{
-		"append": MemSafe | IOSafe,
+		"append": MemSafe | IOSafe | CPUSafe,
 		"clear":  MemSafe | IOSafe,
 		"extend": MemSafe | IOSafe,
 		"index":  MemSafe | IOSafe,

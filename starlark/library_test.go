@@ -2920,6 +2920,24 @@ func TestDictValuesAllocs(t *testing.T) {
 }
 
 func TestListAppendSteps(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.SetMinExecutionSteps(1)
+	st.SetMaxExecutionSteps(1)
+	st.RunThread(func(thread *starlark.Thread) {
+		list := starlark.NewList([]starlark.Value{})
+		list_append, _ := list.Attr("append")
+		if list_append == nil {
+			t.Fatal("no such method: list.append")
+		}
+
+		for i := 0; i < st.N; i++ {
+			_, err := starlark.Call(thread, list_append, starlark.Tuple{starlark.None}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		}
+	})
 }
 
 func TestListAppendAllocs(t *testing.T) {

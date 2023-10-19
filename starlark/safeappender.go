@@ -39,9 +39,14 @@ func (sa *SafeAppender) Allocs() uint64 {
 }
 
 func (sa *SafeAppender) Append(values ...interface{}) error {
+	if err := sa.thread.AddExecutionSteps(int64(len(values))); err != nil {
+		return err
+	}
+
 	cap := sa.slice.Cap()
-	if sa.slice.Len()+len(values) > cap {
-		if err := sa.thread.CheckAllocs(int64(uintptr(cap) * sa.elemType.Size())); err != nil {
+	newSize := sa.slice.Len() + len(values)
+	if newSize > cap {
+		if err := sa.thread.CheckAllocs(int64(uintptr(newSize) * sa.elemType.Size())); err != nil {
 			return err
 		}
 	}
@@ -78,6 +83,9 @@ func (sa *SafeAppender) AppendSlice(values interface{}) error {
 	toAppend := reflect.ValueOf(values)
 	if kind := toAppend.Kind(); kind != reflect.Slice {
 		panic(fmt.Sprintf("SafeAppender.AppendSlice: expected slice, got %v", kind))
+	}
+	if err := sa.thread.AddExecutionSteps(int64(toAppend.Len())); err != nil {
+		return err
 	}
 	cap := sa.slice.Cap()
 	if sa.slice.Len()+toAppend.Len() > cap {
