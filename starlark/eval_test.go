@@ -1528,14 +1528,17 @@ func TestSafeBinaryAllocs(t *testing.T) {
 				l := starlark.NewSet(2 * n)
 				r := starlark.NewSet(n)
 				for i := 0; i < n; i++ {
+					toRetain := starlark.MakeInt(2*i)
 					if thread != nil {
-						if err := thread.AddAllocs(starlark.EstimateSize(starlark.Int{})); err != nil {
+						if err := thread.AddAllocs(starlark.EstimateSize(toRetain)); err != nil {
 							return nil, 0, nil, err
 						}
 					}
-					l.Insert(starlark.MakeInt(2*i))
-					l.Insert(starlark.MakeInt(2*i+1))
-					r.Insert(starlark.MakeInt(2*i+1))
+					l.Insert(toRetain)
+
+					toBeDiscarded := starlark.MakeInt(2*i+1)
+					l.Insert(toBeDiscarded)
+					r.Insert(toBeDiscarded)
 				}
 				return l, syntax.MINUS, r, nil
 			}
