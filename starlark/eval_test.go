@@ -1317,6 +1317,34 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 			t.Fatalf("binary test of %v %v %v has empty name field", x.Type(), op, y.Type())
 		}
 
+		t.Run("safety-respected", func(t *testing.T) {
+			t.Run("unsafe-left", func(t *testing.T) {
+				const expected = "feature unavailable to the sandbox"
+
+				thread := &starlark.Thread{}
+				thread.RequireSafety(starlark.MemSafe)
+				_, err := starlark.SafeBinary(thread, syntax.PLUS, unsafeTestValue{}, starlark.True)
+				if err == nil {
+					t.Error("expected error")
+				} else if err.Error() != expected {
+					t.Errorf("unexpected error: %v", err)
+				}
+			})
+
+			t.Run("unsafe-right", func(t *testing.T) {
+				const expected = "feature unavailable to the sandbox"
+
+				thread := &starlark.Thread{}
+				thread.RequireSafety(starlark.MemSafe)
+				_, err := starlark.SafeBinary(thread, syntax.PLUS, starlark.True, unsafeTestValue{})
+				if err == nil {
+					t.Error("expected error")
+				} else if err.Error() != expected {
+					t.Errorf("unexpected error: %v", err)
+				}
+			})
+		})
+
 		t.Run("nil-thread", func(t *testing.T) {
 			defer func() {
 				if err := recover(); err != nil {
@@ -1379,34 +1407,6 @@ func (uv unsafeTestValue) Truth() starlark.Bool { return starlark.False }
 func (uv unsafeTestValue) Type() string         { return "unsafeTestValue" }
 
 func TestSafeBinaryAllocs(t *testing.T) {
-	t.Run("safety-respected", func(t *testing.T) {
-		t.Run("unsafe-left", func(t *testing.T) {
-			const expected = "feature unavailable to the sandbox"
-
-			thread := &starlark.Thread{}
-			thread.RequireSafety(starlark.Safe)
-			_, err := starlark.SafeBinary(thread, syntax.PLUS, unsafeTestValue{}, starlark.True)
-			if err == nil {
-				t.Error("expected error")
-			} else if err.Error() != expected {
-				t.Errorf("unexpected error: %v", err)
-			}
-		})
-
-		t.Run("unsafe-right", func(t *testing.T) {
-			const expected = "feature unavailable to the sandbox"
-
-			thread := &starlark.Thread{}
-			thread.RequireSafety(starlark.Safe)
-			_, err := starlark.SafeBinary(thread, syntax.PLUS, starlark.True, unsafeTestValue{})
-			if err == nil {
-				t.Error("expected error")
-			} else if err.Error() != expected {
-				t.Errorf("unexpected error: %v", err)
-			}
-		})
-	})
-
 	t.Run("+", func(t *testing.T) {
 		t.Run("in-starlark", func(t *testing.T) {
 			st := startest.From(t)
@@ -1485,7 +1485,119 @@ func TestSafeBinaryAllocs(t *testing.T) {
 
 	})
 
-	t.Run("-", func(t *testing.T) {})
+	t.Run("-", func(t *testing.T) {
+		tests := []safeBinaryAllocTest{{
+			name: "int - int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				shift := n - 1
+				if shift < 0 {
+					shift = 0
+				}
+				l := starlark.MakeInt(1).Lsh(uint(shift))
+				r := starlark.MakeInt(-1).Lsh(uint(shift))
+				return l, syntax.MINUS, r
+			},
+		}, {
+			name: "int - float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(1).Lsh(308)
+				r := starlark.Float(-n)
+				return l, syntax.MINUS, r
+			},
+		}, {
+			name: "float - int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(n)
+				r := starlark.MakeInt(-1).Lsh(308)
+				return l, syntax.MINUS, r
+			},
+		}, {
+			name: "float - float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(n)
+				r := starlark.Float(-n)
+				return l, syntax.MINUS, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+
+		t.Run("set - set", func(t *testing.T) {
+			inputs := func(thread *starlark.Thread, n int) (starlark.Value, syntax.Token, starlark.Value, error) {
+				l := starlark.NewSet(2 * n)
+				r := starlark.NewSet(n)
+				for i := 0; i < n; i++ {
+					toRetain := starlark.MakeInt(2*i)
+					if thread != nil {
+						if err := thread.AddAllocs(starlark.EstimateSize(toRetain)); err != nil {
+							return nil, 0, nil, err
+						}
+					}
+					l.Insert(toRetain)
+
+					toBeDiscarded := starlark.MakeInt(2*i+1)
+					l.Insert(toBeDiscarded)
+					r.Insert(toBeDiscarded)
+				}
+				return l, syntax.MINUS, r, nil
+			}
+
+			t.Run("nil-thread", func(t *testing.T) {
+				defer func() {
+					if err := recover(); err != nil {
+						t.Errorf("unexpected panic: %v", err)
+					}
+				}()
+				x, op, y, err := inputs(nil, 1)
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+					return
+				}
+
+				_, err = starlark.SafeBinary(nil, op, x, y)
+				if err != nil {
+					t.Errorf("unexpectd error: %v", err)
+				}
+			})
+
+			t.Run("small", func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
+				st.RunThread(func(thread *starlark.Thread) {
+					x, op, y, err := inputs(thread, 1)
+					if err != nil {
+						st.Fatal(err)
+					}
+
+					for i := 0; i < st.N; i++ {
+						result, err := starlark.SafeBinary(thread, op, x, y)
+						if err != nil {
+							st.Error(err)
+						}
+						st.KeepAlive(result)
+					}
+				})
+			})
+
+			t.Run("large", func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
+				st.RunThread(func(thread *starlark.Thread) {
+					x, op, y, err := inputs(thread, st.N)
+					if err != nil {
+						st.Fatal(err)
+					}
+
+					result, err := starlark.SafeBinary(thread, op, x, y)
+					if err != nil {
+						st.Error(err)
+					}
+					st.KeepAlive(result)
+				})
+			})
+		})
+	})
 
 	t.Run("*", func(t *testing.T) {
 		tests := []safeBinaryAllocTest{{
