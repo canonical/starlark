@@ -239,7 +239,7 @@ var (
 		"startswith":     MemSafe | IOSafe,
 		"strip":          MemSafe | IOSafe,
 		"title":          MemSafe | IOSafe,
-		"upper":          MemSafe | IOSafe,
+		"upper":          MemSafe | IOSafe | CPUSafe,
 	}
 
 	setMethods = map[string]*Builtin{
@@ -2713,6 +2713,9 @@ func string_upper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	// see string_lower
 	bufferSize := EstimateMakeSize([]byte{}, len(recv)*2+utf8.UTFMax)
 	if err := thread.AddAllocs(bufferSize + StringTypeOverhead); err != nil {
+		return nil, err
+	}
+	if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
 		return nil, err
 	}
 	return String(strings.ToUpper(recv)), nil
