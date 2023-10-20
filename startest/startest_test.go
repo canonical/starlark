@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -1113,4 +1114,31 @@ func TestRunStringErrorPositions(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestCPUSafeCheck(t *testing.T) {
+	t.Run("very-slow", func(t *testing.T) {
+		const expected = "execution uses CPU time which is not accounted for"
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			time.Sleep(time.Millisecond * time.Duration(st.N))
+		})
+		if !st.Failed() {
+			t.Error("expected failure")
+		}
+		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("unexpected error(s): %s", errLog)
+		}
+	})
+
+	t.Run("very-fast", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			st.KeepAlive(make([]int, 100))
+		})
+	})
 }

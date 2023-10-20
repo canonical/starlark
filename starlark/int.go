@@ -213,9 +213,9 @@ func (i Int) Float() Float {
 		} else if iBig.IsInt64() {
 			return Float(iBig.Int64())
 		} else {
-			// No need to compute all of that if iBig is above 1025
-			// as it would result to a rounding toward inf.
-			if iBig.BitLen() > 1025 {
+			// Fast path for very big ints.
+			const maxFiniteLen = 1023 + 1 // max exponent value + implicit mantissa bit
+			if iBig.BitLen() > maxFiniteLen {
 				return Float(math.Inf(iBig.Sign()))
 			}
 		}
