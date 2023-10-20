@@ -97,7 +97,7 @@ func init() {
 		"min":       MemSafe | IOSafe,
 		"ord":       MemSafe | IOSafe | CPUSafe,
 		"print":     MemSafe,
-		"range":     MemSafe | IOSafe,
+		"range":     MemSafe | IOSafe | CPUSafe,
 		"repr":      MemSafe | IOSafe,
 		"reversed":  MemSafe | IOSafe,
 		"set":       MemSafe | IOSafe,
@@ -1332,7 +1332,7 @@ func (it *rangeIterator) Safety() SafetyFlags {
 	if it.thread == nil {
 		return NotSafe
 	}
-	return MemSafe
+	return MemSafe | CPUSafe
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#repr
