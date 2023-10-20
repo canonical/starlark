@@ -1973,11 +1973,15 @@ func TestRangeSteps(t *testing.T) {
 			}
 			defer iter.Done()
 
+			var value starlark.Value
 			for i := 0; i < st.N; i++ {
-				var value starlark.Value
 				if !iter.Next(&value) {
-					st.Error("early exit from range iterator")
+					st.Errorf("iterator exited after %d iterations but expected %d", i+1, st.N)
+					return
 				}
+			}
+			if iter.Next(&value) {
+				st.Errorf("iterator exited after %d iterations but expected %d", st.N+1, st.N)
 			}
 			if err := iter.Err(); err != nil {
 				st.Error(err)
