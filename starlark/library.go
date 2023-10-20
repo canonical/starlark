@@ -211,7 +211,7 @@ var (
 		"count":          MemSafe | IOSafe,
 		"elem_ords":      MemSafe | IOSafe,
 		"elems":          MemSafe | IOSafe,
-		"endswith":       MemSafe | IOSafe,
+		"endswith":       MemSafe | IOSafe | CPUSafe,
 		"find":           MemSafe | IOSafe,
 		"format":         MemSafe | IOSafe,
 		"index":          MemSafe | IOSafe,
@@ -236,7 +236,7 @@ var (
 		"rstrip":         MemSafe | IOSafe,
 		"split":          MemSafe | IOSafe,
 		"splitlines":     MemSafe | IOSafe,
-		"startswith":     MemSafe | IOSafe,
+		"startswith":     MemSafe | IOSafe | CPUSafe,
 		"strip":          MemSafe | IOSafe,
 		"title":          MemSafe | IOSafe,
 		"upper":          MemSafe | IOSafe,
@@ -2585,7 +2585,7 @@ func string_rindex(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Valu
 
 // https://github.com/google/starlark-go/starlark/blob/master/doc/spec.md#string·startswith
 // https://github.com/google/starlark-go/starlark/blob/master/doc/spec.md#string·endswith
-func string_startswith(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_startswith(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var x Value
 	var start, end Value = None, None
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &x, &start, &end); err != nil {
@@ -2616,12 +2616,18 @@ func string_startswith(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 				return nil, fmt.Errorf("%s: want string, got %s, for element %d",
 					b.Name(), x.Type(), i)
 			}
+			if err := thread.AddExecutionSteps(int64(len(prefix))); err != nil {
+				return False, err
+			}
 			if f(s, prefix) {
 				return True, nil
 			}
 		}
 		return False, nil
 	case String:
+		if err := thread.AddExecutionSteps(int64(len(x))); err != nil {
+			return False, err
+		}
 		return Bool(f(s, string(x))), nil
 	}
 	return nil, fmt.Errorf("%s: got %s, want string or tuple of string", b.Name(), x.Type())
