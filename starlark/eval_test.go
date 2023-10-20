@@ -1635,7 +1635,41 @@ func TestSafeBinaryAllocs(t *testing.T) {
 		}
 	})
 
-	t.Run("//", func(t *testing.T) {})
+	t.Run("//", func(t *testing.T) {
+		tests := []safeBinaryAllocTest{{
+			name: "int // int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(1).Lsh(uint(n * 2))
+				r := starlark.MakeInt(1).Lsh(uint(n))
+				return l, syntax.SLASHSLASH, r
+			},
+		}, {
+			name: "int // float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(100)
+				r := starlark.Float(n)
+				return l, syntax.SLASHSLASH, r
+			},
+		}, {
+			name: "float // int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(n)
+				r := starlark.MakeInt(100)
+				return l, syntax.SLASHSLASH, r
+			},
+		}, {
+			name: "float // float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(1)
+				r := starlark.Float(1 / float64(n))
+				return l, syntax.SLASHSLASH, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+
+	})
 
 	t.Run("%", func(t *testing.T) {})
 
