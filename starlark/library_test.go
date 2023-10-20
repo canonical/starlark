@@ -1411,6 +1411,84 @@ func TestGetattrAllocs(t *testing.T) {
 }
 
 func TestHasattrSteps(t *testing.T) {
+	hasattr, ok := starlark.Universe["hasattr"]
+	if !ok {
+		t.Fatal("no such builtin: hasattr")
+	}
+
+	tests := []struct {
+		name  string
+		input starlark.Value
+		attr  string
+	}{{
+		name:  "string",
+		input: starlark.String(""),
+		attr:  "find",
+	}, {
+		name:  "dict",
+		input: starlark.NewDict(0),
+		attr:  "get",
+	}, {
+		name:  "list",
+		input: starlark.NewList(nil),
+		attr:  "append",
+	}, {
+		name:  "set",
+		input: starlark.NewSet(0),
+		attr:  "union",
+	}, {
+		name:  "bytes",
+		input: starlark.Bytes(""),
+		attr:  "elems",
+	}}
+
+	t.Run("missing-attr", func(t *testing.T) {
+		missing := starlark.String("solve_non_polynomial")
+
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.CPUSafe)
+				st.SetMaxExecutionSteps(0)
+				st.RunThread(func(thread *starlark.Thread) {
+					for i := 0; i < st.N; i++ {
+						args := starlark.Tuple{test.input, missing}
+						result, err := starlark.Call(thread, hasattr, args, nil)
+						if err != nil {
+							st.Error(err)
+						}
+						if result != starlark.False {
+							st.Error("missing method is present")
+						}
+						st.KeepAlive(result)
+					}
+				})
+			})
+		}
+	})
+
+	t.Run("existent-attr", func(t *testing.T) {
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.CPUSafe)
+				st.SetMaxExecutionSteps(0)
+				st.RunThread(func(thread *starlark.Thread) {
+					for i := 0; i < st.N; i++ {
+						args := starlark.Tuple{test.input, starlark.String(test.attr)}
+						result, err := starlark.Call(thread, hasattr, args, nil)
+						if err != nil {
+							st.Error(err)
+						}
+						if result != starlark.True {
+							st.Error("declared method is not present")
+						}
+						st.KeepAlive(result)
+					}
+				})
+			})
+		}
+	})
 }
 
 func TestHasattrAllocs(t *testing.T) {
