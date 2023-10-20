@@ -384,7 +384,7 @@ func TestMathDegreesAllocs(t *testing.T) {
 }
 
 func TestMathRadiansSteps(t *testing.T) {
-	testUnarySteps(t, "radian", []starlark.Value{
+	testUnarySteps(t, "radians", []starlark.Value{
 		starlark.Float(0),
 		starlark.Float(90),
 		starlark.Float(-90),
