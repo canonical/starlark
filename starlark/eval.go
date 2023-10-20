@@ -157,7 +157,7 @@ func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 		nextExecutionSteps = math.MaxUint64
 	}
 
-	if nextExecutionSteps > thread.maxSteps {
+	if thread.maxSteps != 0 && nextExecutionSteps > thread.maxSteps {
 		return nextExecutionSteps, errors.New("too many steps")
 	}
 
