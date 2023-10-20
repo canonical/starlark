@@ -3824,9 +3824,19 @@ func testStringStripSteps(t *testing.T, method_name string) {
 	t.Run("with-cutset=yes", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		expectedSteps := uint64(len(str) - 5)
+
+		var expectedSteps uint64
+		switch method_name {
+		case "lstrip", "rstrip":
+			expectedSteps = (uint64(len(str)) - 5) / 2
+		case "strip":
+			expectedSteps = uint64(len(str)) - 5
+		default:
+			t.Fatalf("unrecognised strip method: %s", method_name)
+		}
 		st.SetMinExecutionSteps(expectedSteps)
 		st.SetMaxExecutionSteps(expectedSteps)
+
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.String("ab ")}
