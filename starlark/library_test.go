@@ -1134,8 +1134,10 @@ func TestFloatSteps(t *testing.T) {
 			starlark.True,
 			starlark.MakeInt(0),
 			starlark.Float(-1),
+			starlark.Float(math.NaN()),
+			starlark.Float(math.Inf(-1)),
+			starlark.Float(math.Inf(1)),
 		}
-
 		for _, input := range inputs {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
@@ -1151,14 +1153,20 @@ func TestFloatSteps(t *testing.T) {
 
 	t.Run("var-size", func(t *testing.T) {
 		t.Run("int", func(t *testing.T) {
+			const expected = "int too large to convert to float"
+
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
 			st.SetMaxExecutionSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				input := starlark.Value(starlark.MakeInt(1).Lsh(uint(st.N)))
-				// This code is not checking for the error as it *will*
-				// error when `number` is big enough.
-				starlark.Call(thread, float, starlark.Tuple{input}, nil)
+				_, err := starlark.Call(thread, float, starlark.Tuple{input}, nil)
+				// Once the input is too large it will error. Even then,
+				// the function must not run away, so it's ok to check
+				// steps are still taken into account.
+				if err != nil && err.Error() != expected {
+					st.Error(err)
+				}
 			})
 		})
 
