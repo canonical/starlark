@@ -4122,6 +4122,54 @@ func TestListIndexAllocs(t *testing.T) {
 }
 
 func TestListInsertSteps(t *testing.T) {
+	t.Run("leading", func(t *testing.T) {
+		const listSize = 1000
+
+		listElems := make([]starlark.Value, listSize)
+		for i := 0; i < listSize; i++ {
+			listElems = append(listElems, starlark.None)
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(listSize)
+		st.SetMaxExecutionSteps(listSize)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				index := starlark.Value(starlark.MakeInt(0))
+				list := starlark.NewList(listElems[:listSize-1])
+				list_insert, _ := list.Attr("insert")
+				if list_insert == nil {
+					t.Fatal("no such method: list.insert")
+				}
+				_, err := starlark.Call(thread, list_insert, starlark.Tuple{index, starlark.None}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("trailing", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			list := starlark.NewList([]starlark.Value{})
+			list_insert, _ := list.Attr("insert")
+			if list_insert == nil {
+				t.Fatal("no such method: list.insert")
+			}
+			for i := 0; i < st.N; i++ {
+				index := starlark.MakeInt(list.Len())
+				_, err := starlark.Call(thread, list_insert, starlark.Tuple{index, starlark.None}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
 }
 
 func TestListInsertAllocs(t *testing.T) {

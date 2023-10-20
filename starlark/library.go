@@ -162,7 +162,7 @@ var (
 		"clear":  MemSafe | IOSafe | CPUSafe,
 		"extend": MemSafe | IOSafe,
 		"index":  MemSafe | IOSafe | CPUSafe,
-		"insert": MemSafe | IOSafe,
+		"insert": MemSafe | IOSafe | CPUSafe,
 		"pop":    MemSafe | IOSafe | CPUSafe,
 		"remove": MemSafe | IOSafe | CPUSafe,
 	}
@@ -1985,6 +1985,9 @@ func list_insert(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	} else {
 		if index < 0 {
 			index = 0 // start
+		}
+		if err := thread.AddExecutionSteps(int64(len(recv.elems) - index)); err != nil {
+			return nil, err
 		}
 		if err := appender.Append(nil); err != nil {
 			return nil, err
