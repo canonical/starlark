@@ -883,6 +883,60 @@ func TestDictAllocs(t *testing.T) {
 }
 
 func TestDirSteps(t *testing.T) {
+	dir, ok := starlark.Universe["dir"]
+	if !ok {
+		t.Fatal("no such builtin: dir")
+	}
+
+	t.Run("with-attributes", func(t *testing.T) {
+		inputs := []starlark.HasAttrs{
+			starlark.String("starlark"),
+			starlark.Bytes("starlark"),
+			starlark.NewList(nil),
+			starlark.NewDict(0),
+			starlark.NewSet(0),
+		}
+
+		for _, input := range inputs {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(uint64(len(input.AttrNames())))
+			st.SetMinExecutionSteps(uint64(len(input.AttrNames())))
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					_, err := starlark.Call(thread, dir, starlark.Tuple{input}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		}
+	})
+
+	t.Run("without-attributes", func(t *testing.T) {
+		inputs := []starlark.Value{
+			starlark.None,
+			starlark.False,
+			starlark.True,
+			starlark.MakeInt(0),
+			starlark.MakeInt64(1 << 34),
+		}
+
+		for _, input := range inputs {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(0)
+			st.SetMinExecutionSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					_, err := starlark.Call(thread, dir, starlark.Tuple{input}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		}
+	})
 }
 
 func TestDirAllocs(t *testing.T) {

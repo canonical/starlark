@@ -83,7 +83,7 @@ func init() {
 		"bytes":     MemSafe | IOSafe,
 		"chr":       MemSafe | IOSafe | CPUSafe,
 		"dict":      MemSafe | IOSafe,
-		"dir":       MemSafe | IOSafe,
+		"dir":       MemSafe | IOSafe | CPUSafe,
 		"enumerate": MemSafe | IOSafe,
 		"fail":      MemSafe | IOSafe,
 		"float":     MemSafe | IOSafe,
@@ -540,6 +540,9 @@ func dir(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	var names []string
 	if x, ok := args[0].(HasAttrs); ok {
 		names = x.AttrNames()
+	}
+	if err := thread.AddExecutionSteps(int64(len(names))); err != nil {
+		return nil, err
 	}
 	sort.Strings(names)
 	elems := make([]Value, len(names))
