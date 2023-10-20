@@ -1958,18 +1958,18 @@ func TestRangeSteps(t *testing.T) {
 		st := startest.From(t)
 
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(0)
-		st.SetMaxExecutionSteps(0)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			args := starlark.Tuple{starlark.MakeInt(0), starlark.MakeInt(st.N), starlark.MakeInt(1)}
 			iterable, err := starlark.Call(thread, range_, args, nil)
 			if err != nil {
-				st.Error(err)
+				st.Fatal(err)
 			}
 
 			iter, err := starlark.SafeIterate(thread, iterable)
 			if err != nil {
-				st.Error(err)
+				st.Fatal(err)
 			}
 			defer iter.Done()
 
@@ -1977,7 +1977,7 @@ func TestRangeSteps(t *testing.T) {
 			for i := 1; i <= st.N; i++ {
 				if !iter.Next(&value) {
 					st.Errorf("iterator exited after %d iterations but expected %d", i, st.N)
-					return
+					break
 				}
 			}
 			if iter.Next(&value) {
