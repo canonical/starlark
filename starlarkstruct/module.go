@@ -16,7 +16,7 @@ type Module struct {
 	Members starlark.StringDict
 }
 
-var _ starlark.HasAttrs = (*Module)(nil)
+var _ starlark.HasSafeAttrs = (*Module)(nil)
 
 func (m *Module) Attr(name string) (starlark.Value, error) { return m.Members[name], nil }
 func (m *Module) AttrNames() []string                      { return m.Members.Keys() }
@@ -25,6 +25,18 @@ func (m *Module) Hash() (uint32, error)                    { return 0, fmt.Error
 func (m *Module) String() string                           { return fmt.Sprintf("<module %q>", m.Name) }
 func (m *Module) Truth() starlark.Bool                     { return true }
 func (m *Module) Type() string                             { return "module" }
+
+func (m *Module) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	const safety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
+		return nil, err
+	}
+	member, ok := m.Members[name]
+	if !ok {
+		return nil, starlark.ErrNoSuchAttr
+	}
+	return member, nil
+}
 
 // MakeModule may be used as the implementation of a Starlark built-in
 // function, module(name, **kwargs). It returns a new module with the

@@ -143,6 +143,12 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 		seen[ptr] = struct{}{}
 	}
 
+	if v.CanInterface() {
+		if sizeAware, ok := v.Interface().(SizeAware); ok {
+			return uintptr(sizeAware.EstimateSize())
+		}
+	}
+
 	switch v.Kind() {
 	// The following kinds are pointer-like, so their memory lives outside
 	// of this already-counted structure. We must therefore estimate the

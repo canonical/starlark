@@ -76,7 +76,7 @@ func testHashtable(tb testing.TB, sane map[int]bool) {
 	for j := 0; j < testIters; j++ {
 		k := testInts[i]
 		i++
-		if err := ht.insert(k.Int, None); err != nil {
+		if err := ht.insert(nil, k.Int, None); err != nil {
 			tb.Fatal(err)
 		}
 		if sane != nil {
@@ -88,7 +88,7 @@ func testHashtable(tb testing.TB, sane map[int]bool) {
 	for j := 0; j < testIters; j++ {
 		k := testInts[i]
 		i++
-		_, found, err := ht.lookup(k.Int)
+		_, found, err := ht.lookup(nil, k.Int)
 		if err != nil {
 			tb.Fatal(err)
 		}
@@ -121,5 +121,19 @@ func testHashtable(tb testing.TB, sane map[int]bool) {
 		if int(ht.len) != len(sane) {
 			tb.Fatal("sanity check failed")
 		}
+	}
+}
+
+func TestHashtableCount(t *testing.T) {
+	const count = 1000
+	ht := new(hashtable)
+	for i := 0; i < count; i++ {
+		ht.insert(nil, MakeInt(i), None)
+	}
+
+	if c, err := ht.count(rangeValue{0, count, 1, count}.Iterate()); err != nil {
+		t.Error(err)
+	} else if c != count {
+		t.Errorf("count doesn't match: expected %d got %d", count, c)
 	}
 }

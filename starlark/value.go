@@ -7,35 +7,35 @@
 // Starlark values are represented by the Value interface.
 // The following built-in Value types are known to the evaluator:
 //
-//      NoneType        -- NoneType
-//      Bool            -- bool
-//      Bytes           -- bytes
-//      Int             -- int
-//      Float           -- float
-//      String          -- string
-//      *List           -- list
-//      Tuple           -- tuple
-//      *Dict           -- dict
-//      *Set            -- set
-//      *Function       -- function (implemented in Starlark)
-//      *Builtin        -- builtin_function_or_method (function or method implemented in Go)
+//	NoneType        -- NoneType
+//	Bool            -- bool
+//	Bytes           -- bytes
+//	Int             -- int
+//	Float           -- float
+//	String          -- string
+//	*List           -- list
+//	Tuple           -- tuple
+//	*Dict           -- dict
+//	*Set            -- set
+//	*Function       -- function (implemented in Starlark)
+//	*Builtin        -- builtin_function_or_method (function or method implemented in Go)
 //
 // Client applications may define new data types that satisfy at least
 // the Value interface.  Such types may provide additional operations by
 // implementing any of these optional interfaces:
 //
-//      Callable        -- value is callable like a function
-//      Comparable      -- value defines its own comparison operations
-//      Iterable        -- value is iterable using 'for' loops
-//      Sequence        -- value is iterable sequence of known length
-//      Indexable       -- value is sequence with efficient random access
-//      Mapping         -- value maps from keys to values, like a dictionary
-//      HasBinary       -- value defines binary operations such as * and +
-//      HasAttrs        -- value has readable fields or methods x.f
-//      HasSetField     -- value has settable fields x.f
-//      HasSetIndex     -- value supports element update using x[i]=y
-//      HasSetKey       -- value supports map update using x[k]=v
-//      HasUnary        -- value defines unary operations such as + and -
+//	Callable        -- value is callable like a function
+//	Comparable      -- value defines its own comparison operations
+//	Iterable        -- value is iterable using 'for' loops
+//	Sequence        -- value is iterable sequence of known length
+//	Indexable       -- value is sequence with efficient random access
+//	Mapping         -- value maps from keys to values, like a dictionary
+//	HasBinary       -- value defines binary operations such as * and +
+//	HasAttrs        -- value has readable fields or methods x.f
+//	HasSetField     -- value has settable fields x.f
+//	HasSetIndex     -- value supports element update using x[i]=y
+//	HasSetKey       -- value supports map update using x[k]=v
+//	HasUnary        -- value defines unary operations such as + and -
 //
 // Client applications may also define domain-specific functions in Go
 // and make them available to Starlark programs.  Use NewBuiltin to
@@ -63,7 +63,6 @@
 // through Starlark code and into callbacks.  When evaluation fails it
 // returns an EvalError from which the application may obtain a
 // backtrace of active Starlark calls.
-//
 package starlark // import "github.com/canonical/starlark/starlark"
 
 // This file defines the data types of Starlark and their basic operations.
@@ -141,15 +140,41 @@ type Comparable interface {
 	CompareSameType(op syntax.Token, y Value, depth int) (bool, error)
 }
 
+// A TotallyOrdered is a type whose values form a total order:
+// if x and y are of the same TotallyOrdered type, then x must be less than y,
+// greater than y, or equal to y.
+//
+// It is simpler than Comparable and should be preferred in new code,
+// but if a type implements both interfaces, Comparable takes precedence.
+type TotallyOrdered interface {
+	Value
+	// Cmp compares two values x and y of the same totally ordered type.
+	// It returns negative if x < y, positive if x > y, and zero if the values are equal.
+	//
+	// Implementations that recursively compare subcomponents of
+	// the value should use the CompareDepth function, not Cmp, to
+	// avoid infinite recursion on cyclic structures.
+	//
+	// The depth parameter is used to bound comparisons of cyclic
+	// data structures.  Implementations should decrement depth
+	// before calling CompareDepth and should return an error if depth
+	// < 1.
+	//
+	// Client code should not call this method.  Instead, use the
+	// standalone Compare or Equals functions, which are defined for
+	// all pairs of operands.
+	Cmp(y Value, depth int) (int, error)
+}
+
 var (
-	_ Comparable = Int{}
-	_ Comparable = False
-	_ Comparable = Float(0)
-	_ Comparable = String("")
-	_ Comparable = (*Dict)(nil)
-	_ Comparable = (*List)(nil)
-	_ Comparable = Tuple(nil)
-	_ Comparable = (*Set)(nil)
+	_ TotallyOrdered = Int{}
+	_ TotallyOrdered = Float(0)
+	_ Comparable     = False
+	_ Comparable     = String("")
+	_ Comparable     = (*Dict)(nil)
+	_ Comparable     = (*List)(nil)
+	_ Comparable     = Tuple(nil)
+	_ Comparable     = (*Set)(nil)
 )
 
 // A Callable value f may be the operand of a function call, f(x).
@@ -222,13 +247,22 @@ type HasSetIndex interface {
 	SetIndex(index int, v Value) error
 }
 
+// A HasSafeSetIndex is an Indexable value whose elements may be assigned (x[i] = y),
+// respecting the safety of the thread.
+type HasSafeSetIndex interface {
+	Indexable
+
+	SafeSetIndex(thread *Thread, index int, v Value) error
+}
+
 var (
-	_ HasSetIndex = (*List)(nil)
-	_ Indexable   = Tuple(nil)
-	_ Indexable   = String("")
-	_ Sliceable   = Tuple(nil)
-	_ Sliceable   = String("")
-	_ Sliceable   = (*List)(nil)
+	_ HasSetIndex     = (*List)(nil)
+	_ HasSafeSetIndex = (*List)(nil)
+	_ Indexable       = Tuple(nil)
+	_ Indexable       = String("")
+	_ Sliceable       = Tuple(nil)
+	_ Sliceable       = String("")
+	_ Sliceable       = (*List)(nil)
 )
 
 // An Iterator provides a sequence of values to the caller.
@@ -238,13 +272,12 @@ var (
 //
 // Example usage:
 //
-// 	iter := iterable.Iterator()
+//	iter := iterable.Iterator()
 //	defer iter.Done()
 //	var x Value
 //	for iter.Next(&x) {
 //		...
 //	}
-//
 type Iterator interface {
 	// If the iterator is exhausted, Next returns false.
 	// Otherwise it sets *p to the current element of the sequence,
@@ -294,10 +327,19 @@ type HasSetKey interface {
 	SetKey(k, v Value) error
 }
 
+// A HasSafeSetKey supports map update using x[k]=v syntax, like a dictionary,
+// respecting the safety of the thread.
+type HasSafeSetKey interface {
+	Mapping
+
+	SafeSetKey(thread *Thread, k, v Value) error
+}
+
 var _ HasSetKey = (*Dict)(nil)
+var _ HasSafeSetKey = (*Dict)(nil)
 
 // A HasBinary value may be used as either operand of these binary operators:
-//     +   -   *   /   //   %   in   not in   |   &   ^   <<   >>
+// +   -   *   /   //   %   in   not in   |   &   ^   <<   >>
 //
 // The Side argument indicates whether the receiver is the left or right operand.
 //
@@ -317,7 +359,7 @@ const (
 )
 
 // A HasUnary value may be used as the operand of these unary operators:
-//     +   -   ~
+// +   -   ~
 //
 // An implementation may decline to handle an operation by returning (nil, nil).
 // For this reason, clients should always call the standalone Unary(op, x)
@@ -345,11 +387,24 @@ type HasAttrs interface {
 	AttrNames() []string             // callers must not modify the result.
 }
 
+// A HasSafeAttrs value has fields or methods that may be read by a dot expression (y = x.f),
+// respecting the safety of the thread.
+// Attribute names may be listed using the built-in 'dir' function.
+//
+// In contrast to HasAttrs, the SafeAttr method follows standard the Go convention
+// and returns either a value or an error. If the attribute does not exist, it
+// returns ErrNoSuchAttr.
+type HasSafeAttrs interface {
+	SafeAttr(thread *Thread, name string) (Value, error)
+	AttrNames() []string
+}
+
 var (
-	_ HasAttrs = String("")
-	_ HasAttrs = new(List)
-	_ HasAttrs = new(Dict)
-	_ HasAttrs = new(Set)
+	_ HasSafeAttrs = String("")
+	_ HasSafeAttrs = Bytes("")
+	_ HasSafeAttrs = new(List)
+	_ HasSafeAttrs = new(Dict)
+	_ HasSafeAttrs = new(Set)
 )
 
 // A HasSetField value has fields that may be written by a dot expression (x.f = y).
@@ -476,9 +531,11 @@ func isFinite(f float64) bool {
 	return math.Abs(f) <= math.MaxFloat64
 }
 
-func (x Float) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
-	y := y_.(Float)
-	return threeway(op, floatCmp(x, y)), nil
+// Cmp implements comparison of two Float values.
+// Required by the TotallyOrdered interface.
+func (f Float) Cmp(v Value, depth int) (int, error) {
+	g := v.(Float)
+	return floatCmp(f, g), nil
 }
 
 // floatCmp performs a three-valued comparison on floats,
@@ -580,6 +637,18 @@ func (s String) Slice(start, end, step int) Value {
 
 func (s String) Attr(name string) (Value, error) { return builtinAttr(s, name, stringMethods) }
 func (s String) AttrNames() []string             { return builtinAttrNames(stringMethods) }
+
+func (s String) SafeAttr(thread *Thread, name string) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
+		}
+	}
+	return safeBuiltinAttr(thread, s, name, stringMethods)
+}
 
 func (x String) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(String)
@@ -740,6 +809,34 @@ func (fn *Function) Param(i int) (string, syntax.Position) {
 	id := fn.funcode.Locals[i]
 	return id.Name, id.Pos
 }
+
+// ParamDefault returns the default value of the specified parameter
+// (0 <= i < NumParams()), or nil if the parameter is not optional.
+func (fn *Function) ParamDefault(i int) Value {
+	if i < 0 || i >= fn.NumParams() {
+		panic(i)
+	}
+
+	// fn.defaults omits all required params up to the first optional param. It
+	// also does not include *args or **kwargs at the end.
+	firstOptIdx := fn.NumParams() - len(fn.defaults)
+	if fn.HasVarargs() {
+		firstOptIdx--
+	}
+	if fn.HasKwargs() {
+		firstOptIdx--
+	}
+	if i < firstOptIdx || i >= firstOptIdx+len(fn.defaults) {
+		return nil
+	}
+
+	dflt := fn.defaults[i-firstOptIdx]
+	if _, ok := dflt.(mandatory); ok {
+		return nil
+	}
+	return dflt
+}
+
 func (fn *Function) HasVarargs() bool { return fn.funcode.HasVarargs }
 func (fn *Function) HasKwargs() bool  { return fn.funcode.HasKwargs }
 
@@ -803,13 +900,12 @@ func NewBuiltinWithSafety(name string, safety Safety, fn func(*Thread, *Builtin,
 // In the example below, the value of f is the string.index
 // built-in method bound to the receiver value "abc":
 //
-//     f = "abc".index; f("a"); f("b")
+//	f = "abc".index; f("a"); f("b")
 //
 // In the common case, the receiver is bound only during the call,
 // but this still results in the creation of a temporary method closure:
 //
-//     "abc".index("a")
-//
+//	"abc".index("a")
 func (b *Builtin) BindReceiver(recv Value) *Builtin {
 	return &Builtin{name: b.name, fn: b.fn, recv: recv, safety: b.safety}
 }
@@ -826,27 +922,60 @@ type Dict struct {
 // at least size insertions before rehashing.
 func NewDict(size int) *Dict {
 	dict := new(Dict)
-	dict.ht.init(size)
+	dict.ht.init(nil, size)
 	return dict
+}
+
+func SafeNewDict(thread *Thread, size int) (*Dict, error) {
+	dict := new(Dict)
+	if err := dict.ht.init(thread, size); err != nil {
+		return nil, err
+	}
+	return dict, nil
 }
 
 func (d *Dict) Clear() error                                    { return d.ht.clear() }
 func (d *Dict) Delete(k Value) (v Value, found bool, err error) { return d.ht.delete(k) }
-func (d *Dict) Get(k Value) (v Value, found bool, err error)    { return d.ht.lookup(k) }
+func (d *Dict) Get(k Value) (v Value, found bool, err error)    { return d.ht.lookup(nil, k) }
 func (d *Dict) Items() []Tuple                                  { return d.ht.items() }
 func (d *Dict) Keys() []Value                                   { return d.ht.keys() }
 func (d *Dict) Values() []Value                                 { return d.ht.values() }
 func (d *Dict) Len() int                                        { return int(d.ht.len) }
 func (d *Dict) Iterate() Iterator                               { return d.ht.iterate() }
-func (d *Dict) SetKey(k, v Value) error                         { return d.ht.insert(k, v) }
+func (d *Dict) SetKey(k, v Value) error                         { return d.ht.insert(nil, k, v) }
 func (d *Dict) Type() string                                    { return "dict" }
 func (d *Dict) Freeze()                                         { d.ht.freeze() }
 func (d *Dict) Truth() Bool                                     { return d.Len() > 0 }
 func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.Errorf("unhashable type: dict") }
 func (d *Dict) String() string                                  { return toString(d) }
 
+func (d *Dict) SafeSetKey(thread *Thread, k, v Value) error {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return err
+	}
+	if err := d.ht.insert(thread, k, v); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (x *Dict) Union(y *Dict) *Dict {
+	z := new(Dict)
+	z.ht.init(nil, x.Len()) // a lower bound
+	z.ht.addAll(nil, &x.ht) // can't fail
+	z.ht.addAll(nil, &y.ht) // can't fail
+	return z
+}
+
 func (d *Dict) Attr(name string) (Value, error) { return builtinAttr(d, name, dictMethods) }
 func (d *Dict) AttrNames() []string             { return builtinAttrNames(dictMethods) }
+
+func (d *Dict) SafeAttr(thread *Thread, name string) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
+	return safeBuiltinAttr(thread, d, name, dictMethods)
+}
 
 func (x *Dict) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(*Dict)
@@ -936,6 +1065,13 @@ func (l *List) Slice(start, end, step int) Value {
 func (l *List) Attr(name string) (Value, error) { return builtinAttr(l, name, listMethods) }
 func (l *List) AttrNames() []string             { return builtinAttrNames(listMethods) }
 
+func (l *List) SafeAttr(thread *Thread, name string) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
+	return safeBuiltinAttr(thread, l, name, listMethods)
+}
+
 func (l *List) Iterate() Iterator {
 	if !l.frozen {
 		l.itercount++
@@ -1009,6 +1145,13 @@ func (l *List) SetIndex(i int, v Value) error {
 	}
 	l.elems[i] = v
 	return nil
+}
+
+func (l *List) SafeSetIndex(thread *Thread, i int, v Value) error {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return err
+	}
+	return l.SetIndex(i, v)
 }
 
 func (l *List) Append(v Value) error {
@@ -1111,18 +1254,17 @@ type Set struct {
 // at least size insertions before rehashing.
 func NewSet(size int) *Set {
 	set := new(Set)
-	set.ht.init(size)
+	set.ht.init(nil, size)
 	return set
 }
 
 func (s *Set) Delete(k Value) (found bool, err error) { _, found, err = s.ht.delete(k); return }
 func (s *Set) Clear() error                           { return s.ht.clear() }
-func (s *Set) Has(k Value) (found bool, err error)    { _, found, err = s.ht.lookup(k); return }
-func (s *Set) Insert(k Value) error                   { return s.ht.insert(k, None) }
+func (s *Set) Has(k Value) (found bool, err error)    { _, found, err = s.ht.lookup(nil, k); return }
+func (s *Set) Insert(k Value) error                   { return s.ht.insert(nil, k, None) }
 func (s *Set) Len() int                               { return int(s.ht.len) }
 func (s *Set) Iterate() Iterator                      { return s.ht.iterate() }
 func (s *Set) Type() string                           { return "set" }
-func (s *Set) elems() []Value                         { return s.ht.keys() }
 func (s *Set) Freeze()                                { s.ht.freeze() }
 func (s *Set) Hash() (uint32, error)                  { return 0, fmt.Errorf("unhashable type: set") }
 func (s *Set) Truth() Bool                            { return s.Len() > 0 }
@@ -1130,6 +1272,13 @@ func (s *Set) String() string                         { return toString(s) }
 
 func (s *Set) Attr(name string) (Value, error) { return builtinAttr(s, name, setMethods) }
 func (s *Set) AttrNames() []string             { return builtinAttrNames(setMethods) }
+
+func (s *Set) SafeAttr(thread *Thread, name string) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
+	return safeBuiltinAttr(thread, s, name, setMethods)
+}
 
 func (x *Set) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(*Set)
@@ -1140,6 +1289,34 @@ func (x *Set) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error
 	case syntax.NEQ:
 		ok, err := setsEqual(x, y, depth)
 		return !ok, err
+	case syntax.GE: // superset
+		if x.Len() < y.Len() {
+			return false, nil
+		}
+		iter := y.Iterate()
+		defer iter.Done()
+		return x.IsSuperset(iter)
+	case syntax.LE: // subset
+		if x.Len() > y.Len() {
+			return false, nil
+		}
+		iter := y.Iterate()
+		defer iter.Done()
+		return x.IsSubset(iter)
+	case syntax.GT: // proper superset
+		if x.Len() <= y.Len() {
+			return false, nil
+		}
+		iter := y.Iterate()
+		defer iter.Done()
+		return x.IsSuperset(iter)
+	case syntax.LT: // proper subset
+		if x.Len() >= y.Len() {
+			return false, nil
+		}
+		iter := y.Iterate()
+		defer iter.Done()
+		return x.IsSubset(iter)
 	default:
 		return false, fmt.Errorf("%s %s %s not implemented", x.Type(), op, y.Type())
 	}
@@ -1149,19 +1326,44 @@ func setsEqual(x, y *Set, depth int) (bool, error) {
 	if x.Len() != y.Len() {
 		return false, nil
 	}
-	for _, elem := range x.elems() {
-		if found, _ := y.Has(elem); !found {
+	for e := x.ht.head; e != nil; e = e.next {
+		if found, _ := y.Has(e.key); !found {
 			return false, nil
 		}
 	}
 	return true, nil
 }
 
-func (s *Set) Union(iter Iterator) (Value, error) {
+func setFromIterator(iter Iterator) (*Set, error) {
+	var x Value
 	set := new(Set)
-	for _, elem := range s.elems() {
-		set.Insert(elem) // can't fail
+	for iter.Next(&x) {
+		err := set.Insert(x)
+		if err != nil {
+			return set, err
+		}
 	}
+	return set, nil
+}
+
+func (s *Set) clone(thread *Thread) (*Set, error) {
+	set := new(Set)
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateSize(set)); err != nil {
+			return nil, err
+		}
+	}
+	set.ht.init(thread, int(s.ht.len))
+	for e := s.ht.head; e != nil; e = e.next {
+		if err := set.ht.insert(thread, e.key, None); err != nil {
+			return nil, err
+		}
+	}
+	return set, nil
+}
+
+func (s *Set) Union(iter Iterator) (Value, error) {
+	set, _ := s.clone(nil) // can't fail
 	var x Value
 	for iter.Next(&x) {
 		if err := set.Insert(x); err != nil {
@@ -1169,6 +1371,85 @@ func (s *Set) Union(iter Iterator) (Value, error) {
 		}
 	}
 	return set, nil
+}
+
+func (s *Set) Difference(other Iterator) (Value, error) {
+	diff, _ := s.clone(nil) // can't fail
+	var x Value
+	for other.Next(&x) {
+		if _, err := diff.Delete(x); err != nil {
+			return nil, err
+		}
+	}
+	return diff, nil
+}
+
+func (s *Set) IsSuperset(other Iterator) (bool, error) {
+	var x Value
+	for other.Next(&x) {
+		found, err := s.Has(x)
+		if err != nil {
+			return false, err
+		}
+		if !found {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (s *Set) IsSubset(other Iterator) (bool, error) {
+	if count, err := s.ht.count(other); err != nil {
+		return false, err
+	} else {
+		return count == s.Len(), nil
+	}
+}
+
+func (s *Set) Intersection(other Iterator) (Value, error) {
+	return s.safeIntersection(nil, other)
+}
+
+func (s *Set) safeIntersection(thread *Thread, other Iterator) (*Set, error) {
+	if err := CheckSafety(thread, MemSafe|IOSafe); err != nil {
+		return nil, err
+	}
+
+	intersect := new(Set)
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateSize(intersect)); err != nil {
+			return nil, err
+		}
+	}
+	var x Value
+	for other.Next(&x) {
+		found, err := s.Has(x)
+		if err != nil {
+			return nil, err
+		}
+		if found {
+			err = intersect.ht.insert(thread, x, None)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return intersect, nil
+}
+
+func (s *Set) SymmetricDifference(other Iterator) (Value, error) {
+	diff, _ := s.clone(nil) // can't fail
+	var x Value
+	for other.Next(&x) {
+		found, err := diff.Delete(x)
+		if err != nil {
+			return nil, err
+		}
+		if !found {
+			diff.Insert(x)
+		}
+	}
+	return diff, nil
 }
 
 // toString returns the string form of value v.
@@ -1374,13 +1655,13 @@ func writeValue(out StringBuilder, x Value, path []Value) error {
 		if _, err := out.WriteString("set(["); err != nil {
 			return err
 		}
-		for i, elem := range x.elems() {
-			if i > 0 {
+		for e := x.ht.head; e != nil; e = e.next {
+			if e != x.ht.head {
 				if _, err := out.WriteString(", "); err != nil {
 					return err
 				}
 			}
-			if err := writeValue(out, elem, path); err != nil {
+			if err := writeValue(out, e.key, path); err != nil {
 				return err
 			}
 		}
@@ -1456,6 +1737,14 @@ func CompareDepth(op syntax.Token, x, y Value, depth int) (bool, error) {
 	if sameType(x, y) {
 		if xcomp, ok := x.(Comparable); ok {
 			return xcomp.CompareSameType(op, y, depth)
+		}
+
+		if xcomp, ok := x.(TotallyOrdered); ok {
+			t, err := xcomp.Cmp(y, depth)
+			if err != nil {
+				return false, err
+			}
+			return threeway(op, t), nil
 		}
 
 		// use identity comparison
@@ -1604,7 +1893,7 @@ func SafeIterate(thread *Thread, x Value) (Iterator, error) {
 // Bytes is the type of a Starlark binary string.
 //
 // A Bytes encapsulates an immutable sequence of bytes.
-// It is comparable, indexable, and sliceable, but not direcly iterable;
+// It is comparable, indexable, and sliceable, but not directly iterable;
 // use bytes.elems() for an iterable view.
 //
 // In this Go implementation, the elements of 'string' and 'bytes' are
@@ -1633,6 +1922,18 @@ func (b Bytes) Index(i int) Value     { return b[i : i+1] }
 
 func (b Bytes) Attr(name string) (Value, error) { return builtinAttr(b, name, bytesMethods) }
 func (b Bytes) AttrNames() []string             { return builtinAttrNames(bytesMethods) }
+
+func (b Bytes) SafeAttr(thread *Thread, name string) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
+		}
+	}
+	return safeBuiltinAttr(thread, b, name, bytesMethods)
+}
 
 func (b Bytes) Slice(start, end, step int) Value {
 	if step == 1 {

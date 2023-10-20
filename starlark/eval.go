@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math"
 	"math/big"
@@ -51,9 +50,18 @@ type Thread struct {
 	// See example_test.go for some example implementations of Load.
 	Load func(thread *Thread, module string) (StringDict, error)
 
-	// steps counts abstract computation steps executed by this thread.
+	// Steps a count of abstract computation steps executed
+	// by this thread. It is incremented by the interpreter. It may be used
+	// as a measure of the approximate cost of Starlark execution, by
+	// computing the difference in its value before and after a computation.
+	//
+	// The precise meaning of "step" is not specified and may change.
 	steps, maxSteps uint64
 	stepsLock       sync.Mutex
+
+	// OnMaxSteps is called when the thread reaches the limit set by SetMaxExecutionSteps.
+	// The default behavior is to call thread.Cancel("too many steps").
+	OnMaxSteps func(thread *Thread)
 
 	// allocs counts the abstract memory units claimed by this resource pool
 	allocs, maxAllocs uint64
@@ -74,12 +82,7 @@ type Thread struct {
 	requiredSafety Safety
 }
 
-// ExecutionSteps returns a count of abstract computation steps executed
-// by this thread. It is incremented by the interpreter. It may be used
-// as a measure of the approximate cost of Starlark execution, by
-// computing the difference in its value before and after a computation.
-//
-// The precise meaning of "step" is not specified and may change.
+// ExecutionSteps returns the current value of Steps.
 func (thread *Thread) ExecutionSteps() uint64 {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
@@ -90,7 +93,8 @@ func (thread *Thread) ExecutionSteps() uint64 {
 // SetMaxExecutionSteps sets a limit on the number of Starlark
 // computation steps that may be executed by this thread. If the
 // thread's step counter exceeds this limit, the interpreter calls
-// thread.Cancel("too many steps").
+// the optional OnMaxSteps function or the default behavior
+// of calling thread.Cancel("too many steps").
 func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
 }
@@ -100,7 +104,7 @@ func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 //
 // It is safe to call CheckExecutionSteps from any goroutine, even if the thread
 // is actively executing.
-func (thread *Thread) CheckExecutionSteps(delta uint64) error {
+func (thread *Thread) CheckExecutionSteps(delta int64) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
@@ -114,7 +118,7 @@ func (thread *Thread) CheckExecutionSteps(delta uint64) error {
 //
 // It is safe to call AddExecutionSteps from any goroutine, even if the thread
 // is actively executing.
-func (thread *Thread) AddExecutionSteps(delta uint64) error {
+func (thread *Thread) AddExecutionSteps(delta int64) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
@@ -130,14 +134,25 @@ func (thread *Thread) AddExecutionSteps(delta uint64) error {
 // simulateExecutionSteps simulates a call to AddExecutionSteps returning the
 // new total step-count and any error this would entail. No change is
 // recorded.
-func (thread *Thread) simulateExecutionSteps(delta uint64) (uint64, error) {
+func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
 		return thread.steps, errors.New(*(*string)(cancelReason))
 	}
 
 	var nextExecutionSteps uint64
-	if delta <= math.MaxUint64-thread.steps {
-		nextExecutionSteps = thread.steps + delta
+	if delta < 0 {
+		udelta := uint64(-delta)
+		if udelta < thread.steps {
+			nextExecutionSteps = thread.steps - udelta
+		} else {
+			nextExecutionSteps = 0
+		}
+		return nextExecutionSteps, nil
+	}
+
+	udelta := uint64(delta)
+	if udelta <= math.MaxInt64-thread.steps {
+		nextExecutionSteps = thread.steps + udelta
 	} else {
 		nextExecutionSteps = math.MaxUint64
 	}
@@ -187,12 +202,20 @@ func (thread *Thread) CheckPermits(value SafetyAware) error {
 	return safety.CheckContains(thread.requiredSafety)
 }
 
+// Uncancel resets the cancellation state.
+//
+// Unlike most methods of Thread, it is safe to call Uncancel from any
+// goroutine, even if the thread is actively executing.
+func (thread *Thread) Uncancel() {
+	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason)), nil)
+}
+
 // Cancel causes execution of Starlark code in the specified thread to
 // promptly fail with an EvalError that includes the specified reason.
 // There may be a delay before the interpreter observes the cancellation
 // if the thread is currently in a call to a built-in function.
 //
-// Cancellation cannot be undone.
+// Call [Uncancel] to reset the cancellation state.
 //
 // Unlike most methods of Thread, it is safe to call Cancel from any
 // goroutine, even if the thread is actively executing.
@@ -222,6 +245,20 @@ func (thread *Thread) Local(key string) interface{} {
 // It is equivalent to CallStack().At(depth), but more efficient.
 func (thread *Thread) CallFrame(depth int) CallFrame {
 	return thread.frameAt(depth).asCallFrame()
+}
+
+// EnsureStack grows the stack to fit n more nested calls.
+func (thread *Thread) EnsureStack(n int) {
+	if n < 0 {
+		panic("internal error: negative stack size")
+	}
+
+	newFrames := make([]frame, n)
+	newStack := thread.stack
+	for i := 0; i < n; i++ {
+		newStack = append(newStack, &newFrames[i])
+	}
+	thread.stack = newStack[:len(thread.stack)]
 }
 
 func (thread *Thread) frameAt(depth int) *frame {
@@ -527,7 +564,13 @@ func (prog *Program) Write(out io.Writer) error {
 	return err
 }
 
-// ExecFile parses, resolves, and executes a Starlark file in the
+// ExecFile calls [ExecFileOptions] using [syntax.LegacyFileOptions].
+// Deprecated: relies on legacy global variables.
+func ExecFile(thread *Thread, filename string, src interface{}, predeclared StringDict) (StringDict, error) {
+	return ExecFileOptions(syntax.LegacyFileOptions(), thread, filename, src, predeclared)
+}
+
+// ExecFileOptions parses, resolves, and executes a Starlark file in the
 // specified global environment, which may be modified during execution.
 //
 // Thread is the state associated with the Starlark thread.
@@ -542,11 +585,11 @@ func (prog *Program) Write(out io.Writer) error {
 // Execution does not modify this dictionary, though it may mutate
 // its values.
 //
-// If ExecFile fails during evaluation, it returns an *EvalError
+// If ExecFileOptions fails during evaluation, it returns an *EvalError
 // containing a backtrace.
-func ExecFile(thread *Thread, filename string, src interface{}, predeclared StringDict) (StringDict, error) {
+func ExecFileOptions(opts *syntax.FileOptions, thread *Thread, filename string, src interface{}, predeclared StringDict) (StringDict, error) {
 	// Parse, resolve, and compile a Starlark source file.
-	_, mod, err := SourceProgram(filename, src, predeclared.Has)
+	_, mod, err := SourceProgramOptions(opts, filename, src, predeclared.Has)
 	if err != nil {
 		return nil, err
 	}
@@ -556,7 +599,13 @@ func ExecFile(thread *Thread, filename string, src interface{}, predeclared Stri
 	return g, err
 }
 
-// SourceProgram produces a new program by parsing, resolving,
+// SourceProgram calls [SourceProgramOptions] using [syntax.LegacyFileOptions].
+// Deprecated: relies on legacy global variables.
+func SourceProgram(filename string, src interface{}, isPredeclared func(string) bool) (*syntax.File, *Program, error) {
+	return SourceProgramOptions(syntax.LegacyFileOptions(), filename, src, isPredeclared)
+}
+
+// SourceProgramOptions produces a new program by parsing, resolving,
 // and compiling a Starlark source file.
 // On success, it returns the parsed file and the compiled program.
 // The filename and src parameters are as for syntax.Parse.
@@ -565,8 +614,8 @@ func ExecFile(thread *Thread, filename string, src interface{}, predeclared Stri
 // a pre-declared identifier of the current module.
 // Its typical value is predeclared.Has,
 // where predeclared is a StringDict of pre-declared values.
-func SourceProgram(filename string, src interface{}, isPredeclared func(string) bool) (*syntax.File, *Program, error) {
-	f, err := syntax.Parse(filename, src, 0)
+func SourceProgramOptions(opts *syntax.FileOptions, filename string, src interface{}, isPredeclared func(string) bool) (*syntax.File, *Program, error) {
+	f, err := opts.Parse(filename, src, 0)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -598,7 +647,7 @@ func FileProgram(f *syntax.File, isPredeclared func(string) bool) (*Program, err
 	}
 
 	module := f.Module.(*resolve.Module)
-	compiled := compile.File(f.Stmts, pos, "<toplevel>", module.Locals, module.Globals)
+	compiled := compile.File(f.Options, f.Stmts, pos, "<toplevel>", module.Locals, module.Globals)
 
 	return &Program{compiled}, nil
 }
@@ -606,7 +655,7 @@ func FileProgram(f *syntax.File, isPredeclared func(string) bool) (*Program, err
 // CompiledProgram produces a new program from the representation
 // of a compiled program previously saved by Program.Write.
 func CompiledProgram(in io.Reader) (*Program, error) {
-	data, err := ioutil.ReadAll(in)
+	data, err := io.ReadAll(in)
 	if err != nil {
 		return nil, err
 	}
@@ -655,7 +704,7 @@ func ExecREPLChunk(f *syntax.File, thread *Thread, globals StringDict) error {
 	}
 
 	module := f.Module.(*resolve.Module)
-	compiled := compile.File(f.Stmts, pos, "<toplevel>", module.Locals, module.Globals)
+	compiled := compile.File(f.Options, f.Stmts, pos, "<toplevel>", module.Locals, module.Globals)
 	prog := &Program{compiled}
 
 	// -- variant of Program.Init --
@@ -714,7 +763,13 @@ func makeToplevelFunction(prog *compile.Program, predeclared StringDict) *Functi
 	}
 }
 
-// Eval parses, resolves, and evaluates an expression within the
+// Eval calls [EvalOptions] using [syntax.LegacyFileOptions].
+// Deprecated: relies on legacy global variables.
+func Eval(thread *Thread, filename string, src interface{}, env StringDict) (Value, error) {
+	return EvalOptions(syntax.LegacyFileOptions(), thread, filename, src, env)
+}
+
+// EvalOptions parses, resolves, and evaluates an expression within the
 // specified (predeclared) environment.
 //
 // Evaluation cannot mutate the environment dictionary itself,
@@ -722,58 +777,71 @@ func makeToplevelFunction(prog *compile.Program, predeclared StringDict) *Functi
 //
 // The filename and src parameters are as for syntax.Parse.
 //
-// If Eval fails during evaluation, it returns an *EvalError
+// If EvalOptions fails during evaluation, it returns an *EvalError
 // containing a backtrace.
-func Eval(thread *Thread, filename string, src interface{}, env StringDict) (Value, error) {
-	expr, err := syntax.ParseExpr(filename, src, 0)
+func EvalOptions(opts *syntax.FileOptions, thread *Thread, filename string, src interface{}, env StringDict) (Value, error) {
+	expr, err := opts.ParseExpr(filename, src, 0)
 	if err != nil {
 		return nil, err
 	}
-	f, err := makeExprFunc(expr, env)
+	f, err := makeExprFunc(opts, expr, env)
 	if err != nil {
 		return nil, err
 	}
 	return Call(thread, f, nil, nil)
 }
 
-// EvalExpr resolves and evaluates an expression within the
+// EvalExpr calls [EvalExprOptions] using [syntax.LegacyFileOptions].
+// Deprecated: relies on legacy global variables.
+func EvalExpr(thread *Thread, expr syntax.Expr, env StringDict) (Value, error) {
+	return EvalExprOptions(syntax.LegacyFileOptions(), thread, expr, env)
+}
+
+// EvalExprOptions resolves and evaluates an expression within the
 // specified (predeclared) environment.
 // Evaluating a comma-separated list of expressions yields a tuple value.
 //
 // Resolving an expression mutates it.
-// Do not call EvalExpr more than once for the same expression.
+// Do not call EvalExprOptions more than once for the same expression.
 //
 // Evaluation cannot mutate the environment dictionary itself,
 // though it may modify variables reachable from the dictionary.
 //
-// If Eval fails during evaluation, it returns an *EvalError
+// If EvalExprOptions fails during evaluation, it returns an *EvalError
 // containing a backtrace.
-func EvalExpr(thread *Thread, expr syntax.Expr, env StringDict) (Value, error) {
-	fn, err := makeExprFunc(expr, env)
+func EvalExprOptions(opts *syntax.FileOptions, thread *Thread, expr syntax.Expr, env StringDict) (Value, error) {
+	fn, err := makeExprFunc(opts, expr, env)
 	if err != nil {
 		return nil, err
 	}
 	return Call(thread, fn, nil, nil)
 }
 
+// ExprFunc calls [ExprFuncOptions] using [syntax.LegacyFileOptions].
+// Deprecated: relies on legacy global variables.
+func ExprFunc(filename string, src interface{}, env StringDict) (*Function, error) {
+	return ExprFuncOptions(syntax.LegacyFileOptions(), filename, src, env)
+}
+
 // ExprFunc returns a no-argument function
 // that evaluates the expression whose source is src.
-func ExprFunc(filename string, src interface{}, env StringDict) (*Function, error) {
-	expr, err := syntax.ParseExpr(filename, src, 0)
+func ExprFuncOptions(options *syntax.FileOptions, filename string, src interface{}, env StringDict) (*Function, error) {
+	expr, err := options.ParseExpr(filename, src, 0)
 	if err != nil {
 		return nil, err
 	}
-	return makeExprFunc(expr, env)
+	return makeExprFunc(options, expr, env)
 }
 
 // makeExprFunc returns a no-argument function whose body is expr.
-func makeExprFunc(expr syntax.Expr, env StringDict) (*Function, error) {
-	locals, err := resolve.Expr(expr, env.Has, Universe.Has)
+// The options must be consistent with those used when parsing expr.
+func makeExprFunc(opts *syntax.FileOptions, expr syntax.Expr, env StringDict) (*Function, error) {
+	locals, err := resolve.ExprOptions(opts, expr, env.Has, Universe.Has)
 	if err != nil {
 		return nil, err
 	}
 
-	return makeToplevelFunction(compile.Expr(expr, "<expr>", locals), env), nil
+	return makeToplevelFunction(compile.Expr(opts, expr, "<expr>", locals), env), nil
 }
 
 // The following functions are primitive operations of the byte code interpreter.
@@ -806,32 +874,49 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 }
 
 // getAttr implements x.dot.
-func getAttr(x Value, name string) (Value, error) {
-	hasAttr, ok := x.(HasAttrs)
-	if !ok {
+func getAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
+	var getAttrNames func() []string
+	var attr Value
+	var err error
+
+	switch x := x.(type) {
+	case HasSafeAttrs:
+		getAttrNames = x.AttrNames
+		attr, err = x.SafeAttr(thread, name)
+	case HasAttrs:
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return nil, err
+		}
+
+		getAttrNames = x.AttrNames
+		attr, err = x.Attr(name)
+		if attr == nil && err == nil {
+			err = ErrNoSuchAttr
+		}
+	default:
 		return nil, fmt.Errorf("%s has no .%s field or method", x.Type(), name)
 	}
 
-	var errmsg string
-	v, err := hasAttr.Attr(name)
-	if err == nil {
-		if v != nil {
-			return v, nil // success
+	if err != nil {
+		var errmsg string
+		if nsa, ok := err.(NoSuchAttrError); ok {
+			errmsg = string(nsa)
+		} else if err == ErrNoSuchAttr {
+			errmsg = fmt.Sprintf("%s has no .%s field or method", x.Type(), name)
+		} else {
+			return nil, err // return error as is
 		}
-		// (nil, nil) => generic error
-		errmsg = fmt.Sprintf("%s has no .%s field or method", x.Type(), name)
-	} else if nsa, ok := err.(NoSuchAttrError); ok {
-		errmsg = string(nsa)
-	} else {
-		return nil, err // return error as is
-	}
 
-	// add spelling hint
-	if n := spell.Nearest(name, hasAttr.AttrNames()); n != "" {
-		errmsg = fmt.Sprintf("%s (did you mean .%s?)", errmsg, n)
-	}
+		// add spelling hint
+		if hint {
+			if n := spell.Nearest(name, getAttrNames()); n != "" {
+				errmsg = fmt.Sprintf("%s (did you mean .%s?)", errmsg, n)
+			}
+		}
 
-	return nil, fmt.Errorf("%s", errmsg)
+		return nil, errors.New(errmsg)
+	}
+	return attr, nil
 }
 
 // setField implements x.name = y.
@@ -889,33 +974,57 @@ func outOfRange(i, n int, x Value) error {
 	}
 }
 
-// setIndex implements x[y] = z.
-func setIndex(x, y, z Value) error {
-	switch x := x.(type) {
-	case HasSetKey:
-		if err := x.SetKey(y, z); err != nil {
-			return err
-		}
+func sanitizeIndex(collection Indexable, i int) (int, error) {
+	n := collection.Len()
+	origI := i
+	if i < 0 {
+		i += n
+	}
+	if i < 0 || i >= n {
+		return 0, outOfRange(origI, n, collection)
+	}
+	return i, nil
+}
 
-	case HasSetIndex:
-		n := x.Len()
+// setIndex implements x[y] = z.
+func setIndex(thread *Thread, x, y, z Value) error {
+	switch x := x.(type) {
+	case HasSafeSetKey:
+		return x.SafeSetKey(thread, y, z)
+
+	case HasSafeSetIndex:
 		i, err := AsInt32(y)
 		if err != nil {
 			return err
 		}
-		origI := i
-		if i < 0 {
-			i += n
+
+		if i, err = sanitizeIndex(x, i); err != nil {
+			return err
 		}
-		if i < 0 || i >= n {
-			return outOfRange(origI, n, x)
+		return x.SafeSetIndex(thread, i, z)
+
+	case HasSetKey:
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return err
+		}
+		return x.SetKey(y, z)
+
+	case HasSetIndex:
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return err
+		}
+		i, err := AsInt32(y)
+		if err != nil {
+			return err
+		}
+		if i, err = sanitizeIndex(x, i); err != nil {
+			return err
 		}
 		return x.SetIndex(i, z)
 
 	default:
 		return fmt.Errorf("%s value does not support item assignment", x.Type())
 	}
-	return nil
 }
 
 // Unary applies a unary operator (+, -, ~, not) to its operand.
@@ -955,40 +1064,99 @@ func SafeUnary(thread *Thread, op syntax.Token, x Value) (Value, error) {
 	return nil, fmt.Errorf("unknown unary op: %s %s", op, x.Type())
 }
 
+// SafeBinary applies a strict binary operator (not AND or OR) to its operands,
+// respecting safety.
+func SafeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
+	return safeBinary(thread, op, x, y)
+}
+
 // Binary applies a strict binary operator (not AND or OR) to its operands.
 // For equality tests or ordered comparisons, use Compare instead.
 func Binary(op syntax.Token, x, y Value) (Value, error) {
+	return safeBinary(nil, op, x, y)
+}
+
+var floatSize = EstimateSize(Float(0))
+
+func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
+
+	max := func(a, b int64) int64 {
+		if a > b {
+			return a
+		}
+		return b
+	}
 	switch op {
 	case syntax.PLUS:
 		switch x := x.(type) {
 		case String:
 			if y, ok := y.(String); ok {
+				if thread != nil {
+					resultSize := EstimateMakeSize([]byte{}, len(x)+len(y)) + StringTypeOverhead
+					if err := thread.AddAllocs(resultSize); err != nil {
+						return nil, err
+					}
+				}
 				return x + y, nil
 			}
 		case Int:
 			switch y := y.(type) {
 			case Int:
+				if thread != nil {
+					if err := thread.CheckAllocs(max(EstimateSize(x), EstimateSize(y))); err != nil {
+						return nil, err
+					}
+					result := Value(x.Add(y))
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+						return nil, err
+					}
+					return result, nil
+				}
 				return x.Add(y), nil
 			case Float:
 				xf, err := x.finiteFloat()
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return xf + y, nil
 			}
 		case Float:
 			switch y := y.(type) {
 			case Float:
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x + y, nil
 			case Int:
 				yf, err := y.finiteFloat()
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x + yf, nil
 			}
 		case *List:
 			if y, ok := y.(*List); ok {
+				if thread != nil {
+					resultSize := EstimateMakeSize([]Value{}, x.Len()+y.Len()) + EstimateSize(&List{})
+					if err := thread.AddAllocs(resultSize); err != nil {
+						return nil, err
+					}
+				}
 				z := make([]Value, 0, x.Len()+y.Len())
 				z = append(z, x.elems...)
 				z = append(z, y.elems...)
@@ -996,6 +1164,12 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case Tuple:
 			if y, ok := y.(Tuple); ok {
+				if thread != nil {
+					zSize := EstimateMakeSize(Tuple{}, len(x)+len(y)) + SliceTypeOverhead
+					if err := thread.AddAllocs(zSize); err != nil {
+						return nil, err
+					}
+				}
 				z := make(Tuple, 0, len(x)+len(y))
 				z = append(z, x...)
 				z = append(z, y...)
@@ -1027,6 +1201,12 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 				}
 				return x - yf, nil
 			}
+		case *Set: // difference
+			if y, ok := y.(*Set); ok {
+				iter := y.Iterate()
+				defer iter.Done()
+				return x.Difference(iter)
+			}
 		}
 
 	case syntax.STAR:
@@ -1034,56 +1214,121 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 		case Int:
 			switch y := y.(type) {
 			case Int:
+				if thread != nil {
+					if err := thread.CheckAllocs(EstimateSize(x) + EstimateSize(y)); err != nil {
+						return nil, err
+					}
+					result := Value(x.Mul(y))
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+						return nil, err
+					}
+					return result, nil
+				}
 				return x.Mul(y), nil
 			case Float:
 				xf, err := x.finiteFloat()
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return xf * y, nil
 			case String:
-				return stringRepeat(y, x)
+				if thread != nil {
+					if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return stringRepeat(thread, y, x)
 			case Bytes:
-				return bytesRepeat(y, x)
+				if thread != nil {
+					if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return bytesRepeat(thread, y, x)
 			case *List:
-				elems, err := tupleRepeat(Tuple(y.elems), x)
+				elems, err := tupleRepeat(thread, Tuple(y.elems), x)
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
+						return nil, err
+					}
+				}
 				return NewList(elems), nil
 			case Tuple:
-				return tupleRepeat(y, x)
+				if thread != nil {
+					if err := thread.AddAllocs(SliceTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return tupleRepeat(thread, y, x)
 			}
 		case Float:
 			switch y := y.(type) {
 			case Float:
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x * y, nil
 			case Int:
 				yf, err := y.finiteFloat()
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x * yf, nil
 			}
 		case String:
 			if y, ok := y.(Int); ok {
-				return stringRepeat(x, y)
+				if thread != nil {
+					if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return stringRepeat(thread, x, y)
 			}
 		case Bytes:
 			if y, ok := y.(Int); ok {
-				return bytesRepeat(x, y)
+				if thread != nil {
+					if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return bytesRepeat(thread, x, y)
 			}
 		case *List:
 			if y, ok := y.(Int); ok {
-				elems, err := tupleRepeat(Tuple(x.elems), y)
+				elems, err := tupleRepeat(thread, Tuple(x.elems), y)
 				if err != nil {
 					return nil, err
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
+						return nil, err
+					}
 				}
 				return NewList(elems), nil
 			}
 		case Tuple:
 			if y, ok := y.(Int); ok {
-				return tupleRepeat(x, y)
+				if thread != nil {
+					if err := thread.AddAllocs(SliceTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return tupleRepeat(thread, x, y)
 			}
 
 		}
@@ -1104,10 +1349,20 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 				if yf == 0.0 {
 					return nil, fmt.Errorf("floating-point division by zero")
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return xf / yf, nil
 			case Float:
 				if y == 0.0 {
 					return nil, fmt.Errorf("floating-point division by zero")
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
 				}
 				return xf / y, nil
 			}
@@ -1117,6 +1372,11 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 				if y == 0.0 {
 					return nil, fmt.Errorf("floating-point division by zero")
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x / y, nil
 			case Int:
 				yf, err := y.finiteFloat()
@@ -1125,6 +1385,11 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 				}
 				if yf == 0.0 {
 					return nil, fmt.Errorf("floating-point division by zero")
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
 				}
 				return x / yf, nil
 			}
@@ -1138,6 +1403,18 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 				if y.Sign() == 0 {
 					return nil, fmt.Errorf("floored division by zero")
 				}
+				if thread != nil {
+					if resultSizeEstimate := EstimateSize(x) - EstimateSize(y); resultSizeEstimate > 0 {
+						if err := thread.CheckAllocs(resultSizeEstimate); err != nil {
+							return nil, err
+						}
+					}
+					result := Value(x.Div(y))
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+						return nil, err
+					}
+					return result, nil
+				}
 				return x.Div(y), nil
 			case Float:
 				xf, err := x.finiteFloat()
@@ -1147,6 +1424,11 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 				if y == 0.0 {
 					return nil, fmt.Errorf("floored division by zero")
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return floor(xf / y), nil
 			}
 		case Float:
@@ -1154,6 +1436,11 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			case Float:
 				if y == 0.0 {
 					return nil, fmt.Errorf("floored division by zero")
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
 				}
 				return floor(x / y), nil
 			case Int:
@@ -1163,6 +1450,11 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 				}
 				if yf == 0.0 {
 					return nil, fmt.Errorf("floored division by zero")
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
 				}
 				return floor(x / yf), nil
 			}
@@ -1276,6 +1568,12 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			if y, ok := y.(Int); ok {
 				return x.Or(y), nil
 			}
+
+		case *Dict: // union
+			if y, ok := y.(*Dict); ok {
+				return x.Union(y), nil
+			}
+
 		case *Set: // union
 			if y, ok := y.(*Set); ok {
 				// TODO: use SafeIterate
@@ -1293,17 +1591,9 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *Set: // intersection
 			if y, ok := y.(*Set); ok {
-				set := new(Set)
-				if x.Len() > y.Len() {
-					x, y = y, x // opt: range over smaller set
-				}
-				for _, xelem := range x.elems() {
-					// Has, Insert cannot fail here.
-					if found, _ := y.Has(xelem); found {
-						set.Insert(xelem)
-					}
-				}
-				return set, nil
+				iter := y.Iterate()
+				defer iter.Done()
+				return x.Intersection(iter)
 			}
 		}
 
@@ -1315,18 +1605,9 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *Set: // symmetric difference
 			if y, ok := y.(*Set); ok {
-				set := new(Set)
-				for _, xelem := range x.elems() {
-					if found, _ := y.Has(xelem); !found {
-						set.Insert(xelem)
-					}
-				}
-				for _, yelem := range y.elems() {
-					if found, _ := x.Has(yelem); !found {
-						set.Insert(yelem)
-					}
-				}
-				return set, nil
+				iter := y.Iterate()
+				defer iter.Done()
+				return x.SymmetricDifference(iter)
 			}
 		}
 
@@ -1357,6 +1638,9 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 	// user-defined types
 	// (nil, nil) => unhandled
 	// TODO: use SafeIterate (SafeBinary?)
+	if err := CheckSafety(thread, NotSafe); err != nil {
+		return nil, err
+	}
 	if x, ok := x.(HasBinary); ok {
 		z, err := x.Binary(op, y, Left)
 		if z != nil || err != nil {
@@ -1379,7 +1663,7 @@ unknown:
 // try to stop someone swallowing the world in one gulp.
 const maxAlloc = 1 << 30
 
-func tupleRepeat(elems Tuple, n Int) (Tuple, error) {
+func tupleRepeat(thread *Thread, elems Tuple, n Int) (Tuple, error) {
 	if len(elems) == 0 {
 		return nil, nil
 	}
@@ -1396,6 +1680,11 @@ func tupleRepeat(elems Tuple, n Int) (Tuple, error) {
 		// Don't print sz.
 		return nil, fmt.Errorf("excessive repeat (%d * %d elements)", len(elems), i)
 	}
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateMakeSize([]Value{}, sz)); err != nil {
+			return nil, err
+		}
+	}
 	res := make([]Value, sz)
 	// copy elems into res, doubling each time
 	x := copy(res, elems)
@@ -1406,12 +1695,12 @@ func tupleRepeat(elems Tuple, n Int) (Tuple, error) {
 	return res, nil
 }
 
-func bytesRepeat(b Bytes, n Int) (Bytes, error) {
-	res, err := stringRepeat(String(b), n)
+func bytesRepeat(thread *Thread, b Bytes, n Int) (Bytes, error) {
+	res, err := stringRepeat(thread, String(b), n)
 	return Bytes(res), err
 }
 
-func stringRepeat(s String, n Int) (String, error) {
+func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 	if s == "" {
 		return "", nil
 	}
@@ -1427,6 +1716,11 @@ func stringRepeat(s String, n Int) (String, error) {
 	if sz < 0 || sz >= maxAlloc { // sz < 0 => overflow
 		// Don't print sz.
 		return "", fmt.Errorf("excessive repeat (%d * %d elements)", len(s), i)
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateMakeSize([]byte{}, sz)); err != nil {
+			return "", err
+		}
 	}
 	return String(strings.Repeat(string(s), i)), nil
 }
@@ -1464,11 +1758,9 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		fr = new(frame)
 	}
 
-	if thread.stack == nil {
-		// one-time initialization of thread
-		if thread.maxSteps == 0 {
-			thread.maxSteps-- // (MaxUint64)
-		}
+	// one-time initialization of thread
+	if thread.maxSteps == 0 {
+		thread.maxSteps-- // (MaxUint64)
 	}
 
 	thread.stack = append(thread.stack, fr) // push
@@ -1476,8 +1768,22 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	fr.callable = c
 
 	thread.beginProfSpan()
+
+	// Use defer to ensure that panics from built-ins
+	// pass through the interpreter without leaving
+	// it in a bad state.
+	defer func() {
+		thread.endProfSpan()
+
+		// clear out any references
+		// TODO(adonovan): opt: zero fr.Locals and
+		// reuse it if it is large enough.
+		*fr = frame{}
+
+		thread.stack = thread.stack[:len(thread.stack)-1] // pop
+	}()
+
 	result, err := c.CallInternal(thread, args, kwargs)
-	thread.endProfSpan()
 
 	// Sanity check: nil is not a valid Starlark value.
 	if result == nil && err == nil {
@@ -1490,9 +1796,6 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 			err = thread.evalError(err)
 		}
 	}
-
-	*fr = frame{}                                     // clear out any references
-	thread.stack = thread.stack[:len(thread.stack)-1] // pop
 
 	return result, err
 }

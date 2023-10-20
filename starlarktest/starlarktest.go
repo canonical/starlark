@@ -13,7 +13,9 @@
 package starlarktest // import "github.com/canonical/starlark/starlarktest"
 
 import (
+	_ "embed"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -50,9 +52,11 @@ func GetReporter(thread *starlark.Thread) Reporter {
 }
 
 var (
-	once      sync.Once
-	assert    starlark.StringDict
-	assertErr error
+	once   sync.Once
+	assert starlark.StringDict
+	//go:embed assert.star
+	assertFileSrc string
+	assertErr     error
 )
 
 // LoadAssertModule loads the assert module.
@@ -60,21 +64,20 @@ var (
 func LoadAssertModule() (starlark.StringDict, error) {
 	once.Do(func() {
 		predeclared := starlark.StringDict{
-			"error":   starlark.NewBuiltin("error", error_),
-			"catch":   starlark.NewBuiltin("catch", catch),
-			"matches": starlark.NewBuiltin("matches", matches),
-			"module":  starlark.NewBuiltin("module", starlarkstruct.MakeModule),
-			"_freeze": starlark.NewBuiltin("freeze", freeze),
+			"error":    starlark.NewBuiltin("error", error_),
+			"catch":    starlark.NewBuiltin("catch", catch),
+			"matches":  starlark.NewBuiltin("matches", matches),
+			"module":   starlark.NewBuiltin("module", starlarkstruct.MakeModule),
+			"_freeze":  starlark.NewBuiltin("freeze", freeze),
+			"_floateq": starlark.NewBuiltin("floateq", floateq),
 		}
 		for _, v := range predeclared {
 			if b, ok := v.(*starlark.Builtin); ok {
 				b.DeclareSafety(starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe)
 			}
 		}
-		// TODO(adonovan): embed the file using embed.FS when we can rely on go1.16,
-		// and make the apparent filename reference that file.
 		thread := new(starlark.Thread)
-		assert, assertErr = starlark.ExecFile(thread, "builtins/assert.star", assertStar, predeclared)
+		assert, assertErr = starlark.ExecFile(thread, "assert.star", assertFileSrc, predeclared)
 	})
 	return assert, assertErr
 }
@@ -133,6 +136,29 @@ func freeze(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, k
 	}
 	args[0].Freeze()
 	return args[0], nil
+}
+
+// floateq(x, y) reports whether two floats are within 1 ULP of each other.
+func floateq(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	var xf, yf starlark.Float
+	if err := starlark.UnpackPositionalArgs(b.Name(), args, kwargs, 2, &xf, &yf); err != nil {
+		return nil, err
+	}
+
+	res := false
+	switch {
+	case xf == yf:
+		res = true
+	case math.IsNaN(float64(xf)):
+		res = math.IsNaN(float64(yf))
+	case math.IsNaN(float64(yf)):
+		// false (non-NaN = Nan)
+	default:
+		x := math.Float64bits(float64(xf))
+		y := math.Float64bits(float64(yf))
+		res = x == y+1 || y == x+1
+	}
+	return starlark.Bool(res), nil
 }
 
 // DataFile returns the effective filename of the specified

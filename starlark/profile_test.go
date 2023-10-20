@@ -7,7 +7,6 @@ package starlark_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -19,22 +18,21 @@ import (
 // TestProfile is a simple integration test that the profiler
 // emits minimally plausible pprof-compatible output.
 func TestProfile(t *testing.T) {
-	prof, err := ioutil.TempFile("", "profile_test")
+	prof, err := os.CreateTemp(t.TempDir(), "profile_test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer prof.Close()
-	defer os.Remove(prof.Name())
 	if err := starlark.StartProfile(prof); err != nil {
 		t.Fatal(err)
 	}
 
 	const src = `
 def fibonacci(n):
-	res = list(range(n))
-	for i in res[2:]:
-		res[i] = res[i-2] + res[i-1]
-	return res
+	x, y = 1, 1
+	for i in range(n):
+		x, y = y, x+y
+	return y
 
 fibonacci(100000)
 `
