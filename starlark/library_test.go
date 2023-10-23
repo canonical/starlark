@@ -1143,9 +1143,11 @@ func TestFloatSteps(t *testing.T) {
 			st.RequireSafety(starlark.CPUSafe)
 			st.SetMaxExecutionSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
-				_, err := starlark.Call(thread, float, starlark.Tuple{input}, nil)
-				if err != nil {
-					st.Error(err)
+				for i := 0; i < st.N; i++ {
+					_, err := starlark.Call(thread, float, starlark.Tuple{input}, nil)
+					if err != nil {
+						st.Error(err)
+					}
 				}
 			})
 		}
@@ -1153,24 +1155,20 @@ func TestFloatSteps(t *testing.T) {
 
 	t.Run("var-size", func(t *testing.T) {
 		t.Run("int", func(t *testing.T) {
-			const expected = "int too large to convert to float"
-
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
 			st.SetMaxExecutionSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				input := starlark.Value(starlark.MakeInt(1).Lsh(uint(st.N)))
 				_, err := starlark.Call(thread, float, starlark.Tuple{input}, nil)
-				// Once the input is too large it will error. Even then,
-				// the function must not run away, so it's ok to check
-				// steps are still taken into account.
-				if err != nil && err.Error() != expected {
+				// Once the input is too large it will error.
+				if err != nil && err.Error() != "int too large to convert to float" {
 					st.Error(err)
 				}
 			})
 		})
 
-		t.Run("string", func(t *testing.T) {
+		t.Run("string-number", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
 			st.SetMinExecutionSteps(1)
@@ -1182,6 +1180,35 @@ func TestFloatSteps(t *testing.T) {
 					st.Error(err)
 				}
 			})
+		})
+
+		t.Run("string-special", func(t *testing.T) {
+			inputs := []string{
+				"NaN",
+				"+NaN",
+				"-NaN",
+				"Inf",
+				"+Inf",
+				"-Inf",
+				"Infinity",
+				"+Infinity",
+				"-Infinity",
+			}
+			for _, input := range inputs {
+				st := startest.From(t)
+				st.RequireSafety(starlark.CPUSafe)
+				st.SetMinExecutionSteps(uint64(len(input)))
+				st.SetMaxExecutionSteps(uint64(len(input)))
+				st.RunThread(func(thread *starlark.Thread) {
+					input := starlark.Value(starlark.String(input))
+					for i := 0; i < st.N; i++ {
+						_, err := starlark.Call(thread, float, starlark.Tuple{input}, nil)
+						if err != nil {
+							st.Error(err)
+						}
+					}
+				})
+			}
 		})
 	})
 }
