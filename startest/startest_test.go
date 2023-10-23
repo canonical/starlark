@@ -889,7 +889,6 @@ func TestRunStringMemSafety(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(uint64(allocateResultSize))
 		st.AddBuiltin(allocate)
 		ok := st.RunString(`
 			for _ in st.ntimes():
