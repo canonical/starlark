@@ -235,7 +235,7 @@ var (
 		"rsplit":         MemSafe | IOSafe,
 		"rstrip":         MemSafe | IOSafe,
 		"split":          MemSafe | IOSafe,
-		"splitlines":     MemSafe | IOSafe,
+		"splitlines":     MemSafe | IOSafe | CPUSafe,
 		"startswith":     MemSafe | IOSafe,
 		"strip":          MemSafe | IOSafe,
 		"title":          MemSafe | IOSafe,
@@ -2855,6 +2855,9 @@ func string_splitlines(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 	}
 	var lines []string
 	if s := string(b.Receiver().(String)); s != "" {
+		if err := thread.AddExecutionSteps(int64(len(s))); err != nil {
+			return nil, err
+		}
 		// TODO(adonovan): handle CRLF correctly.
 		if keepends {
 			lines = strings.SplitAfter(s, "\n")

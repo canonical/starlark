@@ -4161,6 +4161,24 @@ func TestStringSplitAllocs(t *testing.T) {
 }
 
 func TestStringSplitlinesSteps(t *testing.T) {
+	str := starlark.String("a\nb\nc\nd")
+	string_splitlines, _ := str.Attr("splitlines")
+	if string_splitlines == nil {
+		t.Fatal("no such method; string.splitlines")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.SetMinExecutionSteps(7)
+	st.SetMaxExecutionSteps(7)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			_, err := starlark.Call(thread, string_splitlines, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		}
+	})
 }
 
 func TestStringSplitlinesAllocs(t *testing.T) {
