@@ -158,7 +158,10 @@ func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 	}
 
 	if thread.maxSteps != 0 && nextExecutionSteps > thread.maxSteps {
-		return nextExecutionSteps, errors.New("too many steps")
+		return nextExecutionSteps, &MaxExecutionStepsError{
+			Current: thread.steps,
+			Max:     thread.maxSteps,
+		}
 	}
 
 	return nextExecutionSteps, nil
@@ -2205,6 +2208,14 @@ type MaxAllocsError struct {
 
 func (e *MaxAllocsError) Error() string {
 	return "exceeded memory allocation limits"
+}
+
+type MaxExecutionStepsError struct {
+	Current, Max uint64
+}
+
+func (e *MaxExecutionStepsError) Error() string {
+	return "too many steps"
 }
 
 // CheckAllocs returns an error if a change in allocations associated with this
