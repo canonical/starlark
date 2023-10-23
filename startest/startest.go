@@ -253,6 +253,11 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	if meanExecutionSteps < st.minExecutionSteps {
 		st.Errorf("execution steps are below minimum (%d < %d)", meanExecutionSteps, st.minExecutionSteps)
 	}
+	if st.requiredSafety.Contains(starlark.CPUSafe) {
+		if stats.executionStepsRequired && meanExecutionSteps == 0 {
+			st.Errorf("execution uses CPU time which is not accounted for")
+		}
+	}
 }
 
 // KeepAlive causes the memory of the passed objects to be measured.
@@ -260,11 +265,12 @@ func (st *ST) KeepAlive(values ...interface{}) {
 	st.alive = append(st.alive, values...)
 }
 
-type executionStats struct {
-	nSum, allocSum uint64
+type runStats struct {
+	nSum, allocSum         uint64
+	executionStepsRequired bool
 }
 
-func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) executionStats {
+func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) runStats {
 	const nMax = 100_000
 	const memoryMax = 200 * (1 << 20)
 	const timeMax = time.Second
@@ -275,9 +281,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	prevN, elapsed := int64(0), time.Duration(0)
 	for allocSum < memoryMax+valueTrackerAllocs && prevN < nMax && elapsed < timeMax {
 		var n int64
-		if nSum == 0 {
-			n = 1
-		} else {
+		if nSum != 0 {
 			n = prevN * 2
 
 			allocsPerN := int64(uint64(allocSum) / nSum)
@@ -298,6 +302,9 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 				n = timeLimitN
 			}
 		}
+		if n == 0 {
+			n = 1
+		}
 
 		var alive []interface{}
 		if st.requiredSafety.Contains(starlark.MemSafe) {
@@ -316,7 +323,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		runtime.KeepAlive(alive)
 
 		if st.Failed() {
-			return executionStats{}
+			return runStats{}
 		}
 
 		// If st.alive was reallocated, the cost of its new memory block is
@@ -341,9 +348,12 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		allocSum -= valueTrackerAllocs
 	}
 
-	return executionStats{
-		nSum:     nSum,
-		allocSum: allocSum,
+	timePerN := elapsed / time.Duration(nSum)
+	executionStepsRequired := timePerN > time.Millisecond
+	return runStats{
+		nSum:                   nSum,
+		allocSum:               allocSum,
+		executionStepsRequired: executionStepsRequired,
 	}
 }
 
@@ -395,6 +405,10 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 		return starlark.MakeInt(st.N), nil
 	}
 	return nil, nil
+}
+
+func (st *ST) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	return st.Attr(name) // Assume test code is safe.
 }
 
 func (st *ST) AttrNames() []string {

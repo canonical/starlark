@@ -88,7 +88,7 @@ func testHashtable(tb testing.TB, sane map[int]bool) {
 	for j := 0; j < testIters; j++ {
 		k := testInts[i]
 		i++
-		_, found, err := ht.lookup(k.Int)
+		_, found, err := ht.lookup(nil, k.Int)
 		if err != nil {
 			tb.Fatal(err)
 		}

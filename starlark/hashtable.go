@@ -194,7 +194,7 @@ func (ht *hashtable) grow(thread *Thread) error {
 	return nil
 }
 
-func (ht *hashtable) lookup(k Value) (v Value, found bool, err error) {
+func (ht *hashtable) lookup(thread *Thread, k Value) (v Value, found bool, err error) {
 	h, err := k.Hash()
 	if err != nil {
 		return nil, false, err // unhashable
@@ -208,6 +208,11 @@ func (ht *hashtable) lookup(k Value) (v Value, found bool, err error) {
 
 	// Inspect each bucket in the bucket list.
 	for p := &ht.table[h&(uint32(len(ht.table)-1))]; p != nil; p = p.next {
+		if thread != nil {
+			if err := thread.AddExecutionSteps(1); err != nil {
+				return nil, false, err
+			}
+		}
 		for i := range p.entries {
 			e := &p.entries[i]
 			if e.hash == h {
@@ -428,7 +433,10 @@ func (ht *hashtable) iterate() *keyIterator {
 type keyIterator struct {
 	ht *hashtable
 	e  *entry
+	thread *Thread
 }
+
+var _ SafeIterator = &keyIterator{}
 
 func (it *keyIterator) Next(k *Value) bool {
 	if it.e != nil {
@@ -446,7 +454,8 @@ func (it *keyIterator) Done() {
 }
 
 func (ki *keyIterator) Err() error     { return nil }
-func (ki *keyIterator) Safety() Safety { return NotSafe }
+func (ki *keyIterator) Safety() Safety { return MemSafe }
+func (ki *keyIterator) BindThread(thread *Thread) { ki.thread = thread }
 
 // TODO(adonovan): use go1.19's maphash.String.
 

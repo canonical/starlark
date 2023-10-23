@@ -603,3 +603,52 @@ func TestSizeConstants(t *testing.T) {
 		constantTest(t, starlark.SliceTypeOverhead, func() interface{} { return make([][256]byte, 0, 0) })
 	})
 }
+
+type dummySizeAware struct{}
+
+var _ starlark.SizeAware = dummySizeAware{}
+var _ starlark.SizeAware = &dummySizeAware{}
+
+func (dummySizeAware) EstimateSize() int64 { return 1000 }
+
+func TestSizeAware(t *testing.T) {
+	sizeAware := dummySizeAware{}
+	tests := []struct {
+		name     string
+		obj      interface{}
+		composed interface{}
+	}{{
+		"slice",
+		sizeAware,
+		[]interface{}{sizeAware},
+	}, {
+		"array",
+		sizeAware,
+		[1]interface{}{sizeAware},
+	}, {
+		"map",
+		sizeAware,
+		map[int]interface{}{1: sizeAware},
+	}, {
+		"struct-interface",
+		sizeAware,
+		struct{ Obj interface{} }{sizeAware},
+	}, {
+		"struct-typed",
+		sizeAware,
+		struct{ Obj dummySizeAware }{sizeAware},
+	}, {
+		"struct-pointer",
+		&sizeAware,
+		struct{ Obj *dummySizeAware }{&sizeAware},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			objSize := starlark.EstimateSize(test.obj)
+			composedSize := starlark.EstimateSize(test.composed)
+			if composedSize < objSize {
+				t.Errorf("unaccounted memory: expected at least %d bytes, got %d", objSize, composedSize)
+			}
+		})
+	}
+}

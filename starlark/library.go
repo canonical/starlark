@@ -35,6 +35,7 @@ var Universe StringDict
 var universeSafeties map[string]Safety
 
 var ErrUnsupported = errors.New("unsupported operation")
+var ErrNoSuchAttr = errors.New("no such attribute")
 
 func init() {
 	// https://github.com/google/starlark-go/blob/master/doc/spec.md#built-in-constants-and-functions
@@ -75,18 +76,18 @@ func init() {
 	}
 
 	universeSafeties = map[string]Safety{
-		"abs":       MemSafe | IOSafe,
+		"abs":       MemSafe | IOSafe | CPUSafe,
 		"any":       MemSafe | IOSafe,
 		"all":       MemSafe | IOSafe,
-		"bool":      MemSafe | IOSafe,
+		"bool":      MemSafe | IOSafe | CPUSafe,
 		"bytes":     MemSafe | IOSafe,
-		"chr":       MemSafe | IOSafe,
+		"chr":       MemSafe | IOSafe | CPUSafe,
 		"dict":      MemSafe | IOSafe,
 		"dir":       MemSafe | IOSafe,
 		"enumerate": MemSafe | IOSafe,
 		"fail":      MemSafe | IOSafe,
 		"float":     MemSafe | IOSafe,
-		"getattr":   NotSafe | IOSafe,
+		"getattr":   MemSafe | IOSafe,
 		"hasattr":   MemSafe | IOSafe,
 		"hash":      MemSafe | IOSafe,
 		"int":       MemSafe | IOSafe,
@@ -137,7 +138,7 @@ var (
 	}
 	dictMethodSafeties = map[string]Safety{
 		"clear":      MemSafe | IOSafe | CPUSafe,
-		"get":        MemSafe | IOSafe,
+		"get":        MemSafe | IOSafe | CPUSafe,
 		"items":      MemSafe | IOSafe,
 		"keys":       MemSafe | IOSafe,
 		"pop":        MemSafe | IOSafe,
@@ -238,7 +239,7 @@ var (
 		"startswith":     MemSafe | IOSafe,
 		"strip":          MemSafe | IOSafe,
 		"title":          MemSafe | IOSafe,
-		"upper":          MemSafe | IOSafe,
+		"upper":          MemSafe | IOSafe | CPUSafe,
 	}
 
 	setMethods = map[string]*Builtin{
@@ -257,13 +258,13 @@ var (
 	setMethodSafeties = map[string]Safety{
 		"add":                  MemSafe | IOSafe,
 		"clear":                MemSafe | IOSafe,
-		"difference":           IOSafe,
+		"difference":           MemSafe | IOSafe,
 		"discard":              MemSafe | IOSafe,
-		"intersection":         IOSafe,
-		"issubset":             IOSafe,
-		"issuperset":           IOSafe,
+		"intersection":         MemSafe | IOSafe,
+		"issubset":             MemSafe | IOSafe,
+		"issuperset":           MemSafe | IOSafe,
 		"pop":                  MemSafe | IOSafe,
-		"remove":               IOSafe,
+		"remove":               MemSafe | IOSafe,
 		"symmetric_difference": MemSafe | IOSafe,
 		"union":                MemSafe | IOSafe,
 	}
@@ -309,6 +310,19 @@ func builtinAttr(recv Value, name string, methods map[string]*Builtin) (Value, e
 	return b.BindReceiver(recv), nil
 }
 
+func safeBuiltinAttr(thread *Thread, recv Value, name string, methods map[string]*Builtin) (Value, error) {
+	b := methods[name]
+	if b == nil {
+		return nil, ErrNoSuchAttr
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateSize(&Builtin{})); err != nil {
+			return nil, err
+		}
+	}
+	return b.BindReceiver(recv), nil
+}
+
 func builtinAttrNames(methods map[string]*Builtin) []string {
 	names := make([]string, 0, len(methods))
 	for name := range methods {
@@ -342,6 +356,11 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			return x, nil
 		}
 
+		if _, xBig := tx.get(); xBig != nil {
+			if err := thread.AddExecutionSteps(int64(len(xBig.Bits()))); err != nil {
+				return nil, err
+			}
+		}
 		result := Value(zero.Sub(tx))
 		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
@@ -710,25 +729,15 @@ func getattr(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	if err := UnpackPositionalArgs("getattr", args, kwargs, 2, &object, &name, &dflt); err != nil {
 		return nil, err
 	}
-	if object, ok := object.(HasAttrs); ok {
-		v, err := object.Attr(name)
-		if err != nil {
-			// An error could mean the field doesn't exist,
-			// or it exists but could not be computed.
-			if dflt != nil {
-				return dflt, nil
-			}
-			return nil, nameErr(b, err)
+
+	v, err := getAttr(thread, object, name, false)
+	if err != nil {
+		if dflt != nil {
+			return dflt, nil
 		}
-		if v != nil {
-			return v, nil
-		}
-		// (nil, nil) => no such field
+		return nil, nameErr(b, err)
 	}
-	if dflt != nil {
-		return dflt, nil
-	}
-	return nil, fmt.Errorf("getattr: %s has no .%s field or method", object.Type(), name)
+	return v, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#hasattr
@@ -1678,12 +1687,12 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 // ---- methods of built-in types ---
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·get
-func dict_get(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_get(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var key, dflt Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &key, &dflt); err != nil {
 		return nil, err
 	}
-	if v, ok, err := b.Receiver().(*Dict).Get(key); err != nil {
+	if v, ok, err := b.Receiver().(*Dict).ht.lookup(thread, key); err != nil {
 		return nil, nameErr(b, err)
 	} else if ok {
 		return v, nil
@@ -2715,6 +2724,9 @@ func string_upper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if err := thread.AddAllocs(bufferSize + StringTypeOverhead); err != nil {
 		return nil, err
 	}
+	if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
 	return String(strings.ToUpper(recv)), nil
 }
 
@@ -2907,63 +2919,87 @@ func set_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·difference.
-func set_difference(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_difference(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	// TODO: support multiple others: s.difference(*others)
 	var other Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
-	defer iter.Done()
-	diff, err := b.Receiver().(*Set).Difference(iter)
+	iter, err := SafeIterate(thread, other)
 	if err != nil {
-		return nil, nameErr(b, err)
+		return nil, err
+	}
+	defer iter.Done()
+	diff, err := b.Receiver().(*Set).safeDifference(thread, iter)
+	if err != nil {
+		return nil, err
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	return diff, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set_intersection.
-func set_intersection(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_intersection(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	// TODO: support multiple others: s.difference(*others)
 	var other Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
+	iter, err := SafeIterate(thread, other)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
-	diff, err := b.Receiver().(*Set).Intersection(iter)
+	diff, err := b.Receiver().(*Set).safeIntersection(thread, iter)
 	if err != nil {
 		return nil, nameErr(b, err)
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	return diff, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set_issubset.
-func set_issubset(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_issubset(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var other Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
+	iter, err := SafeIterate(thread, other)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 	diff, err := b.Receiver().(*Set).IsSubset(iter)
 	if err != nil {
 		return nil, nameErr(b, err)
 	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
 	return Bool(diff), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set_issuperset.
-func set_issuperset(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_issuperset(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var other Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
+	iter, err := SafeIterate(thread, other)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 	diff, err := b.Receiver().(*Set).IsSuperset(iter)
 	if err != nil {
 		return nil, nameErr(b, err)
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	return Bool(diff), nil
 }
