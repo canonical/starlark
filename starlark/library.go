@@ -76,12 +76,12 @@ func init() {
 	}
 
 	universeSafeties = map[string]Safety{
-		"abs":       MemSafe | IOSafe,
+		"abs":       MemSafe | IOSafe | CPUSafe,
 		"any":       MemSafe | IOSafe,
 		"all":       MemSafe | IOSafe,
 		"bool":      MemSafe | IOSafe | CPUSafe,
 		"bytes":     MemSafe | IOSafe,
-		"chr":       MemSafe | IOSafe,
+		"chr":       MemSafe | IOSafe | CPUSafe,
 		"dict":      MemSafe | IOSafe,
 		"dir":       MemSafe | IOSafe,
 		"enumerate": MemSafe | IOSafe,
@@ -89,7 +89,7 @@ func init() {
 		"float":     MemSafe | IOSafe,
 		"getattr":   MemSafe | IOSafe,
 		"hasattr":   MemSafe | IOSafe,
-		"hash":      MemSafe | IOSafe,
+		"hash":      MemSafe | IOSafe | CPUSafe,
 		"int":       MemSafe | IOSafe | CPUSafe,
 		"len":       MemSafe | IOSafe,
 		"list":      MemSafe | IOSafe,
@@ -239,7 +239,7 @@ var (
 		"startswith":     MemSafe | IOSafe,
 		"strip":          MemSafe | IOSafe,
 		"title":          MemSafe | IOSafe,
-		"upper":          MemSafe | IOSafe,
+		"upper":          MemSafe | IOSafe | CPUSafe,
 	}
 
 	setMethods = map[string]*Builtin{
@@ -261,7 +261,7 @@ var (
 		"difference":           MemSafe | IOSafe,
 		"discard":              MemSafe | IOSafe,
 		"intersection":         MemSafe | IOSafe,
-		"issubset":             IOSafe,
+		"issubset":             MemSafe | IOSafe,
 		"issuperset":           MemSafe | IOSafe,
 		"pop":                  MemSafe | IOSafe,
 		"remove":               MemSafe | IOSafe,
@@ -356,6 +356,11 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			return x, nil
 		}
 
+		if _, xBig := tx.get(); xBig != nil {
+			if err := thread.AddExecutionSteps(int64(len(xBig.Bits()))); err != nil {
+				return nil, err
+			}
+		}
 		result := Value(zero.Sub(tx))
 		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 			return nil, err
@@ -777,8 +782,14 @@ func hash(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		// String.Hash, which uses the fastest implementation
 		// available, because as varies across process restarts,
 		// and may evolve with the implementation.
+		if err := thread.AddExecutionSteps(int64(len(x))); err != nil {
+			return nil, err
+		}
 		h = int64(javaStringHash(string(x)))
 	case Bytes:
+		if err := thread.AddExecutionSteps(int64(len(x))); err != nil {
+			return nil, err
+		}
 		h = int64(softHashString(string(x))) // FNV32
 	default:
 		return nil, fmt.Errorf("hash: got %s, want string or bytes", x.Type())
@@ -2718,6 +2729,9 @@ func string_upper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if err := thread.AddAllocs(bufferSize + StringTypeOverhead); err != nil {
 		return nil, err
 	}
+	if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
 	return String(strings.ToUpper(recv)), nil
 }
 
@@ -2916,20 +2930,14 @@ func set_difference(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	diff, err := b.Receiver().(*Set).clone(thread)
-	if err != nil {
-		return nil, err
-	}
 	iter, err := SafeIterate(thread, other)
 	if err != nil {
 		return nil, err
 	}
 	defer iter.Done()
-	var x Value
-	for iter.Next(&x) {
-		if _, err := diff.Delete(x); err != nil {
-			return nil, err
-		}
+	diff, err := b.Receiver().(*Set).safeDifference(thread, iter)
+	if err != nil {
+		return nil, err
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
@@ -2960,16 +2968,22 @@ func set_intersection(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set_issubset.
-func set_issubset(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_issubset(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var other Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
+	iter, err := SafeIterate(thread, other)
+	if err != nil {
+		return nil, err
+	}
 	defer iter.Done()
 	diff, err := b.Receiver().(*Set).IsSubset(iter)
 	if err != nil {
 		return nil, nameErr(b, err)
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
 	}
 	return Bool(diff), nil
 }

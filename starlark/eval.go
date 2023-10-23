@@ -157,8 +157,11 @@ func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 		nextExecutionSteps = math.MaxUint64
 	}
 
-	if nextExecutionSteps > thread.maxSteps {
-		return nextExecutionSteps, errors.New("too many steps")
+	if thread.maxSteps != 0 && nextExecutionSteps > thread.maxSteps {
+		return nextExecutionSteps, &MaxExecutionStepsError{
+			Current: thread.steps,
+			Max:     thread.maxSteps,
+		}
 	}
 
 	return nextExecutionSteps, nil
@@ -1164,30 +1167,65 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Int:
 			switch y := y.(type) {
 			case Int:
+				if thread != nil {
+					if err := thread.CheckAllocs(max(EstimateSize(x), EstimateSize(y))); err != nil {
+						return nil, err
+					}
+					result := Value(x.Sub(y))
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+						return nil, err
+					}
+					return result, nil
+				}
 				return x.Sub(y), nil
 			case Float:
 				xf, err := x.finiteFloat()
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return xf - y, nil
 			}
 		case Float:
 			switch y := y.(type) {
 			case Float:
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x - y, nil
 			case Int:
 				yf, err := y.finiteFloat()
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x - yf, nil
 			}
 		case *Set: // difference
 			if y, ok := y.(*Set); ok {
-				iter := y.Iterate()
+				iter, err := SafeIterate(thread, y)
+				if err != nil {
+					return nil, err
+				}
 				defer iter.Done()
-				return x.Difference(iter)
+				diff, err := x.safeDifference(thread, iter)
+				if err != nil {
+					return nil, err
+				}
+				if err := iter.Err(); err != nil {
+					return nil, err
+				}
+				return diff, nil
 			}
 		}
 
@@ -1196,56 +1234,121 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Int:
 			switch y := y.(type) {
 			case Int:
+				if thread != nil {
+					if err := thread.CheckAllocs(EstimateSize(x) + EstimateSize(y)); err != nil {
+						return nil, err
+					}
+					result := Value(x.Mul(y))
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+						return nil, err
+					}
+					return result, nil
+				}
 				return x.Mul(y), nil
 			case Float:
 				xf, err := x.finiteFloat()
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return xf * y, nil
 			case String:
-				return stringRepeat(y, x)
+				if thread != nil {
+					if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return stringRepeat(thread, y, x)
 			case Bytes:
-				return bytesRepeat(y, x)
+				if thread != nil {
+					if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return bytesRepeat(thread, y, x)
 			case *List:
-				elems, err := tupleRepeat(Tuple(y.elems), x)
+				elems, err := tupleRepeat(thread, Tuple(y.elems), x)
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
+						return nil, err
+					}
+				}
 				return NewList(elems), nil
 			case Tuple:
-				return tupleRepeat(y, x)
+				if thread != nil {
+					if err := thread.AddAllocs(SliceTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return tupleRepeat(thread, y, x)
 			}
 		case Float:
 			switch y := y.(type) {
 			case Float:
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x * y, nil
 			case Int:
 				yf, err := y.finiteFloat()
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x * yf, nil
 			}
 		case String:
 			if y, ok := y.(Int); ok {
-				return stringRepeat(x, y)
+				if thread != nil {
+					if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return stringRepeat(thread, x, y)
 			}
 		case Bytes:
 			if y, ok := y.(Int); ok {
-				return bytesRepeat(x, y)
+				if thread != nil {
+					if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return bytesRepeat(thread, x, y)
 			}
 		case *List:
 			if y, ok := y.(Int); ok {
-				elems, err := tupleRepeat(Tuple(x.elems), y)
+				elems, err := tupleRepeat(thread, Tuple(x.elems), y)
 				if err != nil {
 					return nil, err
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
+						return nil, err
+					}
 				}
 				return NewList(elems), nil
 			}
 		case Tuple:
 			if y, ok := y.(Int); ok {
-				return tupleRepeat(x, y)
+				if thread != nil {
+					if err := thread.AddAllocs(SliceTypeOverhead); err != nil {
+						return nil, err
+					}
+				}
+				return tupleRepeat(thread, x, y)
 			}
 
 		}
@@ -1266,10 +1369,20 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				if yf == 0.0 {
 					return nil, fmt.Errorf("floating-point division by zero")
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return xf / yf, nil
 			case Float:
 				if y == 0.0 {
 					return nil, fmt.Errorf("floating-point division by zero")
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
 				}
 				return xf / y, nil
 			}
@@ -1279,6 +1392,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				if y == 0.0 {
 					return nil, fmt.Errorf("floating-point division by zero")
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x / y, nil
 			case Int:
 				yf, err := y.finiteFloat()
@@ -1287,6 +1405,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				}
 				if yf == 0.0 {
 					return nil, fmt.Errorf("floating-point division by zero")
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
 				}
 				return x / yf, nil
 			}
@@ -1300,6 +1423,18 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				if y.Sign() == 0 {
 					return nil, fmt.Errorf("floored division by zero")
 				}
+				if thread != nil {
+					if resultSizeEstimate := EstimateSize(x) - EstimateSize(y); resultSizeEstimate > 0 {
+						if err := thread.CheckAllocs(resultSizeEstimate); err != nil {
+							return nil, err
+						}
+					}
+					result := Value(x.Div(y))
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+						return nil, err
+					}
+					return result, nil
+				}
 				return x.Div(y), nil
 			case Float:
 				xf, err := x.finiteFloat()
@@ -1309,6 +1444,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				if y == 0.0 {
 					return nil, fmt.Errorf("floored division by zero")
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return floor(xf / y), nil
 			}
 		case Float:
@@ -1316,6 +1456,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			case Float:
 				if y == 0.0 {
 					return nil, fmt.Errorf("floored division by zero")
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
 				}
 				return floor(x / y), nil
 			case Int:
@@ -1325,6 +1470,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				}
 				if yf == 0.0 {
 					return nil, fmt.Errorf("floored division by zero")
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
 				}
 				return floor(x / yf), nil
 			}
@@ -1533,7 +1683,7 @@ unknown:
 // try to stop someone swallowing the world in one gulp.
 const maxAlloc = 1 << 30
 
-func tupleRepeat(elems Tuple, n Int) (Tuple, error) {
+func tupleRepeat(thread *Thread, elems Tuple, n Int) (Tuple, error) {
 	if len(elems) == 0 {
 		return nil, nil
 	}
@@ -1550,6 +1700,11 @@ func tupleRepeat(elems Tuple, n Int) (Tuple, error) {
 		// Don't print sz.
 		return nil, fmt.Errorf("excessive repeat (%d * %d elements)", len(elems), i)
 	}
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateMakeSize([]Value{}, sz)); err != nil {
+			return nil, err
+		}
+	}
 	res := make([]Value, sz)
 	// copy elems into res, doubling each time
 	x := copy(res, elems)
@@ -1560,12 +1715,12 @@ func tupleRepeat(elems Tuple, n Int) (Tuple, error) {
 	return res, nil
 }
 
-func bytesRepeat(b Bytes, n Int) (Bytes, error) {
-	res, err := stringRepeat(String(b), n)
+func bytesRepeat(thread *Thread, b Bytes, n Int) (Bytes, error) {
+	res, err := stringRepeat(thread, String(b), n)
 	return Bytes(res), err
 }
 
-func stringRepeat(s String, n Int) (String, error) {
+func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 	if s == "" {
 		return "", nil
 	}
@@ -1581,6 +1736,11 @@ func stringRepeat(s String, n Int) (String, error) {
 	if sz < 0 || sz >= maxAlloc { // sz < 0 => overflow
 		// Don't print sz.
 		return "", fmt.Errorf("excessive repeat (%d * %d elements)", len(s), i)
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateMakeSize([]byte{}, sz)); err != nil {
+			return "", err
+		}
 	}
 	return String(strings.Repeat(string(s), i)), nil
 }
@@ -2048,6 +2208,14 @@ type MaxAllocsError struct {
 
 func (e *MaxAllocsError) Error() string {
 	return "exceeded memory allocation limits"
+}
+
+type MaxExecutionStepsError struct {
+	Current, Max uint64
+}
+
+func (e *MaxExecutionStepsError) Error() string {
+	return "too many steps"
 }
 
 // CheckAllocs returns an error if a change in allocations associated with this
