@@ -1452,6 +1452,72 @@ func TestIntAllocs(t *testing.T) {
 }
 
 func TestLenSteps(t *testing.T) {
+	len_, ok := starlark.Universe["len"]
+	if !ok {
+		t.Fatal("no such builtin: len")
+	}
+
+	// preallocate for each type to speed up the test setup
+	const preallocSize = 150_000
+	tuple := make(starlark.Tuple, 0, preallocSize)
+	list := starlark.NewList(make([]starlark.Value, 0, preallocSize))
+	dict := starlark.NewDict(preallocSize)
+	set := starlark.NewSet(preallocSize)
+	tests := []struct {
+		name  string
+		input func(n int) starlark.Value
+	}{{
+		name: "string",
+		input: func(n int) starlark.Value {
+			return starlark.String(strings.Repeat("a", n))
+		},
+	}, {
+		name: "tuple",
+		input: func(n int) starlark.Value {
+			for i := len(tuple); i < n; i++ {
+				tuple = append(tuple, starlark.None)
+			}
+			return tuple
+		},
+	}, {
+		name: "list",
+		input: func(n int) starlark.Value {
+			for i := list.Len(); i < n; i++ {
+				list.Append(starlark.None)
+			}
+			return list
+		},
+	}, {
+		name: "dict",
+		input: func(n int) starlark.Value {
+			for i := dict.Len(); i < n; i++ {
+				dict.SetKey(starlark.MakeInt(i), starlark.None)
+			}
+			return dict
+		},
+	}, {
+		name: "set",
+		input: func(n int) starlark.Value {
+			for i := set.Len(); i < n; i++ {
+				set.Insert(starlark.MakeInt(i))
+			}
+			return set
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMaxExecutionSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				input := test.input(st.N)
+				_, err := starlark.Call(thread, len_, starlark.Tuple{input}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			})
+		})
+	}
 }
 
 func TestLenAllocs(t *testing.T) {
