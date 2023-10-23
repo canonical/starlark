@@ -137,7 +137,7 @@ var (
 		"values":     NewBuiltin("values", dict_values),
 	}
 	dictMethodSafeties = map[string]Safety{
-		"clear":      MemSafe | IOSafe,
+		"clear":      MemSafe | IOSafe | CPUSafe,
 		"get":        MemSafe | IOSafe | CPUSafe,
 		"items":      MemSafe | IOSafe,
 		"keys":       MemSafe | IOSafe,
@@ -1712,7 +1712,7 @@ func dict_get(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·clear
-func dict_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	// From the memory safety POV, dict_clear releases all the references to
 	// the values inside of it, but we cannot really assess if that memory
 	// is actually released. Space for the buckets is not released, so no point
@@ -1721,7 +1721,16 @@ func dict_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	return None, b.Receiver().(*Dict).Clear()
+	recv := b.Receiver().(*Dict)
+	if recv.Len() > 0 {
+		if err := thread.AddExecutionSteps(int64(len(recv.ht.table))); err != nil {
+			return nil, err
+		}
+	}
+	if err := recv.Clear(); err != nil {
+		return nil, err
+	}
+	return None, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·items
