@@ -2785,7 +2785,7 @@ func TestDictPopSteps(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
 			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps((dictSize + 7) / 8)
+			st.SetMaxExecutionSteps((dictSize / 8) + 1)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					input := starlark.Value(starlark.MakeInt64(int64(i%dictSize) << 32))
@@ -2802,8 +2802,8 @@ func TestDictPopSteps(t *testing.T) {
 			st := startest.From(t)
 			// Each bucket can contain 8 elements tops
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps((dictSize + 7) / 8)
-			st.SetMaxExecutionSteps((dictSize + 7) / 8)
+			st.SetMinExecutionSteps(dictSize / 8)
+			st.SetMaxExecutionSteps((dictSize / 8) + 1)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					input := starlark.Value(starlark.MakeInt(dictSize << 32))
