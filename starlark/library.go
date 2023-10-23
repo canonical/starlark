@@ -827,10 +827,10 @@ func int_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (res Value, er
 	}
 
 	defer func() {
-		if res != x {
-			if e := thread.AddAllocs(EstimateSize(res)); e != nil {
+		if res != nil && res != x {
+			if err2 := thread.AddAllocs(EstimateSize(res)); err2 != nil {
 				res = nil
-				err = e
+				err = err2
 			}
 		}
 	}()
@@ -877,8 +877,7 @@ func int_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (res Value, er
 	}
 
 	if _, ok := x.(Int); ok {
-		// Avoid allocation
-		return x, nil
+		return x, nil // Avoid allocation.
 	}
 
 	i, err := NumberToInt(x)
