@@ -1271,10 +1271,12 @@ func TestLenSteps(t *testing.T) {
 		t.Fatal("no such builtin: len")
 	}
 
-	tuple := starlark.Tuple{}
-	list := starlark.NewList([]starlark.Value{})
-	dict := starlark.NewDict(0)
-	set := starlark.NewSet(0)
+	// preallocate for each type to speed up the test setup
+	const preallocSize = 150_000
+	tuple := make(starlark.Tuple, 0, preallocSize)
+	list := starlark.NewList(make([]starlark.Value, 0, preallocSize))
+	dict := starlark.NewDict(preallocSize)
+	set := starlark.NewSet(preallocSize)
 	tests := []struct {
 		name  string
 		input func(n int) starlark.Value
@@ -1316,7 +1318,6 @@ func TestLenSteps(t *testing.T) {
 			return set
 		},
 	}}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			st := startest.From(t)
