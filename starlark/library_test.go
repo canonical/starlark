@@ -1335,13 +1335,15 @@ func TestIntSteps(t *testing.T) {
 		st.RequireSafety(starlark.CPUSafe)
 		st.SetMaxExecutionSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
-			_, err := starlark.Call(thread, int_, starlark.Tuple{starlark.False}, nil)
-			if err != nil {
-				st.Error(err)
-			}
-			_, err = starlark.Call(thread, int_, starlark.Tuple{starlark.True}, nil)
-			if err != nil {
-				st.Error(err)
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, int_, starlark.Tuple{starlark.False}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				_, err = starlark.Call(thread, int_, starlark.Tuple{starlark.True}, nil)
+				if err != nil {
+					st.Error(err)
+				}
 			}
 		})
 	})
@@ -1351,13 +1353,12 @@ func TestIntSteps(t *testing.T) {
 		st.RequireSafety(starlark.CPUSafe)
 		st.SetMaxExecutionSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
-			f := math.Pow(2, float64(st.N))
-			if math.IsInf(f, 0) {
-				f = math.MaxFloat64
-			}
-			_, err := starlark.Call(thread, int_, starlark.Tuple{starlark.Float(f)}, nil)
-			if err != nil {
-				st.Error(err)
+			for i := 0; i < st.N; i++ {
+				f := starlark.Float(float64(st.N))
+				_, err := starlark.Call(thread, int_, starlark.Tuple{f}, nil)
+				if err != nil {
+					st.Error(err)
+				}
 			}
 		})
 	})
@@ -1367,7 +1368,7 @@ func TestIntSteps(t *testing.T) {
 		st.RequireSafety(starlark.CPUSafe)
 		st.SetMaxExecutionSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
-			n := starlark.Value(starlark.MakeInt(1).Lsh(uint(st.N)))
+			n := starlark.MakeInt(1).Lsh(uint(st.N))
 			_, err := starlark.Call(thread, int_, starlark.Tuple{n}, nil)
 			if err != nil {
 				st.Error(err)
