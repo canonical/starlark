@@ -2211,7 +2211,7 @@ func (e *MaxAllocsError) Error() string {
 }
 
 func (e *MaxAllocsError) Is(err error) bool {
-	return err == ErrSandboxViolation
+	return err == ErrSandbox
 }
 
 type MaxExecutionStepsError struct {
@@ -2223,7 +2223,7 @@ func (e *MaxExecutionStepsError) Error() string {
 }
 
 func (e *MaxExecutionStepsError) Is(err error) bool {
-	return err == ErrSandboxViolation
+	return err == ErrSandbox
 }
 
 // CheckAllocs returns an error if a change in allocations associated with this
