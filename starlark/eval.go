@@ -2210,12 +2210,20 @@ func (e *MaxAllocsError) Error() string {
 	return "exceeded memory allocation limits"
 }
 
+func (e *MaxAllocsError) Is(err error) bool {
+	return err == ErrSandboxViolation
+}
+
 type MaxExecutionStepsError struct {
 	Current, Max uint64
 }
 
 func (e *MaxExecutionStepsError) Error() string {
 	return "too many steps"
+}
+
+func (e *MaxExecutionStepsError) Is(err error) bool {
+	return err == ErrSandboxViolation
 }
 
 // CheckAllocs returns an error if a change in allocations associated with this

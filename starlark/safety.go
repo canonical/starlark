@@ -107,12 +107,18 @@ func (set Safety) Contains(subset Safety) bool {
 	return subset&^set == 0
 }
 
+var ErrSandboxViolation = errors.New("sandbox violation")
+
 type SafetyError struct {
 	Missing Safety
 }
 
 func (se SafetyError) Error() string {
 	return "feature unavailable to the sandbox"
+}
+
+func (se SafetyError) Is(err error) bool {
+	return err == ErrSandboxViolation
 }
 
 // CheckContains returns an error if the provided flags are not a subset of this set.
