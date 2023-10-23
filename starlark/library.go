@@ -1743,12 +1743,12 @@ func dict_keys(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	}
 	recv := b.Receiver().(*Dict)
 	len := recv.Len()
+	if err := thread.AddExecutionSteps(int64(len)); err != nil {
+		return nil, err
+	}
 	keysSize := EstimateMakeSize([]Value{}, len)
 	resultSize := EstimateSize(&List{})
 	if err := thread.AddAllocs(resultSize + keysSize); err != nil {
-		return nil, err
-	}
-	if err := thread.AddExecutionSteps(int64(len)); err != nil {
 		return nil, err
 	}
 	return NewList(recv.Keys()), nil
