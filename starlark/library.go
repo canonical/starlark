@@ -1717,9 +1717,9 @@ func dict_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		if err := thread.AddExecutionSteps(int64(len(recv.ht.table))); err != nil {
 			return nil, err
 		}
-		if err := recv.Clear(); err != nil {
-			return nil, err
-		}
+	}
+	if err := recv.Clear(); err != nil {
+		return nil, err
 	}
 	return None, nil
 }
