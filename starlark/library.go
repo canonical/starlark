@@ -232,9 +232,9 @@ var (
 		"rfind":          MemSafe | IOSafe,
 		"rindex":         MemSafe | IOSafe,
 		"rpartition":     MemSafe | IOSafe,
-		"rsplit":         MemSafe | IOSafe,
+		"rsplit":         MemSafe | IOSafe | CPUSafe,
 		"rstrip":         MemSafe | IOSafe,
-		"split":          MemSafe | IOSafe,
+		"split":          MemSafe | IOSafe | CPUSafe,
 		"splitlines":     MemSafe | IOSafe,
 		"startswith":     MemSafe | IOSafe,
 		"strip":          MemSafe | IOSafe,
@@ -2734,6 +2734,11 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	var res []string
 
 	if sep_ == nil || sep_ == None {
+		// A string with many consecutive spaces may need to be traversed
+		// completely, even when maxsplit >= 0.
+		if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+			return nil, err
+		}
 		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/2+1)); err != nil {
 			return nil, err
 		}
@@ -2752,6 +2757,11 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 			return nil, fmt.Errorf("split: empty separator")
 		}
 
+		// A string with many consecutive separators may need to be traversed
+		// completely, even when maxsplit >= 0.
+		if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+			return nil, err
+		}
 		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/len(sep)+1)); err != nil {
 			return nil, err
 		}
