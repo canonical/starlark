@@ -2615,6 +2615,7 @@ func TestDictItemsSteps(t *testing.T) {
 	if dict_items == nil {
 		t.Fatal("no such method: dict.items")
 	}
+
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
 	st.SetMinExecutionSteps(1)
