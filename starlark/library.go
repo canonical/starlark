@@ -1826,12 +1826,12 @@ func dict_values(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	}
 	recv := b.Receiver().(*Dict)
 	len := recv.Len()
+	if err := thread.AddExecutionSteps(int64(len)); err != nil {
+		return nil, err
+	}
 	valuesSize := EstimateMakeSize([]Value{}, len)
 	resultSize := EstimateSize(&List{})
 	if err := thread.AddAllocs(resultSize + valuesSize); err != nil {
-		return nil, err
-	}
-	if err := thread.AddExecutionSteps(int64(len)); err != nil {
 		return nil, err
 	}
 	return NewList(recv.Values()), nil
