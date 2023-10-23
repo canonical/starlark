@@ -225,13 +225,13 @@ var (
 		"join":           MemSafe | IOSafe,
 		"lower":          MemSafe | IOSafe,
 		"lstrip":         MemSafe | IOSafe,
-		"partition":      MemSafe | IOSafe,
+		"partition":      MemSafe | IOSafe | CPUSafe,
 		"removeprefix":   MemSafe | IOSafe,
 		"removesuffix":   MemSafe | IOSafe,
 		"replace":        MemSafe | IOSafe,
 		"rfind":          MemSafe | IOSafe,
 		"rindex":         MemSafe | IOSafe,
-		"rpartition":     MemSafe | IOSafe,
+		"rpartition":     MemSafe | IOSafe | CPUSafe,
 		"rsplit":         MemSafe | IOSafe,
 		"rstrip":         MemSafe | IOSafe,
 		"split":          MemSafe | IOSafe,
@@ -2514,6 +2514,9 @@ func string_partition(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 	if sep == "" {
 		return nil, nameErr(b, "empty separator")
 	}
+	if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
 	var i int
 	if b.Name()[0] == 'p' {
 		i = strings.Index(recv, sep) // partition
@@ -2535,6 +2538,11 @@ func string_partition(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 			tuple = append(tuple, String(""), String(""), String(recv))
 		}
 	} else {
+		if b.Name()[0] == 'p' {
+			thread.AddExecutionSteps(int64(i+len(sep)-len(recv)))
+		} else {
+			thread.AddExecutionSteps(int64(-i))
+		}
 		tuple = append(tuple, String(recv[:i]), String(recv[i:i+len(sep)]), String(recv[i+len(sep):]))
 	}
 	return tuple, nil

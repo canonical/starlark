@@ -3901,7 +3901,56 @@ func TestStringLstripAllocs(t *testing.T) {
 	testStringStripAllocs(t, "lstrip")
 }
 
-func testStringPartitionMethodSteps(t *testing.T) {
+func testStringPartitionMethodSteps(t *testing.T, name string) {
+	recv := starlark.String("don't communicate by sharing memory, share memory by communicating.")
+	string_partition, _ := recv.Attr(name)
+	if string_partition == nil {
+		t.Fatalf("no such method: string.%s", name)
+	}
+
+	t.Run("not-present", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(recv)))
+		st.SetMaxExecutionSteps(uint64(len(recv)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, string_partition, starlark.Tuple{starlark.String("channel")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("present", func(t *testing.T) {
+		var expectedSteps int
+		switch name {
+		case "partition":
+			expectedSteps = len("don't communicate by sharing memory")
+		case "rpartition":
+			expectedSteps = len("memory by communicating.")
+		default:
+			t.Fatalf("unrecognised method: string.%s", name)
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(expectedSteps))
+		st.SetMaxExecutionSteps(uint64(expectedSteps))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, string_partition, starlark.Tuple{starlark.String("memory")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+}
+
+func TestStringPartitionSteps(t *testing.T) {
+	testStringPartitionMethodSteps(t, "partition")
 }
 
 func testStringPartitionMethodAllocs(t *testing.T, name string) {
@@ -3938,9 +3987,6 @@ func testStringPartitionMethodAllocs(t *testing.T, name string) {
 			}
 		})
 	})
-}
-
-func TestStringPartitionSteps(t *testing.T) {
 }
 
 func TestStringPartitionAllocs(t *testing.T) {
@@ -4023,6 +4069,7 @@ func TestStringRindexAllocs(t *testing.T) {
 }
 
 func TestStringRpartitionSteps(t *testing.T) {
+	testStringPartitionMethodSteps(t, "rpartition")
 }
 
 func TestStringRpartitionAllocs(t *testing.T) {
