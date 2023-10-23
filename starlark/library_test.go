@@ -4161,23 +4161,43 @@ func TestStringSplitAllocs(t *testing.T) {
 }
 
 func TestStringSplitlinesSteps(t *testing.T) {
-	str := starlark.String("a\nb\nc\nd")
-	string_splitlines, _ := str.Attr("splitlines")
-	if string_splitlines == nil {
-		t.Fatal("no such method; string.splitlines")
-	}
+	t.Run("small", func(t *testing.T) {
+		str := starlark.String("a\nb\nc\nd")
+		string_splitlines, _ := str.Attr("splitlines")
+		if string_splitlines == nil {
+			t.Fatal("no such method: string.splitlines")
+		}
 
-	st := startest.From(t)
-	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(7)
-	st.SetMaxExecutionSteps(7)
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(str)))
+		st.SetMaxExecutionSteps(uint64(len(str)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, string_splitlines, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("large", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(2)
+		st.SetMaxExecutionSteps(2)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("a\n", st.N))
+			string_splitlines, _ := str.Attr("splitlines")
+			if string_splitlines == nil {
+				st.Error("no such method: string.splitlines")
+			}
 			_, err := starlark.Call(thread, string_splitlines, nil, nil)
 			if err != nil {
 				st.Error(err)
 			}
-		}
+		})
 	})
 }
 
