@@ -3256,7 +3256,48 @@ func TestStringIndexAllocs(t *testing.T) {
 	testStringFindMethodAllocs(t, "index")
 }
 
+func testStringIsSteps(t *testing.T, methodName, trueExample string, trueSteps int, falseExample string, falseSteps int) {
+	t.Run("true return", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(trueSteps))
+		st.SetMaxExecutionSteps(uint64(trueSteps))
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat(trueExample, st.N))
+			method, _ := str.Attr(methodName)
+			if method == nil {
+				st.Fatalf("no such method: string.%s", methodName)
+			}
+			_, err := starlark.Call(thread, method, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("false return", func(t *testing.T) {
+		method, _ := starlark.String(falseExample).Attr(methodName)
+		if method == nil {
+			t.Fatalf("no such method: string.%s", methodName)
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(falseSteps))
+		st.SetMaxExecutionSteps(uint64(falseSteps))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, method, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+}
+
 func TestStringIsalnumSteps(t *testing.T) {
+	testStringIsSteps(t, "isalnum", "a0", 2, "--", 1)
 }
 
 func TestStringIsalnumAllocs(t *testing.T) {
@@ -3280,6 +3321,7 @@ func TestStringIsalnumAllocs(t *testing.T) {
 }
 
 func TestStringIsalphaSteps(t *testing.T) {
+	testStringIsSteps(t, "isalpha", "aa", 2, "--", 1)
 }
 
 func TestStringIsalphaAllocs(t *testing.T) {
@@ -3303,6 +3345,7 @@ func TestStringIsalphaAllocs(t *testing.T) {
 }
 
 func TestStringIsdigitSteps(t *testing.T) {
+	testStringIsSteps(t, "isdigit", "00", 2, "aa", 1)
 }
 
 func TestStringIsdigitAllocs(t *testing.T) {
@@ -3326,6 +3369,7 @@ func TestStringIsdigitAllocs(t *testing.T) {
 }
 
 func TestStringIslowerSteps(t *testing.T) {
+	testStringIsSteps(t, "islower", "aa", 2, "AA", 2)
 }
 
 func TestStringIslowerAllocs(t *testing.T) {
@@ -3349,6 +3393,7 @@ func TestStringIslowerAllocs(t *testing.T) {
 }
 
 func TestStringIsspaceSteps(t *testing.T) {
+	testStringIsSteps(t, "isspace", "  ", 2, "--", 1)
 }
 
 func TestStringIsspaceAllocs(t *testing.T) {
@@ -3372,6 +3417,7 @@ func TestStringIsspaceAllocs(t *testing.T) {
 }
 
 func TestStringIstitleSteps(t *testing.T) {
+	testStringIsSteps(t, "istitle", "Ab ", 3, "aa", 1)
 }
 
 func TestStringIstitleAllocs(t *testing.T) {
@@ -3395,6 +3441,7 @@ func TestStringIstitleAllocs(t *testing.T) {
 }
 
 func TestStringIsupperSteps(t *testing.T) {
+	testStringIsSteps(t, "isupper", "AA", 2, "aa", 2)
 }
 
 func TestStringIsupperAllocs(t *testing.T) {
