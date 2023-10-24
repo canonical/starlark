@@ -141,7 +141,7 @@ var (
 		"get":        MemSafe | IOSafe | CPUSafe,
 		"items":      MemSafe | IOSafe,
 		"keys":       MemSafe | IOSafe | CPUSafe,
-		"pop":        MemSafe | IOSafe,
+		"pop":        MemSafe | IOSafe | CPUSafe,
 		"popitem":    MemSafe | IOSafe,
 		"setdefault": MemSafe | IOSafe,
 		"update":     MemSafe | IOSafe,
@@ -1778,12 +1778,12 @@ func dict_keys(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·pop
-func dict_pop(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_pop(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var k, d Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &k, &d); err != nil {
 		return nil, err
 	}
-	if v, found, err := b.Receiver().(*Dict).Delete(k); err != nil {
+	if v, found, err := b.Receiver().(*Dict).ht.delete(thread, k); err != nil {
 		return nil, nameErr(b, err) // dict is frozen or key is unhashable
 	} else if found {
 		return v, nil
