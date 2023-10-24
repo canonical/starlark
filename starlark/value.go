@@ -1378,6 +1378,24 @@ func (s *Set) Difference(other Iterator) (Value, error) {
 	return diff, nil
 }
 
+func (s *Set) safeDifference(thread *Thread, other Iterator) (Value, error) {
+	if err := CheckSafety(thread, MemSafe | IOSafe); err != nil {
+		return nil, err
+	}
+
+	diff, err := s.clone(thread)
+	if err != nil {
+		return nil, err
+	}
+	var x Value
+	for other.Next(&x) {
+		if _, err := diff.Delete(x); err != nil {
+			return nil, err
+		}
+	}
+	return diff, nil
+}
+
 func (s *Set) IsSuperset(other Iterator) (bool, error) {
 	var x Value
 	for other.Next(&x) {
