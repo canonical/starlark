@@ -4910,15 +4910,15 @@ func TestSetAddAllocs(t *testing.T) {
 }
 
 func TestSetClearSteps(t *testing.T) {
-	const setSize = 200
-
-	set := starlark.NewSet(setSize)
-	set_clear, _ := set.Attr("clear")
-	if set_clear == nil {
-		t.Fatal("no such method: set.clear")
-	}
+	const smallSetSize = 200
 
 	t.Run("empty", func(t *testing.T) {
+		set := starlark.NewSet(smallSetSize)
+		set_clear, _ := set.Attr("clear")
+		if set_clear == nil {
+			t.Fatal("no such method: set.clear")
+		}
+
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
 		st.SetMaxExecutionSteps(0)
@@ -4933,18 +4933,45 @@ func TestSetClearSteps(t *testing.T) {
 	})
 
 	t.Run("not-empty", func(t *testing.T) {
-		st := startest.From(t)
-		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(setSize / 8)
-		st.SetMaxExecutionSteps(2 * setSize / 8)
-		st.RunThread(func(thread *starlark.Thread) {
-			for i := 0; i < st.N; i++ {
+		t.Run("small", func(t *testing.T) {
+			set := starlark.NewSet(smallSetSize)
+			set_clear, _ := set.Attr("clear")
+			if set_clear == nil {
+				t.Fatal("no such method: set.clear")
+			}
+
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(smallSetSize / 8)
+			st.SetMaxExecutionSteps(2 * smallSetSize / 8)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					set.Insert(starlark.None)
+					_, err := starlark.Call(thread, set_clear, nil, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+
+		t.Run("big", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(2)
+			st.RunThread(func(thread *starlark.Thread) {
+				set := starlark.NewSet(st.N * 8)
+				set_clear, _ := set.Attr("clear")
+				if set_clear == nil {
+					t.Fatal("no such method: set.clear")
+				}
 				set.Insert(starlark.None)
 				_, err := starlark.Call(thread, set_clear, nil, nil)
 				if err != nil {
 					st.Error(err)
 				}
-			}
+			})
 		})
 	})
 }
