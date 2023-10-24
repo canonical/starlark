@@ -281,9 +281,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	prevN, elapsed := int64(0), time.Duration(0)
 	for allocSum < memoryMax+valueTrackerAllocs && prevN < nMax && elapsed < timeMax {
 		var n int64
-		if nSum == 0 {
-			n = 1
-		} else {
+		if nSum != 0 {
 			n = prevN * 2
 
 			allocsPerN := int64(uint64(allocSum) / nSum)
@@ -303,6 +301,9 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 			if n > timeLimitN {
 				n = timeLimitN
 			}
+		}
+		if n == 0 {
+			n = 1
 		}
 
 		var alive []interface{}
