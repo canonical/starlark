@@ -1593,7 +1593,7 @@ func TestRangeAllocs(t *testing.T) {
 			}
 			st.KeepAlive(result)
 
-			iter, err := starlark.SafeIterate(thread, result, starlark.Default)
+			iter, err := starlark.SafeIterate(thread, result)
 			if err != nil {
 				st.Error(err)
 			}
@@ -2415,7 +2415,7 @@ func TestBytesElemsAllocs(t *testing.T) {
 			if err != nil {
 				st.Fatal(err)
 			}
-			iter, err := starlark.SafeIterate(thread, elems, starlark.Default)
+			iter, err := starlark.SafeIterate(thread, elems)
 			if err != nil {
 				st.Fatal(err)
 			}
@@ -4802,7 +4802,7 @@ func TestSafeIterateSteps(t *testing.T) {
 				return starlark.MakeInt(n), nil
 			},
 		}
-		iter, err := starlark.SafeIterate(nil, iterable, starlark.CountSteps)
+		iter, err := starlark.SafeIterate(nil, iterable)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -4829,7 +4829,7 @@ func TestSafeIterateSteps(t *testing.T) {
 					return starlark.MakeInt(n), nil
 				},
 			}
-			iter, err := starlark.SafeIterate(thread, iterable, starlark.CountSteps)
+			iter, err := starlark.SafeIterate(thread, iterable)
 			if err != nil {
 				st.Fatal(err)
 			}
@@ -4854,7 +4854,7 @@ func TestSafeIterateAllocs(t *testing.T) {
 					return starlark.True, nil
 				},
 			}
-			it, err := starlark.SafeIterate(thread, nonAllocating, starlark.Default)
+			it, err := starlark.SafeIterate(thread, nonAllocating)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -4884,7 +4884,7 @@ func TestSafeIterateAllocs(t *testing.T) {
 					return make(starlark.Tuple, 16), nil
 				},
 			}
-			it, err := starlark.SafeIterate(thread, allocating, starlark.Default)
+			it, err := starlark.SafeIterate(thread, allocating)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -4920,7 +4920,7 @@ func TestTupleIteration(t *testing.T) {
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			it, err := starlark.SafeIterate(thread, tupleAsValue, starlark.Default)
+			it, err := starlark.SafeIterate(thread, tupleAsValue)
 			if err != nil {
 				st.Fatal(err)
 			}
