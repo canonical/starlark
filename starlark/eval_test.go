@@ -1528,7 +1528,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 				l := starlark.NewSet(2 * n)
 				r := starlark.NewSet(n)
 				for i := 0; i < n; i++ {
-					toRetain := starlark.MakeInt(2*i)
+					toRetain := starlark.MakeInt(2 * i)
 					if thread != nil {
 						if err := thread.AddAllocs(starlark.EstimateSize(toRetain)); err != nil {
 							return nil, 0, nil, err
@@ -1536,7 +1536,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 					}
 					l.Insert(toRetain)
 
-					toBeDiscarded := starlark.MakeInt(2*i+1)
+					toBeDiscarded := starlark.MakeInt(2*i + 1)
 					l.Insert(toBeDiscarded)
 					r.Insert(toBeDiscarded)
 				}
@@ -1686,7 +1686,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 			},
 		}, {
 			name: "int * tuple",
-			inputs: func(n int) (starlark.Value,syntax.Token, starlark.Value) {
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				sqrtN := int(math.Sqrt(float64(n)))
 				l := starlark.MakeInt(sqrtN)
 				r := make(starlark.Tuple, sqrtN)
@@ -1697,7 +1697,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 			},
 		}, {
 			name: "tuple * int",
-			inputs: func(n int) (starlark.Value,syntax.Token, starlark.Value) {
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				sqrtN := int(math.Sqrt(float64(n)))
 				l := make(starlark.Tuple, sqrtN)
 				for i := 0; i < len(l); i++ {
