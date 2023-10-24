@@ -159,7 +159,7 @@ var (
 	}
 	listMethodSafeties = map[string]Safety{
 		"append": MemSafe | IOSafe,
-		"clear":  MemSafe | IOSafe,
+		"clear":  MemSafe | IOSafe | CPUSafe,
 		"extend": MemSafe | IOSafe,
 		"index":  MemSafe | IOSafe,
 		"insert": MemSafe | IOSafe,
@@ -1892,11 +1892,15 @@ func list_append(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·clear
-func list_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	if err := b.Receiver().(*List).Clear(); err != nil {
+	recv := b.Receiver().(*List)
+	if err := thread.AddExecutionSteps(int64(recv.Len())); err != nil {
+		return nil, err
+	}
+	if err := recv.Clear(); err != nil {
 		return nil, nameErr(b, err)
 	}
 	return None, nil
