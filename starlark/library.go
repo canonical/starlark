@@ -2942,9 +2942,9 @@ func set_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		if err := thread.AddExecutionSteps(int64(len(recv.ht.table))); err != nil {
 			return nil, err
 		}
-		if err := recv.Clear(); err != nil {
-			return nil, nameErr(b, err)
-		}
+	}
+	if err := recv.Clear(); err != nil {
+		return nil, nameErr(b, err)
 	}
 	return None, nil
 }
