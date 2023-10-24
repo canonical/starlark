@@ -2539,9 +2539,9 @@ func string_partition(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 		}
 	} else {
 		if b.Name()[0] == 'p' {
-			thread.AddExecutionSteps(int64(i+len(sep)-len(recv)))
+			thread.AddExecutionSteps(-int64(len(recv) - len(sep) - i))
 		} else {
-			thread.AddExecutionSteps(int64(-i))
+			thread.AddExecutionSteps(-int64(i))
 		}
 		tuple = append(tuple, String(recv[:i]), String(recv[i:i+len(sep)]), String(recv[i+len(sep):]))
 	}
