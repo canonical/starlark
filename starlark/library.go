@@ -139,7 +139,7 @@ var (
 	dictMethodSafeties = map[string]Safety{
 		"clear":      MemSafe | IOSafe | CPUSafe,
 		"get":        MemSafe | IOSafe | CPUSafe,
-		"items":      MemSafe | IOSafe,
+		"items":      MemSafe | IOSafe | CPUSafe,
 		"keys":       MemSafe | IOSafe | CPUSafe,
 		"pop":        MemSafe | IOSafe | CPUSafe,
 		"popitem":    MemSafe | IOSafe,
@@ -1747,6 +1747,9 @@ func dict_items(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 	}
 	receiver := b.Receiver().(*Dict)
 	len := receiver.Len()
+	if err := thread.AddExecutionSteps(int64(len)); err != nil {
+		return nil, err
+	}
 	// dict.Items() allocates a single backing array for the tuples.
 	arraySize := EstimateMakeSize([]Value{}, len*2)
 	itemSize := EstimateMakeSize([]Value{Tuple{}}, len)
