@@ -376,6 +376,9 @@ func (ht *hashtable) clear() error {
 	if err := ht.checkMutable("clear"); err != nil {
 		return err
 	}
+	if ht.len == 0 {
+		return nil
+	}
 	if ht.table != nil {
 		for i := range ht.table {
 			ht.table[i] = bucket{}

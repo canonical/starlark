@@ -86,12 +86,12 @@ func init() {
 		"dir":       MemSafe | IOSafe,
 		"enumerate": MemSafe | IOSafe,
 		"fail":      MemSafe | IOSafe,
-		"float":     MemSafe | IOSafe,
+		"float":     MemSafe | IOSafe | CPUSafe,
 		"getattr":   MemSafe | IOSafe,
 		"hasattr":   MemSafe | IOSafe,
 		"hash":      MemSafe | IOSafe | CPUSafe,
 		"int":       MemSafe | IOSafe | CPUSafe,
-		"len":       MemSafe | IOSafe,
+		"len":       MemSafe | IOSafe | CPUSafe,
 		"list":      MemSafe | IOSafe,
 		"max":       MemSafe | IOSafe,
 		"min":       MemSafe | IOSafe,
@@ -137,15 +137,15 @@ var (
 		"values":     NewBuiltin("values", dict_values),
 	}
 	dictMethodSafeties = map[string]Safety{
-		"clear":      MemSafe | IOSafe,
+		"clear":      MemSafe | IOSafe | CPUSafe,
 		"get":        MemSafe | IOSafe | CPUSafe,
 		"items":      MemSafe | IOSafe,
-		"keys":       MemSafe | IOSafe,
+		"keys":       MemSafe | IOSafe | CPUSafe,
 		"pop":        MemSafe | IOSafe,
 		"popitem":    MemSafe | IOSafe,
 		"setdefault": MemSafe | IOSafe,
 		"update":     MemSafe | IOSafe,
-		"values":     MemSafe | IOSafe,
+		"values":     MemSafe | IOSafe | CPUSafe,
 	}
 
 	listMethods = map[string]*Builtin{
@@ -678,6 +678,9 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	case String:
 		if x == "" {
 			return nil, fmt.Errorf("float: empty string")
+		}
+		if err := thread.AddExecutionSteps(int64(len(x))); err != nil {
+			return nil, err
 		}
 		// +/- NaN or Inf or Infinity (case insensitive)?
 		s := string(x)
@@ -1716,7 +1719,7 @@ func dict_get(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·clear
-func dict_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	// From the memory safety POV, dict_clear releases all the references to
 	// the values inside of it, but we cannot really assess if that memory
 	// is actually released. Space for the buckets is not released, so no point
@@ -1725,7 +1728,16 @@ func dict_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	return None, b.Receiver().(*Dict).Clear()
+	recv := b.Receiver().(*Dict)
+	if recv.Len() > 0 {
+		if err := thread.AddExecutionSteps(int64(len(recv.ht.table))); err != nil {
+			return nil, err
+		}
+	}
+	if err := recv.Clear(); err != nil {
+		return nil, err
+	}
+	return None, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·items
@@ -1759,13 +1771,17 @@ func dict_keys(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	dict := b.Receiver().(*Dict)
-	keysSize := EstimateMakeSize([]Value{}, dict.Len())
+	recv := b.Receiver().(*Dict)
+	len := recv.Len()
+	if err := thread.AddExecutionSteps(int64(len)); err != nil {
+		return nil, err
+	}
+	keysSize := EstimateMakeSize([]Value{}, len)
 	resultSize := EstimateSize(&List{})
 	if err := thread.AddAllocs(resultSize + keysSize); err != nil {
 		return nil, err
 	}
-	return NewList(dict.Keys()), nil
+	return NewList(recv.Keys()), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·pop
@@ -1842,13 +1858,17 @@ func dict_values(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	dict := b.Receiver().(*Dict)
-	valuesSize := EstimateMakeSize([]Value{}, dict.Len())
+	recv := b.Receiver().(*Dict)
+	len := recv.Len()
+	if err := thread.AddExecutionSteps(int64(len)); err != nil {
+		return nil, err
+	}
+	valuesSize := EstimateMakeSize([]Value{}, len)
 	resultSize := EstimateSize(&List{})
 	if err := thread.AddAllocs(resultSize + valuesSize); err != nil {
 		return nil, err
 	}
-	return NewList(dict.Values()), nil
+	return NewList(recv.Values()), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·append
