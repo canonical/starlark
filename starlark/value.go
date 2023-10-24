@@ -697,8 +697,8 @@ func (it *stringElemsIterator) Next(p *Value) bool {
 
 func (*stringElemsIterator) Done() {}
 
-func (it *stringElemsIterator) Err() error     { return nil }
-func (it *stringElemsIterator) Safety() Safety { return NotSafe }
+func (it *stringElemsIterator) Err() error          { return nil }
+func (it *stringElemsIterator) Safety() SafetyFlags { return NotSafe }
 
 // A stringCodepoints is an iterable whose iterator yields a sequence of
 // Unicode code points, either numerically or as successive substrings.
@@ -743,8 +743,8 @@ func (it *stringCodepointsIterator) Next(p *Value) bool {
 
 func (*stringCodepointsIterator) Done() {}
 
-func (it *stringCodepointsIterator) Err() error     { return nil }
-func (it *stringCodepointsIterator) Safety() Safety { return NotSafe }
+func (it *stringCodepointsIterator) Err() error          { return nil }
+func (it *stringCodepointsIterator) Safety() SafetyFlags { return NotSafe }
 
 // A Function is a function defined by a Starlark def statement or lambda expression.
 // The initialization behavior of a Starlark module is also represented by a Function.
@@ -836,7 +836,7 @@ func (fn *Function) HasKwargs() bool  { return fn.funcode.HasKwargs }
 
 const nativeSafe = safetyFlagsLimit - 1
 
-func (fn *Function) Safety() Safety { return nativeSafe }
+func (fn *Function) Safety() SafetyFlags { return nativeSafe }
 
 // A Builtin is a function implemented in Go.
 type Builtin struct {
@@ -844,7 +844,7 @@ type Builtin struct {
 	fn   func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	recv Value // for bound methods (e.g. "".startswith)
 
-	safety Safety
+	safety SafetyFlags
 }
 
 func (b *Builtin) Name() string { return b.name }
@@ -868,8 +868,8 @@ func (b *Builtin) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Valu
 }
 func (b *Builtin) Truth() Bool { return true }
 
-func (b *Builtin) Safety() Safety              { return b.safety }
-func (b *Builtin) DeclareSafety(safety Safety) { b.safety = safety }
+func (b *Builtin) Safety() SafetyFlags              { return b.safety }
+func (b *Builtin) DeclareSafety(safety SafetyFlags) { b.safety = safety }
 
 // NewBuiltin returns a new 'builtin_function_or_method' value with the specified name
 // and implementation.  It compares unequal with all other values.
@@ -884,7 +884,7 @@ func NewBuiltin(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kw
 //
 // This function is equivalent to calling NewBuiltin and DeclareSafety on its
 // result.
-func NewBuiltinWithSafety(name string, safety Safety, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error)) *Builtin {
+func NewBuiltinWithSafety(name string, safety SafetyFlags, fn func(*Thread, *Builtin, Tuple, []Tuple) (Value, error)) *Builtin {
 	return &Builtin{name: name, fn: fn, safety: safety}
 }
 
@@ -1129,7 +1129,7 @@ func (it *listIterator) Done() {
 	}
 }
 
-func (it *listIterator) Safety() Safety            { return MemSafe }
+func (it *listIterator) Safety() SafetyFlags       { return MemSafe }
 func (it *listIterator) BindThread(thread *Thread) {}
 func (it *listIterator) Err() error                { return nil }
 
@@ -1234,7 +1234,7 @@ func (it *tupleIterator) Done() {}
 
 func (it *tupleIterator) BindThread(thread *Thread) {}
 func (it *tupleIterator) Err() error                { return nil }
-func (it *tupleIterator) Safety() Safety            { return MemSafe }
+func (it *tupleIterator) Safety() SafetyFlags       { return MemSafe }
 
 // A Set represents a Starlark set value.
 // The zero value of Set is a valid empty set.
@@ -1379,7 +1379,7 @@ func (s *Set) Difference(other Iterator) (Value, error) {
 }
 
 func (s *Set) safeDifference(thread *Thread, other Iterator) (Value, error) {
-	if err := CheckSafety(thread, MemSafe | IOSafe); err != nil {
+	if err := CheckSafety(thread, MemSafe|IOSafe); err != nil {
 		return nil, err
 	}
 

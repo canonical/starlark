@@ -1213,14 +1213,14 @@ func TestThreadPermits(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(threadSafety)
 
-		if thread.Permits(starlark.Safety(0xbad1091c) | threadSafety) {
+		if thread.Permits(starlark.SafetyFlags(0xbad1091c) | threadSafety) {
 			t.Errorf("invalid safety permitted")
 		}
 	})
 
 	t.Run("ThreadSafety=Invalid", func(t *testing.T) {
 		thread := &starlark.Thread{}
-		const invalidSafety = starlark.Safety(0xa19ae)
+		const invalidSafety = starlark.SafetyFlags(0xa19ae)
 		thread.RequireSafety(invalidSafety)
 
 		if thread.Permits(starlark.Safe) {
@@ -1254,7 +1254,7 @@ func TestThreadCheckPermits(t *testing.T) {
 			t.Errorf("thread failed to report that insufficient safety is unsafe")
 		} else if err.Error() != "feature unavailable to the sandbox" {
 			t.Errorf("unexpected error: %v", err)
-		} else if safetyErr, ok := err.(*starlark.SafetyError); !ok {
+		} else if safetyErr, ok := err.(*starlark.SafetyFlagsError); !ok {
 			t.Errorf("expected starlark.SafetyError, got a %T: %v", err, err)
 		} else if expectedMissing := threadSafety &^ forbiddenSafety; safetyErr.Missing != expectedMissing {
 			t.Errorf("incorrect reported missing flags: expected %v but got %v", expectedMissing, safetyErr.Missing)
@@ -1264,7 +1264,7 @@ func TestThreadCheckPermits(t *testing.T) {
 	t.Run("Safety=Invalid", func(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(threadSafety)
-		const invalidSafety = starlark.Safety(0xbad1091c)
+		const invalidSafety = starlark.SafetyFlags(0xbad1091c)
 
 		if err := thread.CheckPermits(invalidSafety | threadSafety); err == nil {
 			t.Errorf("expected error checking invalid flags")
@@ -1275,7 +1275,7 @@ func TestThreadCheckPermits(t *testing.T) {
 
 	t.Run("ThreadSafety=Invalid", func(t *testing.T) {
 		thread := &starlark.Thread{}
-		const invalidSafety = starlark.Safety(0xa19ae)
+		const invalidSafety = starlark.SafetyFlags(0xa19ae)
 		thread.RequireSafety(invalidSafety)
 
 		if err := thread.CheckPermits(starlark.Safe); err == nil {
@@ -1528,7 +1528,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 				l := starlark.NewSet(2 * n)
 				r := starlark.NewSet(n)
 				for i := 0; i < n; i++ {
-					toRetain := starlark.MakeInt(2*i)
+					toRetain := starlark.MakeInt(2 * i)
 					if thread != nil {
 						if err := thread.AddAllocs(starlark.EstimateSize(toRetain)); err != nil {
 							return nil, 0, nil, err
@@ -1536,7 +1536,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 					}
 					l.Insert(toRetain)
 
-					toBeDiscarded := starlark.MakeInt(2*i+1)
+					toBeDiscarded := starlark.MakeInt(2*i + 1)
 					l.Insert(toBeDiscarded)
 					r.Insert(toBeDiscarded)
 				}
@@ -1686,7 +1686,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 			},
 		}, {
 			name: "int * tuple",
-			inputs: func(n int) (starlark.Value,syntax.Token, starlark.Value) {
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				sqrtN := int(math.Sqrt(float64(n)))
 				l := starlark.MakeInt(sqrtN)
 				r := make(starlark.Tuple, sqrtN)
@@ -1697,7 +1697,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 			},
 		}, {
 			name: "tuple * int",
-			inputs: func(n int) (starlark.Value,syntax.Token, starlark.Value) {
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				sqrtN := int(math.Sqrt(float64(n)))
 				l := make(starlark.Tuple, sqrtN)
 				for i := 0; i < len(l); i++ {

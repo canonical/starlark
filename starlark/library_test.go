@@ -53,7 +53,7 @@ func TestSetMethodSafeties(t *testing.T) {
 	testBuiltinSafeties(t, "set", starlark.SetMethods, starlark.SetMethodSafeties)
 }
 
-func testBuiltinSafeties(t *testing.T, recvName string, builtins map[string]*starlark.Builtin, safeties map[string]starlark.Safety) {
+func testBuiltinSafeties(t *testing.T, recvName string, builtins map[string]*starlark.Builtin, safeties map[string]starlark.SafetyFlags) {
 	for name, builtin := range builtins {
 		if safety, ok := safeties[name]; !ok {
 			t.Errorf("builtin %s.%s has no safety declaration", recvName, name)
@@ -105,7 +105,7 @@ type testIterator struct {
 var _ starlark.SafeIterator = &testIterator{}
 
 func (it *testIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
-func (it *testIterator) Safety() starlark.Safety {
+func (it *testIterator) Safety() starlark.SafetyFlags {
 	if it.thread == nil {
 		return starlark.NotSafe
 	}

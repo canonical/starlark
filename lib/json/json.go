@@ -81,7 +81,7 @@ var Module = &starlarkstruct.Module{
 		"indent": starlark.NewBuiltin("json.indent", indent),
 	},
 }
-var safeties = map[string]starlark.Safety{
+var safeties = map[string]starlark.SafetyFlags{
 	"encode": starlark.IOSafe,
 	"decode": starlark.MemSafe | starlark.IOSafe,
 	"indent": starlark.MemSafe | starlark.IOSafe,

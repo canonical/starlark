@@ -62,7 +62,7 @@ func TestTimeNowSafety(t *testing.T) {
 	tests := []struct {
 		name          string
 		thread        *starlark.Thread
-		nowFuncSafety starlark.Safety
+		nowFuncSafety starlark.SafetyFlags
 		expect        string
 	}{{
 		name:          "default",

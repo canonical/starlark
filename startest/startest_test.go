@@ -556,14 +556,14 @@ func TestRequireSafetyDefault(t *testing.T) {
 	})
 
 	t.Run("safety=insufficient", func(t *testing.T) {
-		safetyTest := func(t *testing.T, toTest func(starlark.Safety)) {
-			for flag := starlark.Safety(1); flag < safe; flag <<= 1 {
+		safetyTest := func(t *testing.T, toTest func(starlark.SafetyFlags)) {
+			for flag := starlark.SafetyFlags(1); flag < safe; flag <<= 1 {
 				toTest(safe &^ flag)
 			}
 		}
 
 		t.Run("method=RunThread", func(t *testing.T) {
-			safetyTest(t, func(safety starlark.Safety) {
+			safetyTest(t, func(safety starlark.SafetyFlags) {
 				st := startest.From(t)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.CheckPermits(safety); err == nil {
@@ -574,7 +574,7 @@ func TestRequireSafetyDefault(t *testing.T) {
 		})
 
 		t.Run("method=RunString", func(t *testing.T) {
-			safetyTest(t, func(safety starlark.Safety) {
+			safetyTest(t, func(safety starlark.SafetyFlags) {
 				const expected = "cannot call builtin 'fn': feature unavailable to the sandbox"
 
 				fn := starlark.NewBuiltinWithSafety("fn", safety, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {

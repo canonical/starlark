@@ -79,7 +79,7 @@ type Thread struct {
 
 	// requiredSafety holds the set of safety conditions which must be
 	// satisfied by any builtin which is called when running this thread.
-	requiredSafety Safety
+	requiredSafety SafetyFlags
 }
 
 // ExecutionSteps returns the current value of Steps.
@@ -158,7 +158,7 @@ func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 	}
 
 	if thread.maxSteps != 0 && nextExecutionSteps > thread.maxSteps {
-		return nextExecutionSteps, &MaxExecutionStepsError{
+		return nextExecutionSteps, &ExecutionStepsSafetyError{
 			Current: thread.steps,
 			Max:     thread.maxSteps,
 		}
@@ -181,7 +181,7 @@ func (thread *Thread) SetMaxAllocs(max uint64) {
 
 // RequireSafety makes the thread only accept functions that declare at least
 // the provided safety.
-func (thread *Thread) RequireSafety(safety Safety) {
+func (thread *Thread) RequireSafety(safety SafetyFlags) {
 	thread.requiredSafety |= safety
 }
 
@@ -2202,28 +2202,28 @@ func interpolate(format string, x Value) (Value, error) {
 	return String(buf.String()), nil
 }
 
-type MaxAllocsError struct {
+type AllocsSafetyError struct {
 	Current, Max uint64
 }
 
-func (e *MaxAllocsError) Error() string {
+func (e *AllocsSafetyError) Error() string {
 	return "exceeded memory allocation limits"
 }
 
-func (e *MaxAllocsError) Is(err error) bool {
-	return err == ErrSandbox
+func (e *AllocsSafetyError) Is(err error) bool {
+	return err == ErrSafety
 }
 
-type MaxExecutionStepsError struct {
+type ExecutionStepsSafetyError struct {
 	Current, Max uint64
 }
 
-func (e *MaxExecutionStepsError) Error() string {
+func (e *ExecutionStepsSafetyError) Error() string {
 	return "too many steps"
 }
 
-func (e *MaxExecutionStepsError) Is(err error) bool {
-	return err == ErrSandbox
+func (e *ExecutionStepsSafetyError) Is(err error) bool {
+	return err == ErrSafety
 }
 
 // CheckAllocs returns an error if a change in allocations associated with this
@@ -2290,7 +2290,7 @@ func (thread *Thread) simulateAllocs(delta int64) (uint64, error) {
 	}
 
 	if thread.maxAllocs != 0 && nextAllocs > thread.maxAllocs {
-		return nextAllocs, &MaxAllocsError{
+		return nextAllocs, &AllocsSafetyError{
 			Current: thread.allocs,
 			Max:     thread.maxAllocs,
 		}

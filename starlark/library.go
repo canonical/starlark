@@ -32,7 +32,7 @@ import (
 // All values in the dictionary must be immutable.
 // Starlark programs cannot modify the dictionary.
 var Universe StringDict
-var universeSafeties map[string]Safety
+var universeSafeties map[string]SafetyFlags
 
 var ErrUnsupported = errors.New("unsupported operation")
 var ErrNoSuchAttr = errors.New("no such attribute")
@@ -75,7 +75,7 @@ func init() {
 		"zip":       NewBuiltin("zip", zip),
 	}
 
-	universeSafeties = map[string]Safety{
+	universeSafeties = map[string]SafetyFlags{
 		"abs":       MemSafe | IOSafe | CPUSafe,
 		"any":       MemSafe | IOSafe,
 		"all":       MemSafe | IOSafe,
@@ -121,7 +121,7 @@ var (
 	bytesMethods = map[string]*Builtin{
 		"elems": NewBuiltin("elems", bytes_elems),
 	}
-	bytesMethodSafeties = map[string]Safety{
+	bytesMethodSafeties = map[string]SafetyFlags{
 		"elems": MemSafe | IOSafe,
 	}
 
@@ -136,7 +136,7 @@ var (
 		"update":     NewBuiltin("update", dict_update),
 		"values":     NewBuiltin("values", dict_values),
 	}
-	dictMethodSafeties = map[string]Safety{
+	dictMethodSafeties = map[string]SafetyFlags{
 		"clear":      MemSafe | IOSafe,
 		"get":        MemSafe | IOSafe | CPUSafe,
 		"items":      MemSafe | IOSafe,
@@ -157,7 +157,7 @@ var (
 		"pop":    NewBuiltin("pop", list_pop),
 		"remove": NewBuiltin("remove", list_remove),
 	}
-	listMethodSafeties = map[string]Safety{
+	listMethodSafeties = map[string]SafetyFlags{
 		"append": MemSafe | IOSafe,
 		"clear":  MemSafe | IOSafe,
 		"extend": MemSafe | IOSafe,
@@ -204,7 +204,7 @@ var (
 		"title":          NewBuiltin("title", string_title),
 		"upper":          NewBuiltin("upper", string_upper),
 	}
-	stringMethodSafeties = map[string]Safety{
+	stringMethodSafeties = map[string]SafetyFlags{
 		"capitalize":     MemSafe | IOSafe,
 		"codepoint_ords": MemSafe | IOSafe,
 		"codepoints":     MemSafe | IOSafe,
@@ -255,7 +255,7 @@ var (
 		"symmetric_difference": NewBuiltin("symmetric_difference", set_symmetric_difference),
 		"union":                NewBuiltin("union", set_union),
 	}
-	setMethodSafeties = map[string]Safety{
+	setMethodSafeties = map[string]SafetyFlags{
 		"add":                  MemSafe | IOSafe,
 		"clear":                MemSafe | IOSafe,
 		"difference":           MemSafe | IOSafe,
@@ -1309,7 +1309,7 @@ func (it *rangeIterator) Next(p *Value) bool {
 func (*rangeIterator) Done() {}
 
 func (it *rangeIterator) Err() error { return it.err }
-func (it *rangeIterator) Safety() Safety {
+func (it *rangeIterator) Safety() SafetyFlags {
 	if it.thread == nil {
 		return NotSafe
 	}
@@ -2103,8 +2103,8 @@ func (it *bytesIterator) Next(p *Value) bool {
 
 func (*bytesIterator) Done() {}
 
-func (it *bytesIterator) Err() error     { return it.err }
-func (it *bytesIterator) Safety() Safety { return MemSafe }
+func (it *bytesIterator) Err() error          { return it.err }
+func (it *bytesIterator) Safety() SafetyFlags { return MemSafe }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·count
 func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
