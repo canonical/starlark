@@ -140,7 +140,7 @@ var (
 		"clear":      MemSafe | IOSafe | CPUSafe,
 		"get":        MemSafe | IOSafe | CPUSafe,
 		"items":      MemSafe | IOSafe,
-		"keys":       MemSafe | IOSafe,
+		"keys":       MemSafe | IOSafe | CPUSafe,
 		"pop":        MemSafe | IOSafe,
 		"popitem":    MemSafe | IOSafe,
 		"setdefault": MemSafe | IOSafe,
@@ -1764,13 +1764,17 @@ func dict_keys(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	dict := b.Receiver().(*Dict)
-	keysSize := EstimateMakeSize([]Value{}, dict.Len())
+	recv := b.Receiver().(*Dict)
+	len := recv.Len()
+	if err := thread.AddExecutionSteps(int64(len)); err != nil {
+		return nil, err
+	}
+	keysSize := EstimateMakeSize([]Value{}, len)
 	resultSize := EstimateSize(&List{})
 	if err := thread.AddAllocs(resultSize + keysSize); err != nil {
 		return nil, err
 	}
-	return NewList(dict.Keys()), nil
+	return NewList(recv.Keys()), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·pop
