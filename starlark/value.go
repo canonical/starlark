@@ -1912,7 +1912,6 @@ func SafeIterate(thread *Thread, x Value) (Iterator, error) {
 		if thread != nil {
 			if safeIter, ok := iter.(SafeIterator); ok {
 				safeIter.BindThread(thread)
-
 				if err := thread.CheckPermits(safeIter); err != nil {
 					return nil, err
 				}
@@ -1921,7 +1920,8 @@ func SafeIterate(thread *Thread, x Value) (Iterator, error) {
 					safeIter.BindThread(thread)
 				}
 				return safeIter, nil
-			} else if err := thread.CheckPermits(NotSafe); err != nil {
+			}
+			if err := thread.CheckPermits(NotSafe); err != nil {
 				return nil, err
 			}
 		}
