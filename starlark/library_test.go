@@ -1992,18 +1992,20 @@ func TestReversedAllocs(t *testing.T) {
 	t.Run("small-result", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-
-		iter := &testIterable{
-			maxN: 10,
-			nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-				res := starlark.Value(starlark.Tuple(make([]starlark.Value, 100)))
-				if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
-					return nil, err
-				}
-				return res, nil
-			},
-		}
 		st.RunThread(func(thread *starlark.Thread) {
+			const tupleCount = 100
+			itemSize := starlark.EstimateMakeSize(starlark.Tuple{}, tupleCount) +
+				starlark.EstimateSize(starlark.Tuple{})
+			iter := &testIterable{
+				maxN: 10,
+				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
+					if err := thread.AddAllocs(itemSize); err != nil {
+						return nil, err
+					}
+					return starlark.Tuple(make([]starlark.Value, tupleCount)), nil
+				},
+			}
+
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{iter}
 				result, err := starlark.Call(thread, reversed, args, nil)
