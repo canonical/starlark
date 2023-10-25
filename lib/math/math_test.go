@@ -103,7 +103,6 @@ func TestMathCeilSteps(t *testing.T) {
 		starlark.Float(-1.5),
 		starlark.Float(0),
 		starlark.Float(1.5),
-
 		starlark.MakeInt(1),
 		starlark.MakeInt64(1<<32 + 1),
 	})
@@ -127,7 +126,6 @@ func TestMathFabsSteps(t *testing.T) {
 		starlark.Float(-1),
 		starlark.Float(1 << 60),
 		starlark.Float(-1 << 60),
-
 		starlark.MakeInt(0),
 		starlark.MakeInt(1),
 		starlark.MakeInt(-1),
@@ -188,7 +186,6 @@ func TestMathFloorSteps(t *testing.T) {
 		starlark.Float(-1.5),
 		starlark.Float(0),
 		starlark.Float(1.5),
-
 		starlark.MakeInt(1),
 		starlark.MakeInt64(1<<32 + 1),
 	})
@@ -224,7 +221,6 @@ func TestMathRoundSteps(t *testing.T) {
 		starlark.Float(-1.5),
 		starlark.Float(0),
 		starlark.Float(1.5),
-
 		starlark.MakeInt(1),
 		starlark.MakeInt64(1<<32 + 1),
 	})
@@ -240,7 +236,6 @@ func TestMathExpSteps(t *testing.T) {
 		starlark.Float(0.5),
 		starlark.Float(1),
 		starlark.Float(-1),
-
 		starlark.MakeInt(1),
 		starlark.MakeInt(-1),
 	})
@@ -255,7 +250,6 @@ func TestMathSqrtSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(0.5),
 		starlark.Float(25),
-
 		starlark.MakeInt(1),
 		starlark.MakeInt64(1 << 32),
 	})
@@ -270,7 +264,6 @@ func TestMathAcosSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(1),
 		starlark.Float(-0.5),
-
 		starlark.MakeInt(1),
 	})
 }
@@ -284,7 +277,6 @@ func TestMathAsinSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(1),
 		starlark.Float(-0.5),
-
 		starlark.MakeInt(1),
 	})
 }
@@ -299,7 +291,6 @@ func TestMathAtanSteps(t *testing.T) {
 		starlark.Float(0.5),
 		starlark.Float(1),
 		starlark.Float(100),
-
 		starlark.MakeInt(1),
 		starlark.MakeInt64(1 << 32),
 	})
@@ -321,7 +312,6 @@ func TestMathCosSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(math.Pi),
 		starlark.Float(-math.Pi / 2),
-
 		starlark.MakeInt(0),
 		starlark.MakeInt64(1 << 32),
 	})
@@ -343,7 +333,6 @@ func TestMathSinSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(math.Pi),
 		starlark.Float(-math.Pi / 2),
-
 		starlark.MakeInt(0),
 		starlark.MakeInt64(1 << 32),
 	})
@@ -358,7 +347,6 @@ func TestMathTanSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(math.Pi / 2),
 		starlark.Float(-math.Pi / 2),
-
 		starlark.MakeInt(0),
 		starlark.MakeInt64(1 << 32),
 	})
@@ -373,7 +361,6 @@ func TestMathDegreesSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(math.Pi),
 		starlark.Float(-math.Pi),
-
 		starlark.MakeInt(0),
 		starlark.MakeInt(1),
 	})
@@ -388,7 +375,6 @@ func TestMathRadiansSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(90),
 		starlark.Float(-90),
-
 		starlark.MakeInt(0),
 	})
 }
@@ -402,7 +388,6 @@ func TestMathAcoshSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(math.Pi),
 		starlark.Float(-math.Pi),
-
 		starlark.MakeInt(0),
 		starlark.MakeInt64(1 << 32),
 	})
@@ -417,7 +402,6 @@ func TestMathAsinhSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(math.Pi),
 		starlark.Float(-math.Pi),
-
 		starlark.MakeInt(0),
 		starlark.MakeInt64(1 << 32),
 	})
@@ -432,7 +416,6 @@ func TestMathAtanhSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(0.999),
 		starlark.Float(-0.999),
-
 		starlark.MakeInt(0),
 	})
 }
@@ -446,7 +429,6 @@ func TestMathCoshSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(100),
 		starlark.Float(-100),
-
 		starlark.MakeInt(0),
 	})
 }
@@ -460,7 +442,6 @@ func TestMathSinhSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(100),
 		starlark.Float(-100),
-
 		starlark.MakeInt(0),
 	})
 }
@@ -474,7 +455,6 @@ func TestMathTanhSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(100),
 		starlark.Float(-100),
-
 		starlark.MakeInt(0),
 		starlark.MakeInt64(1 << 32),
 	})
@@ -489,7 +469,6 @@ func TestMathLogSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(100),
 		starlark.Float(-100),
-
 		starlark.MakeInt(0),
 		starlark.MakeInt64(1 << 32),
 	})
@@ -505,7 +484,6 @@ func TestMathGammaSteps(t *testing.T) {
 		starlark.Float(0),
 		starlark.Float(1),
 		starlark.Float(-170),
-
 		starlark.MakeInt(0),
 	})
 }
