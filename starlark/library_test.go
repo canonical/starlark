@@ -3391,19 +3391,18 @@ func TestDictSetdefaultSteps(t *testing.T) {
 		st.SetMaxExecutionSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				key := starlark.Value(starlark.MakeInt(i))
+				key := starlark.MakeInt(i)
 				_, err := starlark.Call(thread, dict_setdefault, starlark.Tuple{key, starlark.None}, nil)
 				if err != nil {
 					st.Error(err)
 				}
 			}
-
-			st.KeepAlive(dict)
 		})
 	})
 
 	t.Run("many-collisions", func(t *testing.T) {
 		const dictSize = 1000
+
 		dict := starlark.NewDict(dictSize)
 		for i := 0; i < dictSize; i++ {
 			dict.SetKey(starlark.MakeInt64(int64(i)<<32), starlark.None)
@@ -3415,11 +3414,11 @@ func TestDictSetdefaultSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps((dictSize + 7) / 8)
-		st.SetMaxExecutionSteps(((dictSize + 7) / 8) * 2)
+		st.SetMinExecutionSteps((dictSize / 8) * 2)
+		st.SetMaxExecutionSteps((dictSize / 8) * 2)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				key := starlark.Value(starlark.MakeInt64(int64(i) << 32))
+				key := starlark.MakeInt64(int64(-i) << 32)
 				_, err := starlark.Call(thread, dict_setdefault, starlark.Tuple{key, starlark.None}, nil)
 				if err != nil {
 					st.Error(err)
