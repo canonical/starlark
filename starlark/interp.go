@@ -206,7 +206,7 @@ loop:
 				unop = syntax.Token(op-compile.UPLUS) + syntax.PLUS
 			}
 			x := stack[sp-1]
-			y, err2 := Unary(unop, x)
+			y, err2 := SafeUnary(thread, unop, x)
 			if err2 != nil {
 				err = err2
 				break loop
