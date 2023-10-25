@@ -158,7 +158,10 @@ func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 	}
 
 	if thread.maxSteps != 0 && nextExecutionSteps > thread.maxSteps {
-		return nextExecutionSteps, errors.New("too many steps")
+		return nextExecutionSteps, &MaxExecutionStepsError{
+			Current: thread.steps,
+			Max:     thread.maxSteps,
+		}
 	}
 
 	return nextExecutionSteps, nil
@@ -1029,9 +1032,27 @@ func setIndex(thread *Thread, x, y, z Value) error {
 
 // Unary applies a unary operator (+, -, ~, not) to its operand.
 func Unary(op syntax.Token, x Value) (Value, error) {
+	return SafeUnary(nil, op, x)
+}
+
+func SafeUnary(thread *Thread, op syntax.Token, x Value) (Value, error) {
 	// The NOT operator is not customizable.
 	if op == syntax.NOT {
 		return !x.Truth(), nil
+	}
+
+	if thread != nil {
+		if x, ok := x.(SafeHasUnary); ok {
+			if err := thread.CheckPermits(x.Safety()); err != nil {
+				return nil, err
+			}
+
+			return x.SafeUnary(thread, op)
+		}
+
+		if err := thread.CheckPermits(NotSafe); err != nil {
+			return nil, err
+		}
 	}
 
 	// Int, Float, and user-defined types
@@ -2205,6 +2226,14 @@ type MaxAllocsError struct {
 
 func (e *MaxAllocsError) Error() string {
 	return "exceeded memory allocation limits"
+}
+
+type MaxExecutionStepsError struct {
+	Current, Max uint64
+}
+
+func (e *MaxExecutionStepsError) Error() string {
+	return "too many steps"
 }
 
 // CheckAllocs returns an error if a change in allocations associated with this

@@ -369,6 +369,12 @@ type HasUnary interface {
 	Unary(op syntax.Token) (Value, error)
 }
 
+type SafeHasUnary interface {
+	Value
+	SafetyAware
+	SafeUnary(thread *Thread, op syntax.Token) (Value, error)
+}
+
 // A HasAttrs value has fields or methods that may be read by a dot expression (y = x.f).
 // Attribute names may be listed using the built-in 'dir' function.
 //
@@ -929,7 +935,7 @@ func SafeNewDict(thread *Thread, size int) (*Dict, error) {
 }
 
 func (d *Dict) Clear() error                                    { return d.ht.clear() }
-func (d *Dict) Delete(k Value) (v Value, found bool, err error) { return d.ht.delete(k) }
+func (d *Dict) Delete(k Value) (v Value, found bool, err error) { return d.ht.delete(nil, k) }
 func (d *Dict) Get(k Value) (v Value, found bool, err error)    { return d.ht.lookup(nil, k) }
 func (d *Dict) Items() []Tuple                                  { return d.ht.items() }
 func (d *Dict) Keys() []Value                                   { return d.ht.keys() }
@@ -1252,7 +1258,7 @@ func NewSet(size int) *Set {
 	return set
 }
 
-func (s *Set) Delete(k Value) (found bool, err error) { _, found, err = s.ht.delete(k); return }
+func (s *Set) Delete(k Value) (found bool, err error) { _, found, err = s.ht.delete(nil, k); return }
 func (s *Set) Clear() error                           { return s.ht.clear() }
 func (s *Set) Has(k Value) (found bool, err error)    { _, found, err = s.ht.lookup(nil, k); return }
 func (s *Set) Insert(k Value) error                   { return s.ht.insert(nil, k, None) }
@@ -1379,7 +1385,7 @@ func (s *Set) Difference(other Iterator) (Value, error) {
 }
 
 func (s *Set) safeDifference(thread *Thread, other Iterator) (Value, error) {
-	if err := CheckSafety(thread, MemSafe | IOSafe); err != nil {
+	if err := CheckSafety(thread, MemSafe|IOSafe); err != nil {
 		return nil, err
 	}
 
