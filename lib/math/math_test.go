@@ -240,10 +240,10 @@ func TestMathModAllocs(t *testing.T) {
 func TestMathPowSteps(t *testing.T) {
 	testBinarySteps(t, "pow", [][2]starlark.Value{
 		{starlark.Float(0), starlark.Float(0)},
-		{starlark.Float(2), starlark.Float(32)},
-		{starlark.Float(2), starlark.MakeInt(32)},
-		{starlark.MakeInt(2), starlark.Float(32)},
-		{starlark.MakeInt(2), starlark.MakeInt(32)},
+		{starlark.Float(2), starlark.Float(-32)},
+		{starlark.Float(math.E), starlark.MakeInt(20)},
+		{starlark.MakeInt(2), starlark.Float(5)},
+		{starlark.MakeInt(2), starlark.MakeInt(-60)},
 	})
 }
 
