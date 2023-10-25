@@ -10,7 +10,7 @@ import (
 
 func TestUnaryAllocs(t *testing.T) {
 	t.Run("not", func(t *testing.T) {
-		values := []starlark.Value{
+		inputs := []starlark.Value{
 			starlark.None,
 			starlark.True,
 			starlark.Tuple{},
@@ -22,24 +22,28 @@ func TestUnaryAllocs(t *testing.T) {
 			starlark.String("1"),
 			starlark.Bytes("1"),
 		}
-		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe)
-		for _, value := range values {
-			st.AddValue("value", value)
+		for _, input := range inputs {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.AddValue("input", input)
 			st.RunString(`
 				for _ in st.ntimes():
-					st.keep_alive(not value)
+					st.keep_alive(not input)
 			`)
 		}
 	})
 
 	t.Run("minus", func(t *testing.T) {
-		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe)
-		for _, value := range []starlark.Value{starlark.MakeInt(10), starlark.MakeInt64(1 << 40)} {
-			st.AddValue("value", value)
+		inputs := []starlark.Value{
+			starlark.MakeInt(10),
+			starlark.MakeInt64(1 << 40),
+		}
+		for _, input := range inputs {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.AddValue("input", input)
 			st.RunString(`
-				i = value
+				i = input
 				for _ in st.ntimes():
 					i = -i
 					st.keep_alive(i)
@@ -48,12 +52,16 @@ func TestUnaryAllocs(t *testing.T) {
 	})
 
 	t.Run("plus", func(t *testing.T) {
-		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe)
-		for _, value := range []starlark.Value{starlark.MakeInt(10), starlark.MakeInt64(1 << 40)} {
-			st.AddValue("value", value)
+		inputs := []starlark.Value{
+			starlark.MakeInt(10),
+			starlark.MakeInt64(1 << 40),
+		}
+		for _, input := range inputs {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.AddValue("input", input)
 			st.RunString(`
-				i = value
+				i = input
 				for _ in st.ntimes():
 					i = +i
 					st.keep_alive(i)
@@ -62,12 +70,16 @@ func TestUnaryAllocs(t *testing.T) {
 	})
 
 	t.Run("neg", func(t *testing.T) {
-		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe)
-		for _, value := range []starlark.Value{starlark.MakeInt(10), starlark.MakeInt64(1 << 40)} {
-			st.AddValue("value", value)
+		inputs := []starlark.Value{
+			starlark.MakeInt(10),
+			starlark.MakeInt64(1 << 40),
+		}
+		for _, input := range inputs {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.AddValue("input", input)
 			st.RunString(`
-				i = value
+				i = input
 				for _ in st.ntimes():
 					i = ~i
 					st.keep_alive(i)
