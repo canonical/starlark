@@ -3259,6 +3259,62 @@ func TestDictPopAllocs(t *testing.T) {
 }
 
 func TestDictPopitemSteps(t *testing.T) {
+	const dictSize = 500
+
+	t.Run("few-collisions", func(t *testing.T) {
+		dict := starlark.NewDict(dictSize)
+		for i := 0; i < dictSize; i++ {
+			dict.SetKey(starlark.Float(i), starlark.None)
+		}
+		dict_popitem, _ := dict.Attr("popitem")
+		if dict_popitem == nil {
+			t.Fatal("no such method: dict.popitem")
+		}
+
+		st := startest.From(t)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, dict_popitem, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				item := result.(starlark.Tuple)
+				dict.SetKey(item[0], item[1]) // Add back for the next iteration.
+			}
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		dict := starlark.NewDict(dictSize)
+		for i := 0; i < dictSize; i++ {
+			// Int hash only uses the least 32 bits.
+			// Leaving them blank creates collisions.
+			key := starlark.MakeInt64(int64(i) << 32)
+			dict.SetKey(key, starlark.None)
+		}
+		dict_popitem, _ := dict.Attr("popitem")
+		if dict_popitem == nil {
+			t.Fatal("no such method: dict.popitem")
+		}
+
+		st := startest.From(t)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps((dictSize / 8) + 1)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, dict_popitem, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				item := result.(starlark.Tuple)
+				dict.SetKey(item[0], item[1]) // Add back for the next iteration.
+			}
+		})
+	})
 }
 
 func TestDictPopitemAllocs(t *testing.T) {

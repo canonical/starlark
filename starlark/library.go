@@ -142,7 +142,7 @@ var (
 		"items":      MemSafe | IOSafe | CPUSafe,
 		"keys":       MemSafe | IOSafe | CPUSafe,
 		"pop":        MemSafe | IOSafe | CPUSafe,
-		"popitem":    MemSafe | IOSafe,
+		"popitem":    MemSafe | IOSafe | CPUSafe,
 		"setdefault": MemSafe | IOSafe,
 		"update":     MemSafe | IOSafe,
 		"values":     MemSafe | IOSafe | CPUSafe,
@@ -1814,7 +1814,7 @@ func dict_popitem(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if !ok {
 		return nil, nameErr(b, "empty dict")
 	}
-	v, _, err := recv.Delete(k)
+	v, _, err := recv.ht.delete(thread, k)
 	if err != nil {
 		return nil, nameErr(b, err) // dict is frozen
 	}
