@@ -3819,10 +3819,6 @@ func testStringStripSteps(t *testing.T, method_name string, fromBothSides bool) 
 
 	t.Run("with-cutset=yes", func(t *testing.T) {
 		var expectedSteps uint64
-		switch method_name {
-		case "lstrip", "rstrip":
-		case "strip":
-		}
 		if fromBothSides {
 			expectedSteps = uint64(len(str)) - 5
 		} else {
