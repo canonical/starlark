@@ -4031,7 +4031,52 @@ func TestStringElemsAllocs(t *testing.T) {
 	testStringIterable(t, "elems")
 }
 
-func testStringFixSteps(t *testing.T) {
+// testStringFixSteps tests string.startswith and string.endswith CPUSafety
+func testStringFixSteps(t *testing.T, method_name string) {
+	method, _ := starlark.String("foo-bar-foo").Attr(method_name)
+	if method == nil {
+		t.Fatalf("no such method: string.%s", method)
+	}
+
+	t.Run("string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(3)
+		st.SetMaxExecutionSteps(3)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.String("foo")}
+				_, err := starlark.Call(thread, method, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("tuple", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(9)
+		st.SetMaxExecutionSteps(9)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				needles := starlark.Tuple{
+					starlark.String("absent"),
+					starlark.String("foo"),
+					starlark.String("not present"),
+				}
+				_, err := starlark.Call(thread, method, starlark.Tuple{needles}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+}
+
+func TestStringEndswithSteps(t *testing.T) {
+	testStringFixSteps(t, "endswith")
 }
 
 func testStringFixAllocs(t *testing.T, method_name string) {
@@ -4053,9 +4098,6 @@ func testStringFixAllocs(t *testing.T, method_name string) {
 			st.KeepAlive(result)
 		}
 	})
-}
-
-func TestStringEndswithSteps(t *testing.T) {
 }
 
 func TestStringEndswithAllocs(t *testing.T) {
@@ -4991,6 +5033,7 @@ Curabitur nec velit fringilla arcu lacinia commodo.`)
 }
 
 func TestStringStartswithSteps(t *testing.T) {
+	testStringFixSteps(t, "startswith")
 }
 
 func TestStringStartswithAllocs(t *testing.T) {
