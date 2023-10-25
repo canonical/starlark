@@ -3336,7 +3336,7 @@ func TestStringElemsAllocs(t *testing.T) {
 func testStringFixSteps(t *testing.T, method_name string) {
 	method, _ := starlark.String("foo-bar-foo").Attr(method_name)
 	if method == nil {
-		t.Fatalf("no such method: %s", method)
+		t.Fatalf("no such method: string.%s", method)
 	}
 
 	t.Run("string", func(t *testing.T) {
