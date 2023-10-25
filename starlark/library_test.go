@@ -3796,7 +3796,7 @@ func testStringStripSteps(t *testing.T, method_name string, fromBothSides bool) 
 	}
 
 	t.Run("with-cutset=no", func(t *testing.T) {
-		expectedSteps := 10
+		expectedSteps := uint64(10)
 		if !fromBothSides {
 			expectedSteps /= 2
 		}
@@ -3838,7 +3838,7 @@ func testStringStripSteps(t *testing.T, method_name string, fromBothSides bool) 
 }
 
 func TestStringLstripSteps(t *testing.T) {
-	testStringStripSteps(t, "lstrip")
+	testStringStripSteps(t, "lstrip", false)
 }
 
 func testStringStripAllocs(t *testing.T, method_name string) {
@@ -4062,7 +4062,7 @@ func TestStringRsplitAllocs(t *testing.T) {
 }
 
 func TestStringRstripSteps(t *testing.T) {
-	testStringStripSteps(t, "rstrip")
+	testStringStripSteps(t, "rstrip", false)
 }
 
 func TestStringRstripAllocs(t *testing.T) {
@@ -4177,7 +4177,7 @@ func TestStringStartswithAllocs(t *testing.T) {
 }
 
 func TestStringStripSteps(t *testing.T) {
-	testStringStripSteps(t, "strip")
+	testStringStripSteps(t, "strip", true)
 }
 
 func TestStringStripAllocs(t *testing.T) {
