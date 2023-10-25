@@ -2582,6 +2582,33 @@ func TestTupleAllocs(t *testing.T) {
 }
 
 func TestTypeSteps(t *testing.T) {
+	type_, ok := starlark.Universe["type"]
+	if !ok {
+		t.Fatal("no such builtin: type")
+	}
+
+	inputs := []starlark.Value{
+		starlark.None,
+		starlark.True,
+		starlark.MakeInt(1),
+		starlark.MakeInt64(1 << 40),
+		starlark.String("\"test\""),
+		starlark.NewDict(0),
+		starlark.NewSet(0),
+	}
+	for _, input := range inputs {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, type_, starlark.Tuple{input}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	}
 }
 
 func TestTypeAllocs(t *testing.T) {
