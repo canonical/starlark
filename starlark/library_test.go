@@ -3362,12 +3362,12 @@ func testStringFixSteps(t *testing.T, method_name string) {
 		st.SetMaxExecutionSteps(9)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				fixesToCheck := starlark.Tuple{
+				needles := starlark.Tuple{
 					starlark.String("absent"),
 					starlark.String("foo"),
 					starlark.String("not present"),
 				}
-				_, err := starlark.Call(thread, method, starlark.Tuple{fixesToCheck}, nil)
+				_, err := starlark.Call(thread, method, starlark.Tuple{needles}, nil)
 				if err != nil {
 					st.Error(err)
 				}
