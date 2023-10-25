@@ -2002,8 +2002,7 @@ func TestReversedAllocs(t *testing.T) {
 					if err := thread.AddAllocs(itemSize); err != nil {
 						return nil, err
 					}
-					res := starlark.Value(starlark.Tuple(make([]starlark.Value, tupleCount)))
-					return res, nil
+					return starlark.Tuple(make([]starlark.Value, tupleCount)), nil
 				},
 			}
 
