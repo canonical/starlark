@@ -1478,25 +1478,7 @@ func TestOrdSteps(t *testing.T) {
 	}
 
 	t.Run("input=string", func(t *testing.T) {
-		t.Run("failing", func(t *testing.T) {
-			expected := regexp.MustCompile(`ord: string encodes \d+ Unicode code points, want 1`)
-
-			st := startest.From(t)
-			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
-			st.RunThread(func(thread *starlark.Thread) {
-				input := starlark.String(strings.Repeat("a", st.N+1))
-				_, err := starlark.Call(thread, ord, starlark.Tuple{input}, nil)
-				if err == nil {
-					st.Error("ord succeded on malformed input")
-				} else if !expected.Match([]byte(err.Error())) {
-					t.Errorf("unexpected error: %v", err)
-				}
-			})
-		})
-
-		t.Run("succeeding", func(t *testing.T) {
+		t.Run("valid", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
 			st.SetMinExecutionSteps(0)
@@ -1511,18 +1493,16 @@ func TestOrdSteps(t *testing.T) {
 				}
 			})
 		})
-	})
 
-	t.Run("input=bytes", func(t *testing.T) {
-		t.Run("failing", func(t *testing.T) {
-			expected := regexp.MustCompile(`ord: bytes has length \d+, want 1`)
+		t.Run("invalid", func(t *testing.T) {
+			expected := regexp.MustCompile(`ord: string encodes \d+ Unicode code points, want 1`)
 
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(0)
-			st.SetMaxExecutionSteps(0)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
-				input := starlark.Bytes(strings.Repeat("a", st.N+1))
+				input := starlark.String("b" + strings.Repeat("a", st.N))
 				_, err := starlark.Call(thread, ord, starlark.Tuple{input}, nil)
 				if err == nil {
 					st.Error("ord succeded on malformed input")
@@ -1531,8 +1511,10 @@ func TestOrdSteps(t *testing.T) {
 				}
 			})
 		})
+	})
 
-		t.Run("succeeding", func(t *testing.T) {
+	t.Run("input=bytes", func(t *testing.T) {
+		t.Run("valid", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
 			st.SetMinExecutionSteps(0)
@@ -1544,6 +1526,24 @@ func TestOrdSteps(t *testing.T) {
 					if err != nil {
 						st.Error(err)
 					}
+				}
+			})
+		})
+
+		t.Run("invalid", func(t *testing.T) {
+			expected := regexp.MustCompile(`ord: bytes has length \d+, want 1`)
+
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(0)
+			st.SetMaxExecutionSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				input := starlark.Bytes("b" + strings.Repeat("a", st.N))
+				_, err := starlark.Call(thread, ord, starlark.Tuple{input}, nil)
+				if err == nil {
+					st.Error("ord succeded on malformed input")
+				} else if !expected.Match([]byte(err.Error())) {
+					t.Errorf("unexpected error: %v", err)
 				}
 			})
 		})
