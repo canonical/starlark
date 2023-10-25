@@ -3796,11 +3796,9 @@ func testStringStripSteps(t *testing.T, method_name string, fromBothSides bool) 
 	}
 
 	t.Run("with-cutset=no", func(t *testing.T) {
-		var expectedSteps uint64
-		if fromBothSides {
-			expectedSteps = 10
-		} else {
-			expectedSteps = 5
+		expectedSteps := 10
+		if !fromBothSides {
+			expectedSteps /= 2
 		}
 
 		st := startest.From(t)
@@ -3818,11 +3816,9 @@ func testStringStripSteps(t *testing.T, method_name string, fromBothSides bool) 
 	})
 
 	t.Run("with-cutset=yes", func(t *testing.T) {
-		var expectedSteps uint64
-		if fromBothSides {
-			expectedSteps = uint64(len(str)) - 5
-		} else {
-			expectedSteps = (uint64(len(str)) - 5) / 2
+		expectedSteps := uint64(len(str)) - 5
+		if !fromBothSides {
+			expectedSteps /= 2
 		}
 
 		st := startest.From(t)
