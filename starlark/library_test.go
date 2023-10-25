@@ -3788,7 +3788,7 @@ func TestStringLowerAllocs(t *testing.T) {
 	})
 }
 
-func testStringStripSteps(t *testing.T, method_name string) {
+func testStringStripSteps(t *testing.T, method_name string, fromBothSides bool) {
 	str := "     ababaZZZZZababa     "
 	method, _ := starlark.String(str).Attr(method_name)
 	if method == nil {
@@ -3796,21 +3796,17 @@ func testStringStripSteps(t *testing.T, method_name string) {
 	}
 
 	t.Run("with-cutset=no", func(t *testing.T) {
+		var expectedSteps uint64
+		if fromBothSides {
+			expectedSteps = 10
+		} else {
+			expectedSteps = 5
+		}
+
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-
-		var expectedSteps uint64
-		switch method_name {
-		case "lstrip", "rstrip":
-			expectedSteps = 5
-		case "strip":
-			expectedSteps = 10
-		default:
-			t.Fatalf("unrecognised strip method: %s", method_name)
-		}
 		st.SetMinExecutionSteps(expectedSteps)
 		st.SetMaxExecutionSteps(expectedSteps)
-
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, method, nil, nil)
@@ -3822,21 +3818,21 @@ func testStringStripSteps(t *testing.T, method_name string) {
 	})
 
 	t.Run("with-cutset=yes", func(t *testing.T) {
-		st := startest.From(t)
-		st.RequireSafety(starlark.CPUSafe)
-
 		var expectedSteps uint64
 		switch method_name {
 		case "lstrip", "rstrip":
-			expectedSteps = (uint64(len(str)) - 5) / 2
 		case "strip":
-			expectedSteps = uint64(len(str)) - 5
-		default:
-			t.Fatalf("unrecognised strip method: %s", method_name)
 		}
+		if fromBothSides {
+			expectedSteps = uint64(len(str)) - 5
+		} else {
+			expectedSteps = (uint64(len(str)) - 5) / 2
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
 		st.SetMinExecutionSteps(expectedSteps)
 		st.SetMaxExecutionSteps(expectedSteps)
-
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.String("ab ")}
