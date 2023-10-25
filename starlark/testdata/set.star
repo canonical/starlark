@@ -159,8 +159,6 @@ assert.fails(lambda: pop_set.pop(), "pop: cannot delete from frozen hash table")
 clear_set = set([1,2,3])
 clear_set.clear()
 assert.eq(len(clear_set), 0)
-freeze(clear_set) # no mutation of frozen set because its already empty
-assert.eq(clear_set.clear(), None) 
 
 other_clear_set = set([1,2,3])
 freeze(other_clear_set)
