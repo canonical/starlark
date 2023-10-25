@@ -98,6 +98,27 @@ func testUnarySteps(t *testing.T, name string, inputs []starlark.Value) {
 	}
 }
 
+func testBinarySteps(t *testing.T, name string, inputs [][2]starlark.Value) {
+	builtin, ok := starlarkmath.Module.Members[name]
+	if !ok {
+		t.Fatalf("no such builtin: math.%s", name)
+	}
+
+	for _, input := range inputs {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, builtin, starlark.Tuple{input[0], input[1]}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	}
+}
+
 func TestMathCeilSteps(t *testing.T) {
 	testUnarySteps(t, "ceil", []starlark.Value{
 		starlark.Float(-1.5),
@@ -113,6 +134,13 @@ func TestMathCeilAllocs(t *testing.T) {
 }
 
 func TestMathCopysignSteps(t *testing.T) {
+	testBinarySteps(t, "copysign", [][2]starlark.Value{
+		{starlark.Float(1), starlark.Float(1)},
+		{starlark.Float(1), starlark.Float(-1)},
+		{starlark.MakeInt(1), starlark.Float(-1)},
+		{starlark.Float(1), starlark.MakeInt(-1)},
+		{starlark.MakeInt(1), starlark.MakeInt(-1)},
+	})
 }
 
 func TestMathCopysignAllocs(t *testing.T) {
@@ -196,6 +224,13 @@ func TestMathFloorAllocs(t *testing.T) {
 }
 
 func TestMathModSteps(t *testing.T) {
+	testBinarySteps(t, "mod", [][2]starlark.Value{
+		{starlark.Float(5.4), starlark.Float(3)},
+		{starlark.Float(1), starlark.Float(0)},
+		{starlark.MakeInt(10), starlark.Float(1)},
+		{starlark.Float(1), starlark.MakeInt(0)},
+		{starlark.MakeInt64(1 << 32), starlark.MakeInt(-1)},
+	})
 }
 
 func TestMathModAllocs(t *testing.T) {
@@ -203,6 +238,11 @@ func TestMathModAllocs(t *testing.T) {
 }
 
 func TestMathPowSteps(t *testing.T) {
+	testBinarySteps(t, "pow", [][2]starlark.Value{
+		{starlark.Float(2), starlark.Float(32)},
+		{starlark.Float(0), starlark.Float(0)},
+		{starlark.MakeInt(2), starlark.MakeInt(32)},
+	})
 }
 
 func TestMathPowAllocs(t *testing.T) {
@@ -210,6 +250,13 @@ func TestMathPowAllocs(t *testing.T) {
 }
 
 func TestMathRemainderSteps(t *testing.T) {
+	testBinarySteps(t, "remainder", [][2]starlark.Value{
+		{starlark.Float(5.4), starlark.Float(3)},
+		{starlark.Float(1), starlark.Float(0)},
+		{starlark.MakeInt(10), starlark.Float(1)},
+		{starlark.Float(1), starlark.MakeInt(0)},
+		{starlark.MakeInt64(1 << 32), starlark.MakeInt(-1)},
+	})
 }
 
 func TestMathRemainderAllocs(t *testing.T) {
@@ -301,6 +348,13 @@ func TestMathAtanAllocs(t *testing.T) {
 }
 
 func TestMathAtan2Steps(t *testing.T) {
+	testBinarySteps(t, "atan2", [][2]starlark.Value{
+		{starlark.Float(5.4), starlark.Float(3)},
+		{starlark.Float(1), starlark.Float(0)},
+		{starlark.MakeInt(10), starlark.Float(1)},
+		{starlark.Float(1), starlark.MakeInt(0)},
+		{starlark.MakeInt64(1 << 32), starlark.MakeInt(-1)},
+	})
 }
 
 func TestMathAtan2Allocs(t *testing.T) {
@@ -322,6 +376,13 @@ func TestMathCosAllocs(t *testing.T) {
 }
 
 func TestMathHypotSteps(t *testing.T) {
+	testBinarySteps(t, "hypot", [][2]starlark.Value{
+		{starlark.Float(4), starlark.Float(3)},
+		{starlark.Float(1), starlark.Float(0)},
+		{starlark.MakeInt(10), starlark.Float(1)},
+		{starlark.Float(1), starlark.MakeInt(0)},
+		{starlark.MakeInt64(1 << 32), starlark.MakeInt(-1)},
+	})
 }
 
 func TestMathHypotAllocs(t *testing.T) {
