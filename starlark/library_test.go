@@ -2278,11 +2278,10 @@ func TestTypeSteps(t *testing.T) {
 		starlark.NewDict(0),
 		starlark.NewSet(0),
 	}
-
-	st := startest.From(t)
-	st.RequireSafety(starlark.CPUSafe)
-	st.SetMaxExecutionSteps(0)
 	for _, input := range inputs {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, type_, starlark.Tuple{input}, nil)
