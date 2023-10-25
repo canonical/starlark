@@ -3120,9 +3120,11 @@ func TestListExtendAllocs(t *testing.T) {
 }
 
 func TestListIndexSteps(t *testing.T) {
-	listElems := []starlark.Value{}
+	const numTestElems = 100_000
 
 	t.Run("last", func(t *testing.T) {
+		listElems := make([]starlark.Value, 0, numTestElems)
+
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
 		st.SetMinExecutionSteps(1)
@@ -3144,6 +3146,8 @@ func TestListIndexSteps(t *testing.T) {
 	})
 
 	t.Run("missing", func(t *testing.T) {
+		listElems := make([]starlark.Value, 0, numTestElems)
+
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
 		st.SetMinExecutionSteps(1)
@@ -3159,12 +3163,14 @@ func TestListIndexSteps(t *testing.T) {
 			}
 			_, err := starlark.Call(thread, list_index, starlark.Tuple{starlark.None}, nil)
 			if err == nil {
-				st.Error("found unexistent element in list")
+				st.Error("found nonexistent element in list")
 			}
 		})
 	})
 
 	t.Run("size-hint", func(t *testing.T) {
+		listElems := make([]starlark.Value, 0, numTestElems)
+
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
 		st.SetMinExecutionSteps(1)
