@@ -1252,8 +1252,6 @@ func TestThreadCheckPermits(t *testing.T) {
 
 		if err := thread.CheckPermits(forbiddenSafety); err == nil {
 			t.Errorf("thread failed to report that insufficient safety is unsafe")
-		} else if err.Error() != "feature unavailable to the sandbox" {
-			t.Errorf("unexpected error: %v", err)
 		} else if safetyErr, ok := err.(*starlark.SafetyFlagsError); !ok {
 			t.Errorf("expected starlark.SafetyError, got a %T: %v", err, err)
 		} else if expectedMissing := threadSafety &^ forbiddenSafety; safetyErr.Missing != expectedMissing {
@@ -1319,27 +1317,23 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 
 		t.Run("safety-respected", func(t *testing.T) {
 			t.Run("unsafe-left", func(t *testing.T) {
-				const expected = "feature unavailable to the sandbox"
-
 				thread := &starlark.Thread{}
 				thread.RequireSafety(starlark.MemSafe)
 				_, err := starlark.SafeBinary(thread, syntax.PLUS, unsafeTestValue{}, starlark.True)
 				if err == nil {
 					t.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					t.Errorf("unexpected error: %v", err)
 				}
 			})
 
 			t.Run("unsafe-right", func(t *testing.T) {
-				const expected = "feature unavailable to the sandbox"
-
 				thread := &starlark.Thread{}
 				thread.RequireSafety(starlark.MemSafe)
 				_, err := starlark.SafeBinary(thread, syntax.PLUS, starlark.True, unsafeTestValue{})
 				if err == nil {
 					t.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					t.Errorf("unexpected error: %v", err)
 				}
 			})

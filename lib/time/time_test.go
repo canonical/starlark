@@ -1,6 +1,7 @@
 package time_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/canonical/starlark/lib/time"
@@ -63,7 +64,7 @@ func TestTimeNowSafety(t *testing.T) {
 		name          string
 		thread        *starlark.Thread
 		nowFuncSafety starlark.SafetyFlags
-		expect        string
+		expect        error
 	}{{
 		name:          "default",
 		thread:        &starlark.Thread{},
@@ -76,7 +77,7 @@ func TestTimeNowSafety(t *testing.T) {
 		name:          "not-safe",
 		thread:        safeThread,
 		nowFuncSafety: starlark.NotSafe,
-		expect:        "feature unavailable to the sandbox",
+		expect:        starlark.ErrSafety,
 	}, {
 		name:          "safe",
 		thread:        safeThread,
@@ -89,15 +90,14 @@ func TestTimeNowSafety(t *testing.T) {
 			defer func() { time.NowFuncSafety = originalNowFuncSafety }()
 
 			_, err := starlark.Call(test.thread, now, nil, nil)
-			if test.expect != "" && err == nil {
-				t.Errorf("now returned no error, expected: %v", test.expect)
-			}
 			if err != nil {
-				if test.expect == "" {
+				if test.expect == nil {
 					t.Errorf("unexpected error: %v", err)
-				} else if test.expect != err.Error() {
-					t.Errorf("unexpected error: expected %#v but got %#v", test.expect, err)
+				} else if !errors.Is(err, test.expect) {
+					t.Errorf("unexpected error: expected %t but got %t", test.expect, err)
 				}
+			} else if test.expect != nil {
+				t.Errorf("now returned no error, expected: %v", test.expect)
 			}
 		})
 	}

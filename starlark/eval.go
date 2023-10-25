@@ -293,7 +293,7 @@ type StringBuilder interface {
 }
 
 // SafeStringBuilder is a StringBuilder which is bound to a thread
-// and which abides by sandboxing limits. Errors prevent subsequent
+// and which abides by safety limits. Errors prevent subsequent
 // operations.
 type SafeStringBuilder struct {
 	builder strings.Builder
@@ -305,7 +305,7 @@ type SafeStringBuilder struct {
 var _ StringBuilder = &SafeStringBuilder{}
 
 // NewSafeStringBuilder returns a StringBuilder which abides by
-// the sandbox limits of this thread.
+// the safety limits of this thread.
 func NewSafeStringBuilder(thread *Thread) *SafeStringBuilder {
 	return &SafeStringBuilder{thread: thread}
 }
@@ -1762,9 +1762,9 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 			return nil, err
 		}
 		if b, ok := c.(*Builtin); ok {
-			return nil, fmt.Errorf("cannot call builtin '%s': %v", b.Name(), err)
+			return nil, fmt.Errorf("cannot call builtin '%s': %w", b.Name(), err)
 		}
-		return nil, fmt.Errorf("cannot call value of type '%s': %v", c.Type(), err)
+		return nil, fmt.Errorf("cannot call value of type '%s': %w", c.Type(), err)
 	}
 
 	// Allocate and push a new frame.

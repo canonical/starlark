@@ -1,6 +1,7 @@
 package starlark_test
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -186,7 +187,7 @@ func TestBuiltinSafeExecution(t *testing.T) {
 
 		if _, err := starlark.ExecFile(thread, "builtin_safety_restrictions", "fn()", env); err == nil {
 			t.Errorf("expected error when trying to execute forbidden builtin")
-		} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
+		} else if !errors.Is(err, starlark.ErrSafety) {
 			t.Errorf("unexpected error executing safe builtin: %v", err)
 		}
 	})
@@ -245,7 +246,7 @@ func TestCallableSafeExecution(t *testing.T) {
 	c.DeclareSafety(starlark.NotSafe)
 	if _, err := starlark.ExecFile(thread, "dynamic_safety_checking", prog, env); err == nil {
 		t.Errorf("expected error running dynamically-forbidden callable")
-	} else if err.Error() != "cannot call value of type 'dummyCallable': feature unavailable to the sandbox" {
+	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error running forbidden callable: %v", err)
 	}
 
@@ -315,7 +316,7 @@ func TestCheckSafety(t *testing.T) {
 		name   string
 		thread *starlark.Thread
 		value  interface{}
-		expect string
+		expect error
 	}{{
 		name:  "nil-thread",
 		value: "unimportant",
@@ -331,7 +332,7 @@ func TestCheckSafety(t *testing.T) {
 		name:   "safe-thread-not-safe-value",
 		thread: safeThread,
 		value:  &dummySafetyAware{},
-		expect: "feature unavailable to the sandbox",
+		expect: starlark.ErrSafety,
 	}, {
 		name:   "safe-thread-safe-value",
 		thread: safeThread,
@@ -340,23 +341,21 @@ func TestCheckSafety(t *testing.T) {
 		name:   "partially-safe-thread-unsafe-value",
 		thread: partiallySafeThread,
 		value:  &dummySafetyAware{},
-		expect: "feature unavailable to the sandbox",
+		expect: starlark.ErrSafety,
 	}, {
 		name:   "safe-thread-partially-safe-value",
 		thread: safeThread,
 		value:  &dummySafetyAware{starlark.MemSafe | starlark.IOSafe},
-		expect: "feature unavailable to the sandbox",
+		expect: starlark.ErrSafety,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			err := starlark.CheckSafety(test.thread, test.value)
 			if err != nil {
-				if test.expect == "" {
+				if test.expect == nil || !errors.Is(err, test.expect) {
 					t.Errorf("unexpected error: %v", err)
-				} else if test.expect != err.Error() {
-					t.Errorf("unexpected error: expected %q but got %q", test.expect, err)
 				}
-			} else if test.expect != "" {
+			} else if test.expect != nil {
 				t.Errorf("no error returned, expected: %v", test.expect)
 			}
 		})

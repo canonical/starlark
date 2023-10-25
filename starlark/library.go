@@ -523,7 +523,7 @@ func dict(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		return nil, err
 	}
 	if err := updateDict(thread, dict, args, kwargs); err != nil {
-		return nil, fmt.Errorf("dict: %v", err)
+		return nil, fmt.Errorf("dict: %w", err)
 	}
 	return dict, nil
 }
@@ -1851,7 +1851,7 @@ func dict_update(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		return nil, fmt.Errorf("update: got %d arguments, want at most 1", len(args))
 	}
 	if err := updateDict(thread, b.Receiver().(*Dict), args, kwargs); err != nil {
-		return nil, fmt.Errorf("update: %v", err)
+		return nil, fmt.Errorf("update: %w", err)
 	}
 	return None, nil
 }
