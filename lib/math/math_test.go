@@ -225,8 +225,8 @@ func TestMathFloorAllocs(t *testing.T) {
 
 func TestMathModSteps(t *testing.T) {
 	testBinarySteps(t, "mod", [][2]starlark.Value{
-		{starlark.Float(5.4), starlark.Float(3)},
 		{starlark.Float(1), starlark.Float(0)},
+		{starlark.Float(5.4), starlark.Float(3)},
 		{starlark.Float(1), starlark.MakeInt(0)},
 		{starlark.MakeInt(10), starlark.Float(1)},
 		{starlark.MakeInt64(1 << 32), starlark.MakeInt(-3)},
@@ -239,8 +239,8 @@ func TestMathModAllocs(t *testing.T) {
 
 func TestMathPowSteps(t *testing.T) {
 	testBinarySteps(t, "pow", [][2]starlark.Value{
-		{starlark.Float(2), starlark.Float(32)},
 		{starlark.Float(0), starlark.Float(0)},
+		{starlark.Float(2), starlark.Float(32)},
 		{starlark.MakeInt(2), starlark.MakeInt(32)},
 	})
 }
@@ -251,8 +251,8 @@ func TestMathPowAllocs(t *testing.T) {
 
 func TestMathRemainderSteps(t *testing.T) {
 	testBinarySteps(t, "remainder", [][2]starlark.Value{
-		{starlark.Float(5.4), starlark.Float(3)},
 		{starlark.Float(1), starlark.Float(0)},
+		{starlark.Float(5.4), starlark.Float(3)},
 		{starlark.Float(1), starlark.MakeInt(0)},
 		{starlark.MakeInt(10), starlark.Float(1)},
 		{starlark.MakeInt64(1 << 32), starlark.MakeInt(-1)},
@@ -349,8 +349,8 @@ func TestMathAtanAllocs(t *testing.T) {
 
 func TestMathAtan2Steps(t *testing.T) {
 	testBinarySteps(t, "atan2", [][2]starlark.Value{
-		{starlark.Float(5.4), starlark.Float(3)},
 		{starlark.Float(1), starlark.Float(0)},
+		{starlark.Float(5.4), starlark.Float(3)},
 		{starlark.Float(1), starlark.MakeInt(0)},
 		{starlark.MakeInt(10), starlark.Float(1)},
 		{starlark.MakeInt64(1 << 32), starlark.MakeInt(-1)},
@@ -377,8 +377,8 @@ func TestMathCosAllocs(t *testing.T) {
 
 func TestMathHypotSteps(t *testing.T) {
 	testBinarySteps(t, "hypot", [][2]starlark.Value{
-		{starlark.Float(4), starlark.Float(3)},
 		{starlark.Float(1), starlark.Float(0)},
+		{starlark.Float(4), starlark.Float(3)},
 		{starlark.Float(1), starlark.MakeInt(0)},
 		{starlark.MakeInt(10), starlark.Float(1)},
 		{starlark.MakeInt64(1 << 32), starlark.MakeInt(-1)},
