@@ -161,7 +161,7 @@ var (
 		"append": MemSafe | IOSafe,
 		"clear":  MemSafe | IOSafe | CPUSafe,
 		"extend": MemSafe | IOSafe,
-		"index":  MemSafe | IOSafe,
+		"index":  MemSafe | IOSafe | CPUSafe,
 		"insert": MemSafe | IOSafe,
 		"pop":    MemSafe | IOSafe,
 		"remove": MemSafe | IOSafe,
@@ -1936,11 +1936,18 @@ func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		return nil, nameErr(b, err)
 	}
 
+	if err := thread.AddExecutionSteps(int64(end - start)); err != nil {
+		return nil, err
+	}
+
 	for i := start; i < end; i++ {
 		if eq, err := Equal(recv.elems[i], value); err != nil {
 			return nil, nameErr(b, err)
 		} else if eq {
 			res := Value(MakeInt(i))
+			if err := thread.AddExecutionSteps(-int64(end - i - 1)); err != nil {
+				return nil, err
+			}
 			if err := thread.AddAllocs(EstimateSize(res)); err != nil {
 				return nil, err
 			}

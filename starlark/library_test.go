@@ -3745,6 +3745,80 @@ func TestListExtendAllocs(t *testing.T) {
 }
 
 func TestListIndexSteps(t *testing.T) {
+	const preallocSize = 150_000
+
+	t.Run("last", func(t *testing.T) {
+		listElems := make([]starlark.Value, 0, preallocSize)
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := len(listElems); i < st.N; i++ {
+				listElems = append(listElems, starlark.MakeInt(i))
+			}
+			list := starlark.NewList(listElems[:st.N])
+			list_index, _ := list.Attr("index")
+			if list_index == nil {
+				t.Fatal("no such method: list.index")
+			}
+			_, err := starlark.Call(thread, list_index, starlark.Tuple{starlark.MakeInt(st.N - 1)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("missing", func(t *testing.T) {
+		listElems := make([]starlark.Value, 0, preallocSize)
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := len(listElems); i < st.N; i++ {
+				listElems = append(listElems, starlark.MakeInt(i))
+			}
+			list := starlark.NewList(listElems[:st.N])
+			list_index, _ := list.Attr("index")
+			if list_index == nil {
+				t.Fatal("no such method: list.index")
+			}
+			_, err := starlark.Call(thread, list_index, starlark.Tuple{starlark.None}, nil)
+			if err == nil {
+				st.Error("found nonexistent element in list")
+			}
+		})
+	})
+
+	t.Run("size-hint", func(t *testing.T) {
+		listElems := make([]starlark.Value, 0, preallocSize)
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := len(listElems); i < st.N; i++ {
+				listElems = append(listElems, starlark.MakeInt(i))
+			}
+			list := starlark.NewList(listElems[:st.N])
+			list_index, _ := list.Attr("index")
+			if list_index == nil {
+				t.Fatal("no such method: list.index")
+			}
+			_, err := starlark.Call(thread, list_index, starlark.Tuple{starlark.MakeInt(st.N - 1), starlark.MakeInt(st.N / 2), starlark.MakeInt(st.N)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			_, err = starlark.Call(thread, list_index, starlark.Tuple{starlark.MakeInt(st.N), starlark.MakeInt(st.N / 2), starlark.MakeInt(st.N)}, nil)
+			if err == nil {
+				st.Error("found nonexistent element in list")
+			}
+		})
+	})
 }
 
 func TestListIndexAllocs(t *testing.T) {
