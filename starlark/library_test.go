@@ -3901,7 +3901,7 @@ func TestStringLstripAllocs(t *testing.T) {
 	testStringStripAllocs(t, "lstrip")
 }
 
-func testStringPartitionMethodSteps(t *testing.T, name string) {
+func testStringPartitionMethodSteps(t *testing.T, name string, fromLeft bool) {
 	recv := starlark.String("don't communicate by sharing memory, share memory by communicating.")
 	string_partition, _ := recv.Attr(name)
 	if string_partition == nil {
@@ -3925,13 +3925,10 @@ func testStringPartitionMethodSteps(t *testing.T, name string) {
 
 	t.Run("present", func(t *testing.T) {
 		var expectedSteps int
-		switch name {
-		case "partition":
+		if fromLeft {
 			expectedSteps = len("don't communicate by sharing memory")
-		case "rpartition":
+		} else {
 			expectedSteps = len("memory by communicating.")
-		default:
-			t.Fatalf("unrecognised method: string.%s", name)
 		}
 
 		st := startest.From(t)
@@ -3950,7 +3947,7 @@ func testStringPartitionMethodSteps(t *testing.T, name string) {
 }
 
 func TestStringPartitionSteps(t *testing.T) {
-	testStringPartitionMethodSteps(t, "partition")
+	testStringPartitionMethodSteps(t, "partition", true)
 }
 
 func testStringPartitionMethodAllocs(t *testing.T, name string) {
@@ -4069,7 +4066,7 @@ func TestStringRindexAllocs(t *testing.T) {
 }
 
 func TestStringRpartitionSteps(t *testing.T) {
-	testStringPartitionMethodSteps(t, "rpartition")
+	testStringPartitionMethodSteps(t, "rpartition", false)
 }
 
 func TestStringRpartitionAllocs(t *testing.T) {
