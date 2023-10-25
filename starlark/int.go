@@ -102,7 +102,7 @@ func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
 }
 
 func (i Int) Safety() Safety {
-	return MemSafe | IOSafe | TimeSafe
+	return MemSafe | IOSafe
 }
 
 // Int64 returns the value as an int64.

@@ -8,7 +8,7 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
-func TestUnary(t *testing.T) {
+func TestUnaryAllocs(t *testing.T) {
 	t.Run("not", func(t *testing.T) {
 		values := []starlark.Value{
 			starlark.None,
