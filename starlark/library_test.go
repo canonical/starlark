@@ -4042,6 +4042,7 @@ func testStringSplitSteps(t *testing.T, methodName string) {
 			if method == nil {
 				st.Fatalf("no such method: string.%s", methodName)
 			}
+
 			_, err := starlark.Call(thread, method, starlark.Tuple{delimiter}, nil)
 			if err != nil {
 				st.Error(err)
@@ -4100,6 +4101,7 @@ func testStringSplitSteps(t *testing.T, methodName string) {
 			if method == nil {
 				st.Fatalf("no such method: string.%s", methodName)
 			}
+
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, method, starlark.Tuple{}, nil)
 				if err != nil {
