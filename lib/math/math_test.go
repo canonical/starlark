@@ -137,8 +137,8 @@ func TestMathCopysignSteps(t *testing.T) {
 	testBinarySteps(t, "copysign", [][2]starlark.Value{
 		{starlark.Float(1), starlark.Float(1)},
 		{starlark.Float(1), starlark.Float(-1)},
-		{starlark.MakeInt(1), starlark.Float(-1)},
 		{starlark.Float(1), starlark.MakeInt(-1)},
+		{starlark.MakeInt(1), starlark.Float(-1)},
 		{starlark.MakeInt(1), starlark.MakeInt(-1)},
 	})
 }
@@ -227,9 +227,9 @@ func TestMathModSteps(t *testing.T) {
 	testBinarySteps(t, "mod", [][2]starlark.Value{
 		{starlark.Float(5.4), starlark.Float(3)},
 		{starlark.Float(1), starlark.Float(0)},
-		{starlark.MakeInt(10), starlark.Float(1)},
 		{starlark.Float(1), starlark.MakeInt(0)},
-		{starlark.MakeInt64(1 << 32), starlark.MakeInt(-1)},
+		{starlark.MakeInt(10), starlark.Float(1)},
+		{starlark.MakeInt64(1 << 32), starlark.MakeInt(-3)},
 	})
 }
 
@@ -253,8 +253,8 @@ func TestMathRemainderSteps(t *testing.T) {
 	testBinarySteps(t, "remainder", [][2]starlark.Value{
 		{starlark.Float(5.4), starlark.Float(3)},
 		{starlark.Float(1), starlark.Float(0)},
-		{starlark.MakeInt(10), starlark.Float(1)},
 		{starlark.Float(1), starlark.MakeInt(0)},
+		{starlark.MakeInt(10), starlark.Float(1)},
 		{starlark.MakeInt64(1 << 32), starlark.MakeInt(-1)},
 	})
 }
@@ -351,8 +351,8 @@ func TestMathAtan2Steps(t *testing.T) {
 	testBinarySteps(t, "atan2", [][2]starlark.Value{
 		{starlark.Float(5.4), starlark.Float(3)},
 		{starlark.Float(1), starlark.Float(0)},
-		{starlark.MakeInt(10), starlark.Float(1)},
 		{starlark.Float(1), starlark.MakeInt(0)},
+		{starlark.MakeInt(10), starlark.Float(1)},
 		{starlark.MakeInt64(1 << 32), starlark.MakeInt(-1)},
 	})
 }
@@ -379,8 +379,8 @@ func TestMathHypotSteps(t *testing.T) {
 	testBinarySteps(t, "hypot", [][2]starlark.Value{
 		{starlark.Float(4), starlark.Float(3)},
 		{starlark.Float(1), starlark.Float(0)},
-		{starlark.MakeInt(10), starlark.Float(1)},
 		{starlark.Float(1), starlark.MakeInt(0)},
+		{starlark.MakeInt(10), starlark.Float(1)},
 		{starlark.MakeInt64(1 << 32), starlark.MakeInt(-1)},
 	})
 }
