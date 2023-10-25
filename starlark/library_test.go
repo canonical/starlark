@@ -3275,15 +3275,12 @@ func TestDictPopitemSteps(t *testing.T) {
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				item, err := starlark.Call(thread, dict_popitem, nil, nil)
+				value, err := starlark.Call(thread, dict_popitem, nil, nil)
 				if err != nil {
 					st.Error(err)
 				}
-				if item, ok := item.(starlark.Tuple); ok {
-					dict.SetKey(item[0], item[1]) // Add back for the next iteration.
-				} else {
-					st.Errorf("expected tuple, got %s", item.Type())
-				}
+				item := value.(starlark.Tuple)
+				dict.SetKey(item[0], item[1]) // Add back for the next iteration.
 			}
 		})
 	})
@@ -3303,19 +3300,16 @@ func TestDictPopitemSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps((dictSize + 7) / 8)
+		st.SetMaxExecutionSteps((dictSize / 8) + 1)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				item, err := starlark.Call(thread, dict_popitem, nil, nil)
+				value, err := starlark.Call(thread, dict_popitem, nil, nil)
 				if err != nil {
 					st.Error(err)
 				}
-				if item, ok := item.(starlark.Tuple); ok {
-					dict.SetKey(item[0], item[1]) // Add back for the next iteration.
-				} else {
-					st.Errorf("expected tuple, got %s", item.Type())
-				}
+				item := value.(starlark.Tuple)
+				dict.SetKey(item[0], item[1]) // Add back for the next iteration.
 			}
 		})
 	})
