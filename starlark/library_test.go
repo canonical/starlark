@@ -1481,7 +1481,6 @@ func TestOrdSteps(t *testing.T) {
 		t.Run("valid", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(0)
 			st.SetMaxExecutionSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				input := starlark.String("a")
@@ -1517,7 +1516,6 @@ func TestOrdSteps(t *testing.T) {
 		t.Run("valid", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(0)
 			st.SetMaxExecutionSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				input := starlark.Bytes("a")
@@ -1535,7 +1533,6 @@ func TestOrdSteps(t *testing.T) {
 
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(0)
 			st.SetMaxExecutionSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				input := starlark.Bytes("b" + strings.Repeat("a", st.N))
