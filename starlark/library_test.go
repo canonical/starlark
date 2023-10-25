@@ -3120,10 +3120,10 @@ func TestListExtendAllocs(t *testing.T) {
 }
 
 func TestListIndexSteps(t *testing.T) {
-	const numTestElems = 100_000
+	const preallocSize = 150_000
 
 	t.Run("last", func(t *testing.T) {
-		listElems := make([]starlark.Value, 0, numTestElems)
+		listElems := make([]starlark.Value, 0, preallocSize)
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
@@ -3146,7 +3146,7 @@ func TestListIndexSteps(t *testing.T) {
 	})
 
 	t.Run("missing", func(t *testing.T) {
-		listElems := make([]starlark.Value, 0, numTestElems)
+		listElems := make([]starlark.Value, 0, preallocSize)
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
@@ -3169,7 +3169,7 @@ func TestListIndexSteps(t *testing.T) {
 	})
 
 	t.Run("size-hint", func(t *testing.T) {
-		listElems := make([]starlark.Value, 0, numTestElems)
+		listElems := make([]starlark.Value, 0, preallocSize)
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
