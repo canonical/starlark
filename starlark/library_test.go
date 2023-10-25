@@ -3275,11 +3275,11 @@ func TestDictPopitemSteps(t *testing.T) {
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				value, err := starlark.Call(thread, dict_popitem, nil, nil)
+				result, err := starlark.Call(thread, dict_popitem, nil, nil)
 				if err != nil {
 					st.Error(err)
 				}
-				item := value.(starlark.Tuple)
+				item := result.(starlark.Tuple)
 				dict.SetKey(item[0], item[1]) // Add back for the next iteration.
 			}
 		})
@@ -3304,11 +3304,11 @@ func TestDictPopitemSteps(t *testing.T) {
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				value, err := starlark.Call(thread, dict_popitem, nil, nil)
+				result, err := starlark.Call(thread, dict_popitem, nil, nil)
 				if err != nil {
 					st.Error(err)
 				}
-				item := value.(starlark.Tuple)
+				item := result.(starlark.Tuple)
 				dict.SetKey(item[0], item[1]) // Add back for the next iteration.
 			}
 		})
