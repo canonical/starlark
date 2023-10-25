@@ -1900,10 +1900,10 @@ func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 			return nil, nameErr(b, err)
 		} else if eq {
 			res := Value(MakeInt(i))
-			if err := thread.AddAllocs(EstimateSize(res)); err != nil {
+			if err := thread.AddExecutionSteps(-int64(end - i - 1)); err != nil {
 				return nil, err
 			}
-			if err := thread.AddExecutionSteps(-int64(end - i - 1)); err != nil {
+			if err := thread.AddAllocs(EstimateSize(res)); err != nil {
 				return nil, err
 			}
 			return res, nil
