@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -1787,6 +1788,79 @@ func TestMinAllocs(t *testing.T) {
 }
 
 func TestOrdSteps(t *testing.T) {
+	ord, ok := starlark.Universe["ord"]
+	if !ok {
+		t.Fatal("no such builtin: ord")
+	}
+
+	t.Run("input=string", func(t *testing.T) {
+		t.Run("valid", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMaxExecutionSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				input := starlark.String("a")
+				for i := 0; i < st.N; i++ {
+					_, err := starlark.Call(thread, ord, starlark.Tuple{input}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+
+		t.Run("invalid", func(t *testing.T) {
+			expected := regexp.MustCompile(`ord: string encodes \d+ Unicode code points, want 1`)
+
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
+			st.RunThread(func(thread *starlark.Thread) {
+				input := starlark.String("b" + strings.Repeat("a", st.N))
+				_, err := starlark.Call(thread, ord, starlark.Tuple{input}, nil)
+				if err == nil {
+					st.Error("ord succeded on malformed input")
+				} else if !expected.Match([]byte(err.Error())) {
+					t.Errorf("unexpected error: %v", err)
+				}
+			})
+		})
+	})
+
+	t.Run("input=bytes", func(t *testing.T) {
+		t.Run("valid", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMaxExecutionSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				input := starlark.Bytes("a")
+				for i := 0; i < st.N; i++ {
+					_, err := starlark.Call(thread, ord, starlark.Tuple{input}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+
+		t.Run("invalid", func(t *testing.T) {
+			expected := regexp.MustCompile(`ord: bytes has length \d+, want 1`)
+
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMaxExecutionSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				input := starlark.Bytes("b" + strings.Repeat("a", st.N))
+				_, err := starlark.Call(thread, ord, starlark.Tuple{input}, nil)
+				if err == nil {
+					st.Error("ord succeded on malformed input")
+				} else if !expected.Match([]byte(err.Error())) {
+					t.Errorf("unexpected error: %v", err)
+				}
+			})
+		})
+	})
 }
 
 func TestOrdAllocs(t *testing.T) {

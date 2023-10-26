@@ -95,7 +95,7 @@ func init() {
 		"list":      MemSafe | IOSafe,
 		"max":       MemSafe | IOSafe,
 		"min":       MemSafe | IOSafe,
-		"ord":       MemSafe | IOSafe,
+		"ord":       MemSafe | IOSafe | CPUSafe,
 		"print":     MemSafe,
 		"range":     MemSafe | IOSafe,
 		"repr":      MemSafe | IOSafe,
@@ -1104,6 +1104,9 @@ func ord(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		s := string(x)
 		r, sz := utf8.DecodeRuneInString(s)
 		if sz == 0 || sz != len(s) {
+			if err := thread.AddExecutionSteps(int64(len(s))); err != nil {
+				return nil, err
+			}
 			n := utf8.RuneCountInString(s)
 			return nil, fmt.Errorf("ord: string encodes %d Unicode code points, want 1", n)
 		}
