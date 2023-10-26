@@ -224,7 +224,7 @@ var (
 		"isupper":        MemSafe | IOSafe | CPUSafe,
 		"join":           MemSafe | IOSafe,
 		"lower":          MemSafe | IOSafe,
-		"lstrip":         MemSafe | IOSafe,
+		"lstrip":         MemSafe | IOSafe | CPUSafe,
 		"partition":      MemSafe | IOSafe | CPUSafe,
 		"removeprefix":   MemSafe | IOSafe,
 		"removesuffix":   MemSafe | IOSafe,
@@ -233,11 +233,11 @@ var (
 		"rindex":         MemSafe | IOSafe,
 		"rpartition":     MemSafe | IOSafe | CPUSafe,
 		"rsplit":         MemSafe | IOSafe | CPUSafe,
-		"rstrip":         MemSafe | IOSafe,
+		"rstrip":         MemSafe | IOSafe | CPUSafe,
 		"split":          MemSafe | IOSafe | CPUSafe,
 		"splitlines":     MemSafe | IOSafe | CPUSafe,
 		"startswith":     MemSafe | IOSafe | CPUSafe,
-		"strip":          MemSafe | IOSafe,
+		"strip":          MemSafe | IOSafe | CPUSafe,
 		"title":          MemSafe | IOSafe,
 		"upper":          MemSafe | IOSafe | CPUSafe,
 	}
@@ -2747,6 +2747,9 @@ func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
+	if err := thread.CheckExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
 	var s string
 	switch b.Name()[0] {
 	case 's': // strip
@@ -2769,6 +2772,9 @@ func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		}
 	}
 	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
+	}
+	if err := thread.AddExecutionSteps(int64(len(recv) - len(s))); err != nil {
 		return nil, err
 	}
 	return String(s), nil
