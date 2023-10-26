@@ -143,7 +143,7 @@ var (
 		"keys":       MemSafe | IOSafe | CPUSafe,
 		"pop":        MemSafe | IOSafe | CPUSafe,
 		"popitem":    MemSafe | IOSafe | CPUSafe,
-		"setdefault": MemSafe | IOSafe,
+		"setdefault": MemSafe | IOSafe | CPUSafe,
 		"update":     MemSafe | IOSafe,
 		"values":     MemSafe | IOSafe | CPUSafe,
 	}
@@ -1835,7 +1835,7 @@ func dict_setdefault(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Va
 		return nil, err
 	}
 	dict := b.Receiver().(*Dict)
-	if v, ok, err := dict.Get(key); err != nil {
+	if v, ok, err := dict.ht.lookup(thread, key); err != nil {
 		return nil, nameErr(b, err)
 	} else if ok {
 		return v, nil
