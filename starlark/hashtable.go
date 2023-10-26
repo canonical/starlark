@@ -101,6 +101,11 @@ retry:
 	// Inspect each bucket in the bucket list.
 	p := &ht.table[h&(uint32(len(ht.table)-1))]
 	for {
+		if thread != nil {
+			if err := thread.AddExecutionSteps(1); err != nil {
+				return err
+			}
+		}
 		for i := range p.entries {
 			e := &p.entries[i]
 			if e.hash != h {
@@ -315,7 +320,7 @@ func (ht *hashtable) values() []Value {
 	return values
 }
 
-func (ht *hashtable) delete(k Value) (v Value, found bool, err error) {
+func (ht *hashtable) delete(thread *Thread, k Value) (v Value, found bool, err error) {
 	if err := ht.checkMutable("delete from"); err != nil {
 		return nil, false, err
 	}
@@ -332,6 +337,11 @@ func (ht *hashtable) delete(k Value) (v Value, found bool, err error) {
 
 	// Inspect each bucket in the bucket list.
 	for p := &ht.table[h&(uint32(len(ht.table)-1))]; p != nil; p = p.next {
+		if thread != nil {
+			if err := thread.AddExecutionSteps(1); err != nil {
+				return nil, false, err
+			}
+		}
 		for i := range p.entries {
 			e := &p.entries[i]
 			if e.hash == h {
@@ -375,6 +385,9 @@ func (ht *hashtable) checkMutable(verb string) error {
 func (ht *hashtable) clear() error {
 	if err := ht.checkMutable("clear"); err != nil {
 		return err
+	}
+	if ht.len == 0 {
+		return nil
 	}
 	if ht.table != nil {
 		for i := range ht.table {
@@ -431,9 +444,12 @@ func (ht *hashtable) iterate() *keyIterator {
 }
 
 type keyIterator struct {
-	ht *hashtable
-	e  *entry
+	ht     *hashtable
+	e      *entry
+	thread *Thread
 }
+
+var _ SafeIterator = &keyIterator{}
 
 func (it *keyIterator) Next(k *Value) bool {
 	if it.e != nil {
@@ -450,8 +466,9 @@ func (it *keyIterator) Done() {
 	}
 }
 
-func (ki *keyIterator) Err() error     { return nil }
-func (ki *keyIterator) Safety() Safety { return NotSafe }
+func (ki *keyIterator) Err() error                { return nil }
+func (ki *keyIterator) Safety() Safety            { return MemSafe }
+func (ki *keyIterator) BindThread(thread *Thread) { ki.thread = thread }
 
 // TODO(adonovan): use go1.19's maphash.String.
 

@@ -157,8 +157,11 @@ func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 		nextExecutionSteps = math.MaxUint64
 	}
 
-	if nextExecutionSteps > thread.maxSteps {
-		return nextExecutionSteps, errors.New("too many steps")
+	if thread.maxSteps != 0 && nextExecutionSteps > thread.maxSteps {
+		return nextExecutionSteps, &MaxExecutionStepsError{
+			Current: thread.steps,
+			Max:     thread.maxSteps,
+		}
 	}
 
 	return nextExecutionSteps, nil
@@ -1029,9 +1032,27 @@ func setIndex(thread *Thread, x, y, z Value) error {
 
 // Unary applies a unary operator (+, -, ~, not) to its operand.
 func Unary(op syntax.Token, x Value) (Value, error) {
+	return SafeUnary(nil, op, x)
+}
+
+func SafeUnary(thread *Thread, op syntax.Token, x Value) (Value, error) {
 	// The NOT operator is not customizable.
 	if op == syntax.NOT {
 		return !x.Truth(), nil
+	}
+
+	if thread != nil {
+		if x, ok := x.(SafeHasUnary); ok {
+			if err := thread.CheckPermits(x.Safety()); err != nil {
+				return nil, err
+			}
+
+			return x.SafeUnary(thread, op)
+		}
+
+		if err := thread.CheckPermits(NotSafe); err != nil {
+			return nil, err
+		}
 	}
 
 	// Int, Float, and user-defined types
@@ -1164,30 +1185,65 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Int:
 			switch y := y.(type) {
 			case Int:
+				if thread != nil {
+					if err := thread.CheckAllocs(max(EstimateSize(x), EstimateSize(y))); err != nil {
+						return nil, err
+					}
+					result := Value(x.Sub(y))
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+						return nil, err
+					}
+					return result, nil
+				}
 				return x.Sub(y), nil
 			case Float:
 				xf, err := x.finiteFloat()
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return xf - y, nil
 			}
 		case Float:
 			switch y := y.(type) {
 			case Float:
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x - y, nil
 			case Int:
 				yf, err := y.finiteFloat()
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x - yf, nil
 			}
 		case *Set: // difference
 			if y, ok := y.(*Set); ok {
-				iter := y.Iterate()
+				iter, err := SafeIterate(thread, y)
+				if err != nil {
+					return nil, err
+				}
 				defer iter.Done()
-				return x.Difference(iter)
+				diff, err := x.safeDifference(thread, iter)
+				if err != nil {
+					return nil, err
+				}
+				if err := iter.Err(); err != nil {
+					return nil, err
+				}
+				return diff, nil
 			}
 		}
 
@@ -2170,6 +2226,14 @@ type MaxAllocsError struct {
 
 func (e *MaxAllocsError) Error() string {
 	return "exceeded memory allocation limits"
+}
+
+type MaxExecutionStepsError struct {
+	Current, Max uint64
+}
+
+func (e *MaxExecutionStepsError) Error() string {
+	return "too many steps"
 }
 
 // CheckAllocs returns an error if a change in allocations associated with this
