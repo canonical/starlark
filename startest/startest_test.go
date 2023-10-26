@@ -355,7 +355,7 @@ func TestRequireSafety(t *testing.T) {
 			st.RunThread(func(thread *starlark.Thread) {
 				if _, err := starlark.Call(thread, builtin, nil, nil); err == nil {
 					st.Error("expected error")
-				} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 			})
@@ -377,7 +377,7 @@ func TestRequireSafety(t *testing.T) {
 		})
 
 		t.Run("safety=unsafe", func(t *testing.T) {
-			const expected = "cannot call builtin 'fn': feature unavailable to the sandbox"
+			const expected = "cannot call builtin 'fn': feature disabled by safety constraints"
 
 			fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 				return starlark.None, nil
@@ -397,7 +397,7 @@ func TestRequireSafety(t *testing.T) {
 		})
 
 		t.Run("safety=undeclared", func(t *testing.T) {
-			const expected = "cannot call builtin 'fn': feature unavailable to the sandbox"
+			const expected = "cannot call builtin 'fn': feature disabled by safety constraints"
 			fn := starlark.NewBuiltin("fn", func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 				return starlark.None, nil
 			})
@@ -575,7 +575,7 @@ func TestRequireSafetyDefault(t *testing.T) {
 
 		t.Run("method=RunString", func(t *testing.T) {
 			safetyTest(t, func(safety starlark.SafetyFlags) {
-				const expected = "cannot call builtin 'fn': feature unavailable to the sandbox"
+				const expected = "cannot call builtin 'fn': feature disabled by safety constraints"
 
 				fn := starlark.NewBuiltinWithSafety("fn", safety, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 					return starlark.None, nil

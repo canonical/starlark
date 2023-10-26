@@ -196,7 +196,7 @@ func (thread *Thread) Permits(value SafetyAware) bool {
 // the provided safety-aware value.
 func (thread *Thread) CheckPermits(value SafetyAware) error {
 	if err := thread.requiredSafety.CheckValid(); err != nil {
-		return fmt.Errorf("thread safety: %v", err)
+		return fmt.Errorf("thread safety: %w", err)
 	}
 	safety := value.Safety()
 	if err := safety.CheckValid(); err != nil {

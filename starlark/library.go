@@ -3264,5 +3264,8 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 // nameErr returns an error message of the form "name: msg"
 // where name is b.Name() and msg is a string or error.
 func nameErr(b *Builtin, msg interface{}) error {
+	if err, ok := msg.(error); ok {
+		return fmt.Errorf("%s: %w", b.Name(), err)
+	}
 	return fmt.Errorf("%s: %v", b.Name(), msg)
 }
