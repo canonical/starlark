@@ -43,10 +43,13 @@ func TestCheckAllocs(t *testing.T) {
 
 	if err := thread.CheckAllocs(2000); err == nil {
 		t.Errorf("expected error")
-	} else if !errors.Is(err, starlark.ErrSafety) {
-		t.Errorf("unexpected error: %v", err)
-	} else if allocs := thread.Allocs(); allocs != 0 {
-		t.Errorf("CheckAllocs recorded allocations: expected 0 but got %v", allocs)
+	} else {
+		expected := &starlark.AllocsSafetyError{}
+		if !errors.As(err, &expected) {
+			t.Errorf("unexpected error: %v", err)
+		} else if allocs := thread.Allocs(); allocs != 0 {
+			t.Errorf("CheckAllocs recorded allocations: expected 0 but got %v", allocs)
+		}
 	}
 
 	if _, err := starlark.ExecFile(thread, "alloc_cancel_test", "", nil); err != nil {
@@ -114,8 +117,11 @@ func TestPositiveDeltaDeclarationExceedingMax(t *testing.T) {
 
 	if _, err := starlark.ExecFile(thread, "alloc_cancel_test", "", nil); err == nil {
 		t.Errorf("expected cancellation")
-	} else if !errors.Is(err, starlark.ErrSafety) {
-		t.Errorf("unexpected error: %v", err)
+	} else {
+		expected := &starlark.AllocsSafetyError{}
+		if !errors.As(err, &expected) {
+			t.Errorf("unexpected error: %v", err)
+		}
 	}
 }
 

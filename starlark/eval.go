@@ -128,7 +128,7 @@ func (thread *Thread) AddExecutionSteps(delta int64) error {
 		if thread.OnMaxSteps != nil {
 			thread.OnMaxSteps(thread)
 		} else {
-			thread.CancelError(err)
+			thread.cancel(err)
 		}
 	}
 
@@ -226,22 +226,19 @@ func (thread *Thread) Uncancel() {
 //
 // Unlike most methods of Thread, it is safe to call Cancel from any
 // goroutine, even if the thread is actively executing.
-func (thread *Thread) Cancel(reason string) {
-	thread.CancelError(fmt.Errorf(reason))
+func (thread *Thread) Cancel(reason string, args ...interface{}) {
+	var err error
+	if len(args) == 0 {
+		err = errors.New(reason)
+	} else {
+		err = fmt.Errorf(reason, args...)
+	}
+	thread.cancel(err)
 }
 
-// CancelError causes execution of Starlark code in the specified thread to
-// promptly fail with an EvalError that includes the specified reason.
-// There may be a delay before the interpreter observes the cancellation
-// if the thread is currently in a call to a built-in function.
-//
-// Call [Uncancel] to reset the cancellation state.
-//
-// Unlike most methods of Thread, it is safe to call CancelError from any
-// goroutine, even if the thread is actively executing.
-func (thread *Thread) CancelError(reason error) {
-	// Atomically set cancelReason, preserving earlier reason if any.
-	atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason)), nil, unsafe.Pointer(&reason))
+// cancel atomically sets cancelReason, preserving earlier reason if any.
+func (thread *Thread) cancel(err error) {
+	atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason)), nil, unsafe.Pointer(&err))
 }
 
 // SetLocal sets the thread-local value associated with the specified key.
@@ -2287,7 +2284,7 @@ func (thread *Thread) AddAllocs(delta int64) error {
 	next, err := thread.simulateAllocs(delta)
 	thread.allocs = next
 	if err != nil {
-		thread.CancelError(err)
+		thread.cancel(err)
 	}
 
 	return err
