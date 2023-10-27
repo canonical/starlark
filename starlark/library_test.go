@@ -4606,6 +4606,43 @@ func TestStringJoinAllocs(t *testing.T) {
 }
 
 func TestStringLowerSteps(t *testing.T) {
+	t.Run("short", func(t *testing.T) {
+		str := starlark.String("δηαδβηηφ")
+		string_lower, _ := str.Attr("lower")
+		if string_lower == nil {
+			t.Fatalf("no such method: string.lower")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(16)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, string_lower, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("long", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			str := starlark.String(strings.Repeat("δηαδβηηφ", st.N))
+			string_lower, _ := str.Attr("lower")
+			if string_lower == nil {
+				st.Fatalf("no such method: string.lower")
+			}
+
+			_, err := starlark.Call(thread, string_lower, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestStringLowerAllocs(t *testing.T) {

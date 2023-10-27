@@ -223,7 +223,7 @@ var (
 		"istitle":        MemSafe | IOSafe | CPUSafe,
 		"isupper":        MemSafe | IOSafe | CPUSafe,
 		"join":           MemSafe | IOSafe,
-		"lower":          MemSafe | IOSafe,
+		"lower":          MemSafe | IOSafe | CPUSafe,
 		"lstrip":         MemSafe | IOSafe | CPUSafe,
 		"partition":      MemSafe | IOSafe | CPUSafe,
 		"removeprefix":   MemSafe | IOSafe,
@@ -2583,7 +2583,9 @@ func string_lower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	}
 
 	recv := string(b.Receiver().(String))
-
+	if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
 	// There could be actually a difference between the size of the encoded
 	// upper and the size of the encoded lower. The maximum difference among
 	// them (according to unicode.ToLower implementation) is only 1 byte,
