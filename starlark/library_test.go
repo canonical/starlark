@@ -4375,6 +4375,7 @@ func TestStringFormatAllocs(t *testing.T) {
 }
 
 func TestStringIndexSteps(t *testing.T) {
+	testStringFindMethodSteps(t, "index")
 }
 
 func TestStringIndexAllocs(t *testing.T) {
@@ -4999,6 +5000,7 @@ func TestStringRfindAllocs(t *testing.T) {
 }
 
 func TestStringRindexSteps(t *testing.T) {
+	testStringFindMethodSteps(t, "rindex")
 }
 
 func TestStringRindexAllocs(t *testing.T) {
