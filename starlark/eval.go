@@ -60,7 +60,7 @@ type Thread struct {
 	stepsLock       sync.Mutex
 
 	// OnMaxSteps is called when the thread reaches the limit set by SetMaxExecutionSteps.
-	// The default behavior is to call thread.Cancel("too many steps").
+	// The default behavior is to cancel the thread.
 	OnMaxSteps func(thread *Thread)
 
 	// allocs counts the abstract memory units claimed by this resource pool
@@ -68,7 +68,7 @@ type Thread struct {
 	allocsLock        sync.Mutex
 
 	// cancelReason records the reason from the first call to Cancel.
-	cancelReason *string
+	cancelReason *error
 
 	// locals holds arbitrary "thread-local" Go values belonging to the client.
 	// They are accessible to the client but not to any Starlark program.
@@ -94,7 +94,7 @@ func (thread *Thread) ExecutionSteps() uint64 {
 // computation steps that may be executed by this thread. If the
 // thread's step counter exceeds this limit, the interpreter calls
 // the optional OnMaxSteps function or the default behavior
-// of calling thread.Cancel("too many steps").
+// of cancelling the thread.
 func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
 }
@@ -125,7 +125,11 @@ func (thread *Thread) AddExecutionSteps(delta int64) error {
 	nextSteps, err := thread.simulateExecutionSteps(delta)
 	thread.steps = nextSteps
 	if err != nil {
-		thread.Cancel(err.Error())
+		if thread.OnMaxSteps != nil {
+			thread.OnMaxSteps(thread)
+		} else {
+			thread.CancelError(err)
+		}
 	}
 
 	return err
@@ -136,7 +140,7 @@ func (thread *Thread) AddExecutionSteps(delta int64) error {
 // recorded.
 func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
-		return thread.steps, errors.New(*(*string)(cancelReason))
+		return thread.steps, fmt.Errorf("Starlark computation cancelled: %w", *(*error)(cancelReason))
 	}
 
 	var nextExecutionSteps uint64
@@ -223,6 +227,19 @@ func (thread *Thread) Uncancel() {
 // Unlike most methods of Thread, it is safe to call Cancel from any
 // goroutine, even if the thread is actively executing.
 func (thread *Thread) Cancel(reason string) {
+	thread.CancelError(fmt.Errorf(reason))
+}
+
+// CancelError causes execution of Starlark code in the specified thread to
+// promptly fail with an EvalError that includes the specified reason.
+// There may be a delay before the interpreter observes the cancellation
+// if the thread is currently in a call to a built-in function.
+//
+// Call [Uncancel] to reset the cancellation state.
+//
+// Unlike most methods of Thread, it is safe to call CancelError from any
+// goroutine, even if the thread is actively executing.
+func (thread *Thread) CancelError(reason error) {
 	// Atomically set cancelReason, preserving earlier reason if any.
 	atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason)), nil, unsafe.Pointer(&reason))
 }
@@ -2270,7 +2287,7 @@ func (thread *Thread) AddAllocs(delta int64) error {
 	next, err := thread.simulateAllocs(delta)
 	thread.allocs = next
 	if err != nil {
-		thread.Cancel(err.Error())
+		thread.CancelError(err)
 	}
 
 	return err
@@ -2281,7 +2298,7 @@ func (thread *Thread) AddAllocs(delta int64) error {
 // change is recorded.
 func (thread *Thread) simulateAllocs(delta int64) (uint64, error) {
 	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
-		return thread.allocs, errors.New(*(*string)(cancelReason))
+		return thread.allocs, fmt.Errorf("Starlark computation cancelled: %w", *(*error)(cancelReason))
 	}
 
 	var nextAllocs uint64

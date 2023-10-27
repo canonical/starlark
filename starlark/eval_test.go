@@ -978,8 +978,9 @@ func TestExecutionSteps(t *testing.T) {
 	// Exceeding the step limit causes cancellation.
 	thread.SetMaxExecutionSteps(1000)
 	_, err = countSteps(1000)
-	if fmt.Sprint(err) != "Starlark computation cancelled: too many steps" {
-		t.Errorf("execution returned error %q, want cancellation", err)
+	expected := &starlark.ExecutionStepsSafetyError{}
+	if !errors.As(err, &expected) {
+		t.Errorf("execution returned error %q, want too many steps", err)
 	}
 
 	thread.SetMaxExecutionSteps(thread.ExecutionSteps() + 100)
@@ -1146,17 +1147,16 @@ func TestAddExecutionStepsFail(t *testing.T) {
 
 	if _, err := starlark.ExecFile(thread, "add_execution_steps", "", nil); err == nil {
 		t.Errorf("expected cancellation")
-	} else if err.Error() != "Starlark computation cancelled: too many steps" {
+	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	const expectedStepsAfterExec = stepsToAdd + 1
 	if err := thread.AddExecutionSteps(maxSteps / 2); err == nil {
 		t.Errorf("expected error")
-	} else if err.Error() != "too many steps" {
+	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
-	} else if steps := thread.ExecutionSteps(); steps != expectedStepsAfterExec {
-		t.Errorf("incorrect number of steps recorded: expected %v but got %v", expectedStepsAfterExec, steps)
+	} else if steps := thread.ExecutionSteps(); steps != stepsToAdd {
+		t.Errorf("incorrect number of steps recorded: expected %v but got %v", stepsToAdd, steps)
 	}
 }
 

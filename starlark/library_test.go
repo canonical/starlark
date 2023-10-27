@@ -1009,7 +1009,6 @@ func TestEnumerateAllocs(t *testing.T) {
 	})
 
 	t.Run("early-termination", func(t *testing.T) {
-		const expected = "exceeded memory allocation limits"
 		maxAllocs := uint64(40)
 
 		t.Run("iterable", func(t *testing.T) {
@@ -1031,7 +1030,7 @@ func TestEnumerateAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, enumerate, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				if nReached > 1 && iter.maxN != 1 {
@@ -1061,7 +1060,7 @@ func TestEnumerateAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, enumerate, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				if nReached > 0 && iter.maxN > 1 {
@@ -2124,8 +2123,7 @@ func TestReversedAllocs(t *testing.T) {
 	})
 
 	t.Run("early-termination", func(t *testing.T) {
-		const expected = "exceeded memory allocation limits"
-		maxAllocs := uint64(50)
+		const maxAllocs = uint64(50)
 
 		t.Run("iterable", func(t *testing.T) {
 			st := startest.From(t)
@@ -2150,7 +2148,7 @@ func TestReversedAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				st.KeepAlive(result)
@@ -2184,7 +2182,7 @@ func TestReversedAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				st.KeepAlive(result)
@@ -2323,7 +2321,6 @@ func TestSortedAllocs(t *testing.T) {
 	})
 
 	t.Run("early-termination", func(t *testing.T) {
-		const expected = "exceeded memory allocation limits"
 		maxAllocs := uint64(1)
 
 		t.Run("iterable", func(t *testing.T) {
@@ -2349,7 +2346,7 @@ func TestSortedAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, sorted, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				st.KeepAlive(result)
@@ -2382,7 +2379,7 @@ func TestSortedAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, sorted, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				st.KeepAlive(result)
@@ -2570,7 +2567,6 @@ func TestTupleAllocs(t *testing.T) {
 	})
 
 	t.Run("early-termination", func(t *testing.T) {
-		const expected = "exceeded memory allocation limits"
 		maxAllocs := uint64(30)
 
 		t.Run("iterable", func(t *testing.T) {
@@ -2592,7 +2588,7 @@ func TestTupleAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, tuple, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				if nReached > 1 && iter.maxN != 1 {
@@ -2622,7 +2618,7 @@ func TestTupleAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, tuple, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				if nReached > 0 && iter.maxN > 1 {

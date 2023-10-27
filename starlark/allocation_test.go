@@ -1,6 +1,7 @@
 package starlark_test
 
 import (
+	"errors"
 	"math"
 	"strings"
 	"sync"
@@ -42,7 +43,7 @@ func TestCheckAllocs(t *testing.T) {
 
 	if err := thread.CheckAllocs(2000); err == nil {
 		t.Errorf("expected error")
-	} else if err.Error() != "exceeded memory allocation limits" {
+	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
 	} else if allocs := thread.Allocs(); allocs != 0 {
 		t.Errorf("CheckAllocs recorded allocations: expected 0 but got %v", allocs)
@@ -113,14 +114,13 @@ func TestPositiveDeltaDeclarationExceedingMax(t *testing.T) {
 
 	if _, err := starlark.ExecFile(thread, "alloc_cancel_test", "", nil); err == nil {
 		t.Errorf("expected cancellation")
-	} else if err.Error() != "Starlark computation cancelled: exceeded memory allocation limits" {
+	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
 
 func TestOverflowingPositiveDeltaDeclaration(t *testing.T) {
 	const allocationIncrease = math.MaxInt64
-	const expectedErrMsg = "exceeded memory allocation limits"
 
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
@@ -256,7 +256,7 @@ func TestCheckAllocsCancelledRejection(t *testing.T) {
 
 	if err := thread.CheckAllocs(2 * maxAllocs); err == nil {
 		t.Errorf("expected cancellation")
-	} else if err.Error() != cancellationReason {
+	} else if errors.Unwrap(err).Error() != cancellationReason {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -271,7 +271,7 @@ func TestAddAllocsCancelledRejection(t *testing.T) {
 
 	if err := thread.AddAllocs(2 * maxAllocs); err == nil {
 		t.Errorf("expected cancellation")
-	} else if err.Error() != cancellationReason {
+	} else if errors.Unwrap(err).Error() != cancellationReason {
 		t.Errorf("unexpected error: %v", err)
 	} else if allocs := thread.Allocs(); allocs != 0 {
 		t.Errorf("changes were recorded against cancelled thread: expected 0 allocations, got %v", allocs)
