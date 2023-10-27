@@ -101,7 +101,7 @@ func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
 	return nil, nil
 }
 
-func (i Int) Safety() Safety {
+func (i Int) Safety() SafetyFlags {
 	return MemSafe | IOSafe
 }
 

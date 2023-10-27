@@ -81,7 +81,7 @@ var Module = &starlarkstruct.Module{
 		"indent": starlark.NewBuiltin("json.indent", indent),
 	},
 }
-var safeties = map[string]starlark.Safety{
+var safeties = map[string]starlark.SafetyFlags{
 	"encode": starlark.IOSafe,
 	"decode": starlark.MemSafe | starlark.IOSafe,
 	"indent": starlark.MemSafe | starlark.IOSafe,
@@ -187,7 +187,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				quote(k)
 				buf.WriteByte(':')
 				if err := emit(item[1]); err != nil {
-					return fmt.Errorf("in %s key %s: %v", x.Type(), item[0], err)
+					return fmt.Errorf("in %s key %s: %w", x.Type(), item[0], err)
 				}
 			}
 			buf.WriteByte('}')
@@ -204,7 +204,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 					buf.WriteByte(',')
 				}
 				if err := emit(elem); err != nil {
-					return fmt.Errorf("at %s index %d: %v", x.Type(), i, err)
+					return fmt.Errorf("at %s index %d: %w", x.Type(), i, err)
 				}
 			}
 			buf.WriteByte(']')
@@ -231,7 +231,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				quote(name)
 				buf.WriteByte(':')
 				if err := emit(v); err != nil {
-					return fmt.Errorf("in field .%s: %v", name, err)
+					return fmt.Errorf("in field .%s: %w", name, err)
 				}
 			}
 			buf.WriteByte('}')
@@ -243,7 +243,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	}
 
 	if err := emit(x); err != nil {
-		return nil, fmt.Errorf("%s: %v", b.Name(), err)
+		return nil, fmt.Errorf("%s: %w", b.Name(), err)
 	}
 	return starlark.String(buf.String()), nil
 }
