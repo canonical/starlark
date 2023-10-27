@@ -4227,7 +4227,54 @@ func TestStringEndswithAllocs(t *testing.T) {
 	testStringFixAllocs(t, "endswith")
 }
 
-func testStringFindMethodSteps(t *testing.T) {
+func testStringFindMethodSteps(t *testing.T, name string) {
+	t.Run("small", func(t *testing.T) {
+		haystack := starlark.String("Was it a car or a cat I saw?")
+		needle := starlark.String("or")
+		method, _ := haystack.Attr(name)
+		if method == nil {
+			t.Fatalf("no such method: string.%s", name)
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(15)
+		st.SetMaxExecutionSteps(15)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, method, starlark.Tuple{needle}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("big", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			haystack := starlark.String("a" + strings.Repeat(" ", st.N) + "b")
+			method, _ := haystack.Attr(name)
+			if method == nil {
+				t.Fatalf("no such method: string.%s", name)
+			}
+
+			needle := starlark.String("a")
+			_, err := starlark.Call(thread, method, starlark.Tuple{needle}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+
+			needle = starlark.String("b")
+			_, err = starlark.Call(thread, method, starlark.Tuple{needle}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func testStringFindMethodAllocs(t *testing.T, name string) {
@@ -4253,6 +4300,7 @@ func testStringFindMethodAllocs(t *testing.T, name string) {
 }
 
 func TestStringFindSteps(t *testing.T) {
+	testStringFindMethodSteps(t, "find")
 }
 
 func TestStringFindAllocs(t *testing.T) {
@@ -4943,6 +4991,7 @@ func TestStringReplaceAllocs(t *testing.T) {
 }
 
 func TestStringRfindSteps(t *testing.T) {
+	testStringFindMethodSteps(t, "rfind")
 }
 
 func TestStringRfindAllocs(t *testing.T) {

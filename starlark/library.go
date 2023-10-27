@@ -212,7 +212,7 @@ var (
 		"elem_ords":      MemSafe | IOSafe,
 		"elems":          MemSafe | IOSafe,
 		"endswith":       MemSafe | IOSafe | CPUSafe,
-		"find":           MemSafe | IOSafe,
+		"find":           MemSafe | IOSafe | CPUSafe,
 		"format":         MemSafe | IOSafe,
 		"index":          MemSafe | IOSafe,
 		"isalnum":        MemSafe | IOSafe | CPUSafe,
@@ -229,7 +229,7 @@ var (
 		"removeprefix":   MemSafe | IOSafe,
 		"removesuffix":   MemSafe | IOSafe,
 		"replace":        MemSafe | IOSafe,
-		"rfind":          MemSafe | IOSafe,
+		"rfind":          MemSafe | IOSafe | CPUSafe,
 		"rindex":         MemSafe | IOSafe,
 		"rpartition":     MemSafe | IOSafe | CPUSafe,
 		"rsplit":         MemSafe | IOSafe | CPUSafe,
@@ -3254,6 +3254,10 @@ func string_find_impl(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple, al
 		slice = s[start:end]
 	}
 
+	if err := thread.CheckExecutionSteps(int64(len(slice))); err != nil {
+		return nil, err
+	}
+
 	var i int
 	if last {
 		i = strings.LastIndex(slice, sub)
@@ -3268,6 +3272,15 @@ func string_find_impl(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple, al
 		result = MakeInt(-1)
 	} else {
 		result = MakeInt(i + start)
+		if last {
+			if err := thread.AddExecutionSteps(int64(len(slice) - i)); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := thread.AddExecutionSteps(int64(i + len(sub))); err != nil {
+				return nil, err
+			}
+		}
 	}
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
