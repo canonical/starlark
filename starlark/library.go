@@ -228,7 +228,7 @@ var (
 		"partition":      MemSafe | IOSafe | CPUSafe,
 		"removeprefix":   MemSafe | IOSafe,
 		"removesuffix":   MemSafe | IOSafe,
-		"replace":        MemSafe | IOSafe,
+		"replace":        MemSafe | IOSafe | CPUSafe,
 		"rfind":          MemSafe | IOSafe,
 		"rindex":         MemSafe | IOSafe,
 		"rpartition":     MemSafe | IOSafe | CPUSafe,
@@ -2668,10 +2668,23 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 
+	if err := thread.CheckExecutionSteps(int64(len(recv) * len(new) / len(old))); err != nil {
+		return nil, err
+	}
 	if err := thread.CheckAllocs(int64(len(recv) * len(new) / len(old))); err != nil {
 		return nil, err
 	}
-	result := Value(String(strings.Replace(recv, old, new, count)))
+	replaced := strings.Replace(recv, old, new, count)
+	if len(replaced) > len(recv) {
+		if err := thread.AddExecutionSteps(int64(len(replaced))); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+			return nil, err
+		}
+	}
+	result := Value(String(replaced))
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
 	}
