@@ -369,6 +369,12 @@ type HasUnary interface {
 	Unary(op syntax.Token) (Value, error)
 }
 
+type SafeHasUnary interface {
+	Value
+	SafetyAware
+	SafeUnary(thread *Thread, op syntax.Token) (Value, error)
+}
+
 // A HasAttrs value has fields or methods that may be read by a dot expression (y = x.f).
 // Attribute names may be listed using the built-in 'dir' function.
 //
@@ -944,7 +950,7 @@ func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.
 func (d *Dict) String() string                                  { return toString(d) }
 
 func (d *Dict) SafeSetKey(thread *Thread, k, v Value) error {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	if err := CheckSafety(thread, MemSafe|CPUSafe); err != nil {
 		return err
 	}
 	if err := d.ht.insert(thread, k, v); err != nil {

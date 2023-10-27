@@ -95,7 +95,7 @@ func init() {
 		"list":      MemSafe | IOSafe,
 		"max":       MemSafe | IOSafe,
 		"min":       MemSafe | IOSafe,
-		"ord":       MemSafe | IOSafe,
+		"ord":       MemSafe | IOSafe | CPUSafe,
 		"print":     MemSafe,
 		"range":     MemSafe | IOSafe,
 		"repr":      MemSafe | IOSafe,
@@ -104,7 +104,7 @@ func init() {
 		"sorted":    MemSafe | IOSafe,
 		"str":       MemSafe | IOSafe,
 		"tuple":     MemSafe | IOSafe,
-		"type":      MemSafe | IOSafe,
+		"type":      MemSafe | IOSafe | CPUSafe,
 		"zip":       MemSafe | IOSafe,
 	}
 
@@ -142,8 +142,8 @@ var (
 		"items":      MemSafe | IOSafe | CPUSafe,
 		"keys":       MemSafe | IOSafe | CPUSafe,
 		"pop":        MemSafe | IOSafe | CPUSafe,
-		"popitem":    MemSafe | IOSafe,
-		"setdefault": MemSafe | IOSafe,
+		"popitem":    MemSafe | IOSafe | CPUSafe,
+		"setdefault": MemSafe | IOSafe | CPUSafe,
 		"update":     MemSafe | IOSafe,
 		"values":     MemSafe | IOSafe | CPUSafe,
 	}
@@ -159,9 +159,9 @@ var (
 	}
 	listMethodSafeties = map[string]SafetyFlags{
 		"append": MemSafe | IOSafe,
-		"clear":  MemSafe | IOSafe,
+		"clear":  MemSafe | IOSafe | CPUSafe,
 		"extend": MemSafe | IOSafe,
-		"index":  MemSafe | IOSafe,
+		"index":  MemSafe | IOSafe | CPUSafe,
 		"insert": MemSafe | IOSafe,
 		"pop":    MemSafe | IOSafe,
 		"remove": MemSafe | IOSafe,
@@ -211,33 +211,33 @@ var (
 		"count":          MemSafe | IOSafe,
 		"elem_ords":      MemSafe | IOSafe,
 		"elems":          MemSafe | IOSafe,
-		"endswith":       MemSafe | IOSafe,
+		"endswith":       MemSafe | IOSafe | CPUSafe,
 		"find":           MemSafe | IOSafe,
 		"format":         MemSafe | IOSafe,
 		"index":          MemSafe | IOSafe,
-		"isalnum":        MemSafe | IOSafe,
-		"isalpha":        MemSafe | IOSafe,
-		"isdigit":        MemSafe | IOSafe,
-		"islower":        MemSafe | IOSafe,
-		"isspace":        MemSafe | IOSafe,
-		"istitle":        MemSafe | IOSafe,
-		"isupper":        MemSafe | IOSafe,
+		"isalnum":        MemSafe | IOSafe | CPUSafe,
+		"isalpha":        MemSafe | IOSafe | CPUSafe,
+		"isdigit":        MemSafe | IOSafe | CPUSafe,
+		"islower":        MemSafe | IOSafe | CPUSafe,
+		"isspace":        MemSafe | IOSafe | CPUSafe,
+		"istitle":        MemSafe | IOSafe | CPUSafe,
+		"isupper":        MemSafe | IOSafe | CPUSafe,
 		"join":           MemSafe | IOSafe,
 		"lower":          MemSafe | IOSafe,
-		"lstrip":         MemSafe | IOSafe,
-		"partition":      MemSafe | IOSafe,
+		"lstrip":         MemSafe | IOSafe | CPUSafe,
+		"partition":      MemSafe | IOSafe | CPUSafe,
 		"removeprefix":   MemSafe | IOSafe,
 		"removesuffix":   MemSafe | IOSafe,
 		"replace":        MemSafe | IOSafe,
 		"rfind":          MemSafe | IOSafe,
 		"rindex":         MemSafe | IOSafe,
-		"rpartition":     MemSafe | IOSafe,
-		"rsplit":         MemSafe | IOSafe,
-		"rstrip":         MemSafe | IOSafe,
-		"split":          MemSafe | IOSafe,
-		"splitlines":     MemSafe | IOSafe,
-		"startswith":     MemSafe | IOSafe,
-		"strip":          MemSafe | IOSafe,
+		"rpartition":     MemSafe | IOSafe | CPUSafe,
+		"rsplit":         MemSafe | IOSafe | CPUSafe,
+		"rstrip":         MemSafe | IOSafe | CPUSafe,
+		"split":          MemSafe | IOSafe | CPUSafe,
+		"splitlines":     MemSafe | IOSafe | CPUSafe,
+		"startswith":     MemSafe | IOSafe | CPUSafe,
+		"strip":          MemSafe | IOSafe | CPUSafe,
 		"title":          MemSafe | IOSafe,
 		"upper":          MemSafe | IOSafe | CPUSafe,
 	}
@@ -257,7 +257,7 @@ var (
 	}
 	setMethodSafeties = map[string]SafetyFlags{
 		"add":                  MemSafe | IOSafe,
-		"clear":                MemSafe | IOSafe,
+		"clear":                MemSafe | IOSafe | CPUSafe,
 		"difference":           MemSafe | IOSafe,
 		"discard":              MemSafe | IOSafe,
 		"intersection":         MemSafe | IOSafe,
@@ -1104,6 +1104,9 @@ func ord(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		s := string(x)
 		r, sz := utf8.DecodeRuneInString(s)
 		if sz == 0 || sz != len(s) {
+			if err := thread.AddExecutionSteps(int64(len(s))); err != nil {
+				return nil, err
+			}
 			n := utf8.RuneCountInString(s)
 			return nil, fmt.Errorf("ord: string encodes %d Unicode code points, want 1", n)
 		}
@@ -1814,7 +1817,7 @@ func dict_popitem(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if !ok {
 		return nil, nameErr(b, "empty dict")
 	}
-	v, _, err := recv.Delete(k)
+	v, _, err := recv.ht.delete(thread, k)
 	if err != nil {
 		return nil, nameErr(b, err) // dict is frozen
 	}
@@ -1832,7 +1835,7 @@ func dict_setdefault(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Va
 		return nil, err
 	}
 	dict := b.Receiver().(*Dict)
-	if v, ok, err := dict.Get(key); err != nil {
+	if v, ok, err := dict.ht.lookup(thread, key); err != nil {
 		return nil, nameErr(b, err)
 	} else if ok {
 		return v, nil
@@ -1892,11 +1895,15 @@ func list_append(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·clear
-func list_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	if err := b.Receiver().(*List).Clear(); err != nil {
+	recv := b.Receiver().(*List)
+	if err := thread.AddExecutionSteps(int64(recv.Len())); err != nil {
+		return nil, err
+	}
+	if err := recv.Clear(); err != nil {
 		return nil, nameErr(b, err)
 	}
 	return None, nil
@@ -1932,11 +1939,18 @@ func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		return nil, nameErr(b, err)
 	}
 
+	if err := thread.AddExecutionSteps(int64(end - start)); err != nil {
+		return nil, err
+	}
+
 	for i := start; i < end; i++ {
 		if eq, err := Equal(recv.elems[i], value); err != nil {
 			return nil, nameErr(b, err)
 		} else if eq {
 			res := Value(MakeInt(i))
+			if err := thread.AddExecutionSteps(-int64(end - i - 1)); err != nil {
+				return nil, err
+			}
 			if err := thread.AddAllocs(EstimateSize(res)); err != nil {
 				return nil, err
 			}
@@ -2169,13 +2183,19 @@ func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·isalnum
-func string_isalnum(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_isalnum(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
-	for _, r := range recv {
+	if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
+	for i, r := range recv {
 		if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+			if err := thread.AddExecutionSteps(-int64(len(recv) - i - 1)); err != nil {
+				return nil, err
+			}
 			return False, nil
 		}
 	}
@@ -2183,13 +2203,19 @@ func string_isalnum(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·isalpha
-func string_isalpha(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_isalpha(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
-	for _, r := range recv {
+	if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
+	for i, r := range recv {
 		if !unicode.IsLetter(r) {
+			if err := thread.AddExecutionSteps(-int64(len(recv) - i - 1)); err != nil {
+				return nil, err
+			}
 			return False, nil
 		}
 	}
@@ -2197,13 +2223,19 @@ func string_isalpha(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·isdigit
-func string_isdigit(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_isdigit(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
-	for _, r := range recv {
+	if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
+	for i, r := range recv {
 		if !unicode.IsDigit(r) {
+			if err := thread.AddExecutionSteps(-int64(len(recv) - i - 1)); err != nil {
+				return nil, err
+			}
 			return False, nil
 		}
 	}
@@ -2216,6 +2248,9 @@ func string_islower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
+	if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
 	if err := thread.CheckAllocs(EstimateSize(recv)); err != nil {
 		return nil, err
 	}
@@ -2239,13 +2274,19 @@ func isCasedRune(r rune) bool {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·isspace
-func string_isspace(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_isspace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
-	for _, r := range recv {
+	if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
+	for i, r := range recv {
 		if !unicode.IsSpace(r) {
+			if err := thread.AddExecutionSteps(-int64(len(recv) - i - 1)); err != nil {
+				return nil, err
+			}
 			return False, nil
 		}
 	}
@@ -2253,30 +2294,42 @@ func string_isspace(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·istitle
-func string_istitle(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_istitle(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
 
+	if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
 	// Python semantics differ from x==strings.{To,}Title(x) in Go:
 	// "uppercase characters may only follow uncased characters and
 	// lowercase characters only cased ones."
 	var cased, prevCased bool
-	for _, r := range recv {
+	for i, r := range recv {
 		if 'A' <= r && r <= 'Z' || unicode.IsTitle(r) { // e.g. "ǅ"
 			if prevCased {
+				if err := thread.AddExecutionSteps(-int64(len(recv) - i - 1)); err != nil {
+					return nil, err
+				}
 				return False, nil
 			}
 			prevCased = true
 			cased = true
 		} else if unicode.IsLower(r) {
 			if !prevCased {
+				if err := thread.AddExecutionSteps(-int64(len(recv) - i - 1)); err != nil {
+					return nil, err
+				}
 				return False, nil
 			}
 			prevCased = true
 			cased = true
 		} else if unicode.IsUpper(r) {
+			if err := thread.AddExecutionSteps(-int64(len(recv) - i - 1)); err != nil {
+				return nil, err
+			}
 			return False, nil
 		} else {
 			prevCased = false
@@ -2291,6 +2344,9 @@ func string_isupper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
+	if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
 	if err := thread.CheckAllocs(EstimateSize(recv)); err != nil {
 		return nil, err
 	}
@@ -2550,6 +2606,9 @@ func string_partition(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 	if sep == "" {
 		return nil, nameErr(b, "empty separator")
 	}
+	if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
 	var i int
 	if b.Name()[0] == 'p' {
 		i = strings.Index(recv, sep) // partition
@@ -2571,6 +2630,11 @@ func string_partition(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 			tuple = append(tuple, String(""), String(""), String(recv))
 		}
 	} else {
+		if b.Name()[0] == 'p' {
+			thread.AddExecutionSteps(-int64(len(recv) - len(sep) - i))
+		} else {
+			thread.AddExecutionSteps(-int64(i))
+		}
 		tuple = append(tuple, String(recv[:i]), String(recv[i:i+len(sep)]), String(recv[i+len(sep):]))
 	}
 	return tuple, nil
@@ -2626,7 +2690,7 @@ func string_rindex(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Valu
 
 // https://github.com/google/starlark-go/starlark/blob/master/doc/spec.md#string·startswith
 // https://github.com/google/starlark-go/starlark/blob/master/doc/spec.md#string·endswith
-func string_startswith(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_startswith(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var x Value
 	var start, end Value = None, None
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &x, &start, &end); err != nil {
@@ -2657,12 +2721,18 @@ func string_startswith(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 				return nil, fmt.Errorf("%s: want string, got %s, for element %d",
 					b.Name(), x.Type(), i)
 			}
+			if err := thread.AddExecutionSteps(int64(len(prefix))); err != nil {
+				return False, err
+			}
 			if f(s, prefix) {
 				return True, nil
 			}
 		}
 		return False, nil
 	case String:
+		if err := thread.AddExecutionSteps(int64(len(x))); err != nil {
+			return False, err
+		}
 		return Bool(f(s, string(x))), nil
 	}
 	return nil, fmt.Errorf("%s: got %s, want string or tuple of string", b.Name(), x.Type())
@@ -2677,6 +2747,9 @@ func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
+	if err := thread.CheckExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
 	var s string
 	switch b.Name()[0] {
 	case 's': // strip
@@ -2699,6 +2772,9 @@ func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		}
 	}
 	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+		return nil, err
+	}
+	if err := thread.AddExecutionSteps(int64(len(recv) - len(s))); err != nil {
 		return nil, err
 	}
 	return String(s), nil
@@ -2770,6 +2846,11 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	var res []string
 
 	if sep_ == nil || sep_ == None {
+		// A string with many consecutive separators may need to be traversed
+		// completely, even when maxsplit >= 0.
+		if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+			return nil, err
+		}
 		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/2+1)); err != nil {
 			return nil, err
 		}
@@ -2788,6 +2869,9 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 			return nil, fmt.Errorf("split: empty separator")
 		}
 
+		if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+			return nil, err
+		}
 		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/len(sep)+1)); err != nil {
 			return nil, err
 		}
@@ -2891,6 +2975,9 @@ func string_splitlines(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 	}
 	var lines []string
 	if s := string(b.Receiver().(String)); s != "" {
+		if err := thread.AddExecutionSteps(int64(len(s))); err != nil {
+			return nil, err
+		}
 		// TODO(adonovan): handle CRLF correctly.
 		if keepends {
 			lines = strings.SplitAfter(s, "\n")
@@ -2933,14 +3020,18 @@ func set_add(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·clear.
-func set_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	if b.Receiver().(*Set).Len() > 0 {
-		if err := b.Receiver().(*Set).Clear(); err != nil {
-			return nil, nameErr(b, err)
+	recv := b.Receiver().(*Set)
+	if recv.Len() > 0 {
+		if err := thread.AddExecutionSteps(int64(len(recv.ht.table))); err != nil {
+			return nil, err
 		}
+	}
+	if err := recv.Clear(); err != nil {
+		return nil, nameErr(b, err)
 	}
 	return None, nil
 }
