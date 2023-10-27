@@ -187,8 +187,11 @@ func TestBuiltinSafeExecution(t *testing.T) {
 
 		if _, err := starlark.ExecFile(thread, "builtin_safety_restrictions", "fn()", env); err == nil {
 			t.Errorf("expected error when trying to execute forbidden builtin")
-		} else if !errors.Is(err, starlark.ErrSafety) {
-			t.Errorf("unexpected error executing safe builtin: %v", err)
+		} else {
+			expected := &starlark.SafetyFlagsError{}
+			if !errors.As(err, &expected) {
+				t.Errorf("unexpected error executing safe builtin: %v", err)
+			}
 		}
 	})
 
@@ -246,8 +249,11 @@ func TestCallableSafeExecution(t *testing.T) {
 	c.DeclareSafety(starlark.NotSafe)
 	if _, err := starlark.ExecFile(thread, "dynamic_safety_checking", prog, env); err == nil {
 		t.Errorf("expected error running dynamically-forbidden callable")
-	} else if !errors.Is(err, starlark.ErrSafety) {
-		t.Errorf("unexpected error running forbidden callable: %v", err)
+	} else {
+		expected := &starlark.SafetyFlagsError{}
+		if !errors.As(err, &expected) {
+			t.Errorf("unexpected error running forbidden callable: %v", err)
+		}
 	}
 
 	// Repermit
@@ -313,10 +319,10 @@ func TestCheckSafety(t *testing.T) {
 	partiallySafeThread.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
 
 	tests := []struct {
-		name   string
-		thread *starlark.Thread
-		value  interface{}
-		expect error
+		name        string
+		thread      *starlark.Thread
+		value       interface{}
+		expectError bool
 	}{{
 		name:  "nil-thread",
 		value: "unimportant",
@@ -329,34 +335,37 @@ func TestCheckSafety(t *testing.T) {
 		thread: &starlark.Thread{},
 		value:  &dummySafetyAware{starlark.Safe},
 	}, {
-		name:   "safe-thread-not-safe-value",
-		thread: safeThread,
-		value:  &dummySafetyAware{},
-		expect: starlark.ErrSafety,
+		name:        "safe-thread-not-safe-value",
+		thread:      safeThread,
+		value:       &dummySafetyAware{},
+		expectError: true,
 	}, {
 		name:   "safe-thread-safe-value",
 		thread: safeThread,
 		value:  &dummySafetyAware{starlark.Safe},
 	}, {
-		name:   "partially-safe-thread-unsafe-value",
-		thread: partiallySafeThread,
-		value:  &dummySafetyAware{},
-		expect: starlark.ErrSafety,
+		name:        "partially-safe-thread-unsafe-value",
+		thread:      partiallySafeThread,
+		value:       &dummySafetyAware{},
+		expectError: true,
 	}, {
-		name:   "safe-thread-partially-safe-value",
-		thread: safeThread,
-		value:  &dummySafetyAware{starlark.MemSafe | starlark.IOSafe},
-		expect: starlark.ErrSafety,
+		name:        "safe-thread-partially-safe-value",
+		thread:      safeThread,
+		value:       &dummySafetyAware{starlark.MemSafe | starlark.IOSafe},
+		expectError: true,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			err := starlark.CheckSafety(test.thread, test.value)
-			if err != nil {
-				if test.expect == nil || !errors.Is(err, test.expect) {
+			if err == nil {
+				if test.expectError {
+					t.Error("expected error")
+				}
+			} else {
+				expected := &starlark.SafetyFlagsError{}
+				if !test.expectError || !errors.As(err, &expected) {
 					t.Errorf("unexpected error: %v", err)
 				}
-			} else if test.expect != nil {
-				t.Errorf("no error returned, expected: %v", test.expect)
 			}
 		})
 	}

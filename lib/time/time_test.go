@@ -64,7 +64,7 @@ func TestTimeNowSafety(t *testing.T) {
 		name          string
 		thread        *starlark.Thread
 		nowFuncSafety starlark.SafetyFlags
-		expect        error
+		expectError   bool
 	}{{
 		name:          "default",
 		thread:        &starlark.Thread{},
@@ -77,7 +77,7 @@ func TestTimeNowSafety(t *testing.T) {
 		name:          "not-safe",
 		thread:        safeThread,
 		nowFuncSafety: starlark.NotSafe,
-		expect:        starlark.ErrSafety,
+		expectError:   true,
 	}, {
 		name:          "safe",
 		thread:        safeThread,
@@ -90,14 +90,15 @@ func TestTimeNowSafety(t *testing.T) {
 			defer func() { time.NowFuncSafety = originalNowFuncSafety }()
 
 			_, err := starlark.Call(test.thread, now, nil, nil)
-			if err != nil {
-				if test.expect == nil {
-					t.Errorf("unexpected error: %v", err)
-				} else if !errors.Is(err, test.expect) {
-					t.Errorf("unexpected error: expected %t but got %t", test.expect, err)
+			if err == nil {
+				if test.expectError {
+					t.Error("expected error")
 				}
-			} else if test.expect != nil {
-				t.Errorf("now returned no error, expected: %v", test.expect)
+			} else {
+				expected := &starlark.SafetyFlagsError{}
+				if !test.expectError || !errors.As(err, &expected) {
+					t.Errorf("unexpected error: %v", err)
+				}
 			}
 		})
 	}

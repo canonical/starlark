@@ -355,8 +355,11 @@ func TestRequireSafety(t *testing.T) {
 			st.RunThread(func(thread *starlark.Thread) {
 				if _, err := starlark.Call(thread, builtin, nil, nil); err == nil {
 					st.Error("expected error")
-				} else if !errors.Is(err, starlark.ErrSafety) {
-					st.Errorf("unexpected error: %v", err)
+				} else {
+					expected := &starlark.SafetyFlagsError{}
+					if !errors.As(err, &expected) {
+						st.Errorf("unexpected error: %v", err)
+					}
 				}
 			})
 		})
