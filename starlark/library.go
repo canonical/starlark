@@ -1980,7 +1980,7 @@ func list_pop(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	if err := list.checkMutable("pop from"); err != nil {
 		return nil, nameErr(b, err)
 	}
-	if err := thread.AddExecutionSteps(int64(n - i - 1)); err != nil {
+	if err := thread.AddExecutionSteps(int64(n - i)); err != nil {
 		return nil, err
 	}
 	res := list.elems[i]
