@@ -7,13 +7,13 @@ import (
 	"math/bits"
 )
 
-// Safety represents a set of constraints on executed code.
-type Safety uint
+// SafetyFlags represents a set of constraints on executed code.
+type SafetyFlags uint
 
 // A valid set of safety flags is any subset of the following defined flags.
 const (
-	NotSafe Safety = 0
-	CPUSafe Safety = 1 << (iota - 1)
+	NotSafe SafetyFlags = 0
+	CPUSafe SafetyFlags = 1 << (iota - 1)
 	MemSafe
 	TimeSafe
 	IOSafe
@@ -36,7 +36,7 @@ func init() {
 	}
 }
 
-func (flags Safety) String() string {
+func (flags SafetyFlags) String() string {
 	if flags == NotSafe {
 		return safetyNames[0]
 	}
@@ -45,7 +45,7 @@ func (flags Safety) String() string {
 	buf.WriteByte('(')
 	count := 0
 	for i := 0; i < bits.UintSize; i++ {
-		flag := Safety(1 << i)
+		flag := SafetyFlags(1 << i)
 		if flag > flags {
 			break
 		}
@@ -76,7 +76,7 @@ func (flags Safety) String() string {
 
 // CheckValid checks that a given set of safety flags contains only defined
 // flags.
-func (flags Safety) CheckValid() error {
+func (flags SafetyFlags) CheckValid() error {
 	if flags >= safetyFlagsLimit {
 		return errors.New("internal error: invalid safety flags")
 	}
@@ -86,10 +86,10 @@ func (flags Safety) CheckValid() error {
 // A SafetyAware value can report its safety, which can be used by a thread to
 // prevent operations which cannot make sufficient safety guarantees.
 type SafetyAware interface {
-	Safety() Safety
+	Safety() SafetyFlags
 }
 
-var _ SafetyAware = Safety(0)
+var _ SafetyAware = SafetyFlags(0)
 var _ SafetyAware = new(Function)
 var _ SafetyAware = new(Builtin)
 var _ SafetyAware = new(rangeIterator)
@@ -100,25 +100,31 @@ var _ SafetyAware = new(listIterator)
 var _ SafetyAware = new(tupleIterator)
 var _ SafetyAware = new(keyIterator)
 
-func (set Safety) Safety() Safety { return set }
+func (set SafetyFlags) Safety() SafetyFlags { return set }
 
 // Contains returns whether the provided flags are a subset of this set.
-func (set Safety) Contains(subset Safety) bool {
+func (set SafetyFlags) Contains(subset SafetyFlags) bool {
 	return subset&^set == 0
 }
 
-type SafetyError struct {
-	Missing Safety
+var ErrSafety = errors.New("safety constraint enforced")
+
+type SafetyFlagsError struct {
+	Missing SafetyFlags
 }
 
-func (se SafetyError) Error() string {
-	return "feature unavailable to the sandbox"
+func (se SafetyFlagsError) Error() string {
+	return "feature disabled by safety constraints"
+}
+
+func (se SafetyFlagsError) Is(err error) bool {
+	return err == ErrSafety
 }
 
 // CheckContains returns an error if the provided flags are not a subset of this set.
-func (set Safety) CheckContains(subset Safety) error {
+func (set SafetyFlags) CheckContains(subset SafetyFlags) error {
 	if difference := subset &^ set; difference != 0 {
-		return &SafetyError{difference}
+		return &SafetyFlagsError{difference}
 	}
 	return nil
 }

@@ -62,7 +62,7 @@ type ST struct {
 	minExecutionSteps uint64
 	alive             []interface{}
 	N                 int
-	requiredSafety    starlark.Safety
+	requiredSafety    starlark.SafetyFlags
 	safetyGiven       bool
 	predecls          starlark.StringDict
 	locals            map[string]interface{}
@@ -105,7 +105,7 @@ func (st *ST) SetMinExecutionSteps(minExecutionSteps uint64) {
 }
 
 // RequireSafety optionally sets the required safety of tested code.
-func (st *ST) RequireSafety(safety starlark.Safety) {
+func (st *ST) RequireSafety(safety starlark.SafetyFlags) {
 	st.requiredSafety |= safety
 	st.safetyGiven = true
 }
@@ -507,7 +507,7 @@ type ntimes_iterator struct {
 
 var _ starlark.SafeIterator = &ntimes_iterator{}
 
-func (it *ntimes_iterator) Safety() starlark.Safety            { return stSafe }
+func (it *ntimes_iterator) Safety() starlark.SafetyFlags       { return stSafe }
 func (it *ntimes_iterator) BindThread(thread *starlark.Thread) {}
 func (it *ntimes_iterator) Done()                              {}
 func (it *ntimes_iterator) Err() error                         { return nil }

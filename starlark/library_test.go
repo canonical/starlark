@@ -54,7 +54,7 @@ func TestSetMethodSafeties(t *testing.T) {
 	testBuiltinSafeties(t, "set", starlark.SetMethods, starlark.SetMethodSafeties)
 }
 
-func testBuiltinSafeties(t *testing.T, recvName string, builtins map[string]*starlark.Builtin, safeties map[string]starlark.Safety) {
+func testBuiltinSafeties(t *testing.T, recvName string, builtins map[string]*starlark.Builtin, safeties map[string]starlark.SafetyFlags) {
 	for name, builtin := range builtins {
 		if safety, ok := safeties[name]; !ok {
 			t.Errorf("builtin %s.%s has no safety declaration", recvName, name)
@@ -106,7 +106,7 @@ type testIterator struct {
 var _ starlark.SafeIterator = &testIterator{}
 
 func (it *testIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
-func (it *testIterator) Safety() starlark.Safety {
+func (it *testIterator) Safety() starlark.SafetyFlags {
 	if it.thread == nil {
 		return starlark.NotSafe
 	}
@@ -381,16 +381,14 @@ func TestAnyAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, any, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -451,8 +449,6 @@ func TestAllAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
@@ -460,8 +456,8 @@ func TestAllAllocs(t *testing.T) {
 		_, err := starlark.Call(thread, all, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -653,16 +649,14 @@ func TestBytesAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, bytes, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -829,8 +823,6 @@ func TestDictAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "dict: feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
@@ -838,8 +830,8 @@ func TestDictAllocs(t *testing.T) {
 		_, err := starlark.Call(thread, dict, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -926,8 +918,6 @@ func TestEnumerateAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
@@ -935,8 +925,8 @@ func TestEnumerateAllocs(t *testing.T) {
 		_, err := starlark.Call(thread, enumerate, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -1019,7 +1009,6 @@ func TestEnumerateAllocs(t *testing.T) {
 	})
 
 	t.Run("early-termination", func(t *testing.T) {
-		const expected = "exceeded memory allocation limits"
 		maxAllocs := uint64(40)
 
 		t.Run("iterable", func(t *testing.T) {
@@ -1041,7 +1030,7 @@ func TestEnumerateAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, enumerate, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				if nReached > 1 && iter.maxN != 1 {
@@ -1071,7 +1060,7 @@ func TestEnumerateAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, enumerate, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				if nReached > 0 && iter.maxN > 1 {
@@ -1614,16 +1603,14 @@ func TestListAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, list, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -1734,8 +1721,6 @@ func testMinMaxAllocs(t *testing.T, name string) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
@@ -1743,8 +1728,8 @@ func testMinMaxAllocs(t *testing.T, name string) {
 		_, err := starlark.Call(thread, minOrMax, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -2049,8 +2034,6 @@ func TestReversedAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
@@ -2058,8 +2041,8 @@ func TestReversedAllocs(t *testing.T) {
 		_, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -2140,8 +2123,7 @@ func TestReversedAllocs(t *testing.T) {
 	})
 
 	t.Run("early-termination", func(t *testing.T) {
-		const expected = "exceeded memory allocation limits"
-		maxAllocs := uint64(50)
+		const maxAllocs = uint64(50)
 
 		t.Run("iterable", func(t *testing.T) {
 			st := startest.From(t)
@@ -2166,7 +2148,7 @@ func TestReversedAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				st.KeepAlive(result)
@@ -2200,7 +2182,7 @@ func TestReversedAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, reversed, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				st.KeepAlive(result)
@@ -2253,8 +2235,6 @@ func TestSortedAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
@@ -2262,8 +2242,8 @@ func TestSortedAllocs(t *testing.T) {
 		_, err := starlark.Call(thread, sorted, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -2341,7 +2321,6 @@ func TestSortedAllocs(t *testing.T) {
 	})
 
 	t.Run("early-termination", func(t *testing.T) {
-		const expected = "exceeded memory allocation limits"
 		maxAllocs := uint64(1)
 
 		t.Run("iterable", func(t *testing.T) {
@@ -2367,7 +2346,7 @@ func TestSortedAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, sorted, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				st.KeepAlive(result)
@@ -2400,7 +2379,7 @@ func TestSortedAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, sorted, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				st.KeepAlive(result)
@@ -2479,8 +2458,6 @@ func TestTupleAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
@@ -2488,8 +2465,8 @@ func TestTupleAllocs(t *testing.T) {
 		_, err := starlark.Call(thread, tuple, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -2590,7 +2567,6 @@ func TestTupleAllocs(t *testing.T) {
 	})
 
 	t.Run("early-termination", func(t *testing.T) {
-		const expected = "exceeded memory allocation limits"
 		maxAllocs := uint64(30)
 
 		t.Run("iterable", func(t *testing.T) {
@@ -2612,7 +2588,7 @@ func TestTupleAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, tuple, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				if nReached > 1 && iter.maxN != 1 {
@@ -2642,7 +2618,7 @@ func TestTupleAllocs(t *testing.T) {
 				result, err := starlark.Call(thread, tuple, starlark.Tuple{iter}, nil)
 				if err == nil {
 					st.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					st.Errorf("unexpected error: %v", err)
 				}
 				if nReached > 0 && iter.maxN > 1 {
@@ -2726,8 +2702,6 @@ func TestZipAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
@@ -2735,8 +2709,8 @@ func TestZipAllocs(t *testing.T) {
 		_, err := starlark.Call(thread, zip, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -3540,8 +3514,6 @@ func TestDictUpdateAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "update: feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
@@ -3549,8 +3521,8 @@ func TestDictUpdateAllocs(t *testing.T) {
 		_, err := starlark.Call(thread, dict_update, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -3730,8 +3702,6 @@ func TestListExtendAllocs(t *testing.T) {
 	const numTestElems = 10
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		list := starlark.NewList([]starlark.Value{})
 		list_extend, _ := list.Attr("extend")
 		if list_extend == nil {
@@ -3744,8 +3714,8 @@ func TestListExtendAllocs(t *testing.T) {
 		_, err := starlark.Call(thread, list_extend, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -4551,16 +4521,14 @@ func TestStringJoinAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, string_join, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -5656,8 +5624,6 @@ func TestSetDifferenceSteps(t *testing.T) {
 
 func TestSetDifferenceAllocs(t *testing.T) {
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		set := starlark.NewSet(0)
 		set_difference, _ := set.Attr("difference")
 		if set_difference == nil {
@@ -5670,8 +5636,8 @@ func TestSetDifferenceAllocs(t *testing.T) {
 		_, err := starlark.Call(thread, set_difference, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -5769,8 +5735,6 @@ func TestSetIntersectionSteps(t *testing.T) {
 
 func TestSetIntersectionAllocs(t *testing.T) {
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		set := starlark.NewSet(0)
 		set_intersection, _ := set.Attr("intersection")
 		if set_intersection == nil {
@@ -5783,8 +5747,8 @@ func TestSetIntersectionAllocs(t *testing.T) {
 		_, err := starlark.Call(thread, set_intersection, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -5835,16 +5799,14 @@ func TestSetIsSubsetAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, set_issubset, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -5883,16 +5845,14 @@ func TestSetIssupersetAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, set_issuperset, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -5998,16 +5958,14 @@ func TestSetSymmetricDifferenceAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 

@@ -1,6 +1,7 @@
 package starlark_test
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -404,8 +405,6 @@ func TestSafeAppenderAppendTypeMismatch(t *testing.T) {
 }
 
 func TestSafeAppenderErrorReturn(t *testing.T) {
-	const expected = "exceeded memory allocation limits"
-
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(100)
 	var slice []int
@@ -413,8 +412,8 @@ func TestSafeAppenderErrorReturn(t *testing.T) {
 
 	for i := 0; i < 10000; i++ {
 		if err := sa.Append(1); err != nil {
-			if msg := err.Error(); msg != expected {
-				t.Errorf("unexpected error: %v", msg)
+			if !errors.Is(err, starlark.ErrSafety) {
+				t.Errorf("unexpected error: %v", err)
 			}
 			return
 		}
