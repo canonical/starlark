@@ -163,7 +163,7 @@ var (
 		"extend": MemSafe | IOSafe,
 		"index":  MemSafe | IOSafe | CPUSafe,
 		"insert": MemSafe | IOSafe,
-		"pop":    MemSafe | IOSafe,
+		"pop":    MemSafe | IOSafe | CPUSafe,
 		"remove": MemSafe | IOSafe,
 	}
 
@@ -2017,7 +2017,7 @@ func list_remove(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·pop
-func list_pop(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_pop(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := b.Receiver()
 	list := recv.(*List)
 	n := list.Len()
@@ -2034,6 +2034,9 @@ func list_pop(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	}
 	if err := list.checkMutable("pop from"); err != nil {
 		return nil, nameErr(b, err)
+	}
+	if err := thread.AddExecutionSteps(int64(n - i)); err != nil {
+		return nil, err
 	}
 	res := list.elems[i]
 	list.elems = append(list.elems[:i], list.elems[i+1:]...)
