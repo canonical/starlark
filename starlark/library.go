@@ -256,7 +256,7 @@ var (
 		"union":                NewBuiltin("union", set_union),
 	}
 	setMethodSafeties = map[string]SafetyFlags{
-		"add":                  MemSafe | IOSafe,
+		"add":                  MemSafe | IOSafe | CPUSafe,
 		"clear":                MemSafe | IOSafe | CPUSafe,
 		"difference":           MemSafe | IOSafe,
 		"discard":              MemSafe | IOSafe,
@@ -3007,7 +3007,7 @@ func set_add(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &elem); err != nil {
 		return nil, err
 	}
-	if found, err := b.Receiver().(*Set).Has(elem); err != nil {
+	if _, found, err := b.Receiver().(*Set).ht.lookup(thread, elem); err != nil {
 		return nil, nameErr(b, err)
 	} else if found {
 		return None, nil
