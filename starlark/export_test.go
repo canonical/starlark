@@ -1,6 +1,6 @@
 package starlark
 
-func ThreadSafety(thread *Thread) Safety {
+func ThreadSafety(thread *Thread) SafetyFlags {
 	return thread.requiredSafety
 }
 

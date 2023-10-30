@@ -62,7 +62,8 @@ var (
 	zero, one = makeSmallInt(0), makeSmallInt(1)
 	oneBig    = big.NewInt(1)
 
-	_ HasUnary = Int{}
+	_ HasUnary     = Int{}
+	_ SafeHasUnary = Int{}
 )
 
 // Unary implements the operations +int, -int, and ~int.
@@ -76,6 +77,32 @@ func (i Int) Unary(op syntax.Token) (Value, error) {
 		return i.Not(), nil
 	}
 	return nil, nil
+}
+
+func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
+	switch op {
+	case syntax.MINUS:
+		if err := thread.AddAllocs(EstimateSize(i)); err != nil {
+			return nil, err
+		}
+		return zero.Sub(i), nil
+	case syntax.PLUS:
+		// The pointed-to content is shared
+		if err := thread.AddAllocs(EstimateSize(Int{})); err != nil {
+			return nil, err
+		}
+		return i, nil
+	case syntax.TILDE:
+		if err := thread.AddAllocs(EstimateSize(i)); err != nil {
+			return nil, err
+		}
+		return i.Not(), nil
+	}
+	return nil, nil
+}
+
+func (i Int) Safety() SafetyFlags {
+	return MemSafe | IOSafe
 }
 
 // Int64 returns the value as an int64.
@@ -212,6 +239,12 @@ func (i Int) Float() Float {
 			return Float(iBig.Uint64())
 		} else if iBig.IsInt64() {
 			return Float(iBig.Int64())
+		} else {
+			// Fast path for very big ints.
+			const maxFiniteLen = 1023 + 1 // max exponent value + implicit mantissa bit
+			if iBig.BitLen() > maxFiniteLen {
+				return Float(math.Inf(iBig.Sign()))
+			}
 		}
 
 		f, _ := new(big.Float).SetInt(iBig).Float64()
