@@ -1,6 +1,7 @@
 package json_test
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -72,8 +73,6 @@ func TestJsonEncodeAllocs(t *testing.T) {
 	}
 
 	t.Run("safety-respected", func(t *testing.T) {
-		const expected = "feature unavailable to the sandbox"
-
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
 
@@ -81,8 +80,8 @@ func TestJsonEncodeAllocs(t *testing.T) {
 		_, err := starlark.Call(thread, json_encode, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
-		} else if err.Error() != expected {
-			t.Errorf("unexpected error: expected %v but got %v", expected, err)
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 

@@ -105,8 +105,6 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 
 	buf := starlark.NewSafeStringBuilder(thread)
 
-	type forward struct{ error }
-
 	var quoteSpace [128]byte
 	quote := func(s string) error {
 		// Non-trivial escaping is handled by Go's encoding/json.
@@ -150,28 +148,28 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				return err
 			}
 			if _, err := buf.Write(data); err != nil {
-				return forward{err}
+				return err
 			}
 
 		case starlark.NoneType:
 			if _, err := buf.WriteString("null"); err != nil {
-				return forward{err}
+				return err
 			}
 
 		case starlark.Bool:
 			if x {
 				if _, err := buf.WriteString("true"); err != nil {
-					return forward{err}
+					return err
 				}
 			} else {
 				if _, err := buf.WriteString("false"); err != nil {
-					return forward{err}
+					return err
 				}
 			}
 
 		case starlark.Int:
 			if _, err := fmt.Fprint(buf, x); err != nil {
-				return forward{err}
+				return err
 			}
 
 		case starlark.Float:
@@ -179,18 +177,18 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				return fmt.Errorf("cannot encode non-finite float %v", x)
 			}
 			if _, err := fmt.Fprintf(buf, "%g", x); err != nil { // always contains a decimal point
-				return forward{err}
+				return err
 			}
 
 		case starlark.String:
 			if err := quote(string(x)); err != nil {
-				return forward{err}
+				return err
 			}
 
 		case starlark.IterableMapping:
 			// e.g. dict (must have string keys)
 			if err := buf.WriteByte('{'); err != nil {
-				return forward{err}
+				return err
 			}
 			items := x.Items()
 			for _, item := range items {
@@ -204,22 +202,22 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			for i, item := range items {
 				if i > 0 {
 					if err := buf.WriteByte(','); err != nil {
-						return forward{err}
+						return err
 					}
 				}
 				k, _ := starlark.AsString(item[0])
 				if err := quote(k); err != nil {
-					return forward{err}
+					return err
 				}
 				if err := buf.WriteByte(':'); err != nil {
-					return forward{err}
+					return err
 				}
 				if err := emit(item[1]); err != nil {
 					return fmt.Errorf("in %s key %s: %w", x.Type(), item[0], err)
 				}
 			}
 			if err := buf.WriteByte('}'); err != nil {
-				return forward{err}
+				return err
 			}
 
 		case starlark.Iterable:
@@ -227,14 +225,14 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			buf.WriteByte('[')
 			iter, err := starlark.SafeIterate(thread, x)
 			if err != nil {
-				return forward{err}
+				return err
 			}
 			defer iter.Done()
 			var elem starlark.Value
 			for i := 0; iter.Next(&elem); i++ {
 				if i > 0 {
 					if err := buf.WriteByte(','); err != nil {
-						return forward{err}
+						return err
 					}
 				}
 				if err := emit(elem); err != nil {
@@ -242,16 +240,16 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				}
 			}
 			if err := iter.Err(); err != nil {
-				return forward{err}
+				return err
 			}
 			if err := buf.WriteByte(']'); err != nil {
-				return forward{err}
+				return err
 			}
 
 		case starlark.HasAttrs:
 			// e.g. struct
 			if err := buf.WriteByte('{'); err != nil {
-				return forward{err}
+				return err
 			}
 			var names []string
 			names = append(names, x.AttrNames()...)
@@ -268,21 +266,21 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				}
 				if i > 0 {
 					if err := buf.WriteByte(','); err != nil {
-						return forward{err}
+						return err
 					}
 				}
 				if err := quote(name); err != nil {
-					return forward{err}
+					return err
 				}
 				if err := buf.WriteByte(':'); err != nil {
-					return forward{err}
+					return err
 				}
 				if err := emit(v); err != nil {
 					return fmt.Errorf("in field .%s: %w", name, err)
 				}
 			}
 			if err := buf.WriteByte('}'); err != nil {
-				return forward{err}
+				return err
 			}
 
 		default:
@@ -292,10 +290,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	}
 
 	if err := emit(x); err != nil {
-		if fwd, ok := err.(forward); ok {
-			return nil, fwd.error
-		}
-		return nil, fmt.Errorf("%s: %v", b.Name(), err)
+		return nil, fmt.Errorf("%s: %w", b.Name(), err)
 	}
 
 	if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
