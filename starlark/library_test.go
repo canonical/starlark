@@ -3204,7 +3204,6 @@ func TestListPopAllocs(t *testing.T) {
 
 func TestListRemoveSteps(t *testing.T) {
 	const listSize = 1000
-
 	list := starlark.NewList([]starlark.Value{})
 	for i := 0; i < listSize; i++ {
 		list.Append(starlark.MakeInt(i))
@@ -3214,38 +3213,19 @@ func TestListRemoveSteps(t *testing.T) {
 		t.Fatal("no such method: list.remove")
 	}
 
-	t.Run("leading", func(t *testing.T) {
-		st := startest.From(t)
-		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(listSize)
-		st.SetMaxExecutionSteps(listSize)
-		st.RunThread(func(thread *starlark.Thread) {
-			for i := 0; i < st.N; i++ {
-				input := list.Index(0)
-				_, err := starlark.Call(thread, list_remove, starlark.Tuple{input}, nil)
-				if err != nil {
-					st.Error(err)
-				}
-				list.Append(input) // add back for the next iteration
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.SetMinExecutionSteps(listSize)
+	st.SetMaxExecutionSteps(listSize)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			input := list.Index(i % listSize)
+			_, err := starlark.Call(thread, list_remove, starlark.Tuple{input}, nil)
+			if err != nil {
+				st.Error(err)
 			}
-		})
-	})
-
-	t.Run("trailing", func(t *testing.T) {
-		st := startest.From(t)
-		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(listSize)
-		st.SetMaxExecutionSteps(listSize)
-		st.RunThread(func(thread *starlark.Thread) {
-			for i := 0; i < st.N; i++ {
-				input := list.Index(list.Len() - 1)
-				_, err := starlark.Call(thread, list_remove, starlark.Tuple{input}, nil)
-				if err != nil {
-					st.Error(err)
-				}
-				list.Append(input) // add back for next iteration
-			}
-		})
+			list.Append(input) // add back for the next iteration
+		}
 	})
 }
 
