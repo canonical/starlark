@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/starlark/internal/compile"
 	"github.com/canonical/starlark/internal/spell"
-	"github.com/canonical/starlark/resolve"
 	"github.com/canonical/starlark/syntax"
 )
 
@@ -20,23 +19,23 @@ const vmdebug = false // TODO(adonovan): use a bitfield of specific kinds of err
 // - optimize position table.
 // - opt: record MaxIterStack during compilation and preallocate the stack.
 
-func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Value, error) {
+func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (_ Value, err error) {
 	// Postcondition: args is not mutated. This is stricter than required by Callable,
 	// but allows CALL to avoid a copy.
 
-	if !resolve.AllowRecursion {
+	f := fn.funcode
+	if !f.Prog.Recursion {
 		// detect recursion
 		for _, fr := range thread.stack[:len(thread.stack)-1] {
 			// We look for the same function code,
 			// not function value, otherwise the user could
 			// defeat the check by writing the Y combinator.
-			if frfn, ok := fr.Callable().(*Function); ok && frfn.funcode == fn.funcode {
+			if frfn, ok := fr.Callable().(*Function); ok && frfn.funcode == f {
 				return nil, fmt.Errorf("function %s called recursively", fn.Name())
 			}
 		}
 	}
 
-	f := fn.funcode
 	fr := thread.frameAt(0)
 
 	// Allocate space for stack and locals.
@@ -56,7 +55,7 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 	stack := space[nlocals:]          // operand stack
 
 	// Digest arguments and set parameters.
-	err := setArgs(locals, fn, args, kwargs)
+	err = setArgs(locals, fn, args, kwargs)
 	if err != nil {
 		return nil, thread.evalError(err)
 	}
@@ -81,21 +80,32 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 
 	var iterstack []Iterator // stack of active iterators
 
+	// Use defer so that application panics can pass through
+	// interpreter without leaving thread in a bad state.
+	defer func() {
+		// ITERPOP the rest of the iterator stack.
+		for _, iter := range iterstack {
+			iter.Done()
+			if err2 := iter.Err(); err2 != nil {
+				err = err2
+			}
+		}
+
+		fr.locals = nil
+	}()
+
 	sp := 0
 	var pc uint32
 	var result Value
 	code := f.Code
 loop:
 	for {
-		thread.stepsLock.Lock()
-		thread.steps++
-		if thread.steps >= thread.maxSteps {
-			thread.Cancel("too many steps")
+		if err = thread.AddExecutionSteps(1); err != nil {
+			break loop
 		}
-		thread.stepsLock.Unlock()
 
 		if reason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); reason != nil {
-			err = fmt.Errorf("Starlark computation cancelled: %s", *(*string)(reason))
+			err = fmt.Errorf("Starlark computation cancelled: %w", *(*error)(reason))
 			break loop
 		}
 
@@ -173,7 +183,7 @@ loop:
 			x := stack[sp-2]
 			sp -= 2
 			// TODO: use SafeIterate (SafeBinary?)
-			z, err2 := Binary(binop, x, y)
+			z, err2 := SafeBinary(thread, binop, x, y)
 			if err2 != nil {
 				err = err2
 				break loop
@@ -189,7 +199,7 @@ loop:
 				unop = syntax.Token(op-compile.UPLUS) + syntax.PLUS
 			}
 			x := stack[sp-1]
-			y, err2 := Unary(unop, x)
+			y, err2 := SafeUnary(thread, unop, x)
 			if err2 != nil {
 				err = err2
 				break loop
@@ -219,6 +229,34 @@ loop:
 			if z == nil {
 				// TODO: use SafeIterate (SafeBinary?)
 				z, err = Binary(syntax.PLUS, x, y)
+				if err != nil {
+					break loop
+				}
+			}
+
+			stack[sp] = z
+			sp++
+
+		case compile.INPLACE_PIPE:
+			y := stack[sp-1]
+			x := stack[sp-2]
+			sp -= 2
+
+			// It's possible that y is not Dict but
+			// nonetheless defines x|y, in which case we
+			// should fall back to the general case.
+			var z Value
+			if xdict, ok := x.(*Dict); ok {
+				if ydict, ok := y.(*Dict); ok {
+					if err = xdict.ht.checkMutable("apply |= to"); err != nil {
+						break loop
+					}
+					xdict.ht.addAll(thread, &ydict.ht) // can't fail
+					z = xdict
+				}
+			}
+			if z == nil {
+				z, err = Binary(syntax.PIPE, x, y)
 				if err != nil {
 					break loop
 				}
@@ -404,7 +442,7 @@ loop:
 		case compile.ATTR:
 			x := stack[sp-1]
 			name := f.Prog.Names[arg]
-			y, err2 := getAttr(x, name)
+			y, err2 := getAttr(thread, x, name, true)
 			if err2 != nil {
 				err = err2
 				break loop
@@ -657,17 +695,7 @@ loop:
 			break loop
 		}
 	}
-
-	// ITERPOP the rest of the iterator stack.
-	for _, iter := range iterstack {
-		iter.Done()
-		if err := iter.Err(); err != nil {
-			return nil, err
-		}
-	}
-
-	fr.locals = nil
-
+	// (deferred cleanup runs here)
 	return result, err
 }
 

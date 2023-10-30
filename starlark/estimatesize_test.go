@@ -20,7 +20,7 @@ type misaligned struct {
 
 func runEstimateTest(t *testing.T, createObj func() interface{}) {
 	st := startest.From(t)
-
+	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			obj := createObj()
@@ -227,6 +227,7 @@ func TestNil(t *testing.T) {
 func TestEstimateMap(t *testing.T) {
 	t.Run("map[int]int", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			value := make(map[int]int)
 
@@ -241,6 +242,7 @@ func TestEstimateMap(t *testing.T) {
 
 	t.Run("map[int]<big-struct>", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			value := make(map[int][64]int)
 
@@ -255,7 +257,7 @@ func TestEstimateMap(t *testing.T) {
 
 	t.Run("existing map[any]bool", func(t *testing.T) {
 		st := startest.From(t)
-
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			dict := make(map[interface{}]struct{})
 
@@ -277,6 +279,7 @@ func TestEstimateMap(t *testing.T) {
 func TestEstimateChan(t *testing.T) {
 	t.Run("all", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			value := make(chan int, st.N)
 
@@ -293,6 +296,7 @@ func TestEstimateChan(t *testing.T) {
 func TestTinyAllocator(t *testing.T) {
 	var anchor *int64
 	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			anchor = new(int64)
@@ -309,6 +313,7 @@ func TestTinyAllocator(t *testing.T) {
 func TestEstimateString(t *testing.T) {
 	t.Run("small", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				value := string([]byte("Hello World!"))
@@ -321,6 +326,7 @@ func TestEstimateString(t *testing.T) {
 
 	t.Run("big", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			value := strings.Repeat("Hello World!", st.N)
 
@@ -335,6 +341,7 @@ func TestEstimateMakeSize(t *testing.T) {
 		t.Run("empty", func(t *testing.T) {
 			t.Run("with-len", func(t *testing.T) {
 				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.AddAllocs(starlark.EstimateMakeSize([]starlark.Value{}, st.N)); err != nil {
 						st.Error(err)
@@ -345,6 +352,7 @@ func TestEstimateMakeSize(t *testing.T) {
 
 			t.Run("with-cap", func(t *testing.T) {
 				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.AddAllocs(starlark.EstimateMakeSize([]starlark.Value{}, st.N)); err != nil {
 						st.Error(err)
@@ -355,6 +363,7 @@ func TestEstimateMakeSize(t *testing.T) {
 
 			t.Run("complex-elems", func(t *testing.T) {
 				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.AddAllocs(starlark.EstimateMakeSize([][2]starlark.Value{}, st.N)); err != nil {
 						st.Error(err)
@@ -367,6 +376,7 @@ func TestEstimateMakeSize(t *testing.T) {
 		t.Run("single", func(t *testing.T) {
 			t.Run("small-elem", func(t *testing.T) {
 				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
 					const str = "foo"
 					if err := thread.AddAllocs(starlark.EstimateMakeSize([]string{str}, st.N)); err != nil {
@@ -384,6 +394,7 @@ func TestEstimateMakeSize(t *testing.T) {
 
 			t.Run("large-elem", func(t *testing.T) {
 				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.AddAllocs(starlark.EstimateMakeSize([]map[int][64]int{{}}, st.N)); err != nil {
 						st.Error(err)
@@ -404,6 +415,7 @@ func TestEstimateMakeSize(t *testing.T) {
 		t.Run("empty", func(t *testing.T) {
 			t.Run("small-elems", func(t *testing.T) {
 				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[int]int{}, st.N)); err != nil {
 						st.Error(err)
@@ -415,6 +427,7 @@ func TestEstimateMakeSize(t *testing.T) {
 
 			t.Run("large-elems", func(t *testing.T) {
 				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[[16]int64][256]byte{}, st.N)); err != nil {
 						st.Error(err)
@@ -428,6 +441,7 @@ func TestEstimateMakeSize(t *testing.T) {
 		t.Run("single", func(t *testing.T) {
 			t.Run("string-keys", func(t *testing.T) {
 				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[string]int{"kxxxxxxxx": 1}, st.N)); err != nil {
 						st.Error(err)
@@ -445,6 +459,7 @@ func TestEstimateMakeSize(t *testing.T) {
 
 			t.Run("slice-values", func(t *testing.T) {
 				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[int][]int{0: {0}}, st.N)); err != nil {
 						st.Error(err)
@@ -465,6 +480,7 @@ func TestEstimateMakeSize(t *testing.T) {
 		t.Run("unbuffered", func(t *testing.T) {
 			t.Run("empty", func(t *testing.T) {
 				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
 					for i := 0; i < st.N; i++ {
 						var channel chan int
@@ -480,6 +496,7 @@ func TestEstimateMakeSize(t *testing.T) {
 		t.Run("buffered", func(t *testing.T) {
 			t.Run("empty", func(t *testing.T) {
 				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.AddAllocs(starlark.EstimateMakeSize(make(chan int, 4*st.N), st.N)); err != nil {
 						st.Error(err)
@@ -490,6 +507,7 @@ func TestEstimateMakeSize(t *testing.T) {
 
 			t.Run("populated", func(t *testing.T) {
 				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.AddAllocs(starlark.EstimateMakeSize(make(chan int), st.N)); err != nil {
 						st.Error(err)
@@ -566,6 +584,7 @@ func TestEstimateMakeSize(t *testing.T) {
 func TestSizeConstants(t *testing.T) {
 	constantTest := func(t *testing.T, constant int64, value func() interface{}) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				if err := thread.AddAllocs(constant); err != nil {
@@ -583,4 +602,53 @@ func TestSizeConstants(t *testing.T) {
 		constantTest(t, starlark.SliceTypeOverhead, func() interface{} { return make([]struct{}, 0, 0) })
 		constantTest(t, starlark.SliceTypeOverhead, func() interface{} { return make([][256]byte, 0, 0) })
 	})
+}
+
+type dummySizeAware struct{}
+
+var _ starlark.SizeAware = dummySizeAware{}
+var _ starlark.SizeAware = &dummySizeAware{}
+
+func (dummySizeAware) EstimateSize() int64 { return 1000 }
+
+func TestSizeAware(t *testing.T) {
+	sizeAware := dummySizeAware{}
+	tests := []struct {
+		name     string
+		obj      interface{}
+		composed interface{}
+	}{{
+		"slice",
+		sizeAware,
+		[]interface{}{sizeAware},
+	}, {
+		"array",
+		sizeAware,
+		[1]interface{}{sizeAware},
+	}, {
+		"map",
+		sizeAware,
+		map[int]interface{}{1: sizeAware},
+	}, {
+		"struct-interface",
+		sizeAware,
+		struct{ Obj interface{} }{sizeAware},
+	}, {
+		"struct-typed",
+		sizeAware,
+		struct{ Obj dummySizeAware }{sizeAware},
+	}, {
+		"struct-pointer",
+		&sizeAware,
+		struct{ Obj *dummySizeAware }{&sizeAware},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			objSize := starlark.EstimateSize(test.obj)
+			composedSize := starlark.EstimateSize(test.composed)
+			if composedSize < objSize {
+				t.Errorf("unaccounted memory: expected at least %d bytes, got %d", objSize, composedSize)
+			}
+		})
+	}
 }

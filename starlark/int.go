@@ -46,18 +46,24 @@ func MakeUint64(x uint64) Int {
 // MakeBigInt returns a Starlark int for the specified big.Int.
 // The new Int value will contain a copy of x. The caller is safe to modify x.
 func MakeBigInt(x *big.Int) Int {
-	if n := x.BitLen(); n < 32 || n == 32 && x.Int64() == math.MinInt32 {
+	if isSmall(x) {
 		return makeSmallInt(x.Int64())
 	}
 	z := new(big.Int).Set(x)
 	return makeBigInt(z)
 }
 
+func isSmall(x *big.Int) bool {
+	n := x.BitLen()
+	return n < 32 || n == 32 && x.Int64() == math.MinInt32
+}
+
 var (
 	zero, one = makeSmallInt(0), makeSmallInt(1)
 	oneBig    = big.NewInt(1)
 
-	_ HasUnary = Int{}
+	_ HasUnary     = Int{}
+	_ SafeHasUnary = Int{}
 )
 
 // Unary implements the operations +int, -int, and ~int.
@@ -71,6 +77,32 @@ func (i Int) Unary(op syntax.Token) (Value, error) {
 		return i.Not(), nil
 	}
 	return nil, nil
+}
+
+func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
+	switch op {
+	case syntax.MINUS:
+		if err := thread.AddAllocs(EstimateSize(i)); err != nil {
+			return nil, err
+		}
+		return zero.Sub(i), nil
+	case syntax.PLUS:
+		// The pointed-to content is shared
+		if err := thread.AddAllocs(EstimateSize(Int{})); err != nil {
+			return nil, err
+		}
+		return i, nil
+	case syntax.TILDE:
+		if err := thread.AddAllocs(EstimateSize(i)); err != nil {
+			return nil, err
+		}
+		return i.Not(), nil
+	}
+	return nil, nil
+}
+
+func (i Int) Safety() SafetyFlags {
+	return MemSafe | IOSafe
 }
 
 // Int64 returns the value as an int64.
@@ -185,20 +217,36 @@ func (i Int) Hash() (uint32, error) {
 	}
 	return 12582917 * uint32(lo+3), nil
 }
-func (x Int) CompareSameType(op syntax.Token, v Value, depth int) (bool, error) {
-	y := v.(Int)
-	xSmall, xBig := x.get()
-	ySmall, yBig := y.get()
-	if xBig != nil || yBig != nil {
-		return threeway(op, x.bigInt().Cmp(y.bigInt())), nil
+
+// Cmp implements comparison of two Int values.
+// Required by the TotallyOrdered interface.
+func (i Int) Cmp(v Value, depth int) (int, error) {
+	j := v.(Int)
+	iSmall, iBig := i.get()
+	jSmall, jBig := j.get()
+	if iBig != nil || jBig != nil {
+		return i.bigInt().Cmp(j.bigInt()), nil
 	}
-	return threeway(op, signum64(xSmall-ySmall)), nil
+	return signum64(iSmall - jSmall), nil // safe: int32 operands
 }
 
 // Float returns the float value nearest i.
 func (i Int) Float() Float {
 	iSmall, iBig := i.get()
 	if iBig != nil {
+		// Fast path for hardware int-to-float conversions.
+		if iBig.IsUint64() {
+			return Float(iBig.Uint64())
+		} else if iBig.IsInt64() {
+			return Float(iBig.Int64())
+		} else {
+			// Fast path for very big ints.
+			const maxFiniteLen = 1023 + 1 // max exponent value + implicit mantissa bit
+			if iBig.BitLen() > maxFiniteLen {
+				return Float(math.Inf(iBig.Sign()))
+			}
+		}
+
 		f, _ := new(big.Float).SetInt(iBig).Float64()
 		return Float(f)
 	}

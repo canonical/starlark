@@ -11,13 +11,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 	"math/big"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
+	"unsafe"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarkstruct"
@@ -53,16 +54,17 @@ import (
 // (e.g. it implements both Iterable and HasFields), the first case takes precedence.
 // Encoding any other value yields an error.
 //
-// def decode(x):
+// def decode(x[, default]):
 //
-// The decode function accepts one positional parameter, a JSON string.
+// The decode function has one required positional parameter, a JSON string.
 // It returns the Starlark value that the string denotes.
 //   - Numbers are parsed as int or float, depending on whether they
 //     contain a decimal point.
 //   - JSON objects are parsed as new unfrozen Starlark dicts.
 //   - JSON arrays are parsed as new unfrozen Starlark lists.
 //
-// Decoding fails if x is not a valid JSON string.
+// If x is not a valid JSON string, the behavior depends on the "default"
+// parameter: if present, Decode returns its value; otherwise, Decode fails.
 //
 // def indent(str, *, prefix="", indent="\t"):
 //
@@ -79,10 +81,10 @@ var Module = &starlarkstruct.Module{
 		"indent": starlark.NewBuiltin("json.indent", indent),
 	},
 }
-var safeties = map[string]starlark.Safety{
-	"encode": starlark.MemSafe,
-	"decode": starlark.MemSafe,
-	"indent": starlark.MemSafe,
+var safeties = map[string]starlark.SafetyFlags{
+	"encode": starlark.MemSafe | starlark.IOSafe,
+	"decode": starlark.MemSafe | starlark.IOSafe,
+	"indent": starlark.MemSafe | starlark.IOSafe,
 }
 
 func init() {
@@ -123,8 +125,22 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 		return nil
 	}
 
+	path := make([]unsafe.Pointer, 0, 8)
+
 	var emit func(x starlark.Value) error
 	emit = func(x starlark.Value) error {
+		// It is only necessary to push/pop the item when it might contain
+		// itself (i.e. the last three switch cases), but omitting it in the other
+		// cases did not show significant improvement on the benchmarks.
+		if ptr := pointer(x); ptr != nil {
+			if pathContains(path, ptr) {
+				return fmt.Errorf("cycle in JSON structure")
+			}
+
+			path = append(path, ptr)
+			defer func() { path = path[0 : len(path)-1] }()
+		}
+
 		switch x := x.(type) {
 		case json.Marshaler:
 			// Application-defined starlark.Value types
@@ -199,7 +215,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 					return forward{err}
 				}
 				if err := emit(item[1]); err != nil {
-					return fmt.Errorf("in %s key %s: %v", x.Type(), item[0], err)
+					return fmt.Errorf("in %s key %s: %w", x.Type(), item[0], err)
 				}
 			}
 			if err := buf.WriteByte('}'); err != nil {
@@ -222,7 +238,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 					}
 				}
 				if err := emit(elem); err != nil {
-					return fmt.Errorf("at %s index %d: %v", x.Type(), i, err)
+					return fmt.Errorf("at %s index %d: %w", x.Type(), i, err)
 				}
 			}
 			if err := iter.Err(); err != nil {
@@ -242,8 +258,13 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			sort.Strings(names)
 			for i, name := range names {
 				v, err := x.Attr(name)
-				if err != nil || v == nil {
-					log.Fatalf("internal error: dir(%s) includes %q but value has no .%s field", x.Type(), name, name)
+				if err != nil {
+					return fmt.Errorf("cannot access attribute %s.%s: %w", x.Type(), name, err)
+				}
+				if v == nil {
+					// x.AttrNames() returned name, but x.Attr(name) returned nil, stating
+					// that the field doesn't exist.
+					return fmt.Errorf("missing attribute %s.%s (despite %q appearing in dir()", x.Type(), name, name)
 				}
 				if i > 0 {
 					if err := buf.WriteByte(','); err != nil {
@@ -257,7 +278,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 					return forward{err}
 				}
 				if err := emit(v); err != nil {
-					return fmt.Errorf("in field .%s: %v", name, err)
+					return fmt.Errorf("in field .%s: %w", name, err)
 				}
 			}
 			if err := buf.WriteByte('}'); err != nil {
@@ -281,6 +302,27 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 		return nil, err
 	}
 	return starlark.String(buf.String()), nil
+}
+
+func pointer(i interface{}) unsafe.Pointer {
+	v := reflect.ValueOf(i)
+	switch v.Kind() {
+	case reflect.Ptr, reflect.Chan, reflect.Map, reflect.UnsafePointer, reflect.Slice:
+		// TODO(adonovan): use v.Pointer() when we drop go1.17.
+		return unsafe.Pointer(v.Pointer())
+	default:
+		return nil
+	}
+}
+
+func pathContains(path []unsafe.Pointer, item unsafe.Pointer) bool {
+	for _, p := range path {
+		if p == item {
+			return true
+		}
+	}
+
+	return false
 }
 
 // isPrintableASCII reports whether s contains only printable ASCII.
@@ -353,10 +395,16 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	return starlark.String(buf.String()), nil
 }
 
-func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (_ starlark.Value, err error) {
+func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (v starlark.Value, err error) {
 	var s string
-	if err := starlark.UnpackPositionalArgs(b.Name(), args, kwargs, 1, &s); err != nil {
+	var d starlark.Value
+	if err := starlark.UnpackArgs(b.Name(), args, kwargs, "x", &s, "default?", &d); err != nil {
 		return nil, err
+	}
+	if len(args) < 1 {
+		// "x" parameter is positional only; UnpackArgs does not allow us to
+		// directly express "def decode(x, *, default)"
+		return nil, fmt.Errorf("%s: unexpected keyword argument x", b.Name())
 	}
 
 	// The decoder necessarily makes certain representation choices
@@ -367,11 +415,17 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	// Use panic/recover with a distinguished type (failure) for error handling.
 	i := 0
 
-	type forward struct{ underlying error }
+	// If "default" is set, we only want to return it when encountering invalid
+	// json - not for any other possible causes of panic.
+	// In particular, if we ever extend the json.decode API to take a callback,
+	// a distinguished, private failure type prevents the possibility of
+	// json.decode with "default" becoming abused as a try-catch mechanism.
+	type failure string
 	fail := func(format string, args ...interface{}) {
-		panic(forward{fmt.Errorf("json.decode: at offset %d, %s", i, fmt.Sprintf(format, args...))})
+		panic(failure(fmt.Sprintf(format, args...)))
 	}
 
+	type forward struct{ underlying error }
 	failWith := func(err error) {
 		panic(forward{err})
 	}
@@ -598,17 +652,23 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 		switch x := x.(type) {
 		case forward:
 			err = x.underlying
+		case failure:
+			if d != nil {
+				v = d
+			} else {
+				err = fmt.Errorf("json.decode: at offset %d, %s", i, x)
+			}
 		case nil:
 			// nop
 		default:
 			panic(x) // unexpected panic
 		}
 	}()
-	x := parse()
+	v = parse()
 	if skipSpace() {
 		fail("unexpected character %q after value", s[i])
 	}
-	return x, nil
+	return v, nil
 }
 
 func isdigit(b byte) bool {

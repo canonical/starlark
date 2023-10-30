@@ -1,6 +1,7 @@
 package starlark_test
 
 import (
+	"errors"
 	"math"
 	"strings"
 	"sync"
@@ -42,10 +43,13 @@ func TestCheckAllocs(t *testing.T) {
 
 	if err := thread.CheckAllocs(2000); err == nil {
 		t.Errorf("expected error")
-	} else if err.Error() != "exceeded memory allocation limits" {
-		t.Errorf("unexpected error: %v", err)
-	} else if allocs := thread.Allocs(); allocs != 0 {
-		t.Errorf("CheckAllocs recorded allocations: expected 0 but got %v", allocs)
+	} else {
+		expected := &starlark.AllocsSafetyError{}
+		if !errors.As(err, &expected) {
+			t.Errorf("unexpected error: %v", err)
+		} else if allocs := thread.Allocs(); allocs != 0 {
+			t.Errorf("CheckAllocs recorded allocations: expected 0 but got %v", allocs)
+		}
 	}
 
 	if _, err := starlark.ExecFile(thread, "alloc_cancel_test", "", nil); err != nil {
@@ -113,14 +117,16 @@ func TestPositiveDeltaDeclarationExceedingMax(t *testing.T) {
 
 	if _, err := starlark.ExecFile(thread, "alloc_cancel_test", "", nil); err == nil {
 		t.Errorf("expected cancellation")
-	} else if err.Error() != "Starlark computation cancelled: exceeded memory allocation limits" {
-		t.Errorf("unexpected error: %v", err)
+	} else {
+		expected := &starlark.AllocsSafetyError{}
+		if !errors.As(err, &expected) {
+			t.Errorf("unexpected error: %v", err)
+		}
 	}
 }
 
 func TestOverflowingPositiveDeltaDeclaration(t *testing.T) {
 	const allocationIncrease = math.MaxInt64
-	const expectedErrMsg = "exceeded memory allocation limits"
 
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
@@ -256,7 +262,7 @@ func TestCheckAllocsCancelledRejection(t *testing.T) {
 
 	if err := thread.CheckAllocs(2 * maxAllocs); err == nil {
 		t.Errorf("expected cancellation")
-	} else if err.Error() != cancellationReason {
+	} else if errors.Unwrap(err).Error() != cancellationReason {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -271,7 +277,7 @@ func TestAddAllocsCancelledRejection(t *testing.T) {
 
 	if err := thread.AddAllocs(2 * maxAllocs); err == nil {
 		t.Errorf("expected cancellation")
-	} else if err.Error() != cancellationReason {
+	} else if errors.Unwrap(err).Error() != cancellationReason {
 		t.Errorf("unexpected error: %v", err)
 	} else if allocs := thread.Allocs(); allocs != 0 {
 		t.Errorf("changes were recorded against cancelled thread: expected 0 allocations, got %v", allocs)
@@ -336,6 +342,7 @@ func TestSafeStringBuilder(t *testing.T) {
 	t.Run("counting", func(t *testing.T) {
 		t.Run("small", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.SetMaxAllocs(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
@@ -347,6 +354,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("Grow", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -363,6 +371,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("Write", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -378,6 +387,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("WriteString", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -393,6 +403,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("WriteByte", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -410,6 +421,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("WriteRune", func(t *testing.T) {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -428,6 +440,7 @@ func TestSafeStringBuilder(t *testing.T) {
 
 	t.Run("allocs", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			sb := starlark.NewSafeStringBuilder(thread)
 			initialAllocs := thread.Allocs()

@@ -1,11 +1,92 @@
 package starlark_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
 )
+
+func TestUnaryAllocs(t *testing.T) {
+	t.Run("not", func(t *testing.T) {
+		inputs := []starlark.Value{
+			starlark.None,
+			starlark.True,
+			starlark.Tuple{},
+			starlark.MakeInt(1),
+			starlark.Float(1),
+			starlark.NewList(nil),
+			starlark.NewDict(1),
+			starlark.NewSet(1),
+			starlark.String("1"),
+			starlark.Bytes("1"),
+		}
+		for _, input := range inputs {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.AddValue("input", input)
+			st.RunString(`
+				for _ in st.ntimes():
+					st.keep_alive(not input)
+			`)
+		}
+	})
+
+	t.Run("minus", func(t *testing.T) {
+		inputs := []starlark.Value{
+			starlark.MakeInt(10),
+			starlark.MakeInt64(1 << 40),
+		}
+		for _, input := range inputs {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.AddValue("input", input)
+			st.RunString(`
+				i = input
+				for _ in st.ntimes():
+					i = -i
+					st.keep_alive(i)
+			`)
+		}
+	})
+
+	t.Run("plus", func(t *testing.T) {
+		inputs := []starlark.Value{
+			starlark.MakeInt(10),
+			starlark.MakeInt64(1 << 40),
+		}
+		for _, input := range inputs {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.AddValue("input", input)
+			st.RunString(`
+				i = input
+				for _ in st.ntimes():
+					i = +i
+					st.keep_alive(i)
+			`)
+		}
+	})
+
+	t.Run("neg", func(t *testing.T) {
+		inputs := []starlark.Value{
+			starlark.MakeInt(10),
+			starlark.MakeInt64(1 << 40),
+		}
+		for _, input := range inputs {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.AddValue("input", input)
+			st.RunString(`
+				i = input
+				for _ in st.ntimes():
+					i = ~i
+					st.keep_alive(i)
+			`)
+		}
+	})
+}
 
 func TestTupleCreation(t *testing.T) {
 	st := startest.From(t)
@@ -111,4 +192,26 @@ func TestSequenceAssignment(t *testing.T) {
 			first, second = range(2)
 			st.keep_alive(first, second)
 	`)
+}
+
+func TestAttrAccessAllocs(t *testing.T) {
+	inputs := []starlark.HasAttrs{
+		starlark.NewList(nil),
+		starlark.NewDict(1),
+		starlark.NewSet(1),
+		starlark.String("1"),
+		starlark.Bytes("1"),
+	}
+	for _, input := range inputs {
+		attr := input.AttrNames()[0]
+		t.Run(input.Type(), func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.AddValue("input", input)
+			st.RunString(fmt.Sprintf(`
+				for _ in st.ntimes():
+					st.keep_alive(input.%s)
+			`, attr))
+		})
+	}
 }

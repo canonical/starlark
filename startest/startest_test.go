@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -111,6 +112,7 @@ func TestKeepAlive(t *testing.T) {
 	// Check for a non-allocating routine
 	t.Run("check=non-allocating", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -122,6 +124,7 @@ func TestKeepAlive(t *testing.T) {
 	// Check for exact measuring
 	t.Run("check=exact", func(t *testing.T) {
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -137,6 +140,7 @@ func TestKeepAlive(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -155,6 +159,7 @@ func TestKeepAlive(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -175,6 +180,7 @@ func TestKeepAlive(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(4)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -202,6 +208,7 @@ func TestKeepAlive(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -219,17 +226,47 @@ func TestKeepAlive(t *testing.T) {
 }
 
 func TestStepBounding(t *testing.T) {
-	t.Run("steps=safe", func(t *testing.T) {
+	t.Run("steps=safe-min", func(t *testing.T) {
 		st := startest.From(t)
-		st.SetMaxExecutionSteps(10)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMinExecutionSteps(1)
+		st.RunString(`
+			i = 0
+			for _ in st.ntimes():
+				i += 1
+				i += 1
+		`)
+	})
 
+	t.Run("steps=safe-max", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxExecutionSteps(10)
 		st.RunString(`
 			for _ in st.ntimes():
 				pass
 		`)
 	})
 
-	t.Run("steps=not-safe", func(t *testing.T) {
+	t.Run("steps=not-safe-min", func(t *testing.T) {
+		expected := regexp.MustCompile(`execution steps are below minimum \(\d+ < 100\)`)
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+		st.SetMinExecutionSteps(100)
+		st.RunString(`
+			for _ in st.ntimes():
+				pass
+		`)
+		if !st.Failed() {
+			t.Error("expected failure")
+		}
+		if errLog := dummy.Errors(); !expected.Match([]byte(errLog)) {
+			t.Errorf("unexpected error(s): %s", errLog)
+		}
+	})
+
+	t.Run("steps=not-safe-max", func(t *testing.T) {
 		expected := regexp.MustCompile(`execution steps are above maximum \(\d+ > 1\)`)
 
 		dummy := &dummyBase{}
@@ -241,7 +278,6 @@ func TestStepBounding(t *testing.T) {
 				i += 1
 				i += 1
 		`)
-
 		if !st.Failed() {
 			t.Error("expected failure")
 		}
@@ -319,8 +355,11 @@ func TestRequireSafety(t *testing.T) {
 			st.RunThread(func(thread *starlark.Thread) {
 				if _, err := starlark.Call(thread, builtin, nil, nil); err == nil {
 					st.Error("expected error")
-				} else if err.Error() != "cannot call builtin 'fn': feature unavailable to the sandbox" {
-					st.Errorf("unexpected error: %v", err)
+				} else {
+					expected := &starlark.SafetyFlagsError{}
+					if !errors.As(err, &expected) {
+						st.Errorf("unexpected error: %v", err)
+					}
 				}
 			})
 		})
@@ -341,7 +380,7 @@ func TestRequireSafety(t *testing.T) {
 		})
 
 		t.Run("safety=unsafe", func(t *testing.T) {
-			const expected = "cannot call builtin 'fn': feature unavailable to the sandbox"
+			const expected = "cannot call builtin 'fn': feature disabled by safety constraints"
 
 			fn := starlark.NewBuiltin("fn", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 				return starlark.None, nil
@@ -361,7 +400,7 @@ func TestRequireSafety(t *testing.T) {
 		})
 
 		t.Run("safety=undeclared", func(t *testing.T) {
-			const expected = "cannot call builtin 'fn': feature unavailable to the sandbox"
+			const expected = "cannot call builtin 'fn': feature disabled by safety constraints"
 			fn := starlark.NewBuiltin("fn", func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 				return starlark.None, nil
 			})
@@ -520,14 +559,14 @@ func TestRequireSafetyDefault(t *testing.T) {
 	})
 
 	t.Run("safety=insufficient", func(t *testing.T) {
-		safetyTest := func(t *testing.T, toTest func(starlark.Safety)) {
-			for flag := starlark.Safety(1); flag < safe; flag <<= 1 {
+		safetyTest := func(t *testing.T, toTest func(starlark.SafetyFlags)) {
+			for flag := starlark.SafetyFlags(1); flag < safe; flag <<= 1 {
 				toTest(safe &^ flag)
 			}
 		}
 
 		t.Run("method=RunThread", func(t *testing.T) {
-			safetyTest(t, func(safety starlark.Safety) {
+			safetyTest(t, func(safety starlark.SafetyFlags) {
 				st := startest.From(t)
 				st.RunThread(func(thread *starlark.Thread) {
 					if err := thread.CheckPermits(safety); err == nil {
@@ -538,8 +577,8 @@ func TestRequireSafetyDefault(t *testing.T) {
 		})
 
 		t.Run("method=RunString", func(t *testing.T) {
-			safetyTest(t, func(safety starlark.Safety) {
-				const expected = "cannot call builtin 'fn': feature unavailable to the sandbox"
+			safetyTest(t, func(safety starlark.SafetyFlags) {
+				const expected = "cannot call builtin 'fn': feature disabled by safety constraints"
 
 				fn := starlark.NewBuiltinWithSafety("fn", safety, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 					return starlark.None, nil
@@ -849,6 +888,7 @@ func TestRunStringMemSafety(t *testing.T) {
 		})
 
 		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(uint64(allocateResultSize))
 		st.AddBuiltin(allocate)
 		ok := st.RunString(`
@@ -932,6 +972,7 @@ func TestAssertModuleIntegration(t *testing.T) {
 
 		for _, passingTest := range passingTests {
 			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe) // TODO: remove this once full safety reached
 			st.AddValue("fail", &safeFail)
 			if ok := st.RunString(passingTest); !ok {
 				t.Errorf("RunString returned false")
@@ -981,6 +1022,7 @@ func TestAssertModuleIntegration(t *testing.T) {
 		for _, test := range tests {
 			dummy := &dummyBase{}
 			st := startest.From(dummy)
+			st.RequireSafety(starlark.MemSafe) // TODO: remove this once full safety reached
 			st.AddBuiltin(no_error)
 			if ok := st.RunString(test.input); !ok {
 				t.Errorf("%s: RunString returned false on '%s'", test.name, test.input)
@@ -1075,4 +1117,31 @@ func TestRunStringErrorPositions(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestCPUSafeCheck(t *testing.T) {
+	t.Run("very-slow", func(t *testing.T) {
+		const expected = "execution uses CPU time which is not accounted for"
+
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			time.Sleep(time.Millisecond * time.Duration(st.N))
+		})
+		if !st.Failed() {
+			t.Error("expected failure")
+		}
+		if errLog := dummy.Errors(); errLog != expected {
+			t.Errorf("unexpected error(s): %s", errLog)
+		}
+	})
+
+	t.Run("very-fast", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			st.KeepAlive(make([]int, 100))
+		})
+	})
 }

@@ -35,13 +35,14 @@ import (
 	"fmt"
 	"math"
 	"runtime"
+	"runtime/metrics"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/canonical/starlark/resolve"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarktest"
+	"github.com/canonical/starlark/syntax"
 	"gopkg.in/check.v1"
 )
 
@@ -58,9 +59,10 @@ type TestBase interface {
 type ST struct {
 	maxAllocs         uint64
 	maxExecutionSteps uint64
+	minExecutionSteps uint64
 	alive             []interface{}
 	N                 int
-	requiredSafety    starlark.Safety
+	requiredSafety    starlark.SafetyFlags
 	safetyGiven       bool
 	predecls          starlark.StringDict
 	locals            map[string]interface{}
@@ -85,18 +87,25 @@ func From(base TestBase) *ST {
 	}
 }
 
-// SetMaxAllocs optionally sets the max allocations allowed per st.N.
+// SetMaxAllocs optionally sets the max allocations allowed per unit of st.N.
 func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
 }
 
-// SetMaxExecutionSteps optionally sets the max execution steps allowed per st.N.
+// SetMaxExecutionSteps optionally sets the max execution steps allowed per unit
+// of st.N.
 func (st *ST) SetMaxExecutionSteps(maxExecutionSteps uint64) {
 	st.maxExecutionSteps = maxExecutionSteps
 }
 
+// SetMinExecutionSteps optionally sets the min execution steps allowed per unit
+// of st.N.
+func (st *ST) SetMinExecutionSteps(minExecutionSteps uint64) {
+	st.minExecutionSteps = minExecutionSteps
+}
+
 // RequireSafety optionally sets the required safety of tested code.
-func (st *ST) RequireSafety(safety starlark.Safety) {
+func (st *ST) RequireSafety(safety starlark.SafetyFlags) {
 	st.requiredSafety |= safety
 	st.safetyGiven = true
 }
@@ -152,11 +161,13 @@ func (st *ST) RunString(code string) (ok bool) {
 		return false
 	}
 
-	allowGlobalReassign := resolve.AllowGlobalReassign
-	defer func() {
-		resolve.AllowGlobalReassign = allowGlobalReassign
-	}()
-	resolve.AllowGlobalReassign = true
+	options := &syntax.FileOptions{
+		Set:             true,
+		While:           true,
+		TopLevelControl: true,
+		GlobalReassign:  true,
+		Recursion:       true,
+	}
 
 	assertMembers, err := starlarktest.LoadAssertModule()
 	if err != nil {
@@ -173,7 +184,7 @@ func (st *ST) RunString(code string) (ok bool) {
 	st.AddLocal("Reporter", st) // Set starlarktest reporter outside of RunThread
 	st.AddValue("assert", assert)
 
-	_, mod, err := starlark.SourceProgram("startest.RunString", code, func(name string) bool {
+	_, mod, err := starlark.SourceProgramOptions(options, "startest.RunString", code, func(name string) bool {
 		_, ok := st.predecls[name]
 		return ok
 	})
@@ -212,35 +223,40 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		thread.SetLocal(k, v)
 	}
 
-	allocSum, nSum := st.measureMemory(func() {
-		fn(thread)
-	})
-
+	stats := st.measureExecution(thread, fn)
 	if st.Failed() {
 		return
 	}
 
-	mean := func(x uint64) uint64 { return (x + nSum/2) / nSum }
-	meanMeasuredAllocs := mean(allocSum)
+	mean := func(x uint64) uint64 { return (x + stats.nSum/2) / stats.nSum }
+	meanMeasuredAllocs := mean(stats.allocSum)
 	meanDeclaredAllocs := mean(thread.Allocs())
 	meanExecutionSteps := mean(thread.ExecutionSteps())
 
 	if st.maxAllocs != math.MaxUint64 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
 	}
-
 	if st.requiredSafety.Contains(starlark.MemSafe) {
 		if meanDeclaredAllocs > st.maxAllocs {
 			st.Errorf("declared allocations are above maximum (%d > %d)", meanDeclaredAllocs, st.maxAllocs)
 		}
 
-		if meanMeasuredAllocs > meanDeclaredAllocs {
+		// Check memory usage is safe, within mean rounding error (i.e. round(alloc error per N) == 0)
+		if stats.allocSum > thread.Allocs() && (stats.allocSum-thread.Allocs())*2 >= stats.nSum {
 			st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasuredAllocs, meanDeclaredAllocs)
 		}
 	}
 
 	if st.maxExecutionSteps != math.MaxUint64 && meanExecutionSteps > st.maxExecutionSteps {
 		st.Errorf("execution steps are above maximum (%d > %d)", meanExecutionSteps, st.maxExecutionSteps)
+	}
+	if meanExecutionSteps < st.minExecutionSteps {
+		st.Errorf("execution steps are below minimum (%d < %d)", meanExecutionSteps, st.minExecutionSteps)
+	}
+	if st.requiredSafety.Contains(starlark.CPUSafe) {
+		if stats.executionStepsRequired && meanExecutionSteps == 0 {
+			st.Errorf("execution uses CPU time which is not accounted for")
+		}
 	}
 }
 
@@ -249,79 +265,119 @@ func (st *ST) KeepAlive(values ...interface{}) {
 	st.alive = append(st.alive, values...)
 }
 
-func (st *ST) measureMemory(fn func()) (allocSum, nSum uint64) {
-	startTime := time.Now()
+type runStats struct {
+	nSum, allocSum         uint64
+	executionStepsRequired bool
+}
 
+func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) runStats {
 	const nMax = 100_000
 	const memoryMax = 200 * (1 << 20)
 	const timeMax = time.Second
 
-	var memoryUsed uint64
-	var valueTrackerOverhead uint64
-	st.N = 0
-	nSum = 0
+	nSum, allocSum, valueTrackerAllocs := uint64(0), uint64(0), uint64(0)
 
-	for n := uint64(0); !st.Failed() && memoryUsed < memoryMax+valueTrackerOverhead && n < nMax && time.Since(startTime) < timeMax; {
-		last := n
-		prevIters := uint64(st.N)
-		prevMemory := memoryUsed
-		if prevMemory <= 0 {
-			prevMemory = 1
+	startTime := time.Now()
+	prevN, elapsed := int64(0), time.Duration(0)
+	for allocSum < memoryMax+valueTrackerAllocs && prevN < nMax && elapsed < timeMax {
+		var n int64
+		if nSum != 0 {
+			n = prevN * 2
+
+			allocsPerN := int64(uint64(allocSum) / nSum)
+			if allocsPerN <= 0 {
+				allocsPerN = 1
+			}
+			memoryLimitN := (memoryMax - int64(allocSum)) / allocsPerN
+			if n > memoryLimitN {
+				n = memoryLimitN
+			}
+
+			timePerN := elapsed / time.Duration(nSum)
+			if timePerN == 0 {
+				timePerN = 1
+			}
+			timeLimitN := int64((timeMax - elapsed) / timePerN)
+			if n > timeLimitN {
+				n = timeLimitN
+			}
 		}
-		n = memoryMax * prevIters / prevMemory
-		n += n / 5
-		maxGrowth := last * 2
-		minGrowth := last + 1
-		if n > maxGrowth {
-			n = maxGrowth
-		} else if n < minGrowth {
-			n = minGrowth
+		if n == 0 {
+			n = 1
 		}
 
-		if n > nMax {
-			n = nMax
+		var alive []interface{}
+		if st.requiredSafety.Contains(starlark.MemSafe) {
+			alive = make([]interface{}, 0, n)
+		} else {
+			alive = make([]interface{}, 0, 1)
 		}
 
-		st.N = int(n)
-		alive := make([]interface{}, 0, n)
 		st.alive = alive
-		nSum += n
+		st.N = int(n)
 
-		var before, after runtime.MemStats
-		runtime.GC()
-		runtime.GC()
-		runtime.ReadMemStats(&before)
+		beforeAllocs := readMemoryUsage(st.requiredSafety.Contains(starlark.MemSafe))
+		fn(thread)
+		afterAllocs := readMemoryUsage(st.requiredSafety.Contains(starlark.MemSafe))
 
-		fn()
-
-		runtime.GC()
-		runtime.GC()
-		runtime.ReadMemStats(&after)
 		runtime.KeepAlive(alive)
 
-		if after.Alloc > before.Alloc {
-			memoryUsed += after.Alloc - before.Alloc
+		if st.Failed() {
+			return runStats{}
 		}
+
 		// If st.alive was reallocated, the cost of its new memory block is
 		// included in the measurement. This overhead must be discounted
 		// when reasoning about the measurement.
 		if cap(st.alive) != cap(alive) {
-			valueTrackerOverhead += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
+			valueTrackerAllocs += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
 		}
+		if afterAllocs > beforeAllocs {
+			allocSum += afterAllocs - beforeAllocs
+		}
+
+		nSum += uint64(n)
+		prevN = int64(n)
+		elapsed = time.Since(startTime)
 		st.alive = nil
 	}
 
-	if st.Failed() {
-		return 0, 1
-	}
-
-	if valueTrackerOverhead > memoryUsed {
-		memoryUsed = 0
+	if valueTrackerAllocs > allocSum {
+		allocSum = 0
 	} else {
-		memoryUsed -= valueTrackerOverhead
+		allocSum -= valueTrackerAllocs
 	}
 
-	return memoryUsed, nSum
+	timePerN := elapsed / time.Duration(nSum)
+	executionStepsRequired := timePerN > time.Millisecond
+	return runStats{
+		nSum:                   nSum,
+		allocSum:               allocSum,
+		executionStepsRequired: executionStepsRequired,
+	}
+}
+
+// readMemoryUsage returns the number of bytes in use by the Go runtime. If
+// precise measurement is required, a full GC will be performed.
+func readMemoryUsage(precise bool) uint64 {
+	if precise {
+		// Run the GC twice to account for finalizers.
+		runtime.GC()
+		runtime.GC()
+
+		var stats runtime.MemStats
+		runtime.ReadMemStats(&stats)
+		return stats.Alloc
+	}
+
+	sample := []metrics.Sample{
+		{Name: "/gc/heap/allocs:bytes"},
+	}
+	metrics.Read(sample)
+	if sample[0].Value.Kind() == metrics.KindBad {
+		return 0
+	}
+	return sample[0].Value.Uint64()
 }
 
 func (st *ST) String() string        { return "<startest.ST>" }
@@ -349,6 +405,10 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 		return starlark.MakeInt(st.N), nil
 	}
 	return nil, nil
+}
+
+func (st *ST) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	return st.Attr(name) // Assume test code is safe.
 }
 
 func (st *ST) AttrNames() []string {
@@ -447,7 +507,7 @@ type ntimes_iterator struct {
 
 var _ starlark.SafeIterator = &ntimes_iterator{}
 
-func (it *ntimes_iterator) Safety() starlark.Safety            { return stSafe }
+func (it *ntimes_iterator) Safety() starlark.SafetyFlags       { return stSafe }
 func (it *ntimes_iterator) BindThread(thread *starlark.Thread) {}
 func (it *ntimes_iterator) Done()                              {}
 func (it *ntimes_iterator) Err() error                         { return nil }

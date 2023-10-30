@@ -1,14 +1,7 @@
 package starlark
 
-func ThreadSafety(thread *Thread) Safety {
+func ThreadSafety(thread *Thread) SafetyFlags {
 	return thread.requiredSafety
-}
-
-func (thread *Thread) SubtractExecutionSteps(delta uint64) {
-	thread.stepsLock.Lock()
-	defer thread.stepsLock.Unlock()
-
-	thread.steps -= delta
 }
 
 const Safe = safetyFlagsLimit - 1
