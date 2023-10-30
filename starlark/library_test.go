@@ -3224,7 +3224,7 @@ func TestListRemoveSteps(t *testing.T) {
 			if err != nil {
 				st.Error(err)
 			}
-			list.Append(input) // add back for the next iteration
+			list.Append(input) // Add back for the next iteration
 		}
 	})
 }
