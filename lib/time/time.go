@@ -67,7 +67,7 @@ var Module = &starlarkstruct.Module{
 		"hour":        Duration(time.Hour),
 	},
 }
-var safeties = map[string]starlark.Safety{
+var safeties = map[string]starlark.SafetyFlags{
 	"from_timestamp":    starlark.MemSafe | starlark.IOSafe,
 	"is_valid_timezone": starlark.MemSafe,
 	"now":               starlark.MemSafe | starlark.IOSafe,
@@ -469,7 +469,7 @@ var timeMethods = map[string]builtinMethod{
 	"format":      timeFormat,
 }
 
-var timeMethodSafeties = map[string]starlark.Safety{
+var timeMethodSafeties = map[string]starlark.SafetyFlags{
 	"in_location": starlark.NotSafe,
 	"format":      starlark.IOSafe,
 }
