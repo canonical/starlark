@@ -5497,7 +5497,7 @@ func TestSetAddSteps(t *testing.T) {
 		st.SetMaxExecutionSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				key := starlark.Value(starlark.MakeInt(i))
+				key := starlark.MakeInt(i)
 				_, err := starlark.Call(thread, set_add, starlark.Tuple{key}, nil)
 				if err != nil {
 					st.Error(err)
@@ -5519,11 +5519,11 @@ func TestSetAddSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps((setSize + 7) / 8)
-		st.SetMaxExecutionSteps(((setSize + 7) / 8) * 2)
+		st.SetMinExecutionSteps(setSize / 8)
+		st.SetMaxExecutionSteps((setSize / 8) * 2)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				key := starlark.Value(starlark.MakeInt64(int64(i) << 32))
+				key := starlark.MakeInt64(int64(i) << 32)
 				_, err := starlark.Call(thread, set_add, starlark.Tuple{key}, nil)
 				if err != nil {
 					st.Error(err)
