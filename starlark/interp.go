@@ -100,19 +100,12 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (_ 
 	code := f.Code
 loop:
 	for {
-		thread.stepsLock.Lock()
-		thread.steps++
-		if thread.steps >= thread.maxSteps {
-			if thread.OnMaxSteps != nil {
-				thread.OnMaxSteps(thread)
-			} else {
-				thread.Cancel("too many steps")
-			}
+		if err = thread.AddExecutionSteps(1); err != nil {
+			break loop
 		}
-		thread.stepsLock.Unlock()
 
 		if reason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); reason != nil {
-			err = fmt.Errorf("Starlark computation cancelled: %s", *(*string)(reason))
+			err = fmt.Errorf("Starlark computation cancelled: %w", *(*error)(reason))
 			break loop
 		}
 
@@ -206,7 +199,7 @@ loop:
 				unop = syntax.Token(op-compile.UPLUS) + syntax.PLUS
 			}
 			x := stack[sp-1]
-			y, err2 := Unary(unop, x)
+			y, err2 := SafeUnary(thread, unop, x)
 			if err2 != nil {
 				err = err2
 				break loop
