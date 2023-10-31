@@ -259,7 +259,7 @@ var (
 		"add":                  MemSafe | IOSafe | CPUSafe,
 		"clear":                MemSafe | IOSafe | CPUSafe,
 		"difference":           MemSafe | IOSafe,
-		"discard":              MemSafe | IOSafe,
+		"discard":              MemSafe | IOSafe | CPUSafe,
 		"intersection":         MemSafe | IOSafe,
 		"issubset":             MemSafe | IOSafe,
 		"issuperset":           MemSafe | IOSafe,
@@ -3132,18 +3132,13 @@ func set_issuperset(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·discard.
-func set_discard(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_discard(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var k Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &k); err != nil {
 		return nil, err
 	}
-	if found, err := b.Receiver().(*Set).Has(k); err != nil {
+	if _, _, err := b.Receiver().(*Set).ht.delete(thread, k); err != nil {
 		return nil, nameErr(b, err)
-	} else if !found {
-		return None, nil
-	}
-	if _, err := b.Receiver().(*Set).Delete(k); err != nil {
-		return nil, nameErr(b, err) // set is frozen
 	}
 	return None, nil
 }
