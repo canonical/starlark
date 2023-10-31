@@ -1871,11 +1871,9 @@ func (sci *safeIteratorWrapper) Next(p *Value) bool {
 		return false
 	}
 
-	if sci.thread.requiredSafety.Contains(CPUSafe) {
-		if err := sci.thread.AddExecutionSteps(1); err != nil {
-			sci.err = err
-			return false
-		}
+	if err := sci.thread.AddExecutionSteps(1); err != nil {
+		sci.err = err
+		return false
 	}
 
 	return sci.iter.Next(p)
