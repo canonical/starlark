@@ -226,8 +226,8 @@ var (
 		"lower":          MemSafe | IOSafe,
 		"lstrip":         MemSafe | IOSafe | CPUSafe,
 		"partition":      MemSafe | IOSafe | CPUSafe,
-		"removeprefix":   MemSafe | IOSafe,
-		"removesuffix":   MemSafe | IOSafe,
+		"removeprefix":   MemSafe | IOSafe | CPUSafe,
+		"removesuffix":   MemSafe | IOSafe | CPUSafe,
 		"replace":        MemSafe | IOSafe,
 		"rfind":          MemSafe | IOSafe | CPUSafe,
 		"rindex":         MemSafe | IOSafe | CPUSafe,
@@ -2652,6 +2652,9 @@ func string_removefix(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 	recv := string(b.Receiver().(String))
 	var fix string
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &fix); err != nil {
+		return nil, err
+	}
+	if err := thread.AddExecutionSteps(int64(len(fix))); err != nil {
 		return nil, err
 	}
 	if b.name[len("remove")] == 'p' {

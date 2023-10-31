@@ -4973,7 +4973,23 @@ func TestStringPartitionAllocs(t *testing.T) {
 	testStringPartitionMethodAllocs(t, "partition")
 }
 
-func testStringRemovefixSteps(t *testing.T) {
+func testStringRemovefixSteps(t *testing.T, method_name string) {
+	method, _ := starlark.String("aaaaaZZZZZaaaaa").Attr(method_name)
+	if method == nil {
+		t.Fatalf("no such method: string.%s", method_name)
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			args := starlark.Tuple{starlark.String("aaaaa")}
+			_, err := starlark.Call(thread, method, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		}
+	})
 }
 
 func testStringRemovefixAllocs(t *testing.T, method_name string) {
@@ -4997,6 +5013,7 @@ func testStringRemovefixAllocs(t *testing.T, method_name string) {
 }
 
 func TestStringRemoveprefixSteps(t *testing.T) {
+	testStringRemovefixSteps(t, "removeprefix")
 }
 
 func TestStringRemoveprefixAllocs(t *testing.T) {
@@ -5004,6 +5021,7 @@ func TestStringRemoveprefixAllocs(t *testing.T) {
 }
 
 func TestStringRemovesuffixSteps(t *testing.T) {
+	testStringRemovefixSteps(t, "removesuffix")
 }
 
 func TestStringRemovesuffixAllocs(t *testing.T) {
