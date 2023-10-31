@@ -4836,7 +4836,7 @@ func TestSafeIterateSteps(t *testing.T) {
 			for iter.Next(&v) {
 			}
 			if err := iter.Err(); err != nil {
-				st.Fatal(err)
+				st.Error(err)
 			}
 		})
 	})
