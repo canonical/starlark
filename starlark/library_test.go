@@ -4804,14 +4804,15 @@ func TestSafeIterateSteps(t *testing.T) {
 		}
 		iter, err := starlark.SafeIterate(nil, iterable)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 		iter.Done()
 		var v starlark.Value
 		for iter.Next(&v) {
 		}
 		if err := iter.Err(); err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	})
 
