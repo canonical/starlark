@@ -6063,6 +6063,60 @@ func TestSetIssupersetAllocs(t *testing.T) {
 }
 
 func TestSetPopSteps(t *testing.T) {
+	const setSize = 500
+
+	t.Run("few-collisions", func(t *testing.T) {
+		set := starlark.NewSet(setSize)
+		for i := 0; i < setSize; i++ {
+			set.Insert(starlark.Float(i))
+		}
+		set_pop, _ := set.Attr("pop")
+		if set_pop == nil {
+			t.Fatal("no such method: set.pop")
+		}
+
+		st := startest.From(t)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				key, err := starlark.Call(thread, set_pop, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				set.Insert(key) // Add back for the next iteration.
+			}
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		set := starlark.NewSet(setSize)
+		for i := 0; i < setSize; i++ {
+			// Int hash only uses the least 32 bits.
+			// Leaving them blank creates collisions.
+			key := starlark.MakeInt64(int64(i) << 32)
+			set.Insert(key)
+		}
+		set_pop, _ := set.Attr("pop")
+		if set_pop == nil {
+			t.Fatal("no such method: set.pop")
+		}
+
+		st := startest.From(t)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(setSize / 8)
+		st.RequireSafety(starlark.CPUSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				key, err := starlark.Call(thread, set_pop, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				set.Insert(key) // Add back for the next iteration.
+			}
+		})
+	})
 }
 
 func TestSetPopAllocs(t *testing.T) {
