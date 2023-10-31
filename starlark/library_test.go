@@ -4822,8 +4822,6 @@ func TestSafeIterateSteps(t *testing.T) {
 		st.SetMinExecutionSteps(1)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(thread *starlark.Thread) {
-			thread.SetMaxExecutionSteps(math.MaxInt64)
-
 			iterable := &testSequence{
 				maxN: st.N,
 				nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
