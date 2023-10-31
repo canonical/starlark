@@ -1859,7 +1859,7 @@ func Iterate(x Value) Iterator {
 // safeIteratorWrapper provides a wrapper around an iterator which performs optional
 // actions on Next calls.
 type safeIteratorWrapper struct {
-	iter   Iterator
+	iter   SafeIterator
 	thread *Thread
 	err    error
 }
@@ -1888,13 +1888,7 @@ func (sci *safeIteratorWrapper) Err() error {
 
 func (sci *safeIteratorWrapper) Safety() Safety {
 	const wrapperSafety = MemSafe | CPUSafe
-
-	var iterSafety Safety
-	if iter, ok := sci.iter.(SafetyAware); ok {
-		iterSafety = iter.Safety()
-	}
-
-	return wrapperSafety & iterSafety
+	return wrapperSafety & sci.iter.Safety()
 }
 func (sci *safeIteratorWrapper) BindThread(thread *Thread) { sci.thread = thread }
 
