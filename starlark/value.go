@@ -1880,41 +1880,40 @@ func Iterate(x Value) Iterator {
 	return nil
 }
 
-// safeIteratorWrapper provides a wrapper around an iterator which performs optional
-// actions on Next calls.
-type safeIteratorWrapper struct {
+// guardedIterator provides a wrapper around an iterator which performs// optional actions on Next calls.
+type guardedIterator struct {
 	iter   SafeIterator
 	thread *Thread
 	err    error
 }
 
-var _ SafeIterator = &safeIteratorWrapper{}
+var _ SafeIterator = &guardedIterator{}
 
-func (sci *safeIteratorWrapper) Next(p *Value) bool {
-	if sci.Err() != nil {
+func (gi *guardedIterator) Next(p *Value) bool {
+	if gi.Err() != nil {
 		return false
 	}
 
-	if err := sci.thread.AddExecutionSteps(1); err != nil {
-		sci.err = err
+	if err := gi.thread.AddExecutionSteps(1); err != nil {
+		gi.err = err
 		return false
 	}
 
-	return sci.iter.Next(p)
+	return gi.iter.Next(p)
 }
-func (sci *safeIteratorWrapper) Done() { sci.iter.Done() }
-func (sci *safeIteratorWrapper) Err() error {
-	if sci.err != nil {
-		return sci.err
+func (gi *guardedIterator) Done() { gi.iter.Done() }
+func (gi *guardedIterator) Err() error {
+	if gi.err != nil {
+		return gi.err
 	}
-	return sci.iter.Err()
+	return gi.iter.Err()
 }
 
-func (sci *safeIteratorWrapper) Safety() Safety {
+func (gi *guardedIterator) Safety() SafetyFlags {
 	const wrapperSafety = MemSafe | CPUSafe
-	return wrapperSafety & sci.iter.Safety()
+	return wrapperSafety & gi.iter.Safety()
 }
-func (sci *safeIteratorWrapper) BindThread(thread *Thread) { sci.thread = thread }
+func (gi *guardedIterator) BindThread(thread *Thread) { gi.thread = thread }
 
 // SafeIterate creates an iterator which is bound then to the given
 // thread. This iterator will check safety and respect sandboxing
@@ -1932,7 +1931,7 @@ func SafeIterate(thread *Thread, x Value) (Iterator, error) {
 					return nil, err
 				}
 				if !thread.Permits(NotSafe) {
-					safeIter = &safeIteratorWrapper{iter: safeIter}
+					safeIter = &guardedIterator{iter: safeIter}
 					safeIter.BindThread(thread)
 				}
 				return safeIter, nil
