@@ -1867,7 +1867,7 @@ type safeIteratorWrapper struct {
 var _ SafeIterator = &safeIteratorWrapper{}
 
 func (sci *safeIteratorWrapper) Next(p *Value) bool {
-	if sci.err != nil {
+	if sci.Err() != nil {
 		return false
 	}
 
