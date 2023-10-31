@@ -84,7 +84,7 @@ var Module = &starlarkstruct.Module{
 var safeties = map[string]starlark.SafetyFlags{
 	"encode": starlark.MemSafe | starlark.IOSafe,
 	"decode": starlark.MemSafe | starlark.IOSafe,
-	"indent": starlark.MemSafe | starlark.IOSafe,
+	"indent": starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 }
 
 func init() {
@@ -378,11 +378,17 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	// The second approach has the potential of actually reduce the
 	// transient allocation and speed up the execution, but it's probably
 	// not worthy for a "pretty print" function.
+	if err := thread.CheckExecutionSteps(int64(worstCase)); err != nil {
+		return nil, err
+	}
 	if err := thread.CheckAllocs(int64(len(str) + worstCase*2)); err != nil {
 		return nil, err
 	}
 	if err := json.Indent(buf, []byte(str), prefix, indent); err != nil {
 		return nil, fmt.Errorf("%s: %v", b.Name(), err)
+	}
+	if err := thread.AddExecutionSteps(int64(buf.Len())); err != nil {
+		return nil, err
 	}
 	if err := thread.AddAllocs(int64(buf.Cap()) + starlark.StringTypeOverhead); err != nil {
 		return nil, err
