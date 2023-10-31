@@ -4833,7 +4833,10 @@ func TestSafeIterateSteps(t *testing.T) {
 				st.Fatal(err)
 			}
 			var v starlark.Value
-			for iter.Next(&v) {
+			for {
+				if !iter.Next(&v) {
+					break
+				}
 			}
 			if err := iter.Err(); err != nil {
 				st.Error(err)
