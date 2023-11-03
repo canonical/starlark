@@ -425,12 +425,9 @@ loop:
 				break loop
 			}
 			if _, ok := function.(*Function); ok {
-				// When the function is a Starlark function, args and
-				// kwargs are transient and are available for collection
-				// right after the setArgs call, making them a spike (a
-				// transient allocation). That's not the case for builtins
-				// as it's not possible to infer what the function will
-				// do with that memory (in general).
+				// When the function is a Starlark function, we can guarantee
+				// that the backing memory for args and kwargs is only kept
+				// alive for the duration of the call.
 				thread.AddAllocs(-argsAllocs)
 			}
 			if vmdebug {
