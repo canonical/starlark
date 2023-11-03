@@ -2997,7 +2997,7 @@ func TestDictGetSteps(t *testing.T) {
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
-					elem := starlark.Value(starlark.MakeInt(dictSize << 32))
+					elem := starlark.Value(starlark.MakeInt64(dictSize << 32))
 					_, err := starlark.Call(thread, dict_get, starlark.Tuple{elem}, nil)
 					if err != nil {
 						st.Error(err)
@@ -3295,7 +3295,7 @@ func TestDictPopSteps(t *testing.T) {
 			st.SetMaxExecutionSteps((dictSize / 8) + 1)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
-					input := starlark.Value(starlark.MakeInt(dictSize << 32))
+					input := starlark.Value(starlark.MakeInt64(dictSize << 32))
 					_, err := starlark.Call(thread, dict_pop, starlark.Tuple{input, starlark.None}, nil)
 					if err != nil {
 						st.Error(err)
