@@ -464,7 +464,7 @@ func st_keep_alive(thread *starlark.Thread, b *starlark.Builtin, args starlark.T
 		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
 	}
 
-	// keep_alive does not capture the backing array for args. Hence,
+	// keep_alive does not capture the backing array for args. Hence
 	// the allocation is removed aligning declared allocations with
 	// user expectations.
 	argsSize := starlark.EstimateMakeSize(starlark.Tuple{}, cap(args))
