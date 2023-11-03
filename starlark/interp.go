@@ -54,7 +54,6 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (_ 
 	if err := thread.AddAllocs(EstimateMakeSize([]Value{}, nspace)); err != nil {
 		return nil, err
 	}
-
 	space := make([]Value, nspace)
 	locals := space[:nlocals:nlocals] // local variables, starting with parameters
 	stack := space[nlocals:]          // operand stack
@@ -311,12 +310,11 @@ loop:
 			if nkvpairs := int(arg & 0xff); nkvpairs > 0 {
 				kvpairsSize := EstimateMakeSize([]Tuple{}, nkvpairs) +
 					EstimateMakeSize(Tuple{}, 2*nkvpairs)
+				argsAllocs += kvpairsSize
 				if err2 := thread.AddAllocs(kvpairsSize); err2 != nil {
 					err = err2
 					break loop
 				}
-				argsAllocs += kvpairsSize
-
 				kvpairs = make([]Tuple, 0, nkvpairs)
 				kvpairsAlloc := make(Tuple, 2*nkvpairs) // allocate a single backing array
 				sp -= 2 * nkvpairs
@@ -335,8 +333,13 @@ loop:
 					err = fmt.Errorf("argument after ** must be a mapping, not %s", kwargs.Type())
 					break loop
 				}
-
 				items := dict.Items()
+				tuplesSize := EstimateMakeSize([]Value{}, 2) * int64(len(items))
+				argsAllocs += tuplesSize
+				if err2 := thread.AddAllocs(tuplesSize); err2 != nil {
+					err = err2
+					break loop
+				}
 				for _, item := range items {
 					if _, ok := item[0].(String); !ok {
 						err = fmt.Errorf("keywords must be strings, not %s", item[0].Type())
@@ -344,14 +347,13 @@ loop:
 					}
 				}
 				if len(kvpairs) == 0 {
-					itemsSize := EstimateMakeSize([]Tuple{}, len(items)) +
-						EstimateMakeSize([]Value{}, 2)*int64(len(items))
+					itemsSize := EstimateMakeSize([]Tuple{}, len(items))
+					argsAllocs += itemsSize
 					if err2 := thread.AddAllocs(itemsSize); err2 != nil {
 						err = err2
 						break loop
 					}
 					kvpairs = items
-					argsAllocs += itemsSize
 				} else {
 					kvpairsAppender := NewSafeAppender(thread, &kvpairs)
 					if err2 := kvpairsAppender.AppendSlice(items); err2 != nil {
@@ -373,12 +375,12 @@ loop:
 				// unless the callee is another Starlark function,
 				// in which case it can be trusted not to mutate them.
 				if _, ok := stack[sp-1].(*Function); !ok || args != nil {
-					positionalSize := EstimateMakeSize([]Value{}, npos)
+					positionalSize := EstimateMakeSize(Tuple{}, npos)
 					if err2 := thread.AddAllocs(positionalSize); err2 != nil {
 						err = err2
 						break loop
 					}
-					positional = append([]Value(nil), positional...)
+					positional = append(Tuple(nil), positional...)
 					argsAllocs += positionalSize
 				}
 			}
@@ -409,15 +411,6 @@ loop:
 			}
 
 			function := stack[sp-1]
-			if _, ok := function.(*Function); ok {
-				// When the function is a Starlark function, args and
-				// kwargs are transient and are available for collection
-				// right after the setArgs call, making them a spike (a
-				// transient allocation). That's not the case for builtins
-				// as it's not possible to infer what the function will
-				// do with that memory (in general).
-				thread.AddAllocs(-argsAllocs)
-			}
 
 			if vmdebug {
 				fmt.Printf("VM call %s args=%s kwargs=%s @%s\n",
@@ -430,6 +423,15 @@ loop:
 			if err2 != nil {
 				err = err2
 				break loop
+			}
+			if _, ok := function.(*Function); ok {
+				// When the function is a Starlark function, args and
+				// kwargs are transient and are available for collection
+				// right after the setArgs call, making them a spike (a
+				// transient allocation). That's not the case for builtins
+				// as it's not possible to infer what the function will
+				// do with that memory (in general).
+				thread.AddAllocs(-argsAllocs)
 			}
 			if vmdebug {
 				fmt.Printf("Resuming %s @ %s\n", f.Name, f.Position(0))

@@ -217,7 +217,16 @@ func TestAttrAccessAllocs(t *testing.T) {
 }
 
 func TestFunctionCall(t *testing.T) {
-	stackFrame := starlark.NewBuiltinWithSafety("stack_frame", starlark.MemSafe, starlark.StackFrame)
+	stackFrame := starlark.NewBuiltinWithSafety(
+		"stack_frame",
+		starlark.MemSafe,
+		func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+			if err := thread.AddAllocs(starlark.EstimateSize(&starlark.StackFrameCapture{})); err != nil {
+				return nil, err
+			}
+			return thread.FrameAt(1), nil
+		},
+	)
 	makeCaptureCall := func(st *startest.ST) *starlark.Builtin {
 		return starlark.NewBuiltinWithSafety("capture_call", starlark.MemSafe,
 			func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
@@ -225,13 +234,14 @@ func TestFunctionCall(t *testing.T) {
 					if err := thread.AddAllocs(starlark.EstimateSize(starlark.Tuple{})); err != nil {
 						return nil, err
 					}
+					st.KeepAlive(args)
 				}
 				if kwargs != nil {
 					if err := thread.AddAllocs(starlark.EstimateSize([]starlark.Tuple{})); err != nil {
 						return nil, err
 					}
+					st.KeepAlive(kwargs)
 				}
-				st.KeepAlive(args, kwargs)
 				return starlark.None, nil
 			})
 	}

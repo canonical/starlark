@@ -29,30 +29,28 @@ var StringMethodSafeties = stringMethodSafeties
 var SetMethods = setMethods
 var SetMethodSafeties = setMethodSafeties
 
-type stackFrame struct {
-	storage []Value
-	frame   *frame
+type StackFrameCapture struct {
+	locals []Value
+	frame  *frame
 }
 
-var _ Value = stackFrame{}
+var _ Value = StackFrameCapture{}
 
-func (stackFrame) Freeze()        {}
-func (stackFrame) String() string { return "stackFrame" }
-func (stackFrame) Type() string   { return "stackFrame" }
-func (stackFrame) Truth() Bool    { return False }
+func (sfc StackFrameCapture) Freeze()        {}
+func (sfc StackFrameCapture) String() string { return "StackFrameCapture" }
+func (sfc StackFrameCapture) Type() string   { return "StackFrameCapture" }
+func (sfc StackFrameCapture) Truth() Bool    { return False }
 
-func (stackFrame) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: stackFrame") }
+func (sfc StackFrameCapture) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable: StackFrameCapture")
+}
 
-func StackFrame(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
-	frame := thread.frameAt(1)
-	result := Value(stackFrame{
-		storage: frame.locals,
-		frame:   frame,
-	})
-
-	if err := thread.AddAllocs(EstimateSize(stackFrame{})); err != nil {
-		return nil, err
+// FrameAt return a value representing the memory used
+// by the stack frame at the given depth.
+func (thread *Thread) FrameAt(depth int) StackFrameCapture {
+	frame := thread.frameAt(depth)
+	return StackFrameCapture{
+		locals: frame.locals,
+		frame:  frame,
 	}
-
-	return result, nil
 }
