@@ -217,138 +217,150 @@ func TestAttrAccessAllocs(t *testing.T) {
 }
 
 func TestFunctionCall(t *testing.T) {
-	stackFrame := starlark.NewBuiltinWithSafety(
-		"stack_frame",
-		starlark.MemSafe,
-		func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-			if err := thread.AddAllocs(starlark.EstimateSize(&starlark.StackFrameCapture{})); err != nil {
-				return nil, err
-			}
-			return thread.FrameAt(1), nil
-		},
-	)
-	makeCaptureCall := func(st *startest.ST) *starlark.Builtin {
-		return starlark.NewBuiltinWithSafety("capture_call", starlark.MemSafe,
-			func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-				if args != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(starlark.Tuple{})); err != nil {
-						return nil, err
-					}
-					st.KeepAlive(args)
+	t.Run("vm-stack", func(t *testing.T) {
+		stack_frame := starlark.NewBuiltinWithSafety(
+			"stack_frame",
+			starlark.MemSafe,
+			func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+				frameSize := starlark.EstimateSize(starlark.StackFrameCapture{})
+				if err := thread.AddAllocs(frameSize); err != nil {
+					return nil, err
 				}
-				if kwargs != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize([]starlark.Tuple{})); err != nil {
-						return nil, err
+				return thread.FrameAt(1), nil
+			},
+		)
+
+		t.Run("shallow", func(t *testing.T) {
+			st := startest.From(t)
+			st.AddBuiltin(stack_frame)
+			st.RequireSafety(starlark.MemSafe)
+			st.RunString(`
+				def empty():
+					st.keep_alive(stack_frame())
+		
+				for _ in st.ntimes():
+					empty()
+			`)
+		})
+
+		t.Run("deep", func(t *testing.T) {
+			st := startest.From(t)
+			st.AddBuiltin(stack_frame)
+			st.RequireSafety(starlark.MemSafe)
+			st.RunString(`
+				def recurse(depth=0):
+					st.keep_alive(stack_frame())
+					if depth < st.n:
+						recurse(depth + 1)
+		
+				recurse()
+			`)
+		})
+
+		t.Run("with-captures", func(t *testing.T) {
+			st := startest.From(t)
+			st.AddBuiltin(stack_frame)
+			st.RequireSafety(starlark.MemSafe)
+			st.RunString(`
+				def run():
+					sf = stack_frame()
+					st.keep_alive(sf)
+					def closure():
+						st.keep_alive(sf, stack_frame())
+					closure()
+		
+				for _ in st.ntimes():
+					run()
+			`)
+		})
+	})
+
+	t.Run("builtin", func(t *testing.T) {
+		keep_alive_args := func(st *startest.ST) *starlark.Builtin {
+			return starlark.NewBuiltinWithSafety("keep_alive_args", starlark.MemSafe,
+				func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+					if args != nil {
+						argsSize := starlark.EstimateSize(starlark.Tuple{})
+						if err := thread.AddAllocs(argsSize); err != nil {
+							return nil, err
+						}
+						st.KeepAlive(args)
 					}
-					st.KeepAlive(kwargs)
-				}
-				return starlark.None, nil
-			})
-	}
 
-	t.Run("stack", func(t *testing.T) {
-		st := startest.From(t)
-		st.AddBuiltin(stackFrame)
-		st.RequireSafety(starlark.MemSafe)
-		st.RunString(`
-			def empty():
-				st.keep_alive(stack_frame())
-	
-			for _ in st.ntimes():
-				empty()
-		`)
-	})
+					if kwargs != nil {
+						kwargsSize := starlark.EstimateSize([]starlark.Tuple{})
+						if err := thread.AddAllocs(kwargsSize); err != nil {
+							return nil, err
+						}
+						st.KeepAlive(kwargs)
+					}
 
-	t.Run("frame", func(t *testing.T) {
-		st := startest.From(t)
-		st.AddBuiltin(stackFrame)
-		st.RequireSafety(starlark.MemSafe)
-		st.RunString(`
-			def recurse(i):
-				st.keep_alive(stack_frame())
-				if i:
-					recurse(i-1)
-	
-			recurse(st.n)
-		`)
-	})
+					return starlark.None, nil
+				})
+		}
 
-	t.Run("closure", func(t *testing.T) {
-		st := startest.From(t)
-		st.AddBuiltin(stackFrame)
-		st.RequireSafety(starlark.MemSafe)
-		st.RunString(`
-			def run():
-				sf = stack_frame()
-				st.keep_alive(sf)
-				def closure():
-					st.keep_alive(sf, stack_frame())
-				closure()
-	
-			for _ in st.ntimes():
-				run()
-		`)
-	})
+		t.Run("args", func(t *testing.T) {
+			st := startest.From(t)
+			st.AddBuiltin(keep_alive_args(st))
+			st.RequireSafety(starlark.MemSafe)
+			st.RunString(`
+				for _ in st.ntimes():
+					keep_alive_args(1, 1, 1, 1)
+			`)
+		})
 
-	t.Run("builtin-positional", func(t *testing.T) {
-		st := startest.From(t)
-		st.AddBuiltin(makeCaptureCall(st))
-		st.RequireSafety(starlark.MemSafe)
-		st.RunString(`
-			for _ in st.ntimes():
-				capture_call(1, 1, 1, 1)
-		`)
-	})
+		t.Run("varargs", func(t *testing.T) {
+			st := startest.From(t)
+			st.AddBuiltin(keep_alive_args(st))
+			st.RequireSafety(starlark.MemSafe)
+			st.RunString(`
+				args = range(1, 10)
+				for _ in st.ntimes():
+					keep_alive_args(*args)
+			`)
+		})
 
-	t.Run("builtin-varargs", func(t *testing.T) {
-		st := startest.From(t)
-		st.AddBuiltin(makeCaptureCall(st))
-		st.RequireSafety(starlark.MemSafe)
-		st.RunString(`
-			for _ in st.ntimes():
-				capture_call(*range(1, 10))
-		`)
-	})
+		t.Run("mixed-args", func(t *testing.T) {
+			st := startest.From(t)
+			st.AddBuiltin(keep_alive_args(st))
+			st.RequireSafety(starlark.MemSafe)
+			st.RunString(`
+				args = range(1, 10)
+				for _ in st.ntimes():
+					keep_alive_args(1, 2, 3, *args)
+			`)
+		})
 
-	t.Run("builtin-mixed-args", func(t *testing.T) {
-		st := startest.From(t)
-		st.AddBuiltin(makeCaptureCall(st))
-		st.RequireSafety(starlark.MemSafe)
-		st.RunString(`
-			for _ in st.ntimes():
-				capture_call(1, 2, 3, *range(1, 10))
-		`)
-	})
+		t.Run("kwargs", func(t *testing.T) {
+			st := startest.From(t)
+			st.AddBuiltin(keep_alive_args(st))
+			st.RequireSafety(starlark.MemSafe)
+			st.RunString(`
+				for _ in st.ntimes():
+					keep_alive_args(a=1, b=2, c=3)
+			`)
+		})
 
-	t.Run("builtin-named", func(t *testing.T) {
-		st := startest.From(t)
-		st.AddBuiltin(makeCaptureCall(st))
-		st.RequireSafety(starlark.MemSafe)
-		st.RunString(`
-			for _ in st.ntimes():
-				capture_call(a=1, b=2, c=3)
-		`)
-	})
+		t.Run("varkwargs", func(t *testing.T) {
+			st := startest.From(t)
+			st.AddBuiltin(keep_alive_args(st))
+			st.RequireSafety(starlark.MemSafe)
+			st.RunString(`
+				kwargs = { "a": 1, "b": 2, "c": 3 }
+				for _ in st.ntimes():
+					keep_alive_args(**kwargs)
+			`)
+		})
 
-	t.Run("builtin-kwargs", func(t *testing.T) {
-		st := startest.From(t)
-		st.AddBuiltin(makeCaptureCall(st))
-		st.RequireSafety(starlark.MemSafe)
-		st.RunString(`
-			for _ in st.ntimes():
-				args = { "a": 1, "b": 2, "c": 3 }
-				capture_call(**args)
-		`)
-	})
-
-	t.Run("builtin-mixed-kwargs", func(t *testing.T) {
-		st := startest.From(t)
-		st.AddBuiltin(makeCaptureCall(st))
-		st.RequireSafety(starlark.MemSafe)
-		st.RunString(`
-			for _ in st.ntimes():
-				args = { "a": 1, "b": 2, "c": 3 }
-				capture_call(d=4, e=5, **args)
-		`)
+		t.Run("mixed-kwargs", func(t *testing.T) {
+			st := startest.From(t)
+			st.AddBuiltin(keep_alive_args(st))
+			st.RequireSafety(starlark.MemSafe)
+			st.RunString(`
+				kwargs = { "a": 1, "b": 2, "c": 3 }
+				for _ in st.ntimes():
+					keep_alive_args(d=4, e=5, **kwargs)
+			`)
+		})
 	})
 }

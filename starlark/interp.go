@@ -63,8 +63,7 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (_ 
 	if err != nil {
 		return nil, thread.evalError(err)
 	}
-	// Hint that args and kwargs can be
-	// collected after this point.
+	// Hint that args and kwargs can be collected after this point.
 	args, kwargs = nil, nil
 
 	fr.locals = locals
@@ -648,7 +647,6 @@ loop:
 				err = err2
 				break loop
 			}
-
 			stack[sp-1] = &Function{
 				funcode:  funcode,
 				module:   fn.module,
