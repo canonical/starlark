@@ -63,6 +63,9 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (_ 
 	if err != nil {
 		return nil, thread.evalError(err)
 	}
+	// Hint that args and kwargs can be
+	// collected after this point.
+	args, kwargs = nil, nil
 
 	fr.locals = locals
 
@@ -414,7 +417,8 @@ loop:
 			if _, ok := function.(*Function); ok {
 				// When the function is a Starlark function, we can guarantee
 				// that the backing memory for args and kwargs is only kept
-				// alive for the duration of the call.
+				// alive for the duration of the call. See setArgs call at
+				// the beginning of this function.
 				thread.AddAllocs(-argsAllocs)
 			}
 

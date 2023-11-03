@@ -45,7 +45,7 @@ func (sfc StackFrameCapture) Hash() (uint32, error) {
 	return 0, fmt.Errorf("unhashable: StackFrameCapture")
 }
 
-// FrameAt return a value representing the memory used
+// FrameAt returns a value which represents the memory in use
 // by the stack frame at the given depth.
 func (thread *Thread) FrameAt(depth int) StackFrameCapture {
 	frame := thread.frameAt(depth)

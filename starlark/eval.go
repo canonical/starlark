@@ -1818,7 +1818,7 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		thread.maxSteps-- // (MaxUint64)
 	}
 
-	if err := NewSafeAppender(thread, &thread.stack).Append(fr); err != nil {
+	if err := NewSafeAppender(thread, &thread.stack).Append(fr); err != nil { // push
 		return nil, err
 	}
 
