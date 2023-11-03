@@ -411,6 +411,12 @@ loop:
 			}
 
 			function := stack[sp-1]
+			if _, ok := function.(*Function); ok {
+				// When the function is a Starlark function, we can guarantee
+				// that the backing memory for args and kwargs is only kept
+				// alive for the duration of the call.
+				thread.AddAllocs(-argsAllocs)
+			}
 
 			if vmdebug {
 				fmt.Printf("VM call %s args=%s kwargs=%s @%s\n",
@@ -423,12 +429,6 @@ loop:
 			if err2 != nil {
 				err = err2
 				break loop
-			}
-			if _, ok := function.(*Function); ok {
-				// When the function is a Starlark function, we can guarantee
-				// that the backing memory for args and kwargs is only kept
-				// alive for the duration of the call.
-				thread.AddAllocs(-argsAllocs)
 			}
 			if vmdebug {
 				fmt.Printf("Resuming %s @ %s\n", f.Name, f.Position(0))
