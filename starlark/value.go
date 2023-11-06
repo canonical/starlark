@@ -1880,7 +1880,8 @@ func Iterate(x Value) Iterator {
 	return nil
 }
 
-// guardedIterator provides a wrapper around an iterator which performs// optional actions on Next calls.
+// guardedIterator provides a wrapper around an iterator which performs
+// optional actions on Next calls.
 type guardedIterator struct {
 	iter   SafeIterator
 	thread *Thread
