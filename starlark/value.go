@@ -1880,6 +1880,42 @@ func Iterate(x Value) Iterator {
 	return nil
 }
 
+// guardedIterator provides a wrapper around an iterator which performs
+// optional actions on Next calls.
+type guardedIterator struct {
+	iter   SafeIterator
+	thread *Thread
+	err    error
+}
+
+var _ SafeIterator = &guardedIterator{}
+
+func (gi *guardedIterator) Next(p *Value) bool {
+	if gi.Err() != nil {
+		return false
+	}
+
+	if err := gi.thread.AddExecutionSteps(1); err != nil {
+		gi.err = err
+		return false
+	}
+
+	return gi.iter.Next(p)
+}
+func (gi *guardedIterator) Done() { gi.iter.Done() }
+func (gi *guardedIterator) Err() error {
+	if gi.err != nil {
+		return gi.err
+	}
+	return gi.iter.Err()
+}
+
+func (gi *guardedIterator) Safety() SafetyFlags {
+	const wrapperSafety = MemSafe | CPUSafe
+	return wrapperSafety & gi.iter.Safety()
+}
+func (gi *guardedIterator) BindThread(thread *Thread) { gi.thread = thread }
+
 // SafeIterate creates an iterator which is bound then to the given
 // thread. This iterator will check safety and respect sandboxing
 // bounds as required. As a convenience for functions that may have
@@ -1892,12 +1928,16 @@ func SafeIterate(thread *Thread, x Value) (Iterator, error) {
 		if thread != nil {
 			if safeIter, ok := iter.(SafeIterator); ok {
 				safeIter.BindThread(thread)
-
 				if err := thread.CheckPermits(safeIter); err != nil {
 					return nil, err
 				}
+				if !thread.Permits(NotSafe) {
+					safeIter = &guardedIterator{iter: safeIter}
+					safeIter.BindThread(thread)
+				}
 				return safeIter, nil
-			} else if err := thread.CheckPermits(NotSafe); err != nil {
+			}
+			if err := thread.CheckPermits(NotSafe); err != nil {
 				return nil, err
 			}
 		}
