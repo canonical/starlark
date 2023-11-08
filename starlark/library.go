@@ -82,7 +82,7 @@ func init() {
 		"bool":      MemSafe | IOSafe | CPUSafe,
 		"bytes":     MemSafe | IOSafe,
 		"chr":       MemSafe | IOSafe | CPUSafe,
-		"dict":      MemSafe | IOSafe,
+		"dict":      MemSafe | IOSafe | CPUSafe,
 		"dir":       MemSafe | IOSafe,
 		"enumerate": MemSafe | IOSafe,
 		"fail":      MemSafe | IOSafe,
@@ -3304,7 +3304,11 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 		switch updates := updates[0].(type) {
 		case IterableMapping:
 			// Iterate over dict's key/value pairs, not just keys.
-			for _, item := range updates.Items() {
+			items := updates.Items()
+			if err := thread.AddExecutionSteps(int64(len(items))); err != nil {
+				return err
+			}
+			for _, item := range items {
 				if err := dict.SafeSetKey(thread, item[0], item[1]); err != nil {
 					return err // dict is frozen
 				}
