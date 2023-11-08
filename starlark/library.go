@@ -84,7 +84,7 @@ func init() {
 		"chr":       MemSafe | IOSafe | CPUSafe,
 		"dict":      MemSafe | IOSafe | CPUSafe,
 		"dir":       MemSafe | IOSafe,
-		"enumerate": MemSafe | IOSafe,
+		"enumerate": MemSafe | IOSafe | CPUSafe,
 		"fail":      MemSafe | IOSafe,
 		"float":     MemSafe | IOSafe | CPUSafe,
 		"getattr":   MemSafe | IOSafe,
