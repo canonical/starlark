@@ -832,30 +832,36 @@ func TestDictSteps(t *testing.T) {
 		}
 	})
 
-	t.Run("few-collisions", func(t *testing.T) {
+	t.Run("mapping-iterable", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
+		// Iteration over items of a dict is 1 step per N,
+		// insertion cost averages to ~2.5.
+		st.SetMinExecutionSteps(1 + 2)
+		st.SetMaxExecutionSteps(1 + 3)
 		st.RunThread(func(thread *starlark.Thread) {
-			iter := &testIterable{
-				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					return starlark.Tuple{starlark.MakeInt(n), starlark.None}, nil
-				},
-				maxN: st.N,
+			mapIter := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				mapIter.SetKey(starlark.MakeInt(i), starlark.None)
 			}
-			_, err := starlark.Call(thread, dict, starlark.Tuple{iter}, nil)
+			_, err := starlark.Call(thread, dict, starlark.Tuple{mapIter}, nil)
 			if err != nil {
 				st.Error(err)
 			}
 		})
 	})
 
-	t.Run("many-collisions", func(t *testing.T) {
+	t.Run("iterable", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
+		// Iteration of each tuple costs 3 steps per N,
+		// insertion cost averages to ~ 2.5.
+		st.SetMinExecutionSteps(3 + 2)
+		st.SetMaxExecutionSteps(3 + 3)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					return starlark.Tuple{starlark.MakeInt64(int64(n) << 32), starlark.None}, nil
+					return starlark.Tuple{starlark.MakeInt(n), starlark.None}, nil
 				},
 				maxN: st.N,
 			}
