@@ -369,7 +369,7 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	// worst case can be compacted in the quadratic formula:
 	worstCase := n*n + 2*n - 1
 
-	// This worst case makes this function most likely unusable in the contex
+	// This worst case makes this function most likely unusable in the context
 	// of a script, but there are only two other approaches to tackle this part:
 	// - mark the function as **not** MemSafe, which makes the function
 	//   unusable as well;
