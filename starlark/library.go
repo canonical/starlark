@@ -92,7 +92,7 @@ func init() {
 		"hash":      MemSafe | IOSafe | CPUSafe,
 		"int":       MemSafe | IOSafe | CPUSafe,
 		"len":       MemSafe | IOSafe | CPUSafe,
-		"list":      MemSafe | IOSafe,
+		"list":      MemSafe | IOSafe | CPUSafe,
 		"max":       MemSafe | IOSafe,
 		"min":       MemSafe | IOSafe,
 		"ord":       MemSafe | IOSafe | CPUSafe,
