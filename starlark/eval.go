@@ -1818,9 +1818,13 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		thread.maxSteps-- // (MaxUint64)
 	}
 
-	if err := NewSafeAppender(thread, &thread.stack).Append(fr); err != nil { // push
+	stackAppender := NewSafeAppender(thread, &thread.stack)
+	if err := stackAppender.Append(fr); err != nil { // push
 		return nil, err
 	}
+	// Remove extra steps counted from stackAppender as the
+	// call site is expected to count 1.
+	thread.AddExecutionSteps(-int64(stackAppender.Steps()))
 
 	fr.callable = c
 

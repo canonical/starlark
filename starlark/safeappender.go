@@ -6,10 +6,10 @@ import (
 )
 
 type SafeAppender struct {
-	thread   *Thread
-	slice    reflect.Value
-	elemType reflect.Type
-	allocs   uint64
+	thread        *Thread
+	slice         reflect.Value
+	elemType      reflect.Type
+	allocs, steps uint64
 }
 
 func NewSafeAppender(thread *Thread, slicePtr interface{}) *SafeAppender {
@@ -38,10 +38,16 @@ func (sa *SafeAppender) Allocs() uint64 {
 	return sa.allocs
 }
 
+// Steps returns the total steps reported to this SafeAppender's thread.
+func (sa *SafeAppender) Steps() uint64 {
+	return sa.steps
+}
+
 func (sa *SafeAppender) Append(values ...interface{}) error {
 	if err := sa.thread.AddExecutionSteps(int64(len(values))); err != nil {
 		return err
 	}
+	sa.steps += uint64(len(values))
 
 	cap := sa.slice.Cap()
 	newSize := sa.slice.Len() + len(values)
@@ -87,6 +93,8 @@ func (sa *SafeAppender) AppendSlice(values interface{}) error {
 	if err := sa.thread.AddExecutionSteps(int64(toAppend.Len())); err != nil {
 		return err
 	}
+	sa.steps += uint64(toAppend.Len())
+
 	cap := sa.slice.Cap()
 	if sa.slice.Len()+toAppend.Len() > cap {
 		// Consider up to twice the size for the allocation overshoot
