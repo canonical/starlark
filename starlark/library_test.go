@@ -1939,7 +1939,6 @@ func TestRangeSteps(t *testing.T) {
 
 	t.Run("non-enumerating", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.CPUSafe)
 		st.SetMinExecutionSteps(0)
 		st.SetMaxExecutionSteps(0)
@@ -1956,12 +1955,11 @@ func TestRangeSteps(t *testing.T) {
 
 	t.Run("enumerating", func(t *testing.T) {
 		st := startest.From(t)
-
 		st.RequireSafety(starlark.CPUSafe)
 		st.SetMinExecutionSteps(1)
 		st.SetMaxExecutionSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
-			args := starlark.Tuple{starlark.MakeInt(0), starlark.MakeInt(st.N), starlark.MakeInt(1)}
+			args := starlark.Tuple{starlark.MakeInt(0), starlark.MakeInt(st.N * 2), starlark.MakeInt(2)}
 			iterable, err := starlark.Call(thread, range_, args, nil)
 			if err != nil {
 				st.Fatal(err)
