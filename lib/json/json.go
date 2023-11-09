@@ -369,15 +369,15 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	// worst case can be compacted in the quadratic formula:
 	worstCase := n*n + 2*n - 1
 
-	// This makes this function most likely unusable in the context of a
-	// script, but there are only two other approaces to tackle this part:
+	// This worst case makes this function most likely unusable in the contex
+	// of a script, but there are only two other approaches to tackle this part:
 	// - mark the function as **not** MemSafe, which makes the function
 	//   unusable as well;
 	// - copy-paste (e.g. rewrite) the indenting logic, so that it uses
 	//   a `StringBuilder` instead.
 	// The second approach has the potential of actually reduce the
 	// transient allocation and speed up the execution, but it's probably
-	// not worthy for a "pretty print" function.
+	// not worth it for a "pretty print" function.
 	if err := thread.CheckExecutionSteps(int64(worstCase)); err != nil {
 		return nil, err
 	}
