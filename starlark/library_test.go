@@ -2043,6 +2043,60 @@ func TestPrintAllocs(t *testing.T) {
 }
 
 func TestRangeSteps(t *testing.T) {
+	range_, ok := starlark.Universe["range"]
+	if !ok {
+		t.Fatal("no such builtin: range")
+	}
+
+	t.Run("non-enumerating", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(0)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(10000), starlark.MakeInt(1)}
+				_, err := starlark.Call(thread, range_, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("enumerating", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			args := starlark.Tuple{starlark.MakeInt(0), starlark.MakeInt(st.N * 2), starlark.MakeInt(2)}
+			iterable, err := starlark.Call(thread, range_, args, nil)
+			if err != nil {
+				st.Fatal(err)
+			}
+
+			iter, err := starlark.SafeIterate(thread, iterable)
+			if err != nil {
+				st.Fatal(err)
+			}
+			defer iter.Done()
+
+			var value starlark.Value
+			for i := 1; i <= st.N; i++ {
+				if !iter.Next(&value) {
+					st.Errorf("iterator exited after %d iterations but expected %d", i, st.N)
+					break
+				}
+			}
+			if iter.Next(&value) {
+				st.Errorf("iterator exited after %d iterations but expected %d", st.N+1, st.N)
+			}
+			if err := iter.Err(); err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestRangeAllocs(t *testing.T) {
