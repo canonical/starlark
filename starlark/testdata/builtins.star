@@ -56,7 +56,7 @@ assert.eq(sorted([42, 123, 3]), [3, 42, 123])
 assert.eq(sorted([42, 123, 3], reverse=True), [123, 42, 3])
 assert.eq(sorted(["wiz", "foo", "bar"]), ["bar", "foo", "wiz"])
 assert.eq(sorted(["wiz", "foo", "bar"], reverse=True), ["wiz", "foo", "bar"])
-assert.fails(lambda: sorted([1, 2, None, 3]), "int < NoneType not implemented")
+assert.fails(lambda: sorted([1, 2, None, 3]), "NoneType < int not implemented")
 assert.fails(lambda: sorted([1, "one"]), "string < int not implemented")
 # custom key function
 assert.eq(sorted(["two", "three", "four"], key=len),
