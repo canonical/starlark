@@ -2391,6 +2391,65 @@ func TestSetAllocs(t *testing.T) {
 }
 
 func TestSortedSteps(t *testing.T) {
+	sorted, ok := starlark.Universe["sorted"]
+	if !ok {
+		t.Fatal("no such builtin: sorted")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.CPUSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, sorted, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("sorted", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(2)
+		st.SetMaxExecutionSteps(2)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.MakeInt(n), nil
+				},
+				maxN: st.N,
+			}
+			_, err := starlark.Call(thread, sorted, starlark.Tuple{iter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("random", func(t *testing.T) {
+		const iterSize = 100
+		iter := &testIterable{
+			nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+				return starlark.MakeInt(-n), nil
+			},
+			maxN: iterSize,
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(2*iterSize + iterSize)            // All elements will change position.
+		st.SetMaxExecutionSteps(2*iterSize + iterSize*iterSize/2) // Should be at least better than insertion sort.
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, sorted, starlark.Tuple{iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
 }
 
 func TestSortedAllocs(t *testing.T) {

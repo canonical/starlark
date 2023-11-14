@@ -101,7 +101,7 @@ func init() {
 		"repr":      MemSafe | IOSafe,
 		"reversed":  MemSafe | IOSafe,
 		"set":       MemSafe | IOSafe,
-		"sorted":    MemSafe | IOSafe,
+		"sorted":    MemSafe | IOSafe | CPUSafe,
 		"str":       MemSafe | IOSafe,
 		"tuple":     MemSafe | IOSafe,
 		"type":      MemSafe | IOSafe | CPUSafe,
@@ -1421,7 +1421,7 @@ func set(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#sorted
-func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (_ Value, err error) {
 	// Oddly, Python's sorted permits all arguments to be positional, thus so do we.
 	var iterable Iterable
 	var key Callable
@@ -1470,7 +1470,16 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		}
 	}
 
-	slice := &sortSlice{keys: keys, values: values}
+	slice := &sortSlice{keys: keys, values: values, thread: thread}
+	defer func() {
+		if v := recover(); v != nil {
+			if sortErr, ok := v.(sortError); ok {
+				err = sortErr.err
+			} else {
+				panic(v)
+			}
+		}
+	}()
 	if reverse {
 		sort.Stable(sort.Reverse(slice))
 	} else {
@@ -1479,13 +1488,17 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
 		return nil, err
 	}
-	return NewList(slice.values), slice.err
+	return NewList(slice.values), nil
+}
+
+type sortError struct {
+	err error
 }
 
 type sortSlice struct {
 	keys   []Value // nil => values[i] is key
 	values []Value
-	err    error
+	thread *Thread
 }
 
 func (s *sortSlice) Len() int { return len(s.values) }
@@ -1496,11 +1509,14 @@ func (s *sortSlice) Less(i, j int) bool {
 	}
 	ok, err := Compare(syntax.LT, keys[i], keys[j])
 	if err != nil {
-		s.err = err
+		panic(sortError{err})
 	}
 	return ok
 }
 func (s *sortSlice) Swap(i, j int) {
+	if err := s.thread.AddExecutionSteps(1); err != nil {
+		panic(sortError{err})
+	}
 	if s.keys != nil {
 		s.keys[i], s.keys[j] = s.keys[j], s.keys[i]
 	}
