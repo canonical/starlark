@@ -1290,6 +1290,29 @@ func TestFloatAllocs(t *testing.T) {
 	}
 }
 
+type testSafeAttr struct {
+	safety starlark.SafetyFlags
+	attr   func(*starlark.Thread, string) (starlark.Value, error)
+}
+
+var _ starlark.Value = &testSafeAttr{}
+var _ starlark.HasSafeAttrs = &testSafeAttr{}
+
+func (ua *testSafeAttr) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", ua.Type())
+}
+func (ua *testSafeAttr) Freeze()              {}
+func (ua *testSafeAttr) String() string       { return "<unsafeGetAttr>" }
+func (ua *testSafeAttr) Truth() starlark.Bool { return false }
+func (ua *testSafeAttr) Type() string         { return "unsafeGetAttr" }
+func (ua *testSafeAttr) AttrNames() []string  { return nil }
+func (ua *testSafeAttr) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	if err := starlark.CheckSafety(thread, ua.safety); err != nil {
+		return nil, err
+	}
+	return ua.attr(thread, name)
+}
+
 func TestGetattrSteps(t *testing.T) {
 }
 
@@ -1299,29 +1322,91 @@ func TestGetattrAllocs(t *testing.T) {
 		t.Fatal("no such builtin: getattr")
 	}
 
-	inputs := []starlark.HasAttrs{
-		starlark.NewList(nil),
-		starlark.NewDict(1),
-		starlark.NewSet(1),
-		starlark.String("1"),
-		starlark.Bytes("1"),
-	}
-	for _, input := range inputs {
-		attr := starlark.String(input.AttrNames()[0])
-		t.Run(input.Type(), func(t *testing.T) {
-			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
-			st.RunThread(func(thread *starlark.Thread) {
-				for i := 0; i < st.N; i++ {
-					result, err := starlark.Call(thread, getattr, starlark.Tuple{input, attr}, nil)
-					if err != nil {
-						st.Error(err)
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+		input := &testSafeAttr{
+			safety: starlark.NotSafe,
+			attr: func(thread *starlark.Thread, s string) (starlark.Value, error) {
+				t.Error("SafeAttr called")
+				return nil, starlark.ErrNoSuchAttr
+			},
+		}
+		_, err := starlark.Call(thread, getattr, starlark.Tuple{input, starlark.String("test")}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("stdtypes", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			input starlark.Value
+			attr  string
+		}{{
+			name:  "list",
+			input: starlark.NewList(nil),
+			attr:  "clear",
+		}, {
+			name:  "dict",
+			input: starlark.NewDict(1),
+			attr:  "clear",
+		}, {
+			name:  "set",
+			input: starlark.NewSet(1),
+			attr:  "clear",
+		}, {
+			name:  "string",
+			input: starlark.String("1"),
+			attr:  "elems",
+		}, {
+			name:  "bytes",
+			input: starlark.Bytes("1"),
+			attr:  "elems",
+		}}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe)
+				st.RunThread(func(thread *starlark.Thread) {
+					for i := 0; i < st.N; i++ {
+						result, err := starlark.Call(thread, getattr, starlark.Tuple{test.input, starlark.String(test.attr)}, nil)
+						if err != nil {
+							st.Error(err)
+						}
+						st.KeepAlive(result)
 					}
-					st.KeepAlive(result)
-				}
+				})
 			})
+		}
+	})
+
+	t.Run("duplicating", func(t *testing.T) {
+		input := &testSafeAttr{
+			safety: starlark.Safe,
+			attr: func(thread *starlark.Thread, attr string) (starlark.Value, error) {
+				const repeat = 5
+				resultSize := starlark.StringTypeOverhead + starlark.EstimateMakeSize([]byte{}, len(attr)*repeat)
+				if err := thread.AddAllocs(resultSize); err != nil {
+					return nil, err
+				}
+				return starlark.String(strings.Repeat(attr, repeat)), nil
+			},
+		}
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, getattr, starlark.Tuple{input, starlark.String("test")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
 		})
-	}
+	})
 }
 
 func TestHasattrSteps(t *testing.T) {
