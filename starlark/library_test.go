@@ -6531,7 +6531,31 @@ func TestSafeIterateAllocs(t *testing.T) {
 	})
 }
 
-func TestTupleIteration(t *testing.T) {
+func TestTupleIterationSteps(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.SetMaxExecutionSteps(1)
+	st.SetMinExecutionSteps(1)
+	st.RunThread(func(thread *starlark.Thread) {
+		tuple := make(starlark.Tuple, st.N)
+		for i := 0; i < st.N; i++ {
+			tuple[i] = starlark.None
+		}
+		iter, err := starlark.SafeIterate(thread, tuple)
+		if err != nil {
+			st.Fatal(err)
+		}
+		var v starlark.Value
+		for iter.Next(&v) {
+			// Do nothing.
+		}
+		if err := iter.Err(); err != nil {
+			st.Error(err)
+		}
+	})
+}
+
+func TestTupleIterationAllocs(t *testing.T) {
 	values := starlark.Tuple{
 		starlark.None,
 		starlark.False,
