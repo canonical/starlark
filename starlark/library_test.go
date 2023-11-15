@@ -834,7 +834,7 @@ func TestDictSteps(t *testing.T) {
 
 	t.Run("mapping-iterable", func(t *testing.T) {
 		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe)
+		st.RequireSafety(starlark.CPUSafe)
 		// Iteration over items of a dict is 1 step per N,
 		// insertion cost averages to ~2.5.
 		st.SetMinExecutionSteps(1 + 2)
@@ -853,7 +853,7 @@ func TestDictSteps(t *testing.T) {
 
 	t.Run("iterable", func(t *testing.T) {
 		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe)
+		st.RequireSafety(starlark.CPUSafe)
 		// Iteration of each tuple costs 3 steps per N,
 		// insertion cost averages to ~ 2.5.
 		st.SetMinExecutionSteps(3 + 2)
