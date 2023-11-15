@@ -6569,3 +6569,44 @@ func TestTupleIteration(t *testing.T) {
 		}
 	})
 }
+
+func testHashtableIteration(t *testing.T, ht starlark.Value) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+	st.SetMinExecutionSteps(uint64(starlark.Len(ht) + 1))
+	st.SetMaxExecutionSteps(uint64(starlark.Len(ht) + 1))
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			iter, err := starlark.SafeIterate(thread, ht)
+			if err != nil {
+				st.Fatal(err)
+			}
+			defer iter.Done()
+			var v starlark.Value
+			for iter.Next(&v) {
+				// Do nothing.
+			}
+			if err := iter.Err(); err != nil {
+				st.Error(err)
+			}
+		}
+	})
+}
+
+func TestDictIteration(t *testing.T) {
+	const dictSize = 100
+	dict := starlark.NewDict(dictSize)
+	for i := 0; i < dictSize; i++ {
+		dict.SetKey(starlark.MakeInt(i), starlark.None)
+	}
+	testHashtableIteration(t, dict)
+}
+
+func TestSetIteration(t *testing.T) {
+	const setSize = 100
+	set := starlark.NewSet(setSize)
+	for i := 0; i < setSize; i++ {
+		set.Insert(starlark.MakeInt(i))
+	}
+	testHashtableIteration(t, set)
+}
