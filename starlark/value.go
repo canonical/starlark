@@ -1240,7 +1240,7 @@ func (it *tupleIterator) Done() {}
 
 func (it *tupleIterator) BindThread(thread *Thread) {}
 func (it *tupleIterator) Err() error                { return nil }
-func (it *tupleIterator) Safety() SafetyFlags       { return MemSafe }
+func (it *tupleIterator) Safety() SafetyFlags       { return MemSafe | CPUSafe }
 
 // A Set represents a Starlark set value.
 // The zero value of Set is a valid empty set.
