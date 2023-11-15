@@ -639,7 +639,8 @@ func (s String) Attr(name string) (Value, error) { return builtinAttr(s, name, s
 func (s String) AttrNames() []string             { return builtinAttrNames(stringMethods) }
 
 func (s String) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	attr, err := safeBuiltinAttr(thread, s, name, stringMethods)
+	if err != nil {
 		return nil, err
 	}
 	if thread != nil {
@@ -647,7 +648,7 @@ func (s String) SafeAttr(thread *Thread, name string) (Value, error) {
 			return nil, err
 		}
 	}
-	return safeBuiltinAttr(thread, s, name, stringMethods)
+	return attr, nil
 }
 
 func (x String) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
@@ -971,9 +972,6 @@ func (d *Dict) Attr(name string) (Value, error) { return builtinAttr(d, name, di
 func (d *Dict) AttrNames() []string             { return builtinAttrNames(dictMethods) }
 
 func (d *Dict) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
-		return nil, err
-	}
 	return safeBuiltinAttr(thread, d, name, dictMethods)
 }
 
@@ -1066,9 +1064,6 @@ func (l *List) Attr(name string) (Value, error) { return builtinAttr(l, name, li
 func (l *List) AttrNames() []string             { return builtinAttrNames(listMethods) }
 
 func (l *List) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
-		return nil, err
-	}
 	return safeBuiltinAttr(thread, l, name, listMethods)
 }
 
@@ -1274,9 +1269,6 @@ func (s *Set) Attr(name string) (Value, error) { return builtinAttr(s, name, set
 func (s *Set) AttrNames() []string             { return builtinAttrNames(setMethods) }
 
 func (s *Set) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
-		return nil, err
-	}
 	return safeBuiltinAttr(thread, s, name, setMethods)
 }
 
@@ -1982,7 +1974,8 @@ func (b Bytes) Attr(name string) (Value, error) { return builtinAttr(b, name, by
 func (b Bytes) AttrNames() []string             { return builtinAttrNames(bytesMethods) }
 
 func (b Bytes) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	attr, err := safeBuiltinAttr(thread, b, name, bytesMethods)
+	if err != nil {
 		return nil, err
 	}
 	if thread != nil {
@@ -1990,7 +1983,7 @@ func (b Bytes) SafeAttr(thread *Thread, name string) (Value, error) {
 			return nil, err
 		}
 	}
-	return safeBuiltinAttr(thread, b, name, bytesMethods)
+	return attr, nil
 }
 
 func (b Bytes) Slice(start, end, step int) Value {
