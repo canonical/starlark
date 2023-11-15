@@ -639,16 +639,16 @@ func (s String) Attr(name string) (Value, error) { return builtinAttr(s, name, s
 func (s String) AttrNames() []string             { return builtinAttrNames(stringMethods) }
 
 func (s String) SafeAttr(thread *Thread, name string) (Value, error) {
-	if attr, err := safeBuiltinAttr(thread, s, name, stringMethods); err != nil {
+	attr, err := safeBuiltinAttr(thread, s, name, stringMethods)
+	if err != nil {
 		return nil, err
-	} else {
-		if thread != nil {
-			if err := thread.AddAllocs(StringTypeOverhead); err != nil {
-				return nil, err
-			}
-		}
-		return attr, nil
 	}
+	if thread != nil {
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
+		}
+	}
+	return attr, nil
 }
 
 func (x String) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
@@ -1974,16 +1974,16 @@ func (b Bytes) Attr(name string) (Value, error) { return builtinAttr(b, name, by
 func (b Bytes) AttrNames() []string             { return builtinAttrNames(bytesMethods) }
 
 func (b Bytes) SafeAttr(thread *Thread, name string) (Value, error) {
-	if attr, err := safeBuiltinAttr(thread, b, name, bytesMethods); err != nil {
+	attr, err := safeBuiltinAttr(thread, b, name, bytesMethods)
+	if err != nil {
 		return nil, err
-	} else {
-		if thread != nil {
-			if err := thread.AddAllocs(StringTypeOverhead); err != nil {
-				return nil, err
-			}
-		}
-		return attr, nil
 	}
+	if thread != nil {
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
+		}
+	}
+	return attr, nil
 }
 
 func (b Bytes) Slice(start, end, step int) Value {

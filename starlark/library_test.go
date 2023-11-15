@@ -1298,19 +1298,19 @@ type testSafeAttr struct {
 var _ starlark.Value = &testSafeAttr{}
 var _ starlark.HasSafeAttrs = &testSafeAttr{}
 
-func (ua *testSafeAttr) Hash() (uint32, error) {
-	return 0, fmt.Errorf("unhashable type: %s", ua.Type())
+func (tsa *testSafeAttr) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", tsa.Type())
 }
-func (ua *testSafeAttr) Freeze()              {}
-func (ua *testSafeAttr) String() string       { return "<unsafeGetAttr>" }
-func (ua *testSafeAttr) Truth() starlark.Bool { return false }
-func (ua *testSafeAttr) Type() string         { return "unsafeGetAttr" }
-func (ua *testSafeAttr) AttrNames() []string  { return nil }
-func (ua *testSafeAttr) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
-	if err := starlark.CheckSafety(thread, ua.safety); err != nil {
+func (tsa *testSafeAttr) Freeze()              {}
+func (tsa *testSafeAttr) String() string       { return "<testSafeAttr>" }
+func (tsa *testSafeAttr) Truth() starlark.Bool { return false }
+func (tsa *testSafeAttr) Type() string         { return "testSafeAttr" }
+func (tsa *testSafeAttr) AttrNames() []string  { return nil }
+func (tsa *testSafeAttr) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	if err := starlark.CheckSafety(thread, tsa.safety); err != nil {
 		return nil, err
 	}
-	return ua.attr(thread, name)
+	return tsa.attr(thread, name)
 }
 
 func TestGetattrSteps(t *testing.T) {
@@ -1340,7 +1340,7 @@ func TestGetattrAllocs(t *testing.T) {
 		}
 	})
 
-	t.Run("stdtypes", func(t *testing.T) {
+	t.Run("universe types", func(t *testing.T) {
 		tests := []struct {
 			name  string
 			input starlark.Value
@@ -1383,16 +1383,17 @@ func TestGetattrAllocs(t *testing.T) {
 		}
 	})
 
-	t.Run("duplicating", func(t *testing.T) {
+	t.Run("with-allocation", func(t *testing.T) {
 		input := &testSafeAttr{
 			safety: starlark.Safe,
 			attr: func(thread *starlark.Thread, attr string) (starlark.Value, error) {
-				const repeat = 5
-				resultSize := starlark.StringTypeOverhead + starlark.EstimateMakeSize([]byte{}, len(attr)*repeat)
+				const repetitions = 5
+				resultSize := starlark.EstimateMakeSize([]byte{}, len(attr)*repetitions) +
+					starlark.StringTypeOverhead
 				if err := thread.AddAllocs(resultSize); err != nil {
 					return nil, err
 				}
-				return starlark.String(strings.Repeat(attr, repeat)), nil
+				return starlark.String(strings.Repeat(attr, repetitions)), nil
 			},
 		}
 		st := startest.From(t)
