@@ -122,7 +122,7 @@ var (
 		"elems": NewBuiltin("elems", bytes_elems),
 	}
 	bytesMethodSafeties = map[string]SafetyFlags{
-		"elems": MemSafe | IOSafe,
+		"elems": MemSafe | IOSafe | CPUSafe,
 	}
 
 	dictMethods = map[string]*Builtin{
@@ -2183,7 +2183,7 @@ func (it *bytesIterator) Next(p *Value) bool {
 func (*bytesIterator) Done() {}
 
 func (it *bytesIterator) Err() error          { return it.err }
-func (it *bytesIterator) Safety() SafetyFlags { return MemSafe }
+func (it *bytesIterator) Safety() SafetyFlags { return MemSafe | CPUSafe }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·count
 func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {

@@ -3066,6 +3066,63 @@ func TestZipAllocs(t *testing.T) {
 }
 
 func TestBytesElemsSteps(t *testing.T) {
+	t.Run("iterator-acquisition", func(t *testing.T) {
+		bytes_elems, _ := starlark.Bytes("arbitrary-string").Attr("elems")
+		if bytes_elems == nil {
+			t.Fatal("no such method: bytes.elems")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(0)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, bytes_elems, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("iterator-usage", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			bytes := starlark.Bytes(strings.Repeat("a", st.N))
+			bytes_elems, _ := bytes.Attr("elems")
+			if bytes_elems == nil {
+				t.Fatal("no such method: bytes.elems")
+			}
+
+			iterable, err := starlark.Call(thread, bytes_elems, nil, nil)
+			if err != nil {
+				st.Fatal(err)
+			}
+			iter, err := starlark.SafeIterate(thread, iterable)
+			if err != nil {
+				st.Fatal(err)
+			}
+			defer iter.Done()
+
+			var value starlark.Value
+			for i := 1; i <= st.N; i++ {
+				if !iter.Next(&value) {
+					st.Errorf("iterator exited after %d iterations but expected %d", i, st.N)
+					break
+				}
+			}
+			if iter.Next(&value) {
+				st.Errorf("iterator exited after %d iterations but expected %d", st.N+1, st.N)
+			}
+			if err := iter.Err(); err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestBytesElemsAllocs(t *testing.T) {
