@@ -2975,7 +2975,6 @@ func TestBytesElemsSteps(t *testing.T) {
 			if err != nil {
 				st.Fatal(err)
 			}
-
 			iter, err := starlark.SafeIterate(thread, iterable)
 			if err != nil {
 				st.Fatal(err)
