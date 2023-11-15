@@ -1337,7 +1337,7 @@ func TestGetattrSteps(t *testing.T) {
 		}
 	})
 
-	t.Run("stdtypes", func(t *testing.T) {
+	t.Run("universe types", func(t *testing.T) {
 		tests := []struct {
 			name  string
 			input starlark.Value
@@ -1379,7 +1379,8 @@ func TestGetattrSteps(t *testing.T) {
 		}
 	})
 
-	t.Run("counting", func(t *testing.T) {
+	t.Run("dynamic-attr", func(t *testing.T) {
+		const attrName = "test"
 		input := &testSafeAttr{
 			safety: starlark.Safe,
 			attr: func(thread *starlark.Thread, attr string) (starlark.Value, error) {
@@ -1391,11 +1392,11 @@ func TestGetattrSteps(t *testing.T) {
 		}
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(4)
-		st.SetMaxExecutionSteps(4)
+		st.SetMinExecutionSteps(uint64(len(attrName)))
+		st.SetMaxExecutionSteps(uint64(len(attrName)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				_, err := starlark.Call(thread, getattr, starlark.Tuple{input, starlark.String("test")}, nil)
+				_, err := starlark.Call(thread, getattr, starlark.Tuple{input, starlark.String(attrName)}, nil)
 				if err != nil {
 					st.Error(err)
 				}
