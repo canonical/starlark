@@ -152,6 +152,25 @@ func TestJsonDecodeAllocs(t *testing.T) {
 }
 
 func TestJsonIndentSteps(t *testing.T) {
+	indent, ok := json.Module.Members["indent"]
+	if !ok {
+		t.Fatal("no such builtin: json.indent")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	// 127 is the lenght of the expected indented json.
+	st.SetMinExecutionSteps(127)
+	st.SetMaxExecutionSteps(127)
+	st.RunThread(func(thread *starlark.Thread) {
+		document := starlark.String(`{"l":[[[[[[{"i":10,"n":null}]]]]]]}`)
+		for i := 0; i < st.N; i++ {
+			_, err := starlark.Call(thread, indent, starlark.Tuple{document}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		}
+	})
 }
 
 func TestJsonIndentAllocs(t *testing.T) {
