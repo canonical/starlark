@@ -2354,7 +2354,51 @@ func TestListAllocs(t *testing.T) {
 	})
 }
 
-func testMinMaxSteps(t *testing.T) {
+func testMinMaxSteps(t *testing.T, name string) {
+	minOrMax, ok := starlark.Universe[name]
+	if !ok {
+		t.Fatalf("no such builtin: %s", name)
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.CPUSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, minOrMax, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("result", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			iterable := &testIterable{
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.MakeInt(n), nil
+				},
+				maxN: st.N,
+			}
+			_, err := starlark.Call(thread, minOrMax, starlark.Tuple{iterable}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+}
+
+func TestMaxSteps(t *testing.T) {
+	testMinMaxSteps(t, "max")
+}
+
+func TestMinSteps(t *testing.T) {
+	testMinMaxSteps(t, "min")
 }
 
 func testMinMaxAllocs(t *testing.T, name string) {
@@ -2401,14 +2445,8 @@ func testMinMaxAllocs(t *testing.T, name string) {
 	})
 }
 
-func TestMaxSteps(t *testing.T) {
-}
-
 func TestMaxAllocs(t *testing.T) {
 	testMinMaxAllocs(t, "max")
-}
-
-func TestMinSteps(t *testing.T) {
 }
 
 func TestMinAllocs(t *testing.T) {
