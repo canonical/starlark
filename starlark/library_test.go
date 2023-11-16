@@ -6570,21 +6570,21 @@ func TestTupleIteration(t *testing.T) {
 	})
 }
 
-func testHashtableIteration(t *testing.T, ht starlark.Value) {
+func testDictlikeIterationResources(t *testing.T, value starlark.Value) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-	st.SetMinExecutionSteps(uint64(starlark.Len(ht) + 1))
-	st.SetMaxExecutionSteps(uint64(starlark.Len(ht) + 1))
+	st.SetMinExecutionSteps(uint64(1 + starlark.Len(value)))
+	st.SetMaxExecutionSteps(uint64(1 + starlark.Len(value)))
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			iter, err := starlark.SafeIterate(thread, ht)
+			iter, err := starlark.SafeIterate(thread, value)
 			if err != nil {
 				st.Fatal(err)
 			}
 			defer iter.Done()
 			var v starlark.Value
 			for iter.Next(&v) {
-				// Do nothing.
+				st.KeepAlive(v)
 			}
 			if err := iter.Err(); err != nil {
 				st.Error(err)
@@ -6599,7 +6599,7 @@ func TestDictIteration(t *testing.T) {
 	for i := 0; i < dictSize; i++ {
 		dict.SetKey(starlark.MakeInt(i), starlark.None)
 	}
-	testHashtableIteration(t, dict)
+	testDictlikeIterationResources(t, dict)
 }
 
 func TestSetIteration(t *testing.T) {
@@ -6608,5 +6608,5 @@ func TestSetIteration(t *testing.T) {
 	for i := 0; i < setSize; i++ {
 		set.Insert(starlark.MakeInt(i))
 	}
-	testHashtableIteration(t, set)
+	testDictlikeIterationResources(t, set)
 }
