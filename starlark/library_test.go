@@ -5960,6 +5960,7 @@ func TestSetRemoveSteps(t *testing.T) {
 		t.Run("present", func(t *testing.T) {
 			st := startest.From(t)
 			st.SetMinExecutionSteps(1)
+			// Each bucket can contain at most 8 elements.
 			st.SetMaxExecutionSteps((setSize + 7) / 8)
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
@@ -5976,7 +5977,6 @@ func TestSetRemoveSteps(t *testing.T) {
 
 		t.Run("missing", func(t *testing.T) {
 			st := startest.From(t)
-			// Each bucket can contain at most 8 elements.
 			st.SetMinExecutionSteps((setSize + 7) / 8)
 			st.SetMaxExecutionSteps((setSize + 7) / 8)
 			st.RequireSafety(starlark.CPUSafe)
