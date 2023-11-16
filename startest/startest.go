@@ -459,11 +459,18 @@ func errReprs(args []starlark.Value) []interface{} {
 
 // st_keep_alive prevents the memory of the passed Starlark objects being
 // freed. This forces the current test to measure these objects' memory.
-func st_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func st_keep_alive(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(kwargs) > 0 {
 		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
 	}
 
+	// keep_alive does not capture the backing array for args. Hence
+	// the allocation is removed aligning declared allocations with
+	// user expectations.
+	argsSize := starlark.EstimateMakeSize(starlark.Tuple{}, cap(args))
+	if err := thread.AddAllocs(-argsSize); err != nil {
+		return nil, err
+	}
 	recv := b.Receiver().(*ST)
 	for _, arg := range args {
 		recv.KeepAlive(arg)

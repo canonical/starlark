@@ -395,6 +395,7 @@ type HasAttrs interface {
 // and returns either a value or an error. If the attribute does not exist, it
 // returns ErrNoSuchAttr.
 type HasSafeAttrs interface {
+	Value
 	SafeAttr(thread *Thread, name string) (Value, error)
 	AttrNames() []string
 }
@@ -639,7 +640,8 @@ func (s String) Attr(name string) (Value, error) { return builtinAttr(s, name, s
 func (s String) AttrNames() []string             { return builtinAttrNames(stringMethods) }
 
 func (s String) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	attr, err := safeBuiltinAttr(thread, s, name, stringMethods)
+	if err != nil {
 		return nil, err
 	}
 	if thread != nil {
@@ -647,7 +649,7 @@ func (s String) SafeAttr(thread *Thread, name string) (Value, error) {
 			return nil, err
 		}
 	}
-	return safeBuiltinAttr(thread, s, name, stringMethods)
+	return attr, nil
 }
 
 func (x String) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
@@ -971,9 +973,6 @@ func (d *Dict) Attr(name string) (Value, error) { return builtinAttr(d, name, di
 func (d *Dict) AttrNames() []string             { return builtinAttrNames(dictMethods) }
 
 func (d *Dict) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
-		return nil, err
-	}
 	return safeBuiltinAttr(thread, d, name, dictMethods)
 }
 
@@ -1066,9 +1065,6 @@ func (l *List) Attr(name string) (Value, error) { return builtinAttr(l, name, li
 func (l *List) AttrNames() []string             { return builtinAttrNames(listMethods) }
 
 func (l *List) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
-		return nil, err
-	}
 	return safeBuiltinAttr(thread, l, name, listMethods)
 }
 
@@ -1240,7 +1236,7 @@ func (it *tupleIterator) Done() {}
 
 func (it *tupleIterator) BindThread(thread *Thread) {}
 func (it *tupleIterator) Err() error                { return nil }
-func (it *tupleIterator) Safety() SafetyFlags       { return MemSafe }
+func (it *tupleIterator) Safety() SafetyFlags       { return MemSafe | CPUSafe }
 
 // A Set represents a Starlark set value.
 // The zero value of Set is a valid empty set.
@@ -1274,9 +1270,6 @@ func (s *Set) Attr(name string) (Value, error) { return builtinAttr(s, name, set
 func (s *Set) AttrNames() []string             { return builtinAttrNames(setMethods) }
 
 func (s *Set) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
-		return nil, err
-	}
 	return safeBuiltinAttr(thread, s, name, setMethods)
 }
 
@@ -1880,6 +1873,42 @@ func Iterate(x Value) Iterator {
 	return nil
 }
 
+// guardedIterator provides a wrapper around an iterator which performs
+// optional actions on Next calls.
+type guardedIterator struct {
+	iter   SafeIterator
+	thread *Thread
+	err    error
+}
+
+var _ SafeIterator = &guardedIterator{}
+
+func (gi *guardedIterator) Next(p *Value) bool {
+	if gi.Err() != nil {
+		return false
+	}
+
+	if err := gi.thread.AddExecutionSteps(1); err != nil {
+		gi.err = err
+		return false
+	}
+
+	return gi.iter.Next(p)
+}
+func (gi *guardedIterator) Done() { gi.iter.Done() }
+func (gi *guardedIterator) Err() error {
+	if gi.err != nil {
+		return gi.err
+	}
+	return gi.iter.Err()
+}
+
+func (gi *guardedIterator) Safety() SafetyFlags {
+	const wrapperSafety = MemSafe | CPUSafe
+	return wrapperSafety & gi.iter.Safety()
+}
+func (gi *guardedIterator) BindThread(thread *Thread) { gi.thread = thread }
+
 // SafeIterate creates an iterator which is bound then to the given
 // thread. This iterator will check safety and respect sandboxing
 // bounds as required. As a convenience for functions that may have
@@ -1892,12 +1921,16 @@ func SafeIterate(thread *Thread, x Value) (Iterator, error) {
 		if thread != nil {
 			if safeIter, ok := iter.(SafeIterator); ok {
 				safeIter.BindThread(thread)
-
 				if err := thread.CheckPermits(safeIter); err != nil {
 					return nil, err
 				}
+				if !thread.Permits(NotSafe) {
+					safeIter = &guardedIterator{iter: safeIter}
+					safeIter.BindThread(thread)
+				}
 				return safeIter, nil
-			} else if err := thread.CheckPermits(NotSafe); err != nil {
+			}
+			if err := thread.CheckPermits(NotSafe); err != nil {
 				return nil, err
 			}
 		}
@@ -1942,7 +1975,8 @@ func (b Bytes) Attr(name string) (Value, error) { return builtinAttr(b, name, by
 func (b Bytes) AttrNames() []string             { return builtinAttrNames(bytesMethods) }
 
 func (b Bytes) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	attr, err := safeBuiltinAttr(thread, b, name, bytesMethods)
+	if err != nil {
 		return nil, err
 	}
 	if thread != nil {
@@ -1950,7 +1984,7 @@ func (b Bytes) SafeAttr(thread *Thread, name string) (Value, error) {
 			return nil, err
 		}
 	}
-	return safeBuiltinAttr(thread, b, name, bytesMethods)
+	return attr, nil
 }
 
 func (b Bytes) Slice(start, end, step int) Value {
