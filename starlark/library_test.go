@@ -1416,34 +1416,27 @@ func TestHasattrSteps(t *testing.T) {
 		t.Fatal("no such builtin: hasattr")
 	}
 
-	tests := []struct {
-		name  string
-		input starlark.Value
-		attr  string
-	}{{
-		name:  "string",
-		input: starlark.String(""),
-		attr:  "find",
-	}, {
-		name:  "dict",
-		input: starlark.NewDict(0),
-		attr:  "get",
-	}, {
-		name:  "list",
-		input: starlark.NewList(nil),
-		attr:  "append",
-	}, {
-		name:  "set",
-		input: starlark.NewSet(0),
-		attr:  "union",
-	}, {
-		name:  "bytes",
-		input: starlark.Bytes(""),
-		attr:  "elems",
-	}}
-
-	t.Run("missing-attr", func(t *testing.T) {
+	t.Run("missing", func(t *testing.T) {
 		missing := starlark.String("solve_non_polynomial")
+		tests := []struct {
+			name  string
+			input starlark.Value
+		}{{
+			name:  "string",
+			input: starlark.String(""),
+		}, {
+			name:  "dict",
+			input: starlark.NewDict(0),
+		}, {
+			name:  "list",
+			input: starlark.NewList(nil),
+		}, {
+			name:  "set",
+			input: starlark.NewSet(0),
+		}, {
+			name:  "bytes",
+			input: starlark.Bytes(""),
+		}}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
@@ -1466,7 +1459,32 @@ func TestHasattrSteps(t *testing.T) {
 		}
 	})
 
-	t.Run("existent-attr", func(t *testing.T) {
+	t.Run("present", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			input starlark.Value
+			attr  string
+		}{{
+			name:  "string",
+			input: starlark.String(""),
+			attr:  "find",
+		}, {
+			name:  "dict",
+			input: starlark.NewDict(0),
+			attr:  "get",
+		}, {
+			name:  "list",
+			input: starlark.NewList(nil),
+			attr:  "append",
+		}, {
+			name:  "set",
+			input: starlark.NewSet(0),
+			attr:  "union",
+		}, {
+			name:  "bytes",
+			input: starlark.Bytes(""),
+			attr:  "elems",
+		}}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
