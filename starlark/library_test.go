@@ -7405,3 +7405,44 @@ func TestTupleIterationAllocs(t *testing.T) {
 		}
 	})
 }
+
+func testDictlikeIterationResources(t *testing.T, value starlark.Value) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+	st.SetMinExecutionSteps(uint64(1 + starlark.Len(value)))
+	st.SetMaxExecutionSteps(uint64(1 + starlark.Len(value)))
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			iter, err := starlark.SafeIterate(thread, value)
+			if err != nil {
+				st.Fatal(err)
+			}
+			defer iter.Done()
+			var v starlark.Value
+			for iter.Next(&v) {
+				st.KeepAlive(v)
+			}
+			if err := iter.Err(); err != nil {
+				st.Error(err)
+			}
+		}
+	})
+}
+
+func TestDictIteration(t *testing.T) {
+	const dictSize = 100
+	dict := starlark.NewDict(dictSize)
+	for i := 0; i < dictSize; i++ {
+		dict.SetKey(starlark.MakeInt(i), starlark.None)
+	}
+	testDictlikeIterationResources(t, dict)
+}
+
+func TestSetIteration(t *testing.T) {
+	const setSize = 100
+	set := starlark.NewSet(setSize)
+	for i := 0; i < setSize; i++ {
+		set.Insert(starlark.MakeInt(i))
+	}
+	testDictlikeIterationResources(t, set)
+}
