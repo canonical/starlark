@@ -458,7 +458,7 @@ func TestAllSteps(t *testing.T) {
 		}
 	})
 
-	t.Run("all-false", func(t *testing.T) {
+	t.Run("early-termination", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
 		st.SetMinExecutionSteps(1)
@@ -479,7 +479,7 @@ func TestAllSteps(t *testing.T) {
 		})
 	})
 
-	t.Run("all-true", func(t *testing.T) {
+	t.Run("complete-iteration", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
 		st.SetMinExecutionSteps(1)
