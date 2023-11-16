@@ -6093,7 +6093,7 @@ func TestSetPopSteps(t *testing.T) {
 	t.Run("many-collisions", func(t *testing.T) {
 		set := starlark.NewSet(setSize)
 		for i := 0; i < setSize; i++ {
-			// Int hash only uses the least 32 bits.
+			// Int hash only uses the least significant 32 bits.
 			// Leaving them blank creates collisions.
 			key := starlark.MakeInt64(int64(i) << 32)
 			set.Insert(key)
@@ -6105,6 +6105,7 @@ func TestSetPopSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.SetMinExecutionSteps(1)
+		// Each bucket can contain at most 8 elements.
 		st.SetMaxExecutionSteps(setSize / 8)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(thread *starlark.Thread) {
