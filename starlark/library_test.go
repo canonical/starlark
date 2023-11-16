@@ -1444,7 +1444,6 @@ func TestHasattrSteps(t *testing.T) {
 
 	t.Run("missing-attr", func(t *testing.T) {
 		missing := starlark.String("solve_non_polynomial")
-
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
