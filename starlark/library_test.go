@@ -896,7 +896,6 @@ func TestDirSteps(t *testing.T) {
 			starlark.NewDict(0),
 			starlark.NewSet(0),
 		}
-
 		for _, input := range inputs {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
@@ -921,7 +920,6 @@ func TestDirSteps(t *testing.T) {
 			starlark.MakeInt(0),
 			starlark.MakeInt64(1 << 34),
 		}
-
 		for _, input := range inputs {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
