@@ -81,10 +81,10 @@ var Module = &starlarkstruct.Module{
 		"indent": starlark.NewBuiltin("json.indent", indent),
 	},
 }
-var safeties = map[string]starlark.Safety{
-	"encode": starlark.IOSafe,
+var safeties = map[string]starlark.SafetyFlags{
+	"encode": starlark.MemSafe | starlark.IOSafe,
 	"decode": starlark.MemSafe | starlark.IOSafe,
-	"indent": starlark.MemSafe | starlark.IOSafe,
+	"indent": starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 }
 
 func init() {
@@ -103,26 +103,30 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 		return nil, err
 	}
 
-	buf := new(bytes.Buffer)
+	buf := starlark.NewSafeStringBuilder(thread)
 
 	var quoteSpace [128]byte
-	quote := func(s string) {
+	quote := func(s string) error {
 		// Non-trivial escaping is handled by Go's encoding/json.
 		if isPrintableASCII(s) {
-			buf.Write(strconv.AppendQuote(quoteSpace[:0], s))
+			if _, err := buf.Write(strconv.AppendQuote(quoteSpace[:0], s)); err != nil {
+				return err
+			}
 		} else {
 			// TODO(adonovan): opt: RFC 8259 mandates UTF-8 for JSON.
 			// Can we avoid this call?
 			data, _ := json.Marshal(s)
-			buf.Write(data)
+			if _, err := buf.Write(data); err != nil {
+				return err
+			}
 		}
+		return nil
 	}
 
 	path := make([]unsafe.Pointer, 0, 8)
 
 	var emit func(x starlark.Value) error
 	emit = func(x starlark.Value) error {
-
 		// It is only necessary to push/pop the item when it might contain
 		// itself (i.e. the last three switch cases), but omitting it in the other
 		// cases did not show significant improvement on the benchmarks.
@@ -143,33 +147,49 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			if err != nil {
 				return err
 			}
-			buf.Write(data)
+			if _, err := buf.Write(data); err != nil {
+				return err
+			}
 
 		case starlark.NoneType:
-			buf.WriteString("null")
+			if _, err := buf.WriteString("null"); err != nil {
+				return err
+			}
 
 		case starlark.Bool:
 			if x {
-				buf.WriteString("true")
+				if _, err := buf.WriteString("true"); err != nil {
+					return err
+				}
 			} else {
-				buf.WriteString("false")
+				if _, err := buf.WriteString("false"); err != nil {
+					return err
+				}
 			}
 
 		case starlark.Int:
-			fmt.Fprint(buf, x)
+			if _, err := fmt.Fprint(buf, x); err != nil {
+				return err
+			}
 
 		case starlark.Float:
 			if !isFinite(float64(x)) {
 				return fmt.Errorf("cannot encode non-finite float %v", x)
 			}
-			fmt.Fprintf(buf, "%g", x) // always contains a decimal point
+			if _, err := fmt.Fprintf(buf, "%g", x); err != nil { // always contains a decimal point
+				return err
+			}
 
 		case starlark.String:
-			quote(string(x))
+			if err := quote(string(x)); err != nil {
+				return err
+			}
 
 		case starlark.IterableMapping:
 			// e.g. dict (must have string keys)
-			buf.WriteByte('{')
+			if err := buf.WriteByte('{'); err != nil {
+				return err
+			}
 			items := x.Items()
 			for _, item := range items {
 				if _, ok := item[0].(starlark.String); !ok {
@@ -181,37 +201,56 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			})
 			for i, item := range items {
 				if i > 0 {
-					buf.WriteByte(',')
+					if err := buf.WriteByte(','); err != nil {
+						return err
+					}
 				}
 				k, _ := starlark.AsString(item[0])
-				quote(k)
-				buf.WriteByte(':')
+				if err := quote(k); err != nil {
+					return err
+				}
+				if err := buf.WriteByte(':'); err != nil {
+					return err
+				}
 				if err := emit(item[1]); err != nil {
-					return fmt.Errorf("in %s key %s: %v", x.Type(), item[0], err)
+					return fmt.Errorf("in %s key %s: %w", x.Type(), item[0], err)
 				}
 			}
-			buf.WriteByte('}')
+			if err := buf.WriteByte('}'); err != nil {
+				return err
+			}
 
 		case starlark.Iterable:
 			// e.g. tuple, list
 			buf.WriteByte('[')
-			// In this case, iteration results are transient, so it shouldn't be counted.
-			iter := x.Iterate()
+			iter, err := starlark.SafeIterate(thread, x)
+			if err != nil {
+				return err
+			}
 			defer iter.Done()
 			var elem starlark.Value
 			for i := 0; iter.Next(&elem); i++ {
 				if i > 0 {
-					buf.WriteByte(',')
+					if err := buf.WriteByte(','); err != nil {
+						return err
+					}
 				}
 				if err := emit(elem); err != nil {
-					return fmt.Errorf("at %s index %d: %v", x.Type(), i, err)
+					return fmt.Errorf("at %s index %d: %w", x.Type(), i, err)
 				}
 			}
-			buf.WriteByte(']')
+			if err := iter.Err(); err != nil {
+				return err
+			}
+			if err := buf.WriteByte(']'); err != nil {
+				return err
+			}
 
 		case starlark.HasAttrs:
 			// e.g. struct
-			buf.WriteByte('{')
+			if err := buf.WriteByte('{'); err != nil {
+				return err
+			}
 			var names []string
 			names = append(names, x.AttrNames()...)
 			sort.Strings(names)
@@ -226,15 +265,23 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 					return fmt.Errorf("missing attribute %s.%s (despite %q appearing in dir()", x.Type(), name, name)
 				}
 				if i > 0 {
-					buf.WriteByte(',')
+					if err := buf.WriteByte(','); err != nil {
+						return err
+					}
 				}
-				quote(name)
-				buf.WriteByte(':')
+				if err := quote(name); err != nil {
+					return err
+				}
+				if err := buf.WriteByte(':'); err != nil {
+					return err
+				}
 				if err := emit(v); err != nil {
-					return fmt.Errorf("in field .%s: %v", name, err)
+					return fmt.Errorf("in field .%s: %w", name, err)
 				}
 			}
-			buf.WriteByte('}')
+			if err := buf.WriteByte('}'); err != nil {
+				return err
+			}
 
 		default:
 			return fmt.Errorf("cannot encode %s as JSON", x.Type())
@@ -243,7 +290,11 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	}
 
 	if err := emit(x); err != nil {
-		return nil, fmt.Errorf("%s: %v", b.Name(), err)
+		return nil, fmt.Errorf("%s: %w", b.Name(), err)
+	}
+
+	if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
+		return nil, err
 	}
 	return starlark.String(buf.String()), nil
 }
@@ -318,20 +369,26 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	// worst case can be compacted in the quadratic formula:
 	worstCase := n*n + 2*n - 1
 
-	// This makes this function most likely unusable in the context of a
-	// script, but there are only two other approaces to tackle this part:
+	// This worst case makes this function most likely unusable in the context
+	// of a script, but there are only two other approaches to tackle this part:
 	// - mark the function as **not** MemSafe, which makes the function
 	//   unusable as well;
 	// - copy-paste (e.g. rewrite) the indenting logic, so that it uses
 	//   a `StringBuilder` instead.
 	// The second approach has the potential of actually reduce the
 	// transient allocation and speed up the execution, but it's probably
-	// not worthy for a "pretty print" function.
+	// not worth it for a "pretty print" function.
+	if err := thread.CheckExecutionSteps(int64(worstCase)); err != nil {
+		return nil, err
+	}
 	if err := thread.CheckAllocs(int64(len(str) + worstCase*2)); err != nil {
 		return nil, err
 	}
 	if err := json.Indent(buf, []byte(str), prefix, indent); err != nil {
 		return nil, fmt.Errorf("%s: %v", b.Name(), err)
+	}
+	if err := thread.AddExecutionSteps(int64(buf.Len())); err != nil {
+		return nil, err
 	}
 	if err := thread.AddAllocs(int64(buf.Cap()) + starlark.StringTypeOverhead); err != nil {
 		return nil, err
