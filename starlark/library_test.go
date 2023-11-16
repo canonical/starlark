@@ -1909,12 +1909,12 @@ func TestMaxSteps(t *testing.T) {
 	testMinMaxSteps(t, "max")
 }
 
-func TestMaxAllocs(t *testing.T) {
-	testMinMaxAllocs(t, "max")
-}
-
 func TestMinSteps(t *testing.T) {
 	testMinMaxSteps(t, "min")
+}
+
+func TestMaxAllocs(t *testing.T) {
+	testMinMaxAllocs(t, "max")
 }
 
 func TestMinAllocs(t *testing.T) {
