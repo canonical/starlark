@@ -5947,7 +5947,7 @@ func TestSetRemoveSteps(t *testing.T) {
 	t.Run("many-collisions", func(t *testing.T) {
 		set := starlark.NewSet(setSize)
 		for i := 0; i < setSize; i++ {
-			// Int hash only uses the least 32 bits.
+			// Int hash only uses the least significant 32 bits.
 			// Leaving them blank creates collisions.
 			key := starlark.MakeInt64(int64(i) << 32)
 			set.Insert(key)
@@ -5976,7 +5976,7 @@ func TestSetRemoveSteps(t *testing.T) {
 
 		t.Run("missing", func(t *testing.T) {
 			st := startest.From(t)
-			// Each bucket can contain 8 elements tops
+			// Each bucket can contain at most 8 elements.
 			st.SetMinExecutionSteps((setSize + 7) / 8)
 			st.SetMaxExecutionSteps((setSize + 7) / 8)
 			st.RequireSafety(starlark.CPUSafe)
