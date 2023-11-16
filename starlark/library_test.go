@@ -1039,8 +1039,8 @@ func TestEnumerateSteps(t *testing.T) {
 	t.Run("sequence", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinExecutionSteps(2)
+		st.SetMaxExecutionSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testSequence{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
