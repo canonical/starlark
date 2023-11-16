@@ -1322,14 +1322,14 @@ func TestGetattrSteps(t *testing.T) {
 	t.Run("safety-respected", func(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.CPUSafe)
-		input := &testSafeAttr{
+		value := &testSafeAttr{
 			safety: starlark.NotSafe,
 			attr: func(thread *starlark.Thread, s string) (starlark.Value, error) {
 				t.Error("SafeAttr called")
 				return nil, starlark.ErrNoSuchAttr
 			},
 		}
-		_, err := starlark.Call(thread, getattr, starlark.Tuple{input, starlark.String("test")}, nil)
+		_, err := starlark.Call(thread, getattr, starlark.Tuple{value, starlark.String("test")}, nil)
 		if err == nil {
 			t.Error("expected error")
 		} else if !errors.Is(err, starlark.ErrSafety) {
@@ -1381,7 +1381,7 @@ func TestGetattrSteps(t *testing.T) {
 
 	t.Run("dynamic-attr", func(t *testing.T) {
 		const attrName = "test"
-		input := &testSafeAttr{
+		value := &testSafeAttr{
 			safety: starlark.Safe,
 			attr: func(thread *starlark.Thread, attr string) (starlark.Value, error) {
 				if err := thread.AddExecutionSteps(int64(len(attr))); err != nil {
@@ -1396,7 +1396,7 @@ func TestGetattrSteps(t *testing.T) {
 		st.SetMaxExecutionSteps(uint64(len(attrName)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				_, err := starlark.Call(thread, getattr, starlark.Tuple{input, starlark.String(attrName)}, nil)
+				_, err := starlark.Call(thread, getattr, starlark.Tuple{value, starlark.String(attrName)}, nil)
 				if err != nil {
 					st.Error(err)
 				}
