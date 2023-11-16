@@ -77,7 +77,7 @@ func init() {
 
 	universeSafeties = map[string]SafetyFlags{
 		"abs":       MemSafe | IOSafe | CPUSafe,
-		"any":       MemSafe | IOSafe,
+		"any":       MemSafe | IOSafe | CPUSafe,
 		"all":       MemSafe | IOSafe,
 		"bool":      MemSafe | IOSafe | CPUSafe,
 		"bytes":     MemSafe | IOSafe,
