@@ -263,7 +263,7 @@ var (
 		"intersection":         MemSafe | IOSafe,
 		"issubset":             MemSafe | IOSafe,
 		"issuperset":           MemSafe | IOSafe,
-		"pop":                  MemSafe | IOSafe,
+		"pop":                  MemSafe | IOSafe | CPUSafe,
 		"remove":               MemSafe | IOSafe | CPUSafe,
 		"symmetric_difference": MemSafe | IOSafe,
 		"union":                MemSafe | IOSafe,
@@ -3177,7 +3177,7 @@ func set_discard(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·pop.
-func set_pop(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_pop(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
@@ -3186,7 +3186,7 @@ func set_pop(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if !ok {
 		return nil, nameErr(b, "empty set")
 	}
-	_, err := recv.Delete(k)
+	_, _, err := recv.ht.delete(thread, k)
 	if err != nil {
 		return nil, nameErr(b, err) // set is frozen
 	}
