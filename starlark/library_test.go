@@ -1861,6 +1861,14 @@ func testMinMaxSteps(t *testing.T, name string) {
 	})
 }
 
+func TestMaxSteps(t *testing.T) {
+	testMinMaxSteps(t, "max")
+}
+
+func TestMinSteps(t *testing.T) {
+	testMinMaxSteps(t, "min")
+}
+
 func testMinMaxAllocs(t *testing.T, name string) {
 	minOrMax, ok := starlark.Universe[name]
 	if !ok {
@@ -1903,14 +1911,6 @@ func testMinMaxAllocs(t *testing.T, name string) {
 			st.KeepAlive(result)
 		})
 	})
-}
-
-func TestMaxSteps(t *testing.T) {
-	testMinMaxSteps(t, "max")
-}
-
-func TestMinSteps(t *testing.T) {
-	testMinMaxSteps(t, "min")
 }
 
 func TestMaxAllocs(t *testing.T) {
