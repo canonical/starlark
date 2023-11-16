@@ -497,6 +497,63 @@ func TestAnyAllocs(t *testing.T) {
 }
 
 func TestAllSteps(t *testing.T) {
+	all, ok := starlark.Universe["all"]
+	if !ok {
+		t.Fatal("no such builtin: all")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, all, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("early-termination", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				maxN: 100,
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.False, nil
+				},
+			}
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, all, starlark.Tuple{iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("complete-iteration", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				maxN: st.N,
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.True, nil
+				},
+			}
+			_, err := starlark.Call(thread, all, starlark.Tuple{iter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestAllAllocs(t *testing.T) {
