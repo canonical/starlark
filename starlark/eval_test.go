@@ -1806,8 +1806,8 @@ func TestSafeBinaryAllocs(t *testing.T) {
 		}, {
 			name: "float % float",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				l := starlark.Float(n*3)
-				r := starlark.Float(n*2)
+				l := starlark.Float(n * 3)
+				r := starlark.Float(n * 2)
 				return l, syntax.PERCENT, r
 			},
 		}, {
@@ -1817,16 +1817,49 @@ func TestSafeBinaryAllocs(t *testing.T) {
 				r := starlark.MakeInt(2047)
 				return l, syntax.PERCENT, r
 			},
-		// }, {
-		// 	name: "string % string",
-		// }, {
-		// 	name: "string % int",
-		// }, {
-		// 	name: "string % float",
-		// }, {
-		// 	name: "string % rune",
-		// }, {
-		// 	name: "string % mapping",
+		}, {
+			name: "string % string",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.String(strings.Repeat("[", n/4) + "%s" + strings.Repeat("]", n/4))
+				r := starlark.String(strings.Repeat("[", n/4) + strings.Repeat("]", n/4))
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "string % int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.String(strings.Repeat("%d", n))
+				r := make(starlark.Tuple, 0, n)
+				num := starlark.MakeInt(100000000)
+				for i := 0; i < cap(r); i++ {
+					r = append(r, num)
+				}
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "string % float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.String(strings.Repeat("%d", n))
+				r := make(starlark.Tuple, 0, n)
+				float := starlark.Float(3e9)
+				for i := 0; i < cap(r); i++ {
+					r = append(r, float)
+				}
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "string % rune",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.String(strings.Repeat("%s", n))
+				r := make(starlark.Tuple, 0, n)
+				rune := starlark.String('a')
+				for i := 0; i < cap(r); i++ {
+					r = append(r, rune)
+				}
+				return l, syntax.PERCENT, r
+			},
+			// }, {
+			// 	name: "string % mapping",
+			// check safe and unsafe mappings!
 		}}
 		for _, test := range tests {
 			test.Run(t)
