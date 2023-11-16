@@ -888,7 +888,7 @@ func TestDirSteps(t *testing.T) {
 		t.Fatal("no such builtin: dir")
 	}
 
-	t.Run("with-attributes", func(t *testing.T) {
+	t.Run("with-attrs", func(t *testing.T) {
 		inputs := []starlark.HasAttrs{
 			starlark.String("starlark"),
 			starlark.Bytes("starlark"),
@@ -913,7 +913,7 @@ func TestDirSteps(t *testing.T) {
 		}
 	})
 
-	t.Run("without-attributes", func(t *testing.T) {
+	t.Run("without-attrs", func(t *testing.T) {
 		inputs := []starlark.Value{
 			starlark.None,
 			starlark.False,
