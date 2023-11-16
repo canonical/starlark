@@ -1986,6 +1986,8 @@ func list_insert(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		if index < 0 {
 			index = 0 // start
 		}
+		// Assuming that steps were counted in the construction of `recv`, each step
+		// here also accounts for the cost of reallocation.
 		if err := thread.AddExecutionSteps(int64(len(recv.elems) - index)); err != nil {
 			return nil, err
 		}
