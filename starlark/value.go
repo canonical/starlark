@@ -395,6 +395,7 @@ type HasAttrs interface {
 // and returns either a value or an error. If the attribute does not exist, it
 // returns ErrNoSuchAttr.
 type HasSafeAttrs interface {
+	Value
 	SafeAttr(thread *Thread, name string) (Value, error)
 	AttrNames() []string
 }

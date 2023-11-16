@@ -83,11 +83,11 @@ func init() {
 		"bytes":     MemSafe | IOSafe,
 		"chr":       MemSafe | IOSafe | CPUSafe,
 		"dict":      MemSafe | IOSafe | CPUSafe,
-		"dir":       MemSafe | IOSafe,
+		"dir":       MemSafe | IOSafe | CPUSafe,
 		"enumerate": MemSafe | IOSafe,
 		"fail":      MemSafe | IOSafe,
 		"float":     MemSafe | IOSafe | CPUSafe,
-		"getattr":   MemSafe | IOSafe,
+		"getattr":   MemSafe | IOSafe | CPUSafe,
 		"hasattr":   MemSafe | IOSafe | CPUSafe,
 		"hash":      MemSafe | IOSafe | CPUSafe,
 		"int":       MemSafe | IOSafe | CPUSafe,
@@ -122,7 +122,7 @@ var (
 		"elems": NewBuiltin("elems", bytes_elems),
 	}
 	bytesMethodSafeties = map[string]SafetyFlags{
-		"elems": MemSafe | IOSafe,
+		"elems": MemSafe | IOSafe | CPUSafe,
 	}
 
 	dictMethods = map[string]*Builtin{
@@ -223,7 +223,7 @@ var (
 		"istitle":        MemSafe | IOSafe | CPUSafe,
 		"isupper":        MemSafe | IOSafe | CPUSafe,
 		"join":           MemSafe | IOSafe,
-		"lower":          MemSafe | IOSafe,
+		"lower":          MemSafe | IOSafe | CPUSafe,
 		"lstrip":         MemSafe | IOSafe | CPUSafe,
 		"partition":      MemSafe | IOSafe | CPUSafe,
 		"removeprefix":   MemSafe | IOSafe,
@@ -264,7 +264,7 @@ var (
 		"issubset":             MemSafe | IOSafe,
 		"issuperset":           MemSafe | IOSafe,
 		"pop":                  MemSafe | IOSafe,
-		"remove":               MemSafe | IOSafe,
+		"remove":               MemSafe | IOSafe | CPUSafe,
 		"symmetric_difference": MemSafe | IOSafe,
 		"union":                MemSafe | IOSafe,
 	}
@@ -543,6 +543,9 @@ func dir(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	var names []string
 	if x, ok := args[0].(HasAttrs); ok {
 		names = x.AttrNames()
+	}
+	if err := thread.AddExecutionSteps(int64(len(names))); err != nil {
+		return nil, err
 	}
 	sort.Strings(names)
 	elems := make([]Value, len(names))
@@ -2183,7 +2186,7 @@ func (it *bytesIterator) Next(p *Value) bool {
 func (*bytesIterator) Done() {}
 
 func (it *bytesIterator) Err() error          { return it.err }
-func (it *bytesIterator) Safety() SafetyFlags { return MemSafe }
+func (it *bytesIterator) Safety() SafetyFlags { return MemSafe | CPUSafe }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·count
 func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
@@ -2612,7 +2615,9 @@ func string_lower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	}
 
 	recv := string(b.Receiver().(String))
-
+	if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
+		return nil, err
+	}
 	// There could be actually a difference between the size of the encoded
 	// upper and the size of the encoded lower. The maximum difference among
 	// them (according to unicode.ToLower implementation) is only 1 byte,
@@ -3189,12 +3194,12 @@ func set_pop(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·remove.
-func set_remove(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_remove(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var k Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &k); err != nil {
 		return nil, err
 	}
-	if found, err := b.Receiver().(*Set).Delete(k); err != nil {
+	if _, found, err := b.Receiver().(*Set).ht.delete(thread, k); err != nil {
 		return nil, nameErr(b, err) // dict is frozen or key is unhashable
 	} else if found {
 		return None, nil
