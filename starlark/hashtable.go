@@ -391,7 +391,10 @@ func (ht *hashtable) checkMutable(verb string) error {
 	return nil
 }
 
-func (ht *hashtable) clear() error {
+func (ht *hashtable) clear(thread *Thread) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
 	if err := ht.checkMutable("clear"); err != nil {
 		return err
 	}
@@ -399,6 +402,11 @@ func (ht *hashtable) clear() error {
 		return nil
 	}
 	if ht.table != nil {
+		if thread != nil {
+			if err := thread.AddExecutionSteps(int64(len(ht.table))); err != nil {
+				return err
+			}
+		}
 		for i := range ht.table {
 			ht.table[i] = bucket{}
 		}
