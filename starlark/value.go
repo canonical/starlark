@@ -307,9 +307,21 @@ type Mapping interface {
 	// Get returns the value corresponding to the specified key,
 	// or !found if the mapping does not contain the key.
 	//
-	// Get also defines the behavior of "v in mapping".
-	// The 'in' operator reports the 'found' component, ignoring errors.
+	// Get also helps define the behavior of "v in mapping".
+	// The 'in' operator reports the 'found' component, ignoring
+	// non-safety errors.
 	Get(Value) (v Value, found bool, err error)
+}
+
+type SafeMapping interface {
+	Value
+	// SafeGet returns the value corresponding to the specified key,
+	// or !found if the mapping does not contain the key.
+	//
+	// SafeGet also helps define the behavior of "v in mapping".
+	// The 'in' operator reports the 'found' component, ignoring
+	// non-safety errors.
+	SafeGet(thread *Thread, key Value) (v Value, found bool, err error)
 }
 
 // An IterableMapping is a mapping that supports key enumeration.
@@ -950,6 +962,10 @@ func (d *Dict) Freeze()                                         { d.ht.freeze() 
 func (d *Dict) Truth() Bool                                     { return d.Len() > 0 }
 func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.Errorf("unhashable type: dict") }
 func (d *Dict) String() string                                  { return toString(d) }
+
+func (d *Dict) SafeGet(thread *Thread, k Value) (v Value, found bool, err error) {
+	return d.ht.lookup(thread, k)
+}
 
 func (d *Dict) SafeSetKey(thread *Thread, k, v Value) error {
 	if err := CheckSafety(thread, MemSafe|CPUSafe); err != nil {

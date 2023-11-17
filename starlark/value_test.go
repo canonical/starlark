@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/startest"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -154,4 +155,30 @@ func TestParamDefault(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDictSafeGetAllocs(t *testing.T) {
+	const dictSize = 100
+	expectedValue := starlark.String("expected")
+	dict := starlark.NewDict(dictSize)
+	for i := 0; i < dictSize; i++ {
+		if err := dict.SetKey(starlark.MakeInt(i), expectedValue); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			if value, found, err := dict.SafeGet(thread, starlark.MakeInt(i)); err != nil {
+				st.Error(err)
+			} else if found != (i < dictSize) {
+				st.Errorf("SafeGet returned found=%t but expected found=%t", found, i < dictSize)
+			} else if found && value != starlark.String("expected") {
+				st.Error("unexpected return value: expected %#v but got %#v", expectedValue, value)
+			}
+		}
+	})
 }
