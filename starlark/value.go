@@ -1114,8 +1114,6 @@ type listIterator struct {
 
 var _ SafeIterator = &listIterator{}
 
-func (it *listIterator) NextAllocs() int64 { return 0 }
-
 func (it *listIterator) Next(p *Value) bool {
 	if it.i < it.l.Len() {
 		*p = it.l.elems[it.i]
@@ -1220,8 +1218,6 @@ func (t Tuple) Hash() (uint32, error) {
 type tupleIterator struct{ elems Tuple }
 
 var _ SafeIterator = &tupleIterator{}
-
-func (it *tupleIterator) NextAllocs() int64 { return 0 }
 
 func (it *tupleIterator) Next(p *Value) bool {
 	if len(it.elems) > 0 {
