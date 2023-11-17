@@ -302,7 +302,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 				n = timeLimitN
 			}
 		}
-		if n == 0 {
+		if n <= 0 {
 			n = 1
 		}
 
