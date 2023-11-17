@@ -81,6 +81,9 @@ func (ht *hashtable) freeze() {
 }
 
 func (ht *hashtable) insert(thread *Thread, k, v Value) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
 	if err := ht.checkMutable("insert into"); err != nil {
 		return err
 	}
@@ -324,6 +327,9 @@ func (ht *hashtable) values() []Value {
 }
 
 func (ht *hashtable) delete(thread *Thread, k Value) (v Value, found bool, err error) {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return nil, false, err
+	}
 	if err := ht.checkMutable("delete from"); err != nil {
 		return nil, false, err
 	}
