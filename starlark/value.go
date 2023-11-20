@@ -936,7 +936,7 @@ func SafeNewDict(thread *Thread, size int) (*Dict, error) {
 	return dict, nil
 }
 
-func (d *Dict) Clear() error                                    { return d.ht.clear() }
+func (d *Dict) Clear() error                                    { return d.ht.clear(nil) }
 func (d *Dict) Delete(k Value) (v Value, found bool, err error) { return d.ht.delete(nil, k) }
 func (d *Dict) Get(k Value) (v Value, found bool, err error)    { return d.ht.lookup(nil, k) }
 func (d *Dict) Items() []Tuple                                  { return d.ht.items() }
@@ -1255,7 +1255,7 @@ func NewSet(size int) *Set {
 }
 
 func (s *Set) Delete(k Value) (found bool, err error) { _, found, err = s.ht.delete(nil, k); return }
-func (s *Set) Clear() error                           { return s.ht.clear() }
+func (s *Set) Clear() error                           { return s.ht.clear(nil) }
 func (s *Set) Has(k Value) (found bool, err error)    { _, found, err = s.ht.lookup(nil, k); return }
 func (s *Set) Insert(k Value) error                   { return s.ht.insert(nil, k, None) }
 func (s *Set) Len() int                               { return int(s.ht.len) }

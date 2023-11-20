@@ -1761,12 +1761,7 @@ func dict_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		return nil, err
 	}
 	recv := b.Receiver().(*Dict)
-	if recv.Len() > 0 {
-		if err := thread.AddExecutionSteps(int64(len(recv.ht.table))); err != nil {
-			return nil, err
-		}
-	}
-	if err := recv.Clear(); err != nil {
+	if err := recv.ht.clear(thread); err != nil {
 		return nil, err
 	}
 	return None, nil
@@ -3065,12 +3060,7 @@ func set_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 	recv := b.Receiver().(*Set)
-	if recv.Len() > 0 {
-		if err := thread.AddExecutionSteps(int64(len(recv.ht.table))); err != nil {
-			return nil, err
-		}
-	}
-	if err := recv.Clear(); err != nil {
+	if err := recv.ht.clear(thread); err != nil {
 		return nil, nameErr(b, err)
 	}
 	return None, nil
