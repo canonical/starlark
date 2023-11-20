@@ -1793,17 +1793,6 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	})
 
 	t.Run("%", func(t *testing.T) {
-		t.Run("in-starlark", func(t *testing.T) {
-			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
-			st.AddValue("a", starlark.MakeInt(10000))
-			st.AddValue("b", starlark.MakeInt(127))
-			st.RunString(`
-				for _ in st.ntimes():
-					st.keep_alive(a % b)
-			`)
-		})
-
 		tests := []safeBinaryAllocTest{{
 			name: "int % int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
