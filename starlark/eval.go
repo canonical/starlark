@@ -2185,6 +2185,16 @@ func interpolate(thread *Thread, format string, x Value) (Value, error) {
 				return nil, fmt.Errorf("incomplete format key")
 			}
 			key := format[:j]
+			if dict, ok := x.(SafeMapping); ok {
+				if v, found, err := dict.SafeGet(thread, key); err != nil {
+					return nil, err
+				} else if found {
+					arg = v
+				}
+			}
+			if err := CheckSafety(thread, NotSafe); err != nil {
+				return nil, err
+			}
 			if dict, ok := x.(Mapping); !ok {
 				return nil, fmt.Errorf("format requires a mapping")
 			} else if v, found, _ := dict.Get(String(key)); found {
@@ -2228,7 +2238,9 @@ func interpolate(thread *Thread, format string, x Value) (Value, error) {
 			}
 		case 'd', 'i', 'o', 'x', 'X':
 			i, err := NumberToInt(arg)
-			if err != nil { return nil, fmt.Errorf("%%%c format requires integer: %v", c, err) }
+			if err != nil {
+				return nil, fmt.Errorf("%%%c format requires integer: %v", c, err)
+			}
 			switch c {
 			case 'd', 'i':
 				if _, err := fmt.Fprintf(buf, "%d", i); err != nil {
