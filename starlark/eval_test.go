@@ -1400,6 +1400,21 @@ func (uv unsafeTestValue) String() string       { return "unsafeTestValue" }
 func (uv unsafeTestValue) Truth() starlark.Bool { return starlark.False }
 func (uv unsafeTestValue) Type() string         { return "unsafeTestValue" }
 
+type unsafeTestMapping struct{}
+
+var _ starlark.Mapping = &unsafeTestMapping{}
+
+func (um unsafeTestMapping) Freeze() {}
+func (um unsafeTestMapping) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", um.Type())
+}
+func (um unsafeTestMapping) String() string       { return "unsafeTestMapping" }
+func (um unsafeTestMapping) Truth() starlark.Bool { return starlark.False }
+func (um unsafeTestMapping) Type() string         { return "unsafeTestMapping" }
+func (um unsafeTestMapping) Get(key starlark.Value) (v starlark.Value, found bool, err error) {
+	return nil, false, errors.New("unsafeTestMapping.Get called")
+}
+
 func TestSafeBinaryAllocs(t *testing.T) {
 	t.Run("+", func(t *testing.T) {
 		t.Run("in-starlark", func(t *testing.T) {
@@ -1857,13 +1872,35 @@ func TestSafeBinaryAllocs(t *testing.T) {
 				}
 				return l, syntax.PERCENT, r
 			},
-			// }, {
-			// 	name: "string % mapping",
-			// check safe and unsafe mappings!
+		}, {
+			name: "string % mapping",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				lBuilder := &strings.Builder{}
+				substitutions := 1 + n / 2
+				r := starlark.NewDict(substitutions)
+				for i := 0; i < substitutions; i++ {
+					key := fmt.Sprintf("k_%d", i)
+					lBuilder.WriteString(fmt.Sprintf("%%(%s)s", key))
+					replacement := key + key
+					r.SetKey(starlark.String(key), starlark.String(replacement))
+				}
+				l := starlark.String(lBuilder.String())
+				fmt.Println(n, len(string(l)), starlark.Len(r))
+				return l, syntax.PERCENT, r
+			},
 		}}
 		for _, test := range tests {
 			test.Run(t)
 		}
+
+		t.Run("unsafe-mapping", func(t *testing.T) {
+			thread := &starlark.Thread{}
+			thread.RequireSafety(starlark.MemSafe)
+			_, err := starlark.SafeBinary(thread, syntax.PERCENT, starlark.String("%(foo)s"), unsafeTestMapping{})
+			if !errors.Is(err, starlark.ErrSafety) {
+				t.Errorf("expected safety error: got %v", err)
+			}
+		})
 	})
 
 	t.Run("in", func(t *testing.T) {})

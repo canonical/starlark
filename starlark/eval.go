@@ -2186,7 +2186,7 @@ func interpolate(thread *Thread, format string, x Value) (Value, error) {
 			}
 			key := format[:j]
 			if dict, ok := x.(SafeMapping); ok {
-				if v, found, err := dict.SafeGet(thread, key); err != nil {
+				if v, found, err := dict.SafeGet(thread, String(key)); err != nil {
 					return nil, err
 				} else if found {
 					arg = v
