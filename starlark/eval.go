@@ -2185,19 +2185,18 @@ func interpolate(thread *Thread, format string, x Value) (Value, error) {
 				return nil, fmt.Errorf("incomplete format key")
 			}
 			key := format[:j]
-			if dict, ok := x.(SafeMapping); ok {
-				if v, found, err := dict.SafeGet(thread, String(key)); err != nil {
-					return nil, err
-				} else if found {
-					arg = v
-				}
-			}
-			if err := CheckSafety(thread, NotSafe); err != nil {
-				return nil, err
-			}
-			if dict, ok := x.(Mapping); !ok {
+			var v Value
+			var found bool
+			var err error
+			switch x := x.(type) {
+			case SafeMapping:
+				v, found, err = dict.SafeGet(thread, String(key))
+			case Mapping:
+				v, found, err = dict.Get(String(key))
+			default:
 				return nil, fmt.Errorf("format requires a mapping")
-			} else if v, found, _ := dict.Get(String(key)); found {
+			}
+			if found {
 				arg = v
 			} else {
 				return nil, fmt.Errorf("key not found: %s", key)
