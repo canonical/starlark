@@ -2190,11 +2190,17 @@ func interpolate(thread *Thread, format string, x Value) (Value, error) {
 			var err error
 			switch x := x.(type) {
 			case SafeMapping:
-				v, found, err = dict.SafeGet(thread, String(key))
+				v, found, err = x.SafeGet(thread, String(key))
 			case Mapping:
-				v, found, err = dict.Get(String(key))
+				if err := CheckSafety(thread, NotSafe); err != nil {
+					return nil, err
+				}
+				v, found, err = x.Get(String(key))
 			default:
 				return nil, fmt.Errorf("format requires a mapping")
+			}
+			if err != nil {
+				return nil, err
 			}
 			if found {
 				arg = v

@@ -1874,7 +1874,6 @@ func TestSafeBinaryAllocs(t *testing.T) {
 					r.SetKey(starlark.String(key), starlark.String(replacement))
 				}
 				l := starlark.String(lBuilder.String())
-				fmt.Println(n, len(string(l)), starlark.Len(r))
 				return l, syntax.PERCENT, r
 			},
 		}}
