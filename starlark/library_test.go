@@ -6797,6 +6797,99 @@ func TestSetDifferenceAllocs(t *testing.T) {
 }
 
 func TestSetDiscardSteps(t *testing.T) {
+	const setSize = 500
+
+	t.Run("few-collisions", func(t *testing.T) {
+		set := starlark.NewSet(setSize)
+		for i := 0; i < setSize; i++ {
+			set.Insert(starlark.Float(i))
+		}
+		set_discard, _ := set.Attr("discard")
+		if set_discard == nil {
+			t.Fatal("no such method: set.discard")
+		}
+
+		t.Run("present", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					input := starlark.MakeInt(i % setSize)
+					_, err := starlark.Call(thread, set_discard, starlark.Tuple{input}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+					set.Insert(input) // Add back for the next iteration.
+				}
+			})
+		})
+
+		t.Run("missing", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					input := starlark.MakeInt(setSize)
+					_, err := starlark.Call(thread, set_discard, starlark.Tuple{input}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		set := starlark.NewSet(setSize)
+		for i := 0; i < setSize; i++ {
+			// Int hash only uses the least 32 bits.
+			// Leaving them blank creates collisions.
+			key := starlark.MakeInt64(int64(i) << 32)
+			set.Insert(key)
+		}
+		set_discard, _ := set.Attr("discard")
+		if set_discard == nil {
+			t.Fatal("no such method: set.discard")
+		}
+
+		t.Run("present", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps((setSize / 8) + 1)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					input := starlark.MakeInt64(int64(i%setSize) << 32)
+					_, err := starlark.Call(thread, set_discard, starlark.Tuple{input}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+					set.Insert(input) // Add back for the next iteration.
+				}
+			})
+		})
+
+		t.Run("missing", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			// Each bucket can contain 8 elements tops
+			st.SetMinExecutionSteps(setSize / 8)
+			st.SetMaxExecutionSteps((setSize / 8) + 1)
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					input := starlark.MakeInt(setSize << 32)
+					_, err := starlark.Call(thread, set_discard, starlark.Tuple{input}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+	})
 }
 
 func TestSetDiscardAllocs(t *testing.T) {
