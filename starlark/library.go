@@ -206,11 +206,11 @@ var (
 	}
 	stringMethodSafeties = map[string]SafetyFlags{
 		"capitalize":     MemSafe | IOSafe,
-		"codepoint_ords": MemSafe | IOSafe,
-		"codepoints":     MemSafe | IOSafe,
+		"codepoint_ords": MemSafe | IOSafe | CPUSafe,
+		"codepoints":     MemSafe | IOSafe | CPUSafe,
 		"count":          MemSafe | IOSafe,
-		"elem_ords":      MemSafe | IOSafe,
-		"elems":          MemSafe | IOSafe,
+		"elem_ords":      MemSafe | IOSafe | CPUSafe,
+		"elems":          MemSafe | IOSafe | CPUSafe,
 		"endswith":       MemSafe | IOSafe | CPUSafe,
 		"find":           MemSafe | IOSafe | CPUSafe,
 		"format":         MemSafe | IOSafe,

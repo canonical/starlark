@@ -5079,7 +5079,36 @@ func TestStringCapitalizeAllocs(t *testing.T) {
 	})
 }
 
-func testStringIterable(t *testing.T, methodName string) {
+func testStringIterableSteps(t *testing.T, methodName string) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.SetMinExecutionSteps(1)
+	st.SetMaxExecutionSteps(1)
+	st.RunThread(func(thread *starlark.Thread) {
+		str := starlark.String(strings.Repeat("s", st.N))
+		method, _ := str.Attr(methodName)
+		if method == nil {
+			t.Fatalf("no such method: string.%s", methodName)
+		}
+		result, err := starlark.Call(thread, method, nil, nil)
+		if err != nil {
+			st.Fatal(err)
+		}
+		iter, err := starlark.SafeIterate(thread, result)
+		if err != nil {
+			st.Fatal(err)
+		}
+		var v starlark.Value
+		for iter.Next(&v) {
+			// Do nothing.
+		}
+		if err := iter.Err(); err != nil {
+			st.Error(err)
+		}
+	})
+}
+
+func testStringIterableAllocs(t *testing.T, methodName string) {
 	method, _ := starlark.String("arbitrary-string").Attr(methodName)
 	if method == nil {
 		t.Fatalf("no such method: string.%s", methodName)
@@ -5094,22 +5123,35 @@ func testStringIterable(t *testing.T, methodName string) {
 				st.Error(err)
 			}
 			st.KeepAlive(result)
+			iter, err := starlark.SafeIterate(thread, result)
+			if err != nil {
+				st.Fatal(err)
+			}
+			var v starlark.Value
+			for iter.Next(&v) {
+				st.KeepAlive(v)
+			}
+			if err := iter.Err(); err != nil {
+				st.Error(err)
+			}
 		}
 	})
 }
 
 func TestStringCodepointOrdsSteps(t *testing.T) {
+	testStringIterableSteps(t, "codepoint_ords")
 }
 
 func TestStringCodepointOrdsAllocs(t *testing.T) {
-	testStringIterable(t, "codepoint_ords")
+	testStringIterableAllocs(t, "codepoint_ords")
 }
 
 func TestStringCodepointsSteps(t *testing.T) {
+	testStringIterableSteps(t, "codepoints")
 }
 
 func TestStringCodepointsAllocs(t *testing.T) {
-	testStringIterable(t, "codepoints")
+	testStringIterableAllocs(t, "codepoints")
 }
 
 func TestStringCountSteps(t *testing.T) {
@@ -5139,17 +5181,19 @@ func TestStringCountAllocs(t *testing.T) {
 }
 
 func TestStringElemOrdsSteps(t *testing.T) {
+	testStringIterableSteps(t, "elem_ords")
 }
 
 func TestStringElemOrdsAllocs(t *testing.T) {
-	testStringIterable(t, "elem_ords")
+	testStringIterableAllocs(t, "elem_ords")
 }
 
 func TestStringElemsSteps(t *testing.T) {
+	testStringIterableSteps(t, "elems")
 }
 
 func TestStringElemsAllocs(t *testing.T) {
-	testStringIterable(t, "elems")
+	testStringIterableAllocs(t, "elems")
 }
 
 // testStringFixSteps tests string.startswith and string.endswith CPUSafety

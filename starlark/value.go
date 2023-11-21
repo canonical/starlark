@@ -705,7 +705,7 @@ func (si stringElems) Type() string          { return "string.elems" }
 func (si stringElems) Freeze()               {} // immutable
 func (si stringElems) Truth() Bool           { return True }
 func (si stringElems) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", si.Type()) }
-func (si stringElems) Iterate() Iterator     { return &stringElemsIterator{si, 0} }
+func (si stringElems) Iterate() Iterator     { return &stringElemsIterator{si: si, i: 0} }
 func (si stringElems) Len() int              { return len(si.s) }
 func (si stringElems) Index(i int) Value {
 	if si.ords {
@@ -717,7 +717,7 @@ func (si stringElems) Index(i int) Value {
 	}
 }
 func (si stringElems) SafeIndex(thread *Thread, i int) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	if err := CheckSafety(thread, MemSafe|CPUSafe); err != nil {
 		return nil, err
 	}
 	if si.ords {
@@ -739,23 +739,38 @@ func (si stringElems) SafeIndex(thread *Thread, i int) (Value, error) {
 }
 
 type stringElemsIterator struct {
-	si stringElems
-	i  int
+	si     stringElems
+	i      int
+	thread *Thread
+	err    error
+}
+
+var _ SafeIterator = &stringElemsIterator{}
+
+func (it *stringElemsIterator) BindThread(thread *Thread) {
+	it.thread = thread
 }
 
 func (it *stringElemsIterator) Next(p *Value) bool {
+	if it.err != nil {
+		return false
+	}
 	if it.i == len(it.si.s) {
 		return false
 	}
-	*p = it.si.Index(it.i)
-	it.i++
-	return true
+	if v, err := it.si.SafeIndex(it.thread, it.i); err != nil {
+		it.err = err
+		return false
+	} else {
+		*p = v
+		it.i++
+		return true
+	}
 }
 
-func (*stringElemsIterator) Done() {}
-
-func (it *stringElemsIterator) Err() error          { return nil }
-func (it *stringElemsIterator) Safety() SafetyFlags { return NotSafe }
+func (it *stringElemsIterator) Done()               {}
+func (it *stringElemsIterator) Err() error          { return it.err }
+func (it *stringElemsIterator) Safety() SafetyFlags { return MemSafe | CPUSafe }
 
 // A stringCodepoints is an iterable whose iterator yields a sequence of
 // Unicode code points, either numerically or as successive substrings.
@@ -772,27 +787,47 @@ func (si stringCodepoints) Type() string          { return "string.codepoints" }
 func (si stringCodepoints) Freeze()               {} // immutable
 func (si stringCodepoints) Truth() Bool           { return True }
 func (si stringCodepoints) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", si.Type()) }
-func (si stringCodepoints) Iterate() Iterator     { return &stringCodepointsIterator{si, 0} }
+func (si stringCodepoints) Iterate() Iterator     { return &stringCodepointsIterator{si: si, i: 0} }
 
 type stringCodepointsIterator struct {
-	si stringCodepoints
-	i  int
+	si     stringCodepoints
+	i      int
+	thread *Thread
+	err    error
+}
+
+var _ SafeIterator = &stringCodepointsIterator{}
+
+func (it *stringCodepointsIterator) BindThread(thread *Thread) {
+	it.thread = thread
 }
 
 func (it *stringCodepointsIterator) Next(p *Value) bool {
+	if it.err != nil {
+		return false
+	}
 	s := it.si.s[it.i:]
 	if s == "" {
 		return false
 	}
 	r, sz := utf8.DecodeRuneInString(string(s))
 	if !it.si.ords {
+		if err := it.thread.AddAllocs(StringTypeOverhead); err != nil {
+			it.err = err
+			return false
+		}
 		if r == utf8.RuneError {
 			*p = String(r)
 		} else {
 			*p = s[:sz]
 		}
 	} else {
-		*p = MakeInt(int(r))
+		ord := Value(MakeInt(int(r)))
+		if err := it.thread.AddAllocs(EstimateSize(ord)); err != nil {
+			it.err = err
+			return false
+		}
+		*p = ord
 	}
 	it.i += sz
 	return true
@@ -801,7 +836,7 @@ func (it *stringCodepointsIterator) Next(p *Value) bool {
 func (*stringCodepointsIterator) Done() {}
 
 func (it *stringCodepointsIterator) Err() error          { return nil }
-func (it *stringCodepointsIterator) Safety() SafetyFlags { return NotSafe }
+func (it *stringCodepointsIterator) Safety() SafetyFlags { return MemSafe | CPUSafe }
 
 // A Function is a function defined by a Starlark def statement or lambda expression.
 // The initialization behavior of a Starlark module is also represented by a Function.
