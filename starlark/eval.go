@@ -959,8 +959,8 @@ func getIndex(thread *Thread, x, y Value) (Value, error) {
 		var z Value
 		var found bool
 		var err error
-		if safeX, ok := x.(SafeMapping); ok {
-			z, found, err = safeX.SafeGet(thread, y)
+		if x2, ok := x.(SafeMapping); ok {
+			z, found, err = x2.SafeGet(thread, y)
 		} else if err := CheckSafety(thread, NotSafe); err != nil {
 			return nil, err
 		} else {
@@ -973,6 +973,7 @@ func getIndex(thread *Thread, x, y Value) (Value, error) {
 			return nil, fmt.Errorf("key %v not in %s", y, x.Type())
 		}
 		return z, nil
+
 	case Indexable: // string, list, tuple
 		n := x.Len()
 		i, err := AsInt32(y)
