@@ -7662,3 +7662,33 @@ func TestSetIteration(t *testing.T) {
 	}
 	testDictlikeIterationResources(t, set)
 }
+
+func TestListIteration(t *testing.T) {
+	const listSize = 100
+	list := starlark.NewList(make([]starlark.Value, 0, listSize))
+	for i := 0; i < listSize; i++ {
+		list.Append(starlark.MakeInt(i))
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+	st.SetMinExecutionSteps(listSize + 1)
+	st.SetMaxExecutionSteps(listSize + 1)
+	st.SetMaxAllocs(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			iter, err := starlark.SafeIterate(thread, list)
+			if err != nil {
+				st.Fatal(err)
+			}
+			defer iter.Done()
+			var v starlark.Value
+			for iter.Next(&v) {
+				st.KeepAlive(v)
+			}
+			if err := iter.Err(); err != nil {
+				st.Error(err)
+			}
+		}
+	})
+}

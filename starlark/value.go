@@ -1145,7 +1145,7 @@ func (it *listIterator) Done() {
 	}
 }
 
-func (it *listIterator) Safety() SafetyFlags       { return MemSafe }
+func (it *listIterator) Safety() SafetyFlags       { return MemSafe | CPUSafe }
 func (it *listIterator) BindThread(thread *Thread) {}
 func (it *listIterator) Err() error                { return nil }
 
