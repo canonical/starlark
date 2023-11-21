@@ -102,6 +102,10 @@ func (st *ST) Errorf(format string, args ...interface{}) {
 	st.runFailed = true
 }
 
+func (st *ST) Failed() bool {
+	return st.runFailed || st.TestBase.Failed()
+}
+
 // SetMaxAllocs optionally sets the max allocations allowed per unit of st.N.
 func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
@@ -251,24 +255,20 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) (ok bool) {
 
 	if st.maxAllocs != math.MaxUint64 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
-		ok = false
 	}
 	if st.requiredSafety.Contains(starlark.MemSafe) {
 		if meanDeclaredAllocs > st.maxAllocs {
 			st.Errorf("declared allocations are above maximum (%d > %d)", meanDeclaredAllocs, st.maxAllocs)
-			ok = false
 		}
 
 		// Check memory usage is safe, within mean rounding error (i.e. round(alloc error per N) == 0)
 		if stats.allocSum > thread.Allocs() && (stats.allocSum-thread.Allocs())*2 >= stats.nSum {
 			st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasuredAllocs, meanDeclaredAllocs)
-			ok = false
 		}
 	}
 
 	if st.maxExecutionSteps != math.MaxUint64 && meanExecutionSteps > st.maxExecutionSteps {
 		st.Errorf("execution steps are above maximum (%d > %d)", meanExecutionSteps, st.maxExecutionSteps)
-		ok = false
 	}
 	if meanExecutionSteps < st.minExecutionSteps {
 		st.Errorf("execution steps are below minimum (%d < %d)", meanExecutionSteps, st.minExecutionSteps)
@@ -279,7 +279,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) (ok bool) {
 		}
 	}
 
-	return ok
+	return !st.Failed()
 }
 
 // KeepAlive causes the memory of the passed objects to be measured.
@@ -342,7 +342,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		beforeAllocs := readMemoryUsage(st.requiredSafety.Contains(starlark.MemSafe))
 		fn(thread)
 		afterAllocs := readMemoryUsage(st.requiredSafety.Contains(starlark.MemSafe))
-		if st.runFailed {
+		if st.Failed() {
 			return runStats{}, false
 		}
 
