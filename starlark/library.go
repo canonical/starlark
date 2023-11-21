@@ -1740,7 +1740,7 @@ func dict_get(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &key, &dflt); err != nil {
 		return nil, err
 	}
-	if v, ok, err := b.Receiver().(*Dict).ht.lookup(thread, key); err != nil {
+	if v, ok, err := b.Receiver().(*Dict).SafeGet(thread, key); err != nil {
 		return nil, nameErr(b, err)
 	} else if ok {
 		return v, nil
@@ -1859,7 +1859,7 @@ func dict_setdefault(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Va
 		return nil, err
 	}
 	dict := b.Receiver().(*Dict)
-	if v, ok, err := dict.ht.lookup(thread, key); err != nil {
+	if v, ok, err := dict.SafeGet(thread, key); err != nil {
 		return nil, nameErr(b, err)
 	} else if ok {
 		return v, nil
