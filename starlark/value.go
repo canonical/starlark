@@ -314,7 +314,7 @@ type Mapping interface {
 }
 
 type SafeMapping interface {
-	Value
+	Mapping
 	// SafeGet returns the value corresponding to the specified key,
 	// or !found if the mapping does not contain the key.
 	//
