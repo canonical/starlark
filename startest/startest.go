@@ -102,10 +102,6 @@ func (st *ST) Errorf(format string, args ...interface{}) {
 	st.runFailed = true
 }
 
-func (st *ST) Failed() bool {
-	return st.runFailed || st.TestBase.Failed()
-}
-
 // SetMaxAllocs optionally sets the max allocations allowed per unit of st.N.
 func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
