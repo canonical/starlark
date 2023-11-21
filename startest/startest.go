@@ -342,12 +342,11 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		beforeAllocs := readMemoryUsage(st.requiredSafety.Contains(starlark.MemSafe))
 		fn(thread)
 		afterAllocs := readMemoryUsage(st.requiredSafety.Contains(starlark.MemSafe))
-
-		runtime.KeepAlive(alive)
-
 		if st.runFailed {
 			return runStats{}, false
 		}
+
+		runtime.KeepAlive(alive)
 
 		// If st.alive was reallocated, the cost of its new memory block is
 		// included in the measurement. This overhead must be discounted
