@@ -54,3 +54,16 @@ func (thread *Thread) FrameAt(depth int) StackFrameCapture {
 		frame:  frame,
 	}
 }
+
+func StringElems(s String, ord bool) Value {
+	return stringElems{s, ord}
+}
+
+func Range(len int) Value {
+	return rangeValue{
+		start: 0,
+		stop:  len,
+		step:  1,
+		len:   len,
+	}
+}
