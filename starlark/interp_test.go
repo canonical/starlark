@@ -216,6 +216,35 @@ func TestAttrAccessAllocs(t *testing.T) {
 	}
 }
 
+type unsafeTestIndexable struct{}
+
+var _ starlark.Indexable = &unsafeTestIndexable{}
+
+func (uti *unsafeTestIndexable) Freeze()              {}
+func (uti *unsafeTestIndexable) String() string       { return "unsafeTestIndexable" }
+func (uti *unsafeTestIndexable) Truth() starlark.Bool { return false }
+func (uti *unsafeTestIndexable) Type() string         { return "<unsafeTestIndexable>" }
+func (uti *unsafeTestIndexable) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", uti.Type())
+}
+func (uti *unsafeTestIndexable) Len() int                 { return 1 }
+func (uti *unsafeTestIndexable) Index(int) starlark.Value { panic("Index called") }
+
+type unsafeTestMapping struct{}
+
+var _ starlark.Mapping = &unsafeTestMapping{}
+
+func (utm *unsafeTestMapping) Freeze()              {}
+func (utm *unsafeTestMapping) String() string       { return "unsafeTestMapping" }
+func (utm *unsafeTestMapping) Truth() starlark.Bool { return false }
+func (utm *unsafeTestMapping) Type() string         { return "<unsafeTestMapping>" }
+func (utm *unsafeTestMapping) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", utm.Type())
+}
+func (utm *unsafeTestMapping) Get(starlark.Value) (v starlark.Value, found bool, err error) {
+	return nil, false, fmt.Errorf("unsafeTestMapping.Get called")
+}
+
 func TestIndexingAllocs(t *testing.T) {
 	t.Run("safety-respected", func(t *testing.T) {
 		tests := []struct {
@@ -295,35 +324,6 @@ func TestIndexingAllocs(t *testing.T) {
 				st.keep_alive(input["key"])
 		`)
 	})
-}
-
-type unsafeTestIndexable struct{}
-
-var _ starlark.Indexable = &unsafeTestIndexable{}
-
-func (uti *unsafeTestIndexable) Freeze()              {}
-func (uti *unsafeTestIndexable) String() string       { return "unsafeTestIndexable" }
-func (uti *unsafeTestIndexable) Truth() starlark.Bool { return false }
-func (uti *unsafeTestIndexable) Type() string         { return "<unsafeTestIndexable>" }
-func (uti *unsafeTestIndexable) Hash() (uint32, error) {
-	return 0, fmt.Errorf("unhashable type: %s", uti.Type())
-}
-func (uti *unsafeTestIndexable) Len() int                 { return 1 }
-func (uti *unsafeTestIndexable) Index(int) starlark.Value { panic("Index called") }
-
-type unsafeTestMapping struct{}
-
-var _ starlark.Mapping = &unsafeTestMapping{}
-
-func (utm *unsafeTestMapping) Freeze()              {}
-func (utm *unsafeTestMapping) String() string       { return "unsafeTestMapping" }
-func (utm *unsafeTestMapping) Truth() starlark.Bool { return false }
-func (utm *unsafeTestMapping) Type() string         { return "<unsafeTestMapping>" }
-func (utm *unsafeTestMapping) Hash() (uint32, error) {
-	return 0, fmt.Errorf("unhashable type: %s", utm.Type())
-}
-func (utm *unsafeTestMapping) Get(starlark.Value) (v starlark.Value, found bool, err error) {
-	return nil, false, fmt.Errorf("unsafeTestMapping.Get called")
 }
 
 func TestFunctionCall(t *testing.T) {
