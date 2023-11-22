@@ -225,6 +225,11 @@ type Indexable interface {
 	Len() int
 }
 
+type SafeIndexable interface {
+	Indexable
+	SafeIndex(thread *Thread, i int) (Value, error) // requires 0 <= i < Len()
+}
+
 // A Sliceable is a sequence that can be cut into pieces with the slice operator (x[i:j:step]).
 //
 // All native indexable objects are sliceable.
@@ -250,7 +255,7 @@ type HasSetIndex interface {
 // A HasSafeSetIndex is an Indexable value whose elements may be assigned (x[i] = y),
 // respecting the safety of the thread.
 type HasSafeSetIndex interface {
-	Indexable
+	SafeIndexable
 
 	SafeSetIndex(thread *Thread, index int, v Value) error
 }
@@ -634,6 +639,17 @@ func (s String) Truth() Bool           { return len(s) > 0 }
 func (s String) Hash() (uint32, error) { return hashString(string(s)), nil }
 func (s String) Len() int              { return len(s) } // bytes
 func (s String) Index(i int) Value     { return s[i : i+1] }
+func (s String) SafeIndex(thread *Thread, i int) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
+		}
+	}
+	return s[i : i+1], nil
+}
 
 func (s String) Slice(start, end, step int) Value {
 	if step == 1 {
@@ -698,6 +714,27 @@ func (si stringElems) Index(i int) Value {
 		// TODO(adonovan): opt: preallocate canonical 1-byte strings
 		// to avoid interface allocation.
 		return si.s[i : i+1]
+	}
+}
+func (si stringElems) SafeIndex(thread *Thread, i int) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
+	if si.ords {
+		result := Value(MakeInt(int(si.s[i])))
+		if thread != nil {
+			if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+				return nil, err
+			}
+		}
+		return result, nil
+	} else {
+		if thread != nil {
+			if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+				return nil, err
+			}
+		}
+		return si.s[i : i+1], nil
 	}
 }
 
@@ -1062,6 +1099,12 @@ func (l *List) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable type: l
 func (l *List) Truth() Bool           { return l.Len() > 0 }
 func (l *List) Len() int              { return len(l.elems) }
 func (l *List) Index(i int) Value     { return l.elems[i] }
+func (l *List) SafeIndex(thread *Thread, i int) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
+	return l.elems[i], nil
+}
 
 func (l *List) Slice(start, end, step int) Value {
 	if step == 1 {
@@ -1188,6 +1231,12 @@ type Tuple []Value
 
 func (t Tuple) Len() int          { return len(t) }
 func (t Tuple) Index(i int) Value { return t[i] }
+func (t Tuple) SafeIndex(thread *Thread, i int) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
+	return t[i], nil
+}
 
 func (t Tuple) Slice(start, end, step int) Value {
 	if step == 1 {
@@ -1982,6 +2031,17 @@ func (b Bytes) Truth() Bool           { return len(b) > 0 }
 func (b Bytes) Hash() (uint32, error) { return String(b).Hash() }
 func (b Bytes) Len() int              { return len(b) }
 func (b Bytes) Index(i int) Value     { return b[i : i+1] }
+func (b Bytes) SafeIndex(thread *Thread, i int) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
+		}
+	}
+	return b[i : i+1], nil
+}
 
 func (b Bytes) Attr(name string) (Value, error) { return builtinAttr(b, name, bytesMethods) }
 func (b Bytes) AttrNames() []string             { return builtinAttrNames(bytesMethods) }

@@ -100,7 +100,7 @@ func init() {
 		"range":     MemSafe | IOSafe | CPUSafe,
 		"repr":      MemSafe | IOSafe,
 		"reversed":  MemSafe | IOSafe | CPUSafe,
-		"set":       MemSafe | IOSafe,
+		"set":       MemSafe | IOSafe | CPUSafe,
 		"sorted":    MemSafe | IOSafe,
 		"str":       MemSafe | IOSafe,
 		"tuple":     MemSafe | IOSafe,
@@ -1237,6 +1237,19 @@ var (
 
 func (r rangeValue) Len() int          { return r.len }
 func (r rangeValue) Index(i int) Value { return MakeInt(r.start + i*r.step) }
+func (r rangeValue) SafeIndex(thread *Thread, i int) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
+	result := Value(MakeInt(r.start + i*r.step))
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 func (r rangeValue) Iterate() Iterator { return &rangeIterator{r: r} }
 
 // rangeLen calculates the length of a range with the provided start, stop, and step.
