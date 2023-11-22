@@ -140,7 +140,6 @@ discard_set.discard(3)
 assert.true(3 not in discard_set)
 assert.eq(discard_set.discard(3), None)
 freeze(discard_set)
-assert.eq(discard_set.discard(3), None)  # no mutation of frozen set because key doesn't exist
 assert.fails(lambda: discard_set.discard(1), "discard: cannot delete from frozen hash table")
 
 

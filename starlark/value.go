@@ -307,9 +307,21 @@ type Mapping interface {
 	// Get returns the value corresponding to the specified key,
 	// or !found if the mapping does not contain the key.
 	//
-	// Get also defines the behavior of "v in mapping".
-	// The 'in' operator reports the 'found' component, ignoring errors.
+	// Get also helps define the behavior of "v in mapping".
+	// The 'in' operator reports the 'found' component, ignoring
+	// non-safety errors.
 	Get(Value) (v Value, found bool, err error)
+}
+
+type SafeMapping interface {
+	Mapping
+	// SafeGet returns the value corresponding to the specified key,
+	// or !found if the mapping does not contain the key.
+	//
+	// SafeGet also helps define the behavior of "v in mapping".
+	// The 'in' operator reports the 'found' component, ignoring
+	// non-safety errors.
+	SafeGet(thread *Thread, key Value) (v Value, found bool, err error)
 }
 
 // An IterableMapping is a mapping that supports key enumeration.
@@ -395,6 +407,7 @@ type HasAttrs interface {
 // and returns either a value or an error. If the attribute does not exist, it
 // returns ErrNoSuchAttr.
 type HasSafeAttrs interface {
+	Value
 	SafeAttr(thread *Thread, name string) (Value, error)
 	AttrNames() []string
 }
@@ -639,7 +652,8 @@ func (s String) Attr(name string) (Value, error) { return builtinAttr(s, name, s
 func (s String) AttrNames() []string             { return builtinAttrNames(stringMethods) }
 
 func (s String) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	attr, err := safeBuiltinAttr(thread, s, name, stringMethods)
+	if err != nil {
 		return nil, err
 	}
 	if thread != nil {
@@ -647,7 +661,7 @@ func (s String) SafeAttr(thread *Thread, name string) (Value, error) {
 			return nil, err
 		}
 	}
-	return safeBuiltinAttr(thread, s, name, stringMethods)
+	return attr, nil
 }
 
 func (x String) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
@@ -934,7 +948,7 @@ func SafeNewDict(thread *Thread, size int) (*Dict, error) {
 	return dict, nil
 }
 
-func (d *Dict) Clear() error                                    { return d.ht.clear() }
+func (d *Dict) Clear() error                                    { return d.ht.clear(nil) }
 func (d *Dict) Delete(k Value) (v Value, found bool, err error) { return d.ht.delete(nil, k) }
 func (d *Dict) Get(k Value) (v Value, found bool, err error)    { return d.ht.lookup(nil, k) }
 func (d *Dict) Items() []Tuple                                  { return d.ht.items() }
@@ -948,6 +962,10 @@ func (d *Dict) Freeze()                                         { d.ht.freeze() 
 func (d *Dict) Truth() Bool                                     { return d.Len() > 0 }
 func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.Errorf("unhashable type: dict") }
 func (d *Dict) String() string                                  { return toString(d) }
+
+func (d *Dict) SafeGet(thread *Thread, k Value) (v Value, found bool, err error) {
+	return d.ht.lookup(thread, k)
+}
 
 func (d *Dict) SafeSetKey(thread *Thread, k, v Value) error {
 	if err := CheckSafety(thread, MemSafe|CPUSafe); err != nil {
@@ -971,9 +989,6 @@ func (d *Dict) Attr(name string) (Value, error) { return builtinAttr(d, name, di
 func (d *Dict) AttrNames() []string             { return builtinAttrNames(dictMethods) }
 
 func (d *Dict) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
-		return nil, err
-	}
 	return safeBuiltinAttr(thread, d, name, dictMethods)
 }
 
@@ -1066,9 +1081,6 @@ func (l *List) Attr(name string) (Value, error) { return builtinAttr(l, name, li
 func (l *List) AttrNames() []string             { return builtinAttrNames(listMethods) }
 
 func (l *List) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
-		return nil, err
-	}
 	return safeBuiltinAttr(thread, l, name, listMethods)
 }
 
@@ -1118,8 +1130,6 @@ type listIterator struct {
 
 var _ SafeIterator = &listIterator{}
 
-func (it *listIterator) NextAllocs() int64 { return 0 }
-
 func (it *listIterator) Next(p *Value) bool {
 	if it.i < it.l.Len() {
 		*p = it.l.elems[it.i]
@@ -1135,7 +1145,7 @@ func (it *listIterator) Done() {
 	}
 }
 
-func (it *listIterator) Safety() SafetyFlags       { return MemSafe }
+func (it *listIterator) Safety() SafetyFlags       { return MemSafe | CPUSafe }
 func (it *listIterator) BindThread(thread *Thread) {}
 func (it *listIterator) Err() error                { return nil }
 
@@ -1225,8 +1235,6 @@ type tupleIterator struct{ elems Tuple }
 
 var _ SafeIterator = &tupleIterator{}
 
-func (it *tupleIterator) NextAllocs() int64 { return 0 }
-
 func (it *tupleIterator) Next(p *Value) bool {
 	if len(it.elems) > 0 {
 		*p = it.elems[0]
@@ -1240,7 +1248,7 @@ func (it *tupleIterator) Done() {}
 
 func (it *tupleIterator) BindThread(thread *Thread) {}
 func (it *tupleIterator) Err() error                { return nil }
-func (it *tupleIterator) Safety() SafetyFlags       { return MemSafe }
+func (it *tupleIterator) Safety() SafetyFlags       { return MemSafe | CPUSafe }
 
 // A Set represents a Starlark set value.
 // The zero value of Set is a valid empty set.
@@ -1259,7 +1267,7 @@ func NewSet(size int) *Set {
 }
 
 func (s *Set) Delete(k Value) (found bool, err error) { _, found, err = s.ht.delete(nil, k); return }
-func (s *Set) Clear() error                           { return s.ht.clear() }
+func (s *Set) Clear() error                           { return s.ht.clear(nil) }
 func (s *Set) Has(k Value) (found bool, err error)    { _, found, err = s.ht.lookup(nil, k); return }
 func (s *Set) Insert(k Value) error                   { return s.ht.insert(nil, k, None) }
 func (s *Set) Len() int                               { return int(s.ht.len) }
@@ -1274,9 +1282,6 @@ func (s *Set) Attr(name string) (Value, error) { return builtinAttr(s, name, set
 func (s *Set) AttrNames() []string             { return builtinAttrNames(setMethods) }
 
 func (s *Set) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
-		return nil, err
-	}
 	return safeBuiltinAttr(thread, s, name, setMethods)
 }
 
@@ -1982,7 +1987,8 @@ func (b Bytes) Attr(name string) (Value, error) { return builtinAttr(b, name, by
 func (b Bytes) AttrNames() []string             { return builtinAttrNames(bytesMethods) }
 
 func (b Bytes) SafeAttr(thread *Thread, name string) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	attr, err := safeBuiltinAttr(thread, b, name, bytesMethods)
+	if err != nil {
 		return nil, err
 	}
 	if thread != nil {
@@ -1990,7 +1996,7 @@ func (b Bytes) SafeAttr(thread *Thread, name string) (Value, error) {
 			return nil, err
 		}
 	}
-	return safeBuiltinAttr(thread, b, name, bytesMethods)
+	return attr, nil
 }
 
 func (b Bytes) Slice(start, end, step int) Value {
