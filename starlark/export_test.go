@@ -55,15 +55,16 @@ func (thread *Thread) FrameAt(depth int) StackFrameCapture {
 	}
 }
 
-func StringElems(s String, ord bool) Value {
-	return stringElems{s, ord}
+func StringElems(s String, ords bool) Value {
+	return stringElems{s, ords}
 }
 
-func Range(len int) Value {
+func Range(start, stop, step int) Value {
+
 	return rangeValue{
-		start: 0,
-		stop:  len,
-		step:  1,
-		len:   len,
+		start: start,
+		stop:  stop,
+		step:  step,
+		len:   rangeLen(start, stop, step),
 	}
 }

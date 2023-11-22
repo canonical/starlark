@@ -708,9 +708,15 @@ func (si stringElems) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable:
 func (si stringElems) Iterate() Iterator     { return &stringElemsIterator{si, 0} }
 func (si stringElems) Len() int              { return len(si.s) }
 func (si stringElems) Index(i int) Value {
-	v, _ := si.SafeIndex(nil, i)
-	return v
+	if si.ords {
+		return MakeInt(int(si.s[i]))
+	} else {
+		// TODO(adonovan): opt: preallocate canonical 1-byte strings
+		// to avoid interface allocation.
+		return si.s[i : i+1]
+	}
 }
+
 func (si stringElems) SafeIndex(thread *Thread, i int) (Value, error) {
 	if err := CheckSafety(thread, MemSafe); err != nil {
 		return nil, err
@@ -724,8 +730,6 @@ func (si stringElems) SafeIndex(thread *Thread, i int) (Value, error) {
 		}
 		return result, nil
 	} else {
-		// TODO(adonovan): opt: preallocate canonical 1-byte strings
-		// to avoid interface allocation.
 		if thread != nil {
 			if err := thread.AddAllocs(StringTypeOverhead); err != nil {
 				return nil, err

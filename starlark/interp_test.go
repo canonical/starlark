@@ -267,6 +267,9 @@ func TestIndexingAllocs(t *testing.T) {
 		}, {
 			name:  "tuple",
 			input: starlark.Tuple{starlark.None},
+		}, {
+			name:  "range",
+			input: starlark.Range(0, 10, 1),
 		}}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
@@ -320,7 +323,7 @@ func (utm *unsafeTestMapping) Hash() (uint32, error) {
 	return 0, fmt.Errorf("unhashable type: %s", utm.Type())
 }
 func (utm *unsafeTestMapping) Get(starlark.Value) (v starlark.Value, found bool, err error) {
-	return nil, false, fmt.Errorf("Get called")
+	return nil, false, fmt.Errorf("unsafeTestMapping.Get called")
 }
 func TestFunctionCall(t *testing.T) {
 	t.Run("vm-stack", func(t *testing.T) {
