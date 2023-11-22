@@ -1015,11 +1015,25 @@ func (d *Dict) SafeSetKey(thread *Thread, k, v Value) error {
 }
 
 func (x *Dict) Union(y *Dict) *Dict {
-	z := new(Dict)
-	z.ht.init(nil, x.Len()) // a lower bound
-	z.ht.addAll(nil, &x.ht) // can't fail
-	z.ht.addAll(nil, &y.ht) // can't fail
+	z, err := x.safeUnion(nil, y)
+	if err != nil {
+		panic(fmt.Sprintf("internal error: %v", err))
+	}
 	return z
+}
+
+func (x *Dict) safeUnion(thread *Thread, y *Dict) (*Dict, error) {
+	z, err := SafeNewDict(thread, x.Len())
+	if err != nil {
+		return nil, err
+	}
+	if err := z.ht.addAll(thread, &x.ht); err != nil {
+		return nil, err
+	}
+	if err := z.ht.addAll(thread, &y.ht); err != nil {
+		return nil, err
+	}
+	return z, nil
 }
 
 func (d *Dict) Attr(name string) (Value, error) { return builtinAttr(d, name, dictMethods) }
@@ -1417,10 +1431,17 @@ func (s *Set) clone(thread *Thread) (*Set, error) {
 }
 
 func (s *Set) Union(iter Iterator) (Value, error) {
-	set, _ := s.clone(nil) // can't fail
+	return s.safeUnion(nil, iter)
+}
+
+func (s *Set) safeUnion(thread *Thread, iter Iterator) (Value, error) {
+	set, err := s.clone(thread)
+	if err != nil {
+		return nil, err
+	}
 	var x Value
 	for iter.Next(&x) {
-		if err := set.Insert(x); err != nil {
+		if err := set.ht.insert(thread, x, None); err != nil {
 			return nil, err
 		}
 	}

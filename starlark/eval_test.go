@@ -1783,7 +1783,41 @@ func TestSafeBinaryAllocs(t *testing.T) {
 
 	t.Run("not in", func(t *testing.T) {})
 
-	t.Run("|", func(t *testing.T) {})
+	t.Run("|", func(t *testing.T) {
+		tests := []safeBinaryAllocTest{{
+			name: "int | int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(n / 2)
+				r := starlark.MakeInt(n / 2)
+				return l, syntax.PIPE, r
+			},
+		}, {
+			name: "dict | dict",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.NewDict(n)
+				r := starlark.NewDict(n)
+				for i := 0; i < 3*n/4; i++ {
+					l.SetKey(starlark.MakeInt(i-n/4), starlark.MakeInt(i))
+					r.SetKey(starlark.MakeInt(-(i - n/4)), starlark.MakeInt(i))
+				}
+				return l, syntax.PIPE, r
+			},
+		}, {
+			name: "set | set",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.NewSet(n)
+				r := starlark.NewSet(n)
+				for i := 0; i < 3*n/4; i++ {
+					l.Insert(starlark.MakeInt(i - n/4))
+					r.Insert(starlark.MakeInt(-(i - n/4)))
+				}
+				return l, syntax.PIPE, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
 
 	t.Run("&", func(t *testing.T) {})
 
