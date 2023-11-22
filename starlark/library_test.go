@@ -3335,7 +3335,6 @@ func TestStringElemsAllocs(t *testing.T) {
 func testStringFixSteps(t *testing.T) {
 }
 
-// testStringFixAllocs tests string.startswith and string.endswith MemSafety
 func testStringFixAllocs(t *testing.T, method_name string) {
 	method, _ := starlark.String("foo-bar-foo").Attr(method_name)
 	if method == nil {
