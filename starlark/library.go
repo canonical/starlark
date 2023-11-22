@@ -1653,6 +1653,8 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	var result []Value
 	if rows >= 0 {
 		// length known
+
+		// Equalise step cost for fast and slow path.
 		if err := thread.AddExecutionSteps(int64(rows)); err != nil {
 			return nil, err
 		}
