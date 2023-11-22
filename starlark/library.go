@@ -99,8 +99,8 @@ func init() {
 		"print":     MemSafe,
 		"range":     MemSafe | IOSafe | CPUSafe,
 		"repr":      MemSafe | IOSafe,
-		"reversed":  MemSafe | IOSafe,
-		"set":       MemSafe | IOSafe,
+		"reversed":  MemSafe | IOSafe | CPUSafe,
+		"set":       MemSafe | IOSafe | CPUSafe,
 		"sorted":    MemSafe | IOSafe,
 		"str":       MemSafe | IOSafe,
 		"tuple":     MemSafe | IOSafe,
@@ -162,7 +162,7 @@ var (
 		"clear":  MemSafe | IOSafe | CPUSafe,
 		"extend": MemSafe | IOSafe,
 		"index":  MemSafe | IOSafe | CPUSafe,
-		"insert": MemSafe | IOSafe,
+		"insert": MemSafe | IOSafe | CPUSafe,
 		"pop":    MemSafe | IOSafe | CPUSafe,
 		"remove": MemSafe | IOSafe | CPUSafe,
 	}
@@ -259,7 +259,7 @@ var (
 		"add":                  MemSafe | IOSafe | CPUSafe,
 		"clear":                MemSafe | IOSafe | CPUSafe,
 		"difference":           MemSafe | IOSafe,
-		"discard":              MemSafe | IOSafe,
+		"discard":              MemSafe | IOSafe | CPUSafe,
 		"intersection":         MemSafe | IOSafe,
 		"issubset":             MemSafe | IOSafe,
 		"issuperset":           MemSafe | IOSafe,
@@ -2023,6 +2023,11 @@ func list_insert(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		if index < 0 {
 			index = 0 // start
 		}
+		// Assuming that steps were counted in the construction of `recv`, each step
+		// here also accounts for the cost of reallocation.
+		if err := thread.AddExecutionSteps(int64(len(recv.elems) - index)); err != nil {
+			return nil, err
+		}
 		if err := appender.Append(nil); err != nil {
 			return nil, err
 		}
@@ -3169,18 +3174,13 @@ func set_issuperset(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·discard.
-func set_discard(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_discard(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var k Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &k); err != nil {
 		return nil, err
 	}
-	if found, err := b.Receiver().(*Set).Has(k); err != nil {
+	if _, _, err := b.Receiver().(*Set).ht.delete(thread, k); err != nil {
 		return nil, nameErr(b, err)
-	} else if !found {
-		return None, nil
-	}
-	if _, err := b.Receiver().(*Set).Delete(k); err != nil {
-		return nil, nameErr(b, err) // set is frozen
 	}
 	return None, nil
 }
