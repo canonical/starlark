@@ -4561,13 +4561,13 @@ func TestListExtendSteps(t *testing.T) {
 			if list_extend == nil {
 				t.Fatal("no such method: list.extend")
 			}
+
 			iter := &testIterable{
 				nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
 					return starlark.None, nil
 				},
 				maxN: st.N,
 			}
-
 			_, err := starlark.Call(thread, list_extend, starlark.Tuple{iter}, nil)
 			if err != nil {
 				st.Error(err)
