@@ -5113,6 +5113,23 @@ func TestStringCodepointsAllocs(t *testing.T) {
 }
 
 func TestStringCountSteps(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.SetMinExecutionSteps(1)
+	st.SetMaxExecutionSteps(1)
+	st.RunThread(func(thread *starlark.Thread) {
+		input := starlark.String(strings.Repeat("a", st.N))
+		arg := starlark.String("a")
+		string_count, _ := input.Attr("count")
+		if string_count == nil {
+			st.Fatal("no such method: string.count")
+		}
+
+		_, err := starlark.Call(thread, string_count, starlark.Tuple{arg}, nil)
+		if err != nil {
+			st.Error(err)
+		}
+	})
 }
 
 func TestStringCountAllocs(t *testing.T) {
