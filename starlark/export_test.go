@@ -60,7 +60,6 @@ func StringElems(s String, ords bool) Value {
 }
 
 func Range(start, stop, step int) Value {
-
 	return rangeValue{
 		start: start,
 		stop:  stop,

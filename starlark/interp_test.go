@@ -228,7 +228,6 @@ func TestIndexingAllocs(t *testing.T) {
 			name:  "mapping",
 			input: &unsafeTestMapping{},
 		}}
-
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
 				dummy := &testing.T{}
@@ -287,6 +286,7 @@ func TestIndexingAllocs(t *testing.T) {
 	t.Run("builtin-mapping", func(t *testing.T) {
 		input := starlark.NewDict(1)
 		input.SetKey(starlark.String("key"), starlark.String("value"))
+
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.AddValue("input", input)
@@ -325,6 +325,7 @@ func (utm *unsafeTestMapping) Hash() (uint32, error) {
 func (utm *unsafeTestMapping) Get(starlark.Value) (v starlark.Value, found bool, err error) {
 	return nil, false, fmt.Errorf("unsafeTestMapping.Get called")
 }
+
 func TestFunctionCall(t *testing.T) {
 	t.Run("vm-stack", func(t *testing.T) {
 		stack_frame := starlark.NewBuiltinWithSafety(
