@@ -7064,18 +7064,70 @@ func TestSetDiscardAllocs(t *testing.T) {
 }
 
 func TestSetIntersectionSteps(t *testing.T) {
-}
-
-func TestSetIntersectionAllocs(t *testing.T) {
 	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.CPUSafe)
+
 		set := starlark.NewSet(0)
 		set_intersection, _ := set.Attr("intersection")
 		if set_intersection == nil {
 			t.Fatal("no such method: set.intersection")
 		}
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, set_intersection, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
 
+	t.Run("execution", func(t *testing.T) {
+		const elems = 100
+
+		set := starlark.NewSet(elems)
+		list := starlark.NewList(make([]starlark.Value, 0, elems))
+		for i := 0; i < elems; i++ {
+			set.Insert(starlark.MakeInt(i))
+			if i%2 == 0 {
+				list.Append(starlark.MakeInt(i))
+			} else {
+				list.Append(starlark.MakeInt(-i))
+			}
+		}
+		set_intersection, _ := set.Attr("intersection")
+		if set_intersection == nil {
+			t.Fatal("no such method: set.intersection")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		// Iteration over items of a dict is 1 per element.
+		// Lookup averages to 1 step per element.
+		// Insertion averages to ~2.5 step per element, but on half of them.
+		st.SetMinExecutionSteps((1 + 1 + 1) * elems)
+		st.SetMaxExecutionSteps((1 + 1 + 2) * elems)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, set_intersection, starlark.Tuple{list}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+}
+
+func TestSetIntersectionAllocs(t *testing.T) {
+	t.Run("safety-respected", func(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.MemSafe)
+
+		set := starlark.NewSet(0)
+		set_intersection, _ := set.Attr("intersection")
+		if set_intersection == nil {
+			t.Fatal("no such method: set.intersection")
+		}
 		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, set_intersection, starlark.Tuple{iter}, nil)
 		if err == nil {

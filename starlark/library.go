@@ -260,7 +260,7 @@ var (
 		"clear":                MemSafe | IOSafe | CPUSafe,
 		"difference":           MemSafe | IOSafe,
 		"discard":              MemSafe | IOSafe | CPUSafe,
-		"intersection":         MemSafe | IOSafe,
+		"intersection":         MemSafe | IOSafe | CPUSafe,
 		"issubset":             MemSafe | IOSafe,
 		"issuperset":           MemSafe | IOSafe,
 		"pop":                  MemSafe | IOSafe | CPUSafe,
