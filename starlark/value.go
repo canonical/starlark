@@ -716,7 +716,6 @@ func (si stringElems) Index(i int) Value {
 		return si.s[i : i+1]
 	}
 }
-
 func (si stringElems) SafeIndex(thread *Thread, i int) (Value, error) {
 	if err := CheckSafety(thread, MemSafe); err != nil {
 		return nil, err
