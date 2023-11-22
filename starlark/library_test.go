@@ -4509,15 +4509,15 @@ func TestListExtendSteps(t *testing.T) {
 	const numTestElems = 10
 
 	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.CPUSafe)
+
 		list := starlark.NewList([]starlark.Value{})
 		list_extend, _ := list.Attr("extend")
 		if list_extend == nil {
 			t.Fatal("no such method: list.extend")
 		}
-
 		iter := &unsafeTestIterable{t}
-		thread := &starlark.Thread{}
-		thread.RequireSafety(starlark.CPUSafe)
 		_, err := starlark.Call(thread, list_extend, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
@@ -4580,15 +4580,15 @@ func TestListExtendAllocs(t *testing.T) {
 	const numTestElems = 10
 
 	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+
 		list := starlark.NewList([]starlark.Value{})
 		list_extend, _ := list.Attr("extend")
 		if list_extend == nil {
 			t.Fatal("no such method: list.extend")
 		}
-
 		iter := &unsafeTestIterable{t}
-		thread := &starlark.Thread{}
-		thread.RequireSafety(starlark.MemSafe)
 		_, err := starlark.Call(thread, list_extend, starlark.Tuple{iter}, nil)
 		if err == nil {
 			t.Error("expected error")
