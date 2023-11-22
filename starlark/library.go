@@ -100,7 +100,7 @@ func init() {
 		"range":     MemSafe | IOSafe | CPUSafe,
 		"repr":      MemSafe | IOSafe,
 		"reversed":  MemSafe | IOSafe | CPUSafe,
-		"set":       MemSafe | IOSafe,
+		"set":       MemSafe | IOSafe | CPUSafe,
 		"sorted":    MemSafe | IOSafe,
 		"str":       MemSafe | IOSafe,
 		"tuple":     MemSafe | IOSafe,
