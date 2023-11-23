@@ -868,6 +868,11 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 	elemsAppender := NewSafeAppender(thread, &x.elems)
 	if ylist, ok := y.(*List); ok {
 		// fast path: list += list
+
+		// Equalise step cost for fast and slow path.
+		if err := thread.AddExecutionSteps(int64(len(ylist.elems))); err != nil {
+			return err
+		}
 		if err := elemsAppender.AppendSlice(ylist.elems); err != nil {
 			return err
 		}
