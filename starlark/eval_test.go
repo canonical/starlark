@@ -978,8 +978,9 @@ func TestExecutionSteps(t *testing.T) {
 	// Exceeding the step limit causes cancellation.
 	thread.SetMaxExecutionSteps(1000)
 	_, err = countSteps(1000)
-	if fmt.Sprint(err) != "Starlark computation cancelled: too many steps" {
-		t.Errorf("execution returned error %q, want cancellation", err)
+	expected := &starlark.ExecutionStepsSafetyError{}
+	if !errors.As(err, &expected) {
+		t.Errorf("execution returned error %q, want too many steps", err)
 	}
 
 	thread.SetMaxExecutionSteps(thread.ExecutionSteps() + 100)
@@ -1146,17 +1147,16 @@ func TestAddExecutionStepsFail(t *testing.T) {
 
 	if _, err := starlark.ExecFile(thread, "add_execution_steps", "", nil); err == nil {
 		t.Errorf("expected cancellation")
-	} else if err.Error() != "Starlark computation cancelled: too many steps" {
+	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	const expectedStepsAfterExec = stepsToAdd + 1
 	if err := thread.AddExecutionSteps(maxSteps / 2); err == nil {
 		t.Errorf("expected error")
-	} else if err.Error() != "too many steps" {
+	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
-	} else if steps := thread.ExecutionSteps(); steps != expectedStepsAfterExec {
-		t.Errorf("incorrect number of steps recorded: expected %v but got %v", expectedStepsAfterExec, steps)
+	} else if steps := thread.ExecutionSteps(); steps != stepsToAdd {
+		t.Errorf("incorrect number of steps recorded: expected %v but got %v", stepsToAdd, steps)
 	}
 }
 
@@ -1213,14 +1213,14 @@ func TestThreadPermits(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(threadSafety)
 
-		if thread.Permits(starlark.Safety(0xbad1091c) | threadSafety) {
+		if thread.Permits(starlark.SafetyFlags(0xbad1091c) | threadSafety) {
 			t.Errorf("invalid safety permitted")
 		}
 	})
 
 	t.Run("ThreadSafety=Invalid", func(t *testing.T) {
 		thread := &starlark.Thread{}
-		const invalidSafety = starlark.Safety(0xa19ae)
+		const invalidSafety = starlark.SafetyFlags(0xa19ae)
 		thread.RequireSafety(invalidSafety)
 
 		if thread.Permits(starlark.Safe) {
@@ -1252,9 +1252,7 @@ func TestThreadCheckPermits(t *testing.T) {
 
 		if err := thread.CheckPermits(forbiddenSafety); err == nil {
 			t.Errorf("thread failed to report that insufficient safety is unsafe")
-		} else if err.Error() != "feature unavailable to the sandbox" {
-			t.Errorf("unexpected error: %v", err)
-		} else if safetyErr, ok := err.(*starlark.SafetyError); !ok {
+		} else if safetyErr, ok := err.(*starlark.SafetyFlagsError); !ok {
 			t.Errorf("expected starlark.SafetyError, got a %T: %v", err, err)
 		} else if expectedMissing := threadSafety &^ forbiddenSafety; safetyErr.Missing != expectedMissing {
 			t.Errorf("incorrect reported missing flags: expected %v but got %v", expectedMissing, safetyErr.Missing)
@@ -1264,7 +1262,7 @@ func TestThreadCheckPermits(t *testing.T) {
 	t.Run("Safety=Invalid", func(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(threadSafety)
-		const invalidSafety = starlark.Safety(0xbad1091c)
+		const invalidSafety = starlark.SafetyFlags(0xbad1091c)
 
 		if err := thread.CheckPermits(invalidSafety | threadSafety); err == nil {
 			t.Errorf("expected error checking invalid flags")
@@ -1275,7 +1273,7 @@ func TestThreadCheckPermits(t *testing.T) {
 
 	t.Run("ThreadSafety=Invalid", func(t *testing.T) {
 		thread := &starlark.Thread{}
-		const invalidSafety = starlark.Safety(0xa19ae)
+		const invalidSafety = starlark.SafetyFlags(0xa19ae)
 		thread.RequireSafety(invalidSafety)
 
 		if err := thread.CheckPermits(starlark.Safe); err == nil {
@@ -1319,27 +1317,23 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 
 		t.Run("safety-respected", func(t *testing.T) {
 			t.Run("unsafe-left", func(t *testing.T) {
-				const expected = "feature unavailable to the sandbox"
-
 				thread := &starlark.Thread{}
 				thread.RequireSafety(starlark.MemSafe)
 				_, err := starlark.SafeBinary(thread, syntax.PLUS, unsafeTestValue{}, starlark.True)
 				if err == nil {
 					t.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					t.Errorf("unexpected error: %v", err)
 				}
 			})
 
 			t.Run("unsafe-right", func(t *testing.T) {
-				const expected = "feature unavailable to the sandbox"
-
 				thread := &starlark.Thread{}
 				thread.RequireSafety(starlark.MemSafe)
 				_, err := starlark.SafeBinary(thread, syntax.PLUS, starlark.True, unsafeTestValue{})
 				if err == nil {
 					t.Error("expected error")
-				} else if err.Error() != expected {
+				} else if !errors.Is(err, starlark.ErrSafety) {
 					t.Errorf("unexpected error: %v", err)
 				}
 			})

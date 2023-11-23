@@ -62,7 +62,7 @@ type ST struct {
 	minExecutionSteps uint64
 	alive             []interface{}
 	N                 int
-	requiredSafety    starlark.Safety
+	requiredSafety    starlark.SafetyFlags
 	safetyGiven       bool
 	predecls          starlark.StringDict
 	locals            map[string]interface{}
@@ -105,7 +105,7 @@ func (st *ST) SetMinExecutionSteps(minExecutionSteps uint64) {
 }
 
 // RequireSafety optionally sets the required safety of tested code.
-func (st *ST) RequireSafety(safety starlark.Safety) {
+func (st *ST) RequireSafety(safety starlark.SafetyFlags) {
 	st.requiredSafety |= safety
 	st.safetyGiven = true
 }
@@ -302,7 +302,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 				n = timeLimitN
 			}
 		}
-		if n == 0 {
+		if n <= 0 {
 			n = 1
 		}
 
@@ -459,11 +459,18 @@ func errReprs(args []starlark.Value) []interface{} {
 
 // st_keep_alive prevents the memory of the passed Starlark objects being
 // freed. This forces the current test to measure these objects' memory.
-func st_keep_alive(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func st_keep_alive(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(kwargs) > 0 {
 		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
 	}
 
+	// keep_alive does not capture the backing array for args. Hence
+	// the allocation is removed aligning declared allocations with
+	// user expectations.
+	argsSize := starlark.EstimateMakeSize(starlark.Tuple{}, cap(args))
+	if err := thread.AddAllocs(-argsSize); err != nil {
+		return nil, err
+	}
 	recv := b.Receiver().(*ST)
 	for _, arg := range args {
 		recv.KeepAlive(arg)
@@ -507,7 +514,7 @@ type ntimes_iterator struct {
 
 var _ starlark.SafeIterator = &ntimes_iterator{}
 
-func (it *ntimes_iterator) Safety() starlark.Safety            { return stSafe }
+func (it *ntimes_iterator) Safety() starlark.SafetyFlags       { return stSafe }
 func (it *ntimes_iterator) BindThread(thread *starlark.Thread) {}
 func (it *ntimes_iterator) Done()                              {}
 func (it *ntimes_iterator) Err() error                         { return nil }

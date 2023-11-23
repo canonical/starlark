@@ -1,6 +1,10 @@
 package starlark
 
-func ThreadSafety(thread *Thread) Safety {
+import (
+	"fmt"
+)
+
+func ThreadSafety(thread *Thread) SafetyFlags {
 	return thread.requiredSafety
 }
 
@@ -24,3 +28,42 @@ var StringMethodSafeties = stringMethodSafeties
 
 var SetMethods = setMethods
 var SetMethodSafeties = setMethodSafeties
+
+type StackFrameCapture struct {
+	locals []Value
+	frame  *frame
+}
+
+var _ Value = StackFrameCapture{}
+
+func (sfc StackFrameCapture) Freeze()        {}
+func (sfc StackFrameCapture) String() string { return "StackFrameCapture" }
+func (sfc StackFrameCapture) Type() string   { return "StackFrameCapture" }
+func (sfc StackFrameCapture) Truth() Bool    { return False }
+
+func (sfc StackFrameCapture) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable: StackFrameCapture")
+}
+
+// FrameAt returns a value which represents the memory in use
+// by the stack frame at the given depth.
+func (thread *Thread) FrameAt(depth int) StackFrameCapture {
+	frame := thread.frameAt(depth)
+	return StackFrameCapture{
+		locals: frame.locals,
+		frame:  frame,
+	}
+}
+
+func StringElems(s String, ords bool) Value {
+	return stringElems{s, ords}
+}
+
+func Range(start, stop, step int) Value {
+	return rangeValue{
+		start: start,
+		stop:  stop,
+		step:  step,
+		len:   rangeLen(start, stop, step),
+	}
+}

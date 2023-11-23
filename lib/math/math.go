@@ -106,7 +106,7 @@ var Module = &starlarkstruct.Module{
 		"pi": starlark.Float(math.Pi),
 	},
 }
-var safeties = map[string]starlark.Safety{
+var safeties = map[string]starlark.SafetyFlags{
 	"ceil":      starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"copysign":  starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"fabs":      starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,

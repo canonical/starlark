@@ -60,7 +60,7 @@ type Thread struct {
 	stepsLock       sync.Mutex
 
 	// OnMaxSteps is called when the thread reaches the limit set by SetMaxExecutionSteps.
-	// The default behavior is to call thread.Cancel("too many steps").
+	// The default behavior is to cancel the thread.
 	OnMaxSteps func(thread *Thread)
 
 	// allocs counts the abstract memory units claimed by this resource pool
@@ -68,7 +68,7 @@ type Thread struct {
 	allocsLock        sync.Mutex
 
 	// cancelReason records the reason from the first call to Cancel.
-	cancelReason *string
+	cancelReason *error
 
 	// locals holds arbitrary "thread-local" Go values belonging to the client.
 	// They are accessible to the client but not to any Starlark program.
@@ -79,7 +79,7 @@ type Thread struct {
 
 	// requiredSafety holds the set of safety conditions which must be
 	// satisfied by any builtin which is called when running this thread.
-	requiredSafety Safety
+	requiredSafety SafetyFlags
 }
 
 // ExecutionSteps returns the current value of Steps.
@@ -94,7 +94,7 @@ func (thread *Thread) ExecutionSteps() uint64 {
 // computation steps that may be executed by this thread. If the
 // thread's step counter exceeds this limit, the interpreter calls
 // the optional OnMaxSteps function or the default behavior
-// of calling thread.Cancel("too many steps").
+// of cancelling the thread.
 func (thread *Thread) SetMaxExecutionSteps(max uint64) {
 	thread.maxSteps = max
 }
@@ -125,7 +125,11 @@ func (thread *Thread) AddExecutionSteps(delta int64) error {
 	nextSteps, err := thread.simulateExecutionSteps(delta)
 	thread.steps = nextSteps
 	if err != nil {
-		thread.Cancel(err.Error())
+		if thread.OnMaxSteps != nil {
+			thread.OnMaxSteps(thread)
+		} else {
+			thread.cancel(err)
+		}
 	}
 
 	return err
@@ -136,7 +140,7 @@ func (thread *Thread) AddExecutionSteps(delta int64) error {
 // recorded.
 func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
-		return thread.steps, errors.New(*(*string)(cancelReason))
+		return thread.steps, fmt.Errorf("Starlark computation cancelled: %w", *(*error)(cancelReason))
 	}
 
 	var nextExecutionSteps uint64
@@ -158,7 +162,7 @@ func (thread *Thread) simulateExecutionSteps(delta int64) (uint64, error) {
 	}
 
 	if thread.maxSteps != 0 && nextExecutionSteps > thread.maxSteps {
-		return nextExecutionSteps, &MaxExecutionStepsError{
+		return nextExecutionSteps, &ExecutionStepsSafetyError{
 			Current: thread.steps,
 			Max:     thread.maxSteps,
 		}
@@ -181,7 +185,7 @@ func (thread *Thread) SetMaxAllocs(max uint64) {
 
 // RequireSafety makes the thread only accept functions that declare at least
 // the provided safety.
-func (thread *Thread) RequireSafety(safety Safety) {
+func (thread *Thread) RequireSafety(safety SafetyFlags) {
 	thread.requiredSafety |= safety
 }
 
@@ -196,7 +200,7 @@ func (thread *Thread) Permits(value SafetyAware) bool {
 // the provided safety-aware value.
 func (thread *Thread) CheckPermits(value SafetyAware) error {
 	if err := thread.requiredSafety.CheckValid(); err != nil {
-		return fmt.Errorf("thread safety: %v", err)
+		return fmt.Errorf("thread safety: %w", err)
 	}
 	safety := value.Safety()
 	if err := safety.CheckValid(); err != nil {
@@ -222,9 +226,19 @@ func (thread *Thread) Uncancel() {
 //
 // Unlike most methods of Thread, it is safe to call Cancel from any
 // goroutine, even if the thread is actively executing.
-func (thread *Thread) Cancel(reason string) {
-	// Atomically set cancelReason, preserving earlier reason if any.
-	atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason)), nil, unsafe.Pointer(&reason))
+func (thread *Thread) Cancel(reason string, args ...interface{}) {
+	var err error
+	if len(args) == 0 {
+		err = errors.New(reason)
+	} else {
+		err = fmt.Errorf(reason, args...)
+	}
+	thread.cancel(err)
+}
+
+// cancel atomically sets cancelReason, preserving earlier reason if any.
+func (thread *Thread) cancel(err error) {
+	atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason)), nil, unsafe.Pointer(&err))
 }
 
 // SetLocal sets the thread-local value associated with the specified key.
@@ -293,7 +307,7 @@ type StringBuilder interface {
 }
 
 // SafeStringBuilder is a StringBuilder which is bound to a thread
-// and which abides by sandboxing limits. Errors prevent subsequent
+// and which abides by safety limits. Errors prevent subsequent
 // operations.
 type SafeStringBuilder struct {
 	builder strings.Builder
@@ -305,7 +319,7 @@ type SafeStringBuilder struct {
 var _ StringBuilder = &SafeStringBuilder{}
 
 // NewSafeStringBuilder returns a StringBuilder which abides by
-// the sandbox limits of this thread.
+// the safety limits of this thread.
 func NewSafeStringBuilder(thread *Thread) *SafeStringBuilder {
 	return &SafeStringBuilder{thread: thread}
 }
@@ -939,10 +953,19 @@ func setField(x Value, name string, y Value) error {
 }
 
 // getIndex implements x[y].
-func getIndex(x, y Value) (Value, error) {
+func getIndex(thread *Thread, x, y Value) (Value, error) {
 	switch x := x.(type) {
 	case Mapping: // dict
-		z, found, err := x.Get(y)
+		var z Value
+		var found bool
+		var err error
+		if x2, ok := x.(SafeMapping); ok {
+			z, found, err = x2.SafeGet(thread, y)
+		} else if err := CheckSafety(thread, NotSafe); err != nil {
+			return nil, err
+		} else {
+			z, found, err = x.Get(y)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -963,6 +986,12 @@ func getIndex(x, y Value) (Value, error) {
 		}
 		if i < 0 || i >= n {
 			return nil, outOfRange(origI, n, x)
+		}
+		if x, ok := x.(SafeIndexable); ok {
+			return x.SafeIndex(thread, i)
+		}
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return nil, err
 		}
 		return x.Index(i), nil
 	}
@@ -1780,9 +1809,9 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 			return nil, err
 		}
 		if b, ok := c.(*Builtin); ok {
-			return nil, fmt.Errorf("cannot call builtin '%s': %v", b.Name(), err)
+			return nil, fmt.Errorf("cannot call builtin '%s': %w", b.Name(), err)
 		}
-		return nil, fmt.Errorf("cannot call value of type '%s': %v", c.Type(), err)
+		return nil, fmt.Errorf("cannot call value of type '%s': %w", c.Type(), err)
 	}
 
 	// Allocate and push a new frame.
@@ -1793,6 +1822,9 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		fr = thread.stack[n : n+1][0]
 	}
 	if fr == nil {
+		if err := thread.AddAllocs(EstimateSize(&frame{})); err != nil {
+			return nil, err
+		}
 		fr = new(frame)
 	}
 
@@ -1801,7 +1833,13 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		thread.maxSteps-- // (MaxUint64)
 	}
 
-	thread.stack = append(thread.stack, fr) // push
+	stackAppender := NewSafeAppender(thread, &thread.stack)
+	if err := stackAppender.Append(fr); err != nil { // push
+		return nil, err
+	}
+	// Remove extra steps counted from stackAppender as the
+	// call site is expected to count 1.
+	thread.AddExecutionSteps(-int64(stackAppender.Steps()))
 
 	fr.callable = c
 
@@ -2220,20 +2258,28 @@ func interpolate(format string, x Value) (Value, error) {
 	return String(buf.String()), nil
 }
 
-type MaxAllocsError struct {
+type AllocsSafetyError struct {
 	Current, Max uint64
 }
 
-func (e *MaxAllocsError) Error() string {
+func (e *AllocsSafetyError) Error() string {
 	return "exceeded memory allocation limits"
 }
 
-type MaxExecutionStepsError struct {
+func (e *AllocsSafetyError) Is(err error) bool {
+	return err == ErrSafety
+}
+
+type ExecutionStepsSafetyError struct {
 	Current, Max uint64
 }
 
-func (e *MaxExecutionStepsError) Error() string {
+func (e *ExecutionStepsSafetyError) Error() string {
 	return "too many steps"
+}
+
+func (e *ExecutionStepsSafetyError) Is(err error) bool {
+	return err == ErrSafety
 }
 
 // CheckAllocs returns an error if a change in allocations associated with this
@@ -2262,7 +2308,7 @@ func (thread *Thread) AddAllocs(delta int64) error {
 	next, err := thread.simulateAllocs(delta)
 	thread.allocs = next
 	if err != nil {
-		thread.Cancel(err.Error())
+		thread.cancel(err)
 	}
 
 	return err
@@ -2273,7 +2319,7 @@ func (thread *Thread) AddAllocs(delta int64) error {
 // change is recorded.
 func (thread *Thread) simulateAllocs(delta int64) (uint64, error) {
 	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
-		return thread.allocs, errors.New(*(*string)(cancelReason))
+		return thread.allocs, fmt.Errorf("Starlark computation cancelled: %w", *(*error)(cancelReason))
 	}
 
 	var nextAllocs uint64
@@ -2300,7 +2346,7 @@ func (thread *Thread) simulateAllocs(delta int64) (uint64, error) {
 	}
 
 	if thread.maxAllocs != 0 && nextAllocs > thread.maxAllocs {
-		return nextAllocs, &MaxAllocsError{
+		return nextAllocs, &AllocsSafetyError{
 			Current: thread.allocs,
 			Max:     thread.maxAllocs,
 		}

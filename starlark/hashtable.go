@@ -81,6 +81,9 @@ func (ht *hashtable) freeze() {
 }
 
 func (ht *hashtable) insert(thread *Thread, k, v Value) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
 	if err := ht.checkMutable("insert into"); err != nil {
 		return err
 	}
@@ -200,6 +203,9 @@ func (ht *hashtable) grow(thread *Thread) error {
 }
 
 func (ht *hashtable) lookup(thread *Thread, k Value) (v Value, found bool, err error) {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return nil, false, err
+	}
 	h, err := k.Hash()
 	if err != nil {
 		return nil, false, err // unhashable
@@ -321,6 +327,9 @@ func (ht *hashtable) values() []Value {
 }
 
 func (ht *hashtable) delete(thread *Thread, k Value) (v Value, found bool, err error) {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return nil, false, err
+	}
 	if err := ht.checkMutable("delete from"); err != nil {
 		return nil, false, err
 	}
@@ -382,7 +391,10 @@ func (ht *hashtable) checkMutable(verb string) error {
 	return nil
 }
 
-func (ht *hashtable) clear() error {
+func (ht *hashtable) clear(thread *Thread) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
 	if err := ht.checkMutable("clear"); err != nil {
 		return err
 	}
@@ -390,6 +402,11 @@ func (ht *hashtable) clear() error {
 		return nil
 	}
 	if ht.table != nil {
+		if thread != nil {
+			if err := thread.AddExecutionSteps(int64(len(ht.table))); err != nil {
+				return err
+			}
+		}
 		for i := range ht.table {
 			ht.table[i] = bucket{}
 		}
@@ -467,7 +484,7 @@ func (it *keyIterator) Done() {
 }
 
 func (ki *keyIterator) Err() error                { return nil }
-func (ki *keyIterator) Safety() Safety            { return MemSafe }
+func (ki *keyIterator) Safety() SafetyFlags       { return MemSafe | CPUSafe }
 func (ki *keyIterator) BindThread(thread *Thread) { ki.thread = thread }
 
 // TODO(adonovan): use go1.19's maphash.String.
