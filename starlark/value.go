@@ -978,6 +978,11 @@ func NewDict(size int) *Dict {
 }
 
 func SafeNewDict(thread *Thread, size int) (*Dict, error) {
+	if thread != nil {
+		if err := thread.AddAllocs(EstimateSize(&Dict{})); err != nil {
+			return nil, err
+		}
+	}
 	dict := new(Dict)
 	if err := dict.ht.init(thread, size); err != nil {
 		return nil, err

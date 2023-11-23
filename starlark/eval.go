@@ -1649,12 +1649,6 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 
 		case *Dict: // union
 			if y, ok := y.(*Dict); ok {
-				if thread != nil {
-					var v Value
-					if err := thread.AddAllocs(EstimateSize(&v)); err != nil {
-						return nil, err
-					}
-				}
 				return x.safeUnion(thread, y)
 			}
 
