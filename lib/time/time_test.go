@@ -176,7 +176,7 @@ func TestTimeNowSteps(t *testing.T) {
 	st.RequireSafety(starlark.CPUSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
-			result, err := starlark.Call(thread, now, nil, nil)
+			_, err := starlark.Call(thread, now, nil, nil)
 			if err != nil {
 				st.Error(err)
 			}
