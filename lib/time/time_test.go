@@ -167,6 +167,21 @@ func TestTimeIsValidTimezoneAllocs(t *testing.T) {
 }
 
 func TestTimeNowSteps(t *testing.T) {
+	now, ok := time.Module.Members["now"]
+	if !ok {
+		t.Fatal("no such builtin: now")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			result, err := starlark.Call(thread, now, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		}
+	})
 }
 
 func TestTimeNowAllocs(t *testing.T) {
