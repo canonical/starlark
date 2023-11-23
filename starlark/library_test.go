@@ -4921,17 +4921,17 @@ func TestStringRemovesuffixAllocs(t *testing.T) {
 func TestStringReplaceSteps(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(8)
-	st.SetMaxExecutionSteps(8)
+	st.SetMinExecutionSteps(uint64(len("dead🍖🍖")))
+	st.SetMaxExecutionSteps(uint64(len("dead🍖🍖")))
 	st.RunThread(func(thread *starlark.Thread) {
 		str := starlark.String(strings.Repeat("deadbeef", st.N))
-		toReplace := starlark.String("beef")
-		replacement := starlark.String("🍖")
 		string_replace, _ := str.Attr("replace")
 		if string_replace == nil {
 			st.Fatal("no such method: string.replace")
 		}
 
+		toReplace := starlark.String("beef")
+		replacement := starlark.String("🍖🍖")
 		_, err := starlark.Call(thread, string_replace, starlark.Tuple{toReplace, replacement}, nil)
 		if err != nil {
 			st.Error(err)
