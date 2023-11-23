@@ -197,7 +197,6 @@ func TestTimeParseDurationSteps(t *testing.T) {
 	t.Run("arg=duration", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(0)
 		st.SetMaxExecutionSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
