@@ -3578,6 +3578,113 @@ func TestTypeAllocs(t *testing.T) {
 }
 
 func TestZipSteps(t *testing.T) {
+	zip, ok := starlark.Universe["zip"]
+	if !ok {
+		t.Fatal("no such builtin: zip")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.CPUSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, zip, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("few-columns", func(t *testing.T) {
+		t.Run("iterable", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(3)
+			st.SetMaxExecutionSteps(3)
+			st.RunThread(func(thread *starlark.Thread) {
+				iter := &testIterable{
+					nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+						return starlark.None, nil
+					},
+					maxN: st.N,
+				}
+				_, err := starlark.Call(thread, zip, starlark.Tuple{iter, iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			})
+		})
+
+		t.Run("sequence", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(3)
+			st.SetMaxExecutionSteps(3)
+			st.RunThread(func(thread *starlark.Thread) {
+				iter := &testSequence{
+					nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+						return starlark.None, nil
+					},
+					maxN: st.N,
+				}
+				_, err := starlark.Call(thread, zip, starlark.Tuple{iter, iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			})
+		})
+	})
+
+	t.Run("many-columns", func(t *testing.T) {
+		t.Run("iterable", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
+			st.RunThread(func(thread *starlark.Thread) {
+				sqrtN := int(math.Sqrt(float64(st.N)))
+				iter := &testIterable{
+					nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+						return starlark.None, nil
+					},
+					maxN: sqrtN,
+				}
+				cols := make(starlark.Tuple, sqrtN)
+				for i := 0; i < sqrtN; i++ {
+					cols[i] = iter
+				}
+				_, err := starlark.Call(thread, zip, cols, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			})
+		})
+
+		t.Run("sequence", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
+			st.RunThread(func(thread *starlark.Thread) {
+				sqrtN := int(math.Sqrt(float64(st.N)))
+				iter := &testSequence{
+					nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+						return starlark.None, nil
+					},
+					maxN: sqrtN,
+				}
+				cols := make(starlark.Tuple, sqrtN)
+				for i := 0; i < sqrtN; i++ {
+					cols[i] = iter
+				}
+				_, err := starlark.Call(thread, zip, cols, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			})
+		})
+	})
 }
 
 func TestZipAllocs(t *testing.T) {
