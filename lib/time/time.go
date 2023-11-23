@@ -68,7 +68,7 @@ var Module = &starlarkstruct.Module{
 	},
 }
 var safeties = map[string]starlark.SafetyFlags{
-	"from_timestamp":    starlark.MemSafe | starlark.IOSafe,
+	"from_timestamp":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"is_valid_timezone": starlark.MemSafe,
 	"now":               starlark.MemSafe | starlark.IOSafe,
 	"parse_duration":    starlark.MemSafe | starlark.IOSafe,
