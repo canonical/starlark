@@ -2947,18 +2947,18 @@ func TestZipSteps(t *testing.T) {
 			st.SetMinExecutionSteps(1)
 			st.SetMaxExecutionSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
-				size := int(math.Sqrt(float64(st.N)))
-				var colIter starlark.Value = &testSequence{
+				sqrtN := int(math.Sqrt(float64(st.N)))
+				iter := &testSequence{
 					nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
 						return starlark.None, nil
 					},
-					maxN: size,
+					maxN: sqrtN,
 				}
-				rows := make(starlark.Tuple, size)
-				for i := 0; i < size; i++ {
-					rows[i] = colIter
+				cols := make(starlark.Tuple, sqrtN)
+				for i := 0; i < sqrtN; i++ {
+					cols[i] = iter
 				}
-				_, err := starlark.Call(thread, zip, rows, nil)
+				_, err := starlark.Call(thread, zip, cols, nil)
 				if err != nil {
 					st.Error(err)
 				}
