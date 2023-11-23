@@ -4589,6 +4589,7 @@ func TestListExtendAllocs(t *testing.T) {
 		if list_extend == nil {
 			t.Fatal("no such method: list.extend")
 		}
+
 		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, list_extend, starlark.Tuple{iter}, nil)
 		if err == nil {
