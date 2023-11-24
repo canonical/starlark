@@ -2721,32 +2721,25 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 
-	if len(old) == 0 {
-		if err := thread.CheckExecutionSteps(int64((len(recv) + 1) * len(new))); err != nil {
-			return nil, err
+	max := func(a, b int) int {
+		if a > b {
+			return a
 		}
-		if err := thread.CheckExecutionSteps(int64((len(recv) + 1) * len(new))); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := thread.CheckExecutionSteps(int64(len(recv) * len(new) / len(old))); err != nil {
-			return nil, err
-		}
-		if err := thread.CheckAllocs(int64(len(recv) * len(new) / len(old))); err != nil {
-			return nil, err
-		}
+		return b
+	}
+
+	maxResultSize := int64(len(recv) * len(new) / max(len(old), 1))
+	if err := thread.CheckExecutionSteps(maxResultSize); err != nil {
+		return nil, err
+	}
+	if err := thread.CheckAllocs(maxResultSize); err != nil {
+		return nil, err
 	}
 	replaced := strings.Replace(recv, old, new, count)
-	if len(replaced) > len(recv) {
-		if err := thread.AddExecutionSteps(int64(len(replaced))); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := thread.AddExecutionSteps(int64(len(recv))); err != nil {
-			return nil, err
-		}
+	if err := thread.AddExecutionSteps(int64(max(len(replaced), len(recv)))); err != nil {
+		return nil, err
 	}
-	result := Value(String(replaced))
+	result := Value(String(replaced)) // Avoid allocation.
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
 	}
