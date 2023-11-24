@@ -1020,10 +1020,7 @@ func (d *Dict) SafeSetKey(thread *Thread, k, v Value) error {
 }
 
 func (x *Dict) Union(y *Dict) *Dict {
-	z, err := x.safeUnion(nil, y)
-	if err != nil {
-		panic(fmt.Sprintf("internal error: %v", err))
-	}
+	z, _ := x.safeUnion(nil, y)
 	return z
 }
 
