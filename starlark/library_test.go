@@ -2412,8 +2412,8 @@ func TestSortedSteps(t *testing.T) {
 	t.Run("sorted", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinExecutionSteps(3)
+		st.SetMaxExecutionSteps(3)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {

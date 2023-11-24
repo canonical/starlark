@@ -1503,6 +1503,9 @@ type sortSlice struct {
 
 func (s *sortSlice) Len() int { return len(s.values) }
 func (s *sortSlice) Less(i, j int) bool {
+	if err := s.thread.AddExecutionSteps(1); err != nil {
+		panic(sortError{err})
+	}
 	keys := s.keys
 	if s.keys == nil {
 		keys = s.values
@@ -1514,9 +1517,6 @@ func (s *sortSlice) Less(i, j int) bool {
 	return ok
 }
 func (s *sortSlice) Swap(i, j int) {
-	if err := s.thread.AddExecutionSteps(1); err != nil {
-		panic(sortError{err})
-	}
 	if s.keys != nil {
 		s.keys[i], s.keys[j] = s.keys[j], s.keys[i]
 	}
