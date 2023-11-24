@@ -1421,7 +1421,7 @@ func set(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#sorted
-func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (_ Value, err error) {
+func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (l Value, err error) {
 	// Oddly, Python's sorted permits all arguments to be positional, thus so do we.
 	var iterable Iterable
 	var key Callable

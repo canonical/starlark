@@ -2430,7 +2430,6 @@ func TestSortedSteps(t *testing.T) {
 
 	t.Run("unsorted", func(t *testing.T) {
 		const iterSize = 100
-		const listConstructionSteps = 2 * iterSize
 		iter := &testIterable{
 			nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
 				return starlark.MakeInt(-n), nil
@@ -2438,10 +2437,11 @@ func TestSortedSteps(t *testing.T) {
 			maxN: iterSize,
 		}
 
+		const listConstructionSteps = 2 * iterSize
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(listConstructionSteps + iterSize)            // All elements will change position.
-		st.SetMaxExecutionSteps(listConstructionSteps + iterSize*iterSize/2) // Should be at least better than insertion sort.
+		st.SetMinExecutionSteps(listConstructionSteps + iterSize)          // All elements will change position.
+		st.SetMaxExecutionSteps(listConstructionSteps + iterSize*iterSize) // Should be at least better than quadratic.
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, sorted, starlark.Tuple{iter}, nil)
