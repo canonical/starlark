@@ -1778,6 +1778,15 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	})
 
 	t.Run("%", func(t *testing.T) {
+		t.Run("unsafe-mapping", func(t *testing.T) {
+			thread := &starlark.Thread{}
+			thread.RequireSafety(starlark.MemSafe)
+			_, err := starlark.SafeBinary(thread, syntax.PERCENT, starlark.String("%(foo)s"), &unsafeTestMapping{})
+			if !errors.Is(err, starlark.ErrSafety) {
+				t.Errorf("expected safety error: got %v", err)
+			}
+		})
+
 		tests := []safeBinaryAllocTest{{
 			name: "int % int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
@@ -1865,15 +1874,6 @@ func TestSafeBinaryAllocs(t *testing.T) {
 		for _, test := range tests {
 			test.Run(t)
 		}
-
-		t.Run("unsafe-mapping", func(t *testing.T) {
-			thread := &starlark.Thread{}
-			thread.RequireSafety(starlark.MemSafe)
-			_, err := starlark.SafeBinary(thread, syntax.PERCENT, starlark.String("%(foo)s"), &unsafeTestMapping{})
-			if !errors.Is(err, starlark.ErrSafety) {
-				t.Errorf("expected safety error: got %v", err)
-			}
-		})
 	})
 
 	t.Run("in", func(t *testing.T) {})
