@@ -1659,7 +1659,14 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					return nil, err
 				}
 				defer iter.Done()
-				return x.safeUnion(thread, iter)
+				z, err := x.safeUnion(thread, iter)
+				if err != nil {
+					return nil, err
+				}
+				if err := iter.Err(); err != nil {
+					return nil, err
+				}
+				return z
 			}
 		}
 
