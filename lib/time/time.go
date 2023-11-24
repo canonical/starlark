@@ -70,7 +70,7 @@ var Module = &starlarkstruct.Module{
 var safeties = map[string]starlark.SafetyFlags{
 	"from_timestamp":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"is_valid_timezone": starlark.MemSafe,
-	"now":               starlark.MemSafe | starlark.IOSafe,
+	"now":               starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"parse_duration":    starlark.MemSafe | starlark.IOSafe,
 	"parse_time":        starlark.NotSafe,
 	"time":              starlark.NotSafe,
@@ -90,7 +90,7 @@ func init() {
 // so that it can be overridden, for example by applications that require their
 // Starlark scripts to be fully deterministic.
 var NowFunc = time.Now
-var NowFuncSafety = starlark.MemSafe
+var NowFuncSafety = starlark.MemSafe | starlark.CPUSafe
 
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var d Duration
