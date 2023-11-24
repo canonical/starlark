@@ -44,14 +44,16 @@ func (sa *SafeAppender) Steps() uint64 {
 }
 
 func (sa *SafeAppender) Append(values ...interface{}) error {
-	if err := sa.thread.AddExecutionSteps(int64(len(values))); err != nil {
-		return err
+	if sa.thread != nil {
+		if err := sa.thread.AddExecutionSteps(int64(len(values))); err != nil {
+			return err
+		}
 	}
 	sa.steps += uint64(len(values))
 
 	cap := sa.slice.Cap()
 	newSize := sa.slice.Len() + len(values)
-	if newSize > cap {
+	if newSize > cap && sa.thread != nil {
 		if err := sa.thread.CheckAllocs(int64(uintptr(newSize) * sa.elemType.Size())); err != nil {
 			return err
 		}
@@ -69,7 +71,7 @@ func (sa *SafeAppender) Append(values ...interface{}) error {
 			slice = reflect.Append(slice, reflect.ValueOf(value))
 		}
 	}
-	if slice.Cap() != cap {
+	if slice.Cap() != cap && sa.thread != nil {
 		oldSize := int64(roundAllocSize(uintptr(cap) * sa.elemType.Size()))
 		newSize := int64(roundAllocSize(uintptr(slice.Cap()) * sa.elemType.Size()))
 		delta := newSize - oldSize
@@ -90,13 +92,15 @@ func (sa *SafeAppender) AppendSlice(values interface{}) error {
 	if kind := toAppend.Kind(); kind != reflect.Slice {
 		panic(fmt.Sprintf("SafeAppender.AppendSlice: expected slice, got %v", kind))
 	}
-	if err := sa.thread.AddExecutionSteps(int64(toAppend.Len())); err != nil {
-		return err
+	if sa.thread != nil {
+		if err := sa.thread.AddExecutionSteps(int64(toAppend.Len())); err != nil {
+			return err
+		}
 	}
 	sa.steps += uint64(toAppend.Len())
 
 	cap := sa.slice.Cap()
-	if sa.slice.Len()+toAppend.Len() > cap {
+	if sa.slice.Len()+toAppend.Len() > cap && sa.thread != nil {
 		// Consider up to twice the size for the allocation overshoot
 		allocation := uintptr((sa.slice.Len()+toAppend.Len())*2 - cap)
 		if err := sa.thread.CheckAllocs(int64(allocation * sa.elemType.Size())); err != nil {
@@ -104,7 +108,7 @@ func (sa *SafeAppender) AppendSlice(values interface{}) error {
 		}
 	}
 	slice := reflect.AppendSlice(sa.slice, toAppend)
-	if slice.Cap() != cap {
+	if slice.Cap() != cap && sa.thread != nil {
 		oldSize := int64(roundAllocSize(uintptr(cap) * sa.elemType.Size()))
 		newSize := int64(roundAllocSize(uintptr(slice.Cap()) * sa.elemType.Size()))
 		delta := newSize - oldSize

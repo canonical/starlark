@@ -490,7 +490,7 @@ loop:
 			y := stack[sp-1]
 			x := stack[sp-2]
 			sp -= 2
-			z, err2 := getIndex(x, y)
+			z, err2 := getIndex(thread, x, y)
 			if err2 != nil {
 				err = err2
 				break loop

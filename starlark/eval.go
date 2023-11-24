@@ -868,6 +868,11 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 	elemsAppender := NewSafeAppender(thread, &x.elems)
 	if ylist, ok := y.(*List); ok {
 		// fast path: list += list
+
+		// Equalise step cost for fast and slow path.
+		if err := thread.AddExecutionSteps(int64(len(ylist.elems))); err != nil {
+			return err
+		}
 		if err := elemsAppender.AppendSlice(ylist.elems); err != nil {
 			return err
 		}
@@ -953,10 +958,19 @@ func setField(x Value, name string, y Value) error {
 }
 
 // getIndex implements x[y].
-func getIndex(x, y Value) (Value, error) {
+func getIndex(thread *Thread, x, y Value) (Value, error) {
 	switch x := x.(type) {
 	case Mapping: // dict
-		z, found, err := x.Get(y)
+		var z Value
+		var found bool
+		var err error
+		if x2, ok := x.(SafeMapping); ok {
+			z, found, err = x2.SafeGet(thread, y)
+		} else if err := CheckSafety(thread, NotSafe); err != nil {
+			return nil, err
+		} else {
+			z, found, err = x.Get(y)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -977,6 +991,12 @@ func getIndex(x, y Value) (Value, error) {
 		}
 		if i < 0 || i >= n {
 			return nil, outOfRange(origI, n, x)
+		}
+		if x, ok := x.(SafeIndexable); ok {
+			return x.SafeIndex(thread, i)
+		}
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return nil, err
 		}
 		return x.Index(i), nil
 	}
