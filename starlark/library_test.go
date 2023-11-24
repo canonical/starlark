@@ -3034,24 +3034,39 @@ func TestSetAllocs(t *testing.T) {
 		t.Fatal("no such builtin: set")
 	}
 
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunThread(func(thread *starlark.Thread) {
-		iter := &testIterable{
-			nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				res := starlark.Value(starlark.MakeInt(n))
-				if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
-					return nil, err
-				}
-				return res, nil
-			},
-			maxN: st.N,
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.MemSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, set, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
-		result, err := starlark.Call(thread, set, starlark.Tuple{iter}, nil)
-		if err != nil {
-			st.Error(err)
-		}
-		st.KeepAlive(result)
+	})
+
+	t.Run("iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					res := starlark.Value(starlark.MakeInt(n))
+					if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+						return nil, err
+					}
+					return res, nil
+				},
+				maxN: st.N,
+			}
+			result, err := starlark.Call(thread, set, starlark.Tuple{iter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
 	})
 }
 
