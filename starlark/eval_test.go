@@ -1788,7 +1788,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 		}, {
 			name: "int % float",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				l := starlark.MakeInt(10000)
+				l := starlark.MakeInt(1).Lsh(1023)
 				r := starlark.Float(1e9)
 				return l, syntax.PERCENT, r
 			},
@@ -1803,7 +1803,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 			name: "float % int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.Float(1e32)
-				r := starlark.MakeInt(2047)
+				r := starlark.MakeInt(1).Lsh(1023)
 				return l, syntax.PERCENT, r
 			},
 		}, {
