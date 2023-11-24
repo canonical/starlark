@@ -1028,7 +1028,11 @@ func (x *Dict) Union(y *Dict) *Dict {
 }
 
 func (x *Dict) safeUnion(thread *Thread, y *Dict) (*Dict, error) {
-	z, err := SafeNewDict(thread, x.Len())
+	zLenHint := x.Len()
+	if yLen := y.Len(); yLen > zLenHint {
+		zLenHint = yLen
+	}
+	z, err := SafeNewDict(thread, zLenHint))
 	if err != nil {
 		return nil, err
 	}
