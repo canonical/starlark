@@ -1818,3 +1818,16 @@ func TestThreadEnsureStack(t *testing.T) {
 		thread.EnsureStack(-1)
 	})
 }
+
+func TestSafeStringBuilderNilThread(t *testing.T) {
+	st := startest.From(t)
+	st.RunThread(func(*starlark.Thread) {
+		defer func() {
+			if err := recover(); err != nil {
+				t.Error(err)
+			}
+		}()
+		sb := starlark.NewSafeStringBuilder(nil)
+		sb.WriteString(strings.Repeat("blicket", st.N))
+	})
+}
