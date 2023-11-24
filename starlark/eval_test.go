@@ -1827,7 +1827,10 @@ func TestSafeStringBuilderNilThread(t *testing.T) {
 				t.Error(err)
 			}
 		}()
+
 		sb := starlark.NewSafeStringBuilder(nil)
-		sb.WriteString(strings.Repeat("blicket", st.N))
+		if err := sb.WriteString(strings.Repeat("blicket", st.N)); err != nil {
+			t.Error(err)
+		}
 	})
 }
