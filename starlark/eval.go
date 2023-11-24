@@ -2202,26 +2202,29 @@ func interpolate(thread *Thread, format string, x Value) (Value, error) {
 			key := format[:j]
 			var v Value
 			var found bool
-			var err error
 			switch x := x.(type) {
 			case SafeMapping:
+				var err error
 				v, found, err = x.SafeGet(thread, String(key))
+				if errors.Is(err, ErrSafety) {
+					return nil, err
+				}
 			case Mapping:
 				if err := CheckSafety(thread, NotSafe); err != nil {
 					return nil, err
 				}
+				var err error
 				v, found, err = x.Get(String(key))
+				if errors.Is(err, ErrSafety) {
+					return nil, err
+				}
 			default:
 				return nil, fmt.Errorf("format requires a mapping")
 			}
-			if err != nil {
-				return nil, err
-			}
-			if found {
-				arg = v
-			} else {
+			if !found {
 				return nil, fmt.Errorf("key not found: %s", key)
 			}
+			arg = v
 			format = format[j+1:]
 		} else {
 			// positional argument: %s.
