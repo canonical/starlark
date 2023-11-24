@@ -2727,7 +2727,6 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		}
 		return b
 	}
-
 	maxResultSize := int64(len(recv) * len(new) / max(len(old), 1))
 	if err := thread.CheckExecutionSteps(maxResultSize); err != nil {
 		return nil, err
