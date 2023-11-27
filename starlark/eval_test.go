@@ -1857,3 +1857,19 @@ func TestSafeAppenderNilThread(t *testing.T) {
 		}
 	})
 }
+
+func TestSafeStringBuilderNilThread(t *testing.T) {
+	st := startest.From(t)
+	st.RunThread(func(*starlark.Thread) {
+		defer func() {
+			if err := recover(); err != nil {
+				t.Error(err)
+			}
+		}()
+
+		sb := starlark.NewSafeStringBuilder(nil)
+		if _, err := sb.WriteString(strings.Repeat("blicket", st.N)); err != nil {
+			t.Error(err)
+		}
+	})
+}
