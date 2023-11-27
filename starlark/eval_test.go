@@ -1794,22 +1794,32 @@ func TestSafeBinaryAllocs(t *testing.T) {
 		}, {
 			name: "dict | dict",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				l := starlark.NewDict(n)
-				r := starlark.NewDict(n)
-				for i := 0; i < 3*n/4; i++ {
-					l.SetKey(starlark.MakeInt(i-n/4), starlark.MakeInt(i))
-					r.SetKey(starlark.MakeInt(-(i - n/4)), starlark.MakeInt(i))
+				// Create overlapping dicts whose union has size n
+				l := starlark.NewDict(3*n/4)
+				r := starlark.NewDict(3*n/4)
+				for i := 0; i < n / 2; i++ {
+					l.SetKey(starlark.MakeInt(i), starlark.None)
+					r.SetKey(starlark.MakeInt(-i), starlark.None)
+				}
+				for i := 0; i < n / 4; i++ {
+					l.SetKey(starlark.MakeInt(-i), starlark.None)
+					r.SetKey(starlark.MakeInt(i), starlark.None)
 				}
 				return l, syntax.PIPE, r
 			},
 		}, {
 			name: "set | set",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				l := starlark.NewSet(n)
-				r := starlark.NewSet(n)
-				for i := 0; i < 3*n/4; i++ {
-					l.Insert(starlark.MakeInt(i - n/4))
-					r.Insert(starlark.MakeInt(-(i - n/4)))
+				// Create overlapping sets whose union has size n
+				l := starlark.NewSet(3*n/4)
+				r := starlark.NewSet(3*n/4)
+				for i := 0; i < n / 2; i++ {
+					l.Insert(starlark.MakeInt(i))
+					r.Insert(starlark.MakeInt(-i))
+				}
+				for i := 0; i < n / 4; i++ {
+					l.Insert(starlark.MakeInt(-i))
+					r.Insert(starlark.MakeInt(i))
 				}
 				return l, syntax.PIPE, r
 			},
