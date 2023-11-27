@@ -7411,6 +7411,67 @@ func TestSetIsSubsetAllocs(t *testing.T) {
 }
 
 func TestSetIsSupersetSteps(t *testing.T) {
+	const setSize = 1000
+	set := starlark.NewSet(setSize)
+	for i := 0; i < setSize; i++ {
+		set.Insert(starlark.Value(starlark.MakeInt(i)))
+	}
+	set_issuperset, _ := set.Attr("issuperset")
+	if set_issuperset == nil {
+		t.Fatal("no such method: set.issuperset")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.CPUSafe)
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, set_issuperset, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("early-termination", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(2)
+		st.SetMaxExecutionSteps(2)
+		st.RunThread(func(t *starlark.Thread) {
+			iter := &testIterable{
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.None, nil
+				},
+				maxN: st.N,
+			}
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(t, set_issuperset, starlark.Tuple{iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("complete-iteration", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(2)
+		st.SetMaxExecutionSteps(2)
+		st.RunThread(func(t *starlark.Thread) {
+			iter := &testIterable{
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.MakeInt(n % setSize), nil
+				},
+				maxN: st.N,
+			}
+			_, err := starlark.Call(t, set_issuperset, starlark.Tuple{iter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestSetIssupersetAllocs(t *testing.T) {
