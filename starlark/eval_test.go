@@ -1819,6 +1819,45 @@ func TestThreadEnsureStack(t *testing.T) {
 	})
 }
 
+func TestSafeAppenderNilThread(t *testing.T) {
+	t.Run("append", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err != nil {
+				t.Error(err)
+			}
+		}()
+
+		const initialSliceCap = 100
+		slice := make([]int, 0, initialSliceCap)
+		sliceAppender := starlark.NewSafeAppender(nil, &slice)
+		for i := 0; i < 2*initialSliceCap; i++ {
+			if err := sliceAppender.Append(i); err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
+
+	t.Run("append-slice", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err != nil {
+				t.Error(err)
+			}
+		}()
+
+		const initialSliceCap = 100
+		slice := make([]int, 0, initialSliceCap)
+		sliceAppender := starlark.NewSafeAppender(nil, &slice)
+
+		toAppend := make([]int, 0, 2*initialSliceCap)
+		for i := 0; i < cap(toAppend); i++ {
+			toAppend = append(toAppend, i)
+		}
+		if err := sliceAppender.AppendSlice(toAppend); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
 func TestSafeStringBuilderNilThread(t *testing.T) {
 	st := startest.From(t)
 	st.RunThread(func(*starlark.Thread) {

@@ -105,6 +105,22 @@ func TestTimeNowSafety(t *testing.T) {
 }
 
 func TestTimeFromTimestampSteps(t *testing.T) {
+	from_timestamp, ok := time.Module.Members["from_timestamp"]
+	if !ok {
+		t.Fatalf("no such builtin: time.from_timestamp")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.SetMaxExecutionSteps(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			_, err := starlark.Call(thread, from_timestamp, starlark.Tuple{starlark.MakeInt(10000)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		}
+	})
 }
 
 func TestTimeFromTimestampAllocs(t *testing.T) {
@@ -167,6 +183,21 @@ func TestTimeIsValidTimezoneAllocs(t *testing.T) {
 }
 
 func TestTimeNowSteps(t *testing.T) {
+	now, ok := time.Module.Members["now"]
+	if !ok {
+		t.Fatal("no such builtin: now")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			_, err := starlark.Call(thread, now, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		}
+	})
 }
 
 func TestTimeNowAllocs(t *testing.T) {

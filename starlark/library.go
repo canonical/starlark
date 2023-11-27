@@ -103,9 +103,9 @@ func init() {
 		"set":       MemSafe | IOSafe | CPUSafe,
 		"sorted":    MemSafe | IOSafe,
 		"str":       MemSafe | IOSafe,
-		"tuple":     MemSafe | IOSafe,
+		"tuple":     MemSafe | IOSafe | CPUSafe,
 		"type":      MemSafe | IOSafe | CPUSafe,
-		"zip":       MemSafe | IOSafe,
+		"zip":       MemSafe | IOSafe | CPUSafe,
 	}
 
 	for name, flags := range universeSafeties {
@@ -160,7 +160,7 @@ var (
 	listMethodSafeties = map[string]SafetyFlags{
 		"append": MemSafe | IOSafe | CPUSafe,
 		"clear":  MemSafe | IOSafe | CPUSafe,
-		"extend": MemSafe | IOSafe,
+		"extend": MemSafe | IOSafe | CPUSafe,
 		"index":  MemSafe | IOSafe | CPUSafe,
 		"insert": MemSafe | IOSafe | CPUSafe,
 		"pop":    MemSafe | IOSafe | CPUSafe,
@@ -1695,6 +1695,11 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	var result []Value
 	if rows >= 0 {
 		// length known
+
+		// Equalise step cost for fast and slow path.
+		if err := thread.AddExecutionSteps(int64(rows)); err != nil {
+			return nil, err
+		}
 		resultSize := EstimateMakeSize([]Value{Tuple{}}, rows)
 		arraySize := EstimateMakeSize(Tuple{}, cols*rows)
 		if err := thread.AddAllocs(resultSize + arraySize); err != nil {
