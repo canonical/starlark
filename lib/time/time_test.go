@@ -220,6 +220,41 @@ func TestTimeNowAllocs(t *testing.T) {
 }
 
 func TestTimeParseDurationSteps(t *testing.T) {
+	parse_duration, ok := time.Module.Members["parse_duration"]
+	if !ok {
+		t.Fatalf("no such builtin: parse_duration")
+	}
+
+	t.Run("arg=duration", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, parse_duration, starlark.Tuple{time.Duration(10)}, nil)
+				if err != nil {
+					t.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("arg=string", func(t *testing.T) {
+		const timestamp = "10h47m"
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMinExecutionSteps(uint64(len(timestamp)))
+		st.SetMaxExecutionSteps(uint64(len(timestamp)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, parse_duration, starlark.Tuple{starlark.String(timestamp)}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
 }
 
 func TestTimeParseDurationAllocs(t *testing.T) {
