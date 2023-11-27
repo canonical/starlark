@@ -261,7 +261,7 @@ var (
 		"difference":           MemSafe | IOSafe,
 		"discard":              MemSafe | IOSafe | CPUSafe,
 		"intersection":         MemSafe | IOSafe,
-		"issubset":             MemSafe | IOSafe,
+		"issubset":             MemSafe | IOSafe | CPUSafe,
 		"issuperset":           MemSafe | IOSafe,
 		"pop":                  MemSafe | IOSafe | CPUSafe,
 		"remove":               MemSafe | IOSafe | CPUSafe,
@@ -3142,19 +3142,20 @@ func set_issubset(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
+	recv := b.Receiver().(*Set)
 	iter, err := SafeIterate(thread, other)
 	if err != nil {
 		return nil, err
 	}
 	defer iter.Done()
-	diff, err := b.Receiver().(*Set).IsSubset(iter)
+	count, err := recv.ht.count(thread, iter)
 	if err != nil {
 		return nil, nameErr(b, err)
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
-	return Bool(diff), nil
+	return Bool(count == recv.Len()), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set_issuperset.
