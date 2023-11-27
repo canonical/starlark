@@ -424,8 +424,10 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if err := tb.thread.AddExecutionSteps(int64(written)); err != nil {
-		return 0, err
+	if tb.thread != nil {
+		if err := tb.thread.AddExecutionSteps(int64(written)); err != nil {
+			return 0, err
+		}
 	}
 	return written, nil
 }
