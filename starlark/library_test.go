@@ -7666,6 +7666,50 @@ func TestSetRemoveAllocs(t *testing.T) {
 }
 
 func TestSetSymmetricDifferenceSteps(t *testing.T) {
+	const elems = 100
+	set := starlark.NewSet(elems)
+	list := starlark.NewList(make([]starlark.Value, 0, elems))
+	for i := 0; i < elems; i++ {
+		set.Insert(starlark.MakeInt(i))
+		if i%2 == 0 {
+			list.Append(starlark.MakeInt(i))
+		} else {
+			list.Append(starlark.MakeInt(-i))
+		}
+	}
+	set_symmetric_difference, _ := set.Attr("symmetric_difference")
+	if set_symmetric_difference == nil {
+		t.Fatal("no such method: set.symmetric_difference")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.CPUSafe)
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("execution", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		// Cost of cloning averages to 2 per element.
+		// Cost of deletion/insert averages to 2 per element.
+		st.SetMinExecutionSteps(elems * 4)
+		st.SetMaxExecutionSteps(elems * 5)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{list}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
 }
 
 func TestSetSymmetricDifferenceAllocs(t *testing.T) {

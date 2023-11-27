@@ -265,7 +265,7 @@ var (
 		"issuperset":           MemSafe | IOSafe,
 		"pop":                  MemSafe | IOSafe | CPUSafe,
 		"remove":               MemSafe | IOSafe | CPUSafe,
-		"symmetric_difference": MemSafe | IOSafe,
+		"symmetric_difference": MemSafe | IOSafe | CPUSafe,
 		"union":                MemSafe | IOSafe,
 	}
 )
@@ -3239,7 +3239,7 @@ func set_symmetric_difference(thread *Thread, b *Builtin, args Tuple, kwargs []T
 	defer iter.Done()
 	var x Value
 	for iter.Next(&x) {
-		found, err := diff.Delete(x)
+		_, found, err := diff.ht.delete(thread, x)
 		if err != nil {
 			return nil, err
 		}
