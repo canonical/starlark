@@ -1666,7 +1666,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				if err := iter.Err(); err != nil {
 					return nil, err
 				}
-				return z
+				return z, nil
 			}
 		}
 
