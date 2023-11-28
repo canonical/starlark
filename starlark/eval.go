@@ -310,10 +310,10 @@ type StringBuilder interface {
 // and which abides by safety limits. Errors prevent subsequent
 // operations.
 type SafeStringBuilder struct {
-	builder strings.Builder
-	thread  *Thread
-	allocs  uint64
-	err     error
+	builder       strings.Builder
+	thread        *Thread
+	allocs, steps uint64
+	err           error
 }
 
 var _ StringBuilder = &SafeStringBuilder{}
@@ -328,6 +328,11 @@ func NewSafeStringBuilder(thread *Thread) *SafeStringBuilder {
 // thread.
 func (tb *SafeStringBuilder) Allocs() uint64 {
 	return tb.allocs
+}
+
+// Steps returns the total steps reported to this SafeStringBuilder's thread.
+func (tb *SafeStringBuilder) Steps() uint64 {
+	return tb.steps
 }
 
 func (tb *SafeStringBuilder) safeGrow(n int) error {
@@ -361,6 +366,11 @@ func (tb *SafeStringBuilder) Grow(n int) {
 }
 
 func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
+	if tb.thread != nil {
+		if err := tb.thread.AddExecutionSteps(int64(len(b))); err != nil {
+			return 0, err
+		}
+	}
 	if err := tb.safeGrow(len(b)); err != nil {
 		return 0, err
 	}
@@ -369,6 +379,11 @@ func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
 }
 
 func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
+	if tb.thread != nil {
+		if err := tb.thread.AddExecutionSteps(int64(len(s))); err != nil {
+			return 0, err
+		}
+	}
 	if err := tb.safeGrow(len(s)); err != nil {
 		return 0, err
 	}
@@ -377,6 +392,11 @@ func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
 }
 
 func (tb *SafeStringBuilder) WriteByte(b byte) error {
+	if tb.thread != nil {
+		if err := tb.thread.AddExecutionSteps(1); err != nil {
+			return err
+		}
+	}
 	if err := tb.safeGrow(1); err != nil {
 		return err
 	}
@@ -391,11 +411,25 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 	} else {
 		growAmount = utf8.UTFMax
 	}
+	if tb.thread != nil {
+		if err := tb.thread.CheckExecutionSteps(int64(growAmount)); err != nil {
+			return 0, err
+		}
+	}
 	if err := tb.safeGrow(growAmount); err != nil {
 		return 0, err
 	}
 
-	return tb.builder.WriteRune(r)
+	n, err := tb.builder.WriteRune(r)
+	if err != nil {
+		return 0, err
+	}
+	if tb.thread != nil {
+		if err := tb.thread.AddExecutionSteps(int64(n)); err != nil {
+			return 0, err
+		}
+	}
+	return n, nil
 }
 
 func (tb *SafeStringBuilder) Cap() int       { return tb.builder.Cap() }
