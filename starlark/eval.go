@@ -2213,11 +2213,7 @@ func interpolate(thread *Thread, format string, x Value) (Value, error) {
 				if err := CheckSafety(thread, NotSafe); err != nil {
 					return nil, err
 				}
-				var err error
-				v, found, err = x.Get(String(key))
-				if errors.Is(err, ErrSafety) {
-					return nil, err
-				}
+				v, found, _ = x.Get(String(key))
 			default:
 				return nil, fmt.Errorf("format requires a mapping")
 			}
