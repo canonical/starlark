@@ -3701,6 +3701,7 @@ func TestDictUpdateSteps(t *testing.T) {
 			if dict_update == nil {
 				t.Fatal("no such method: dict.update")
 			}
+
 			iter := &testIterable{
 				nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
 					return starlark.Tuple{starlark.MakeInt(n), starlark.None}, nil
@@ -3727,6 +3728,7 @@ func TestDictUpdateSteps(t *testing.T) {
 			if dict_update == nil {
 				t.Fatal("no such method: dict.update")
 			}
+
 			mapIter := starlark.NewDict(st.N)
 			for i := 0; i < st.N; i++ {
 				mapIter.SetKey(starlark.MakeInt(i), starlark.None)
