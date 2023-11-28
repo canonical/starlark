@@ -93,10 +93,12 @@ var NowFunc = time.Now
 var NowFuncSafety = starlark.MemSafe | starlark.CPUSafe
 
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	var d Duration
-	if err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &d); err != nil {
+	sdu := &SafeDurationUnpacker{}
+	sdu.BindThread(thread)
+	if err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &sdu); err != nil {
 		return nil, err
 	}
+	d := sdu.Duration()
 	if err := thread.AddAllocs(starlark.EstimateSize(Duration(0))); err != nil {
 		return nil, err
 	}
@@ -329,6 +331,44 @@ func (d Duration) Binary(op syntax.Token, y starlark.Value, side starlark.Side) 
 	}
 
 	return nil, nil
+}
+
+type SafeDurationUnpacker struct {
+	duration Duration
+	thread *starlark.Thread
+}
+
+func (sdu *SafeDurationUnpacker) Unpack(v starlark.Value) error {
+	switch x := v.(type) {
+	case Duration:
+		sdu.duration = x
+		return nil
+	case starlark.String:
+		if sdu.thread != nil {
+			if err := sdu.thread.AddExecutionSteps(int64(len(string(x)))); err != nil {
+				return err
+			}
+		}
+		dur, err := time.ParseDuration(string(x))
+		if err != nil {
+			return err
+		}
+		sdu.duration = Duration(dur)
+		return nil
+	default:
+		return fmt.Errorf("got %s, want a duration, string, or int", v.Type())
+	}
+}
+
+// Duration returns the unpacked duration.
+func (sdu *SafeDurationUnpacker) Duration() Duration {
+	return sdu.duration
+}
+
+// BindThread causes this unpacker to report its resource
+// usage to the given thread.
+func (sdu *SafeDurationUnpacker) BindThread(thread *starlark.Thread) {
+	sdu.thread = thread
 }
 
 // Time is a Starlark representation of a moment in time.
