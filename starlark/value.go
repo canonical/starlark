@@ -833,9 +833,8 @@ func (it *stringCodepointsIterator) Next(p *Value) bool {
 	return true
 }
 
-func (*stringCodepointsIterator) Done() {}
-
-func (it *stringCodepointsIterator) Err() error          { return nil }
+func (it *stringCodepointsIterator) Done()               {}
+func (it *stringCodepointsIterator) Err() error          { return it.err }
 func (it *stringCodepointsIterator) Safety() SafetyFlags { return MemSafe | CPUSafe }
 
 // A Function is a function defined by a Starlark def statement or lambda expression.
