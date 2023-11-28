@@ -5090,6 +5090,7 @@ func testStringIterableSteps(t *testing.T, methodName string) {
 		if method == nil {
 			t.Fatalf("no such method: string.%s", methodName)
 		}
+
 		result, err := starlark.Call(thread, method, nil, nil)
 		if err != nil {
 			st.Fatal(err)
