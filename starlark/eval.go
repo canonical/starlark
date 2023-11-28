@@ -420,16 +420,16 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 		return 0, err
 	}
 
-	bytesWritten, err := tb.builder.WriteRune(r)
+	n, err := tb.builder.WriteRune(r)
 	if err != nil {
 		return 0, err
 	}
 	if tb.thread != nil {
-		if err := tb.thread.AddExecutionSteps(int64(bytesWritten)); err != nil {
+		if err := tb.thread.AddExecutionSteps(int64(n)); err != nil {
 			return 0, err
 		}
 	}
-	return bytesWritten, nil
+	return n, nil
 }
 
 func (tb *SafeStringBuilder) Cap() int       { return tb.builder.Cap() }
