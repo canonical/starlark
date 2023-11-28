@@ -1542,7 +1542,18 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				if y.Sign() == 0 {
 					return nil, fmt.Errorf("integer modulo by zero")
 				}
-				return x.Mod(y), nil
+				if thread != nil {
+					if err := thread.CheckAllocs(EstimateSize(y)); err != nil {
+						return nil, err
+					}
+				}
+				result := Value(x.Mod(y))
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+						return nil, err
+					}
+				}
+				return result, nil
 			case Float:
 				xf, err := x.finiteFloat()
 				if err != nil {
@@ -1551,6 +1562,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				if y == 0 {
 					return nil, fmt.Errorf("floating-point modulo by zero")
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return xf.Mod(y), nil
 			}
 		case Float:
@@ -1558,6 +1574,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			case Float:
 				if y == 0.0 {
 					return nil, fmt.Errorf("floating-point modulo by zero")
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
 				}
 				return x.Mod(y), nil
 			case Int:
@@ -1568,10 +1589,15 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				if err != nil {
 					return nil, err
 				}
+				if thread != nil {
+					if err := thread.AddAllocs(floatSize); err != nil {
+						return nil, err
+					}
+				}
 				return x.Mod(yf), nil
 			}
 		case String:
-			return interpolate(string(x), y)
+			return interpolate(thread, string(x), y)
 		}
 
 	case syntax.NOT_IN:
@@ -2142,8 +2168,8 @@ func findParam(params []compile.Binding, name string) int {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string-interpolation
-func interpolate(format string, x Value) (Value, error) {
-	buf := new(strings.Builder)
+func interpolate(thread *Thread, format string, x Value) (Value, error) {
+	buf := NewSafeStringBuilder(thread)
 	index := 0
 	nargs := 1
 	if tuple, ok := x.(Tuple); ok {
@@ -2152,14 +2178,20 @@ func interpolate(format string, x Value) (Value, error) {
 	for {
 		i := strings.IndexByte(format, '%')
 		if i < 0 {
-			buf.WriteString(format)
+			if _, err := buf.WriteString(format); err != nil {
+				return nil, err
+			}
 			break
 		}
-		buf.WriteString(format[:i])
+		if _, err := buf.WriteString(format[:i]); err != nil {
+			return nil, err
+		}
 		format = format[i+1:]
 
 		if format != "" && format[0] == '%' {
-			buf.WriteByte('%')
+			if err := buf.WriteByte('%'); err != nil {
+				return nil, err
+			}
 			format = format[1:]
 			continue
 		}
@@ -2173,13 +2205,27 @@ func interpolate(format string, x Value) (Value, error) {
 				return nil, fmt.Errorf("incomplete format key")
 			}
 			key := format[:j]
-			if dict, ok := x.(Mapping); !ok {
+			var v Value
+			var found bool
+			switch x := x.(type) {
+			case SafeMapping:
+				var err error
+				v, found, err = x.SafeGet(thread, String(key))
+				if errors.Is(err, ErrSafety) {
+					return nil, err
+				}
+			case Mapping:
+				if err := CheckSafety(thread, NotSafe); err != nil {
+					return nil, err
+				}
+				v, found, _ = x.Get(String(key))
+			default:
 				return nil, fmt.Errorf("format requires a mapping")
-			} else if v, found, _ := dict.Get(String(key)); found {
-				arg = v
-			} else {
+			}
+			if !found {
 				return nil, fmt.Errorf("key not found: %s", key)
 			}
+			arg = v
 			format = format[j+1:]
 		} else {
 			// positional argument: %s.
@@ -2206,9 +2252,13 @@ func interpolate(format string, x Value) (Value, error) {
 		switch c := format[0]; c {
 		case 's', 'r':
 			if str, ok := AsString(arg); ok && c == 's' {
-				buf.WriteString(str)
+				if _, err := buf.WriteString(str); err != nil {
+					return nil, err
+				}
 			} else {
-				writeValue(buf, arg, nil)
+				if err := writeValue(buf, arg, nil); err != nil {
+					return nil, err
+				}
 			}
 		case 'd', 'i', 'o', 'x', 'X':
 			i, err := NumberToInt(arg)
@@ -2217,20 +2267,30 @@ func interpolate(format string, x Value) (Value, error) {
 			}
 			switch c {
 			case 'd', 'i':
-				fmt.Fprintf(buf, "%d", i)
+				if _, err := fmt.Fprintf(buf, "%d", i); err != nil {
+					return nil, err
+				}
 			case 'o':
-				fmt.Fprintf(buf, "%o", i)
+				if _, err := fmt.Fprintf(buf, "%o", i); err != nil {
+					return nil, err
+				}
 			case 'x':
-				fmt.Fprintf(buf, "%x", i)
+				if _, err := fmt.Fprintf(buf, "%x", i); err != nil {
+					return nil, err
+				}
 			case 'X':
-				fmt.Fprintf(buf, "%X", i)
+				if _, err := fmt.Fprintf(buf, "%X", i); err != nil {
+					return nil, err
+				}
 			}
 		case 'e', 'f', 'g', 'E', 'F', 'G':
 			f, ok := AsFloat(arg)
 			if !ok {
 				return nil, fmt.Errorf("%%%c format requires float, not %s", c, arg.Type())
 			}
-			Float(f).format(buf, c)
+			if err := Float(f).format(buf, c); err != nil {
+				return nil, err
+			}
 		case 'c':
 			switch arg := arg.(type) {
 			case Int:
@@ -2239,29 +2299,43 @@ func interpolate(format string, x Value) (Value, error) {
 				if err != nil || r < 0 || r > unicode.MaxRune {
 					return nil, fmt.Errorf("%%c format requires a valid Unicode code point, got %s", arg)
 				}
-				buf.WriteRune(rune(r))
+				if _, err := buf.WriteRune(rune(r)); err != nil {
+					return nil, err
+				}
 			case String:
 				r, size := utf8.DecodeRuneInString(string(arg))
 				if size != len(arg) || len(arg) == 0 {
 					return nil, fmt.Errorf("%%c format requires a single-character string")
 				}
-				buf.WriteRune(r)
+				if _, err := buf.WriteRune(r); err != nil {
+					return nil, err
+				}
 			default:
 				return nil, fmt.Errorf("%%c format requires int or single-character string, not %s", arg.Type())
 			}
 		case '%':
-			buf.WriteByte('%')
+			if err := buf.WriteByte('%'); err != nil {
+				return nil, err
+			}
 		default:
 			return nil, fmt.Errorf("unknown conversion %%%c", c)
 		}
 		format = format[1:]
 		index++
 	}
+	if err := buf.Err(); err != nil {
+		return nil, err
+	}
 
 	if index < nargs {
 		return nil, fmt.Errorf("too many arguments for format string")
 	}
 
+	if thread != nil {
+		if err := thread.AddAllocs(StringTypeOverhead); err != nil {
+			return nil, err
+		}
+	}
 	return String(buf.String()), nil
 }
 

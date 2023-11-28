@@ -1777,7 +1777,104 @@ func TestSafeBinaryAllocs(t *testing.T) {
 
 	})
 
-	t.Run("%", func(t *testing.T) {})
+	t.Run("%", func(t *testing.T) {
+		t.Run("unsafe-mapping", func(t *testing.T) {
+			thread := &starlark.Thread{}
+			thread.RequireSafety(starlark.MemSafe)
+			_, err := starlark.SafeBinary(thread, syntax.PERCENT, starlark.String("%(foo)s"), &unsafeTestMapping{})
+			if !errors.Is(err, starlark.ErrSafety) {
+				t.Errorf("expected safety error: got %v", err)
+			}
+		})
+
+		tests := []safeBinaryAllocTest{{
+			name: "int % int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				r := starlark.MakeInt(1).Lsh(uint(n) + 1)
+				l := starlark.MakeInt(1).Lsh(uint(n)).Add(r)
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "int % float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(1).Lsh(1023)
+				r := starlark.Float(1e9)
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "float % float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(n * 3)
+				r := starlark.Float(n * 2)
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "float % int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(1e32)
+				r := starlark.MakeInt(1).Lsh(1023)
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "string % string",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.String(strings.Repeat("[", n/4) + "%s" + strings.Repeat("]", n/4))
+				r := starlark.String(strings.Repeat("[", n/4) + strings.Repeat("]", n/4))
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "string % int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.String(strings.Repeat("%d", n))
+				r := make(starlark.Tuple, 0, n)
+				num := starlark.MakeInt(100000000)
+				for i := 0; i < cap(r); i++ {
+					r = append(r, num)
+				}
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "string % float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.String(strings.Repeat("%d", n))
+				r := make(starlark.Tuple, 0, n)
+				float := starlark.Float(3e9)
+				for i := 0; i < cap(r); i++ {
+					r = append(r, float)
+				}
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "string % rune",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.String(strings.Repeat("%s", n))
+				r := make(starlark.Tuple, 0, n)
+				rune := starlark.String('a')
+				for i := 0; i < cap(r); i++ {
+					r = append(r, rune)
+				}
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "string % mapping",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				lBuilder := &strings.Builder{}
+				substitutions := 1 + n / 2
+				r := starlark.NewDict(substitutions)
+				for i := 0; i < substitutions; i++ {
+					key := fmt.Sprintf("k_%d", i)
+					lBuilder.WriteString(fmt.Sprintf("%%(%s)s", key))
+					replacement := key + key
+					r.SetKey(starlark.String(key), starlark.String(replacement))
+				}
+				l := starlark.String(lBuilder.String())
+				return l, syntax.PERCENT, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
 
 	t.Run("in", func(t *testing.T) {})
 
