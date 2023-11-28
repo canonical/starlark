@@ -4628,6 +4628,76 @@ func TestDictSetdefaultAllocs(t *testing.T) {
 }
 
 func TestDictUpdateSteps(t *testing.T) {
+	t.Run("safety-respected", func(t *testing.T) {
+		dict := starlark.NewDict(0)
+		dict_update, _ := dict.Attr("update")
+		if dict_update == nil {
+			t.Fatal("no such method: dict.update")
+		}
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.CPUSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, dict_update, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		// Iteration of each tuple costs 3 steps per N,
+		// insertion cost averages to ~ 2.5.
+		st.SetMinExecutionSteps(3 + 2)
+		st.SetMaxExecutionSteps(3 + 3)
+		st.RunThread(func(thread *starlark.Thread) {
+			dict := starlark.NewDict(0)
+			dict_update, _ := dict.Attr("update")
+			if dict_update == nil {
+				t.Fatal("no such method: dict.update")
+			}
+
+			iter := &testIterable{
+				nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.Tuple{starlark.MakeInt(n), starlark.None}, nil
+				},
+				maxN: st.N,
+			}
+			_, err := starlark.Call(thread, dict_update, starlark.Tuple{iter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+
+	t.Run("mapping-iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		// Iteration over items of a dict is 1 step per N,
+		// insertion cost averages to ~2.5.
+		st.SetMinExecutionSteps(1 + 2)
+		st.SetMaxExecutionSteps(1 + 3)
+		st.RunThread(func(thread *starlark.Thread) {
+			dict := starlark.NewDict(0)
+			dict_update, _ := dict.Attr("update")
+			if dict_update == nil {
+				t.Fatal("no such method: dict.update")
+			}
+
+			mapIter := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				mapIter.SetKey(starlark.MakeInt(i), starlark.None)
+			}
+			_, err := starlark.Call(thread, dict_update, starlark.Tuple{mapIter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestDictUpdateAllocs(t *testing.T) {
