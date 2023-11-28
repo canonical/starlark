@@ -228,7 +228,7 @@ var (
 		"partition":      MemSafe | IOSafe | CPUSafe,
 		"removeprefix":   MemSafe | IOSafe | CPUSafe,
 		"removesuffix":   MemSafe | IOSafe | CPUSafe,
-		"replace":        MemSafe | IOSafe,
+		"replace":        MemSafe | IOSafe | CPUSafe,
 		"rfind":          MemSafe | IOSafe | CPUSafe,
 		"rindex":         MemSafe | IOSafe | CPUSafe,
 		"rpartition":     MemSafe | IOSafe | CPUSafe,
@@ -2726,10 +2726,24 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 
-	if err := thread.CheckAllocs(int64(len(recv) * len(new) / len(old))); err != nil {
+	max := func(a, b int) int {
+		if a > b {
+			return a
+		}
+		return b
+	}
+	maxResultSize := int64((len(recv) + 1) * len(new) / max(len(old), 1))
+	if err := thread.CheckExecutionSteps(maxResultSize); err != nil {
 		return nil, err
 	}
-	result := Value(String(strings.Replace(recv, old, new, count)))
+	if err := thread.CheckAllocs(maxResultSize); err != nil {
+		return nil, err
+	}
+	replaced := strings.Replace(recv, old, new, count)
+	if err := thread.AddExecutionSteps(int64(max(len(replaced), len(recv)))); err != nil {
+		return nil, err
+	}
+	result := Value(String(replaced)) // Avoid allocation.
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
 	}
