@@ -71,7 +71,7 @@ var safeties = map[string]starlark.SafetyFlags{
 	"from_timestamp":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"is_valid_timezone": starlark.MemSafe,
 	"now":               starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
-	"parse_duration":    starlark.MemSafe | starlark.IOSafe,
+	"parse_duration":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"parse_time":        starlark.NotSafe,
 	"time":              starlark.NotSafe,
 }
@@ -93,7 +93,7 @@ var NowFunc = time.Now
 var NowFuncSafety = starlark.MemSafe | starlark.CPUSafe
 
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	sdu := &SafeDurationUnpacker{}
+	sdu := SafeDurationUnpacker{}
 	sdu.BindThread(thread)
 	if err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &sdu); err != nil {
 		return nil, err
@@ -187,7 +187,7 @@ func (d *Duration) Unpack(v starlark.Value) error {
 
 		*d = Duration(dur)
 		return nil
-	}
+	} // If more cases are added, be careful to update conversion cost computations.
 
 	return fmt.Errorf("got %s, want a duration, string, or int", v.Type())
 }
