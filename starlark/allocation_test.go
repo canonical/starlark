@@ -2,6 +2,7 @@ package starlark_test
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"strings"
 	"sync"
@@ -339,6 +340,21 @@ func TestSafeStringBuilder(t *testing.T) {
 		})
 	})
 
+	t.Run("nil-thread", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+
+		builder := starlark.NewSafeStringBuilder(nil)
+		builder.Grow(1)
+		builder.Write([]byte{1, 2, 3})
+		builder.WriteByte(4)
+		builder.WriteRune('5')
+		builder.WriteString("6789")
+	})
+
 	t.Run("counting", func(t *testing.T) {
 		t.Run("small", func(t *testing.T) {
 			st := startest.From(t)
@@ -388,23 +404,26 @@ func TestSafeStringBuilder(t *testing.T) {
 			})
 		})
 
-		t.Run("WriteString", func(t *testing.T) {
-			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
-			st.RunThread(func(thread *starlark.Thread) {
-				allocs := thread.Allocs()
-				builder := starlark.NewSafeStringBuilder(thread)
-				if _, err := builder.WriteString(strings.Repeat("a", st.N)); err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
-					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
-				}
-				st.KeepAlive(builder.String())
+		for _, str := range []string{"a", "🥩"} {
+			strLen := uint64(len(str))
+			t.Run(fmt.Sprintf("WriteString-%d", strLen), func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+				st.SetMinExecutionSteps(strLen)
+				st.SetMaxExecutionSteps(strLen)
+				st.RunThread(func(thread *starlark.Thread) {
+					allocs := thread.Allocs()
+					builder := starlark.NewSafeStringBuilder(thread)
+					if _, err := builder.WriteString(strings.Repeat(str, st.N)); err != nil {
+						t.Errorf("unexpected error: %v", err)
+					}
+					if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
+						t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
+					}
+					st.KeepAlive(builder.String())
+				})
 			})
-		})
+		}
 
 		t.Run("WriteByte", func(t *testing.T) {
 			st := startest.From(t)
@@ -426,25 +445,28 @@ func TestSafeStringBuilder(t *testing.T) {
 			})
 		})
 
-		t.Run("WriteRune", func(t *testing.T) {
-			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
-			st.RunThread(func(thread *starlark.Thread) {
-				allocs := thread.Allocs()
-				builder := starlark.NewSafeStringBuilder(thread)
-				for i := 0; i < st.N; i++ {
-					if _, err := builder.WriteRune('a'); err != nil {
-						t.Errorf("unexpected error: %v", err)
+		for _, r := range []rune{'a', '🥩'} {
+			runeLen := uint64(utf8.RuneLen(r))
+			t.Run(fmt.Sprintf("WriteRune-%d", runeLen), func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+				st.SetMinExecutionSteps(runeLen)
+				st.SetMaxExecutionSteps(runeLen)
+				st.RunThread(func(thread *starlark.Thread) {
+					allocs := thread.Allocs()
+					builder := starlark.NewSafeStringBuilder(thread)
+					for i := 0; i < st.N; i++ {
+						if _, err := builder.WriteRune(r); err != nil {
+							t.Errorf("unexpected error: %v", err)
+						}
 					}
-				}
-				if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
-					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
-				}
-				st.KeepAlive(builder.String())
+					if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
+						t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
+					}
+					st.KeepAlive(builder.String())
+				})
 			})
-		})
+		}
 	})
 
 	t.Run("allocs", func(t *testing.T) {
