@@ -1700,20 +1700,40 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		switch x := x.(type) {
 		case Int:
 			if y, ok := y.(Int); ok {
-				return x.Or(y), nil
+				if thread != nil {
+					if err := thread.CheckAllocs(max(EstimateSize(x), EstimateSize(y))); err != nil {
+						return nil, err
+					}
+				}
+				result := Value(x.Or(y))
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+						return nil, err
+					}
+				}
+				return result, nil
 			}
 
 		case *Dict: // union
 			if y, ok := y.(*Dict); ok {
-				return x.Union(y), nil
+				return x.safeUnion(thread, y)
 			}
 
 		case *Set: // union
 			if y, ok := y.(*Set); ok {
-				// TODO: use SafeIterate
-				iter := Iterate(y)
+				iter, err := SafeIterate(thread, y)
+				if err != nil {
+					return nil, err
+				}
 				defer iter.Done()
-				return x.Union(iter)
+				z, err := x.safeUnion(thread, iter)
+				if err != nil {
+					return nil, err
+				}
+				if err := iter.Err(); err != nil {
+					return nil, err
+				}
+				return z, nil
 			}
 		}
 
