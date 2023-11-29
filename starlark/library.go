@@ -2209,6 +2209,7 @@ func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if start < end {
 		slice = recv[start:end]
 	}
+
 	if err := thread.AddExecutionSteps(int64(len(slice))); err != nil {
 		return nil, err
 	}
