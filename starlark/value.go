@@ -833,7 +833,8 @@ func (it *stringCodepointsIterator) Next(p *Value) bool {
 	return true
 }
 
-func (it *stringCodepointsIterator) Done()               {}
+func (*stringCodepointsIterator) Done() {}
+
 func (it *stringCodepointsIterator) Err() error          { return it.err }
 func (it *stringCodepointsIterator) Safety() SafetyFlags { return MemSafe | CPUSafe }
 
