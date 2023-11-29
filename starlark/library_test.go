@@ -793,14 +793,15 @@ func TestBytesAllocs(t *testing.T) {
 	t.Run("small-valid-string", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(0)
+		st.SetMaxAllocs(uint64(starlark.StringTypeOverhead))
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("hello, world!")
-			result, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
-			if err != nil {
-				st.Error(err)
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
+				if err != nil {
+					st.Error(err)
+				}
 			}
-			st.KeepAlive(result)
 		})
 	})
 
@@ -830,9 +831,6 @@ func TestBytesAllocs(t *testing.T) {
 			if utf8.ValidString(testString) {
 				st.Fatal("test string will not force allocations")
 			}
-			if err := thread.AddAllocs(starlark.EstimateSize(testString)); err != nil {
-				st.Error(err)
-			}
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.String(testString)}
 				result, err := starlark.Call(thread, bytes, args, nil)
@@ -848,11 +846,7 @@ func TestBytesAllocs(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
-			testBytes := []byte{}
-			for i := 0; i < st.N; i++ {
-				testBytes = append(testBytes, 0x80)
-			}
-			testString := string(testBytes)
+			testString := strings.Repeat(string([]byte{0x80}), st.N)
 			if utf8.ValidString(testString) {
 				st.Fatal("test string will not force allocations")
 			}
@@ -871,11 +865,6 @@ func TestBytesAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					overheadSize := starlark.EstimateMakeSize([]byte{}, 100) + starlark.SliceTypeOverhead
-					if err := thread.AddAllocs(overheadSize); err != nil {
-						return nil, err
-					}
-					st.KeepAlive(make([]byte, 100))
 					return starlark.MakeInt(n % 256), nil
 				},
 				maxN: st.N,
