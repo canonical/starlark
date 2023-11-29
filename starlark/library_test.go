@@ -7393,7 +7393,7 @@ func TestSetDiscardSteps(t *testing.T) {
 			st.SetMaxExecutionSteps((setSize / 8) + 1)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
-					input := starlark.MakeInt(setSize << 32)
+					input := starlark.MakeInt64(setSize << 32)
 					_, err := starlark.Call(thread, set_discard, starlark.Tuple{input}, nil)
 					if err != nil {
 						st.Error(err)
@@ -7773,7 +7773,7 @@ func TestSetRemoveSteps(t *testing.T) {
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
-					input := starlark.Value(starlark.MakeInt(setSize << 32))
+					input := starlark.MakeInt64(setSize << 32)
 					_, err := starlark.Call(thread, set_remove, starlark.Tuple{input}, nil)
 					if err == nil {
 						st.Errorf("key %d should be missing", setSize)
