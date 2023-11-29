@@ -754,6 +754,89 @@ func TestBoolAllocs(t *testing.T) {
 }
 
 func TestBytesSteps(t *testing.T) {
+	bytes, ok := starlark.Universe["bytes"]
+	if !ok {
+		t.Fatal("No such builtin: bytes")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.CPUSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, bytes, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("bytes", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				args := starlark.Tuple{starlark.Bytes("foobar")}
+				_, err := starlark.Call(thread, bytes, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("string", func(t *testing.T) {
+		t.Run("valid", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(uint64(len("a🍖")))
+			st.SetMaxExecutionSteps(uint64(len("a🍖")))
+			st.RunThread(func(thread *starlark.Thread) {
+				str := starlark.String(strings.Repeat("a🍖", st.N))
+				_, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			})
+		})
+
+		t.Run("invalid", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			// 1 for the check, 3 for the transcoding (U+FFFD rune)
+			st.SetMinExecutionSteps(1 + 3)
+			st.SetMaxExecutionSteps(1 + 3)
+			st.RunThread(func(thread *starlark.Thread) {
+				str := starlark.String(strings.Repeat(string([]byte{0x80}), st.N))
+				_, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			})
+		})
+	})
+
+	t.Run("iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		// 1 for iteration, 1 for append
+		st.SetMinExecutionSteps(1 + 1)
+		st.SetMaxExecutionSteps(1 + 1)
+		st.RunThread(func(thread *starlark.Thread) {
+			iter := &testIterable{
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.MakeInt(n % 256), nil
+				},
+				maxN: st.N,
+			}
+			_, err := starlark.Call(thread, bytes, starlark.Tuple{iter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestBytesAllocs(t *testing.T) {
