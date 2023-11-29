@@ -641,7 +641,7 @@ func fail(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 				return nil, err
 			}
 		} else {
-			if err := writeValue(buf, v, nil); err != nil {
+			if err := writeValue(thread, buf, v, nil); err != nil {
 				return nil, err
 			}
 		}
@@ -1183,7 +1183,7 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 				return nil, err
 			}
 		} else {
-			if err := writeValue(buf, v, nil); err != nil {
+			if err := writeValue(thread, buf, v, nil); err != nil {
 				return nil, err
 			}
 		}
@@ -1283,6 +1283,22 @@ func (r rangeValue) Slice(start, end, step int) Value {
 }
 
 func (r rangeValue) Freeze() {} // immutable
+
+func (r rangeValue) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	var err error
+	if r.step != 1 {
+		_, err = fmt.Fprintf(sb, "range(%d, %d, %d)", r.start, r.stop, r.step)
+	} else if r.start != 0 {
+		_, err = fmt.Fprintf(sb, "range(%d, %d)", r.start, r.stop)
+	} else {
+		_, err = fmt.Fprintf(sb, "range(%d)", r.stop)
+	}
+	return err
+}
+
 func (r rangeValue) String() string {
 	if r.step != 1 {
 		return fmt.Sprintf("range(%d, %d, %d)", r.start, r.stop, r.step)
@@ -2183,6 +2199,17 @@ type bytesIterable struct{ bytes Bytes }
 
 var _ Iterable = (*bytesIterable)(nil)
 
+func (bi bytesIterable) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	if err := bi.bytes.SafeString(thread, sb); err != nil {
+		return err
+	}
+	_, err := sb.WriteString(".elems()")
+	return err
+}
+
 func (bi bytesIterable) String() string        { return bi.bytes.String() + ".elems()" }
 func (bi bytesIterable) Type() string          { return "bytes.elems" }
 func (bi bytesIterable) Freeze()               {} // immutable
@@ -2567,12 +2594,12 @@ func string_format(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Valu
 					return nil, err
 				}
 			} else {
-				if err := writeValue(buf, arg, nil); err != nil {
+				if err := writeValue(thread, buf, arg, nil); err != nil {
 					return nil, err
 				}
 			}
 		case "r":
-			if err := writeValue(buf, arg, nil); err != nil {
+			if err := writeValue(thread, buf, arg, nil); err != nil {
 				return nil, err
 			}
 		default:

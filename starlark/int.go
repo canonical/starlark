@@ -197,6 +197,31 @@ func (i Int) Format(s fmt.State, ch rune) {
 	}
 	big.NewInt(iSmall).Format(s, ch)
 }
+
+func (i Int) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	iSmall, iBig := i.get()
+	if iBig != nil {
+		// log2(10) = 3.3219
+		// log10(x) = log2(x) / log2(10) > log2(10) / 3
+		maxDigits := int64(iBig.BitLen() / 3)
+		if thread != nil {
+			if err := thread.CheckExecutionSteps(maxDigits); err != nil {
+				return err
+			}
+			if err := thread.CheckAllocs(int64(maxDigits)); err != nil {
+				return err
+			}
+		}
+		_, err := fmt.Fprintf(sb, "%d", iBig)
+		return err
+	}
+	_, err := fmt.Fprintf(sb, "%d", iSmall)
+	return err
+}
+
 func (i Int) String() string {
 	iSmall, iBig := i.get()
 	if iBig != nil {

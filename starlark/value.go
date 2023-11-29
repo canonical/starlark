@@ -113,7 +113,7 @@ type SizeAware interface {
 }
 
 type SafeStringer interface {
-	SafeString(sb StringBuilder) error
+	SafeString(thread *Thread, sb StringBuilder) error
 }
 
 // A Comparable is a value that defines its own equivalence relation and
@@ -449,6 +449,14 @@ type NoneType byte
 
 const None = NoneType(0)
 
+func (NoneType) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	_, err := sb.WriteString("None")
+	return err
+}
+
 func (NoneType) String() string        { return "None" }
 func (NoneType) Type() string          { return "NoneType" }
 func (NoneType) Freeze()               {} // immutable
@@ -462,6 +470,14 @@ const (
 	False Bool = false
 	True  Bool = true
 )
+
+func (b Bool) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	_, err := sb.WriteString(b.String())
+	return err
+}
 
 func (b Bool) String() string {
 	if b {
@@ -525,6 +541,13 @@ func (f Float) format(buf StringBuilder, conv byte) error {
 		return err
 	}
 	return nil
+}
+
+func (f Float) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	return f.format(sb, 'g')
 }
 
 func (f Float) String() string { return toString(f) }
@@ -631,6 +654,13 @@ func (f Float) Unary(op syntax.Token) (Value, error) {
 // of a Starlark string as a Go string.
 type String string
 
+func (s String) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	return syntax.QuoteWriter(sb, string(s), false)
+}
+
 func (s String) String() string        { return syntax.Quote(string(s), false) }
 func (s String) GoString() string      { return string(s) }
 func (s String) Type() string          { return "string" }
@@ -700,6 +730,13 @@ var (
 	_ Indexable = (*stringElems)(nil)
 )
 
+func (si stringElems) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	return writeValue(thread, sb, si, nil)
+}
+
 func (si stringElems) String() string        { return toString(si) }
 func (si stringElems) Type() string          { return "string.elems" }
 func (si stringElems) Freeze()               {} // immutable
@@ -766,6 +803,13 @@ type stringCodepoints struct {
 }
 
 var _ Iterable = (*stringCodepoints)(nil)
+
+func (si stringCodepoints) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	return writeValue(thread, sb, si, nil)
+}
 
 func (si stringCodepoints) String() string        { return toString(si) }
 func (si stringCodepoints) Type() string          { return "string.codepoints" }
@@ -840,6 +884,13 @@ func (fn *Function) Freeze()               { fn.defaults.Freeze(); fn.freevars.F
 func (fn *Function) Type() string          { return "function" }
 func (fn *Function) Truth() Bool           { return true }
 func (fn *Function) String() string        { return toString(fn) }
+
+func (fn *Function) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	return writeValue(thread, sb, fn, nil)
+}
 
 // Globals returns a new, unfrozen StringDict containing all global
 // variables so far defined in the function's module.
@@ -917,6 +968,14 @@ func (b *Builtin) Hash() (uint32, error) {
 	}
 	return h, nil
 }
+
+func (b *Builtin) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	return writeValue(thread, sb, b, nil)
+}
+
 func (b *Builtin) String() string  { return toString(b) }
 func (b *Builtin) Receiver() Value { return b.recv }
 func (b *Builtin) Type() string    { return "builtin_function_or_method" }
@@ -1004,6 +1063,13 @@ func (d *Dict) Freeze()                                         { d.ht.freeze() 
 func (d *Dict) Truth() Bool                                     { return d.Len() > 0 }
 func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.Errorf("unhashable type: dict") }
 func (d *Dict) String() string                                  { return toString(d) }
+
+func (d *Dict) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	return writeValue(thread, sb, d, nil)
+}
 
 func (d *Dict) SafeGet(thread *Thread, k Value) (v Value, found bool, err error) {
 	return d.ht.lookup(thread, k)
@@ -1277,6 +1343,14 @@ func (t Tuple) Freeze() {
 		elem.Freeze()
 	}
 }
+
+func (t Tuple) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	return writeValue(thread, sb, t, nil)
+}
+
 func (t Tuple) String() string { return toString(t) }
 func (t Tuple) Type() string   { return "tuple" }
 func (t Tuple) Truth() Bool    { return len(t) > 0 }
@@ -1346,6 +1420,13 @@ func (s *Set) Freeze()                                { s.ht.freeze() }
 func (s *Set) Hash() (uint32, error)                  { return 0, fmt.Errorf("unhashable type: set") }
 func (s *Set) Truth() Bool                            { return s.Len() > 0 }
 func (s *Set) String() string                         { return toString(s) }
+
+func (s *Set) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	return writeValue(thread, sb, s, nil)
+}
 
 func (s *Set) Attr(name string) (Value, error) { return builtinAttr(s, name, setMethods) }
 func (s *Set) AttrNames() []string             { return builtinAttrNames(setMethods) }
@@ -1555,13 +1636,13 @@ func (s *Set) SymmetricDifference(other Iterator) (Value, error) {
 // It may be more efficient than v.String() for larger values.
 func toString(v Value) string {
 	buf := new(strings.Builder)
-	writeValue(buf, v, nil)
+	writeValue(nil, buf, v, nil)
 	return buf.String()
 }
 
 func safeToString(thread *Thread, v Value) (string, error) {
 	buf := NewSafeStringBuilder(thread)
-	if err := writeValue(buf, v, nil); err != nil {
+	if err := writeValue(thread, buf, v, nil); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
@@ -1574,7 +1655,7 @@ func safeToString(thread *Thread, v Value) (string, error) {
 // (These are the only potentially cyclic structures.)
 // Callers should generally pass nil for path.
 // It is safe to re-use the same path slice for multiple calls.
-func writeValue(out StringBuilder, x Value, path []Value) error {
+func writeValue(thread *Thread, out StringBuilder, x Value, path []Value) error {
 	switch x := x.(type) {
 	case nil:
 		if _, err := out.WriteString("<nil>"); err != nil { // indicates a bug
@@ -1665,13 +1746,18 @@ func writeValue(out StringBuilder, x Value, path []Value) error {
 				return err
 			}
 		} else {
+			if thread != nil {
+				if err := thread.AddExecutionSteps(int64(len(x.elems))); err != nil {
+					return err
+				}
+			}
 			for i, elem := range x.elems {
 				if i > 0 {
 					if _, err := out.WriteString(", "); err != nil {
 						return err
 					}
 				}
-				if err := writeValue(out, elem, append(path, x)); err != nil {
+				if err := writeValue(thread, out, elem, append(path, x)); err != nil {
 					return err
 				}
 			}
@@ -1684,13 +1770,18 @@ func writeValue(out StringBuilder, x Value, path []Value) error {
 		if err := out.WriteByte('('); err != nil {
 			return err
 		}
+		if thread != nil {
+			if err := thread.AddExecutionSteps(int64(len(x))); err != nil {
+				return err
+			}
+		}
 		for i, elem := range x {
 			if i > 0 {
 				if _, err := out.WriteString(", "); err != nil {
 					return err
 				}
 			}
-			if err := writeValue(out, elem, path); err != nil {
+			if err := writeValue(thread, out, elem, path); err != nil {
 				return err
 			}
 		}
@@ -1729,18 +1820,23 @@ func writeValue(out StringBuilder, x Value, path []Value) error {
 			}
 		} else {
 			sep := ""
+			if thread != nil {
+				if err := thread.AddExecutionSteps(int64(x.ht.len)); err != nil {
+					return err
+				}
+			}
 			for e := x.ht.head; e != nil; e = e.next {
 				k, v := e.key, e.value
 				if _, err := out.WriteString(sep); err != nil {
 					return err
 				}
-				if err := writeValue(out, k, path); err != nil {
+				if err := writeValue(thread, out, k, path); err != nil {
 					return err
 				}
 				if _, err := out.WriteString(": "); err != nil {
 					return err
 				}
-				if err := writeValue(out, v, append(path, x)); err != nil { // cycle check
+				if err := writeValue(thread, out, v, append(path, x)); err != nil { // cycle check
 					return err
 				}
 				sep = ", "
@@ -1754,13 +1850,18 @@ func writeValue(out StringBuilder, x Value, path []Value) error {
 		if _, err := out.WriteString("set(["); err != nil {
 			return err
 		}
+		if thread != nil {
+			if err := thread.AddExecutionSteps(int64(x.ht.len)); err != nil {
+				return err
+			}
+		}
 		for e := x.ht.head; e != nil; e = e.next {
 			if e != x.ht.head {
 				if _, err := out.WriteString(", "); err != nil {
 					return err
 				}
 			}
-			if err := writeValue(out, e.key, path); err != nil {
+			if err := writeValue(thread, out, e.key, path); err != nil {
 				return err
 			}
 		}
@@ -1769,11 +1870,14 @@ func writeValue(out StringBuilder, x Value, path []Value) error {
 		}
 
 	case SafeStringer:
-		if err := x.SafeString(out); err != nil {
+		if err := x.SafeString(thread, out); err != nil {
 			return err
 		}
 
 	default:
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return err
+		}
 		if _, err := out.WriteString(x.String()); err != nil {
 			return err
 		}
@@ -2050,6 +2154,13 @@ var (
 	_ Sliceable  = Bytes("")
 	_ Indexable  = Bytes("")
 )
+
+func (b Bytes) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	return syntax.QuoteWriter(sb, string(b), true)
+}
 
 func (b Bytes) String() string        { return syntax.Quote(string(b), true) }
 func (b Bytes) Type() string          { return "bytes" }

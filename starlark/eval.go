@@ -442,6 +442,8 @@ func (tb *SafeStringBuilder) Err() error     { return tb.err }
 // It is not a true starlark.Value.
 type StringDict map[string]Value
 
+var _ SafeStringer = StringDict(nil)
+
 // Keys returns a new sorted slice of d's keys.
 func (d StringDict) Keys() []string {
 	names := make([]string, 0, len(d))
@@ -452,18 +454,38 @@ func (d StringDict) Keys() []string {
 	return names
 }
 
-func (d StringDict) String() string {
-	buf := new(strings.Builder)
-	buf.WriteByte('{')
+func (d StringDict) SafeString(thread *Thread, sb StringBuilder) error {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+		return err
+	}
+	if err := sb.WriteByte('{'); err != nil {
+		return err
+	}
 	sep := ""
 	for _, name := range d.Keys() {
-		buf.WriteString(sep)
-		buf.WriteString(name)
-		buf.WriteString(": ")
-		writeValue(buf, d[name], nil)
+		if _, err := sb.WriteString(sep); err != nil {
+			return err
+		}
+		if _, err := sb.WriteString(name); err != nil {
+			return err
+		}
+		if _, err := sb.WriteString(": "); err != nil {
+			return err
+		}
+		if err := writeValue(thread, sb, d[name], nil); err != nil {
+			return err
+		}
 		sep = ", "
 	}
-	buf.WriteByte('}')
+	if err := sb.WriteByte('}'); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d StringDict) String() string {
+	buf := new(strings.Builder)
+	d.SafeString(nil, buf)
 	return buf.String()
 }
 
@@ -2310,7 +2332,7 @@ func interpolate(thread *Thread, format string, x Value) (Value, error) {
 					return nil, err
 				}
 			} else {
-				if err := writeValue(buf, arg, nil); err != nil {
+				if err := writeValue(thread, buf, arg, nil); err != nil {
 					return nil, err
 				}
 			}
