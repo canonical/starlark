@@ -797,6 +797,7 @@ type stringCodepointsIterator struct {
 }
 
 var _ SafeIterator = &stringCodepointsIterator{}
+var runeSize = EstimateSize(ord)
 
 func (it *stringCodepointsIterator) BindThread(thread *Thread) {
 	it.thread = thread
@@ -822,12 +823,11 @@ func (it *stringCodepointsIterator) Next(p *Value) bool {
 			*p = s[:sz]
 		}
 	} else {
-		ord := Value(MakeInt(int(r)))
-		if err := it.thread.AddAllocs(EstimateSize(ord)); err != nil {
+		if err := it.thread.AddAllocs(runeSize); err != nil {
 			it.err = err
 			return false
 		}
-		*p = ord
+		*p = MakeInt(int(r))
 	}
 	it.i += sz
 	return true
