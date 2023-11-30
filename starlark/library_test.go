@@ -5435,6 +5435,23 @@ func TestListRemoveAllocs(t *testing.T) {
 }
 
 func TestStringCapitalizeSteps(t *testing.T) {
+	string_capitalize, _ := starlark.String("ıııııııııı").Attr("capitalize")
+	if string_capitalize == nil {
+		t.Fatal("no such method: string.capitalize")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.SetMinExecutionSteps(uint64(len("Iııııııııı")))
+	st.SetMaxExecutionSteps(uint64(len("Iııııııııı")))
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			_, err := starlark.Call(thread, string_capitalize, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		}
+	})
 }
 
 func TestStringCapitalizeAllocs(t *testing.T) {

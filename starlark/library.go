@@ -205,7 +205,7 @@ var (
 		"upper":          NewBuiltin("upper", string_upper),
 	}
 	stringMethodSafeties = map[string]SafetyFlags{
-		"capitalize":     MemSafe | IOSafe,
+		"capitalize":     MemSafe | IOSafe | CPUSafe,
 		"codepoint_ords": MemSafe | IOSafe,
 		"codepoints":     MemSafe | IOSafe,
 		"count":          MemSafe | IOSafe,
