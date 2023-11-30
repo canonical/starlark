@@ -3,6 +3,9 @@ package time_test
 import (
 	"errors"
 	"testing"
+	"strings"
+	"fmt"
+	gotime "time"
 
 	"github.com/canonical/starlark/lib/time"
 	"github.com/canonical/starlark/starlark"
@@ -303,4 +306,58 @@ func TestTimeTimeSteps(t *testing.T) {
 }
 
 func TestTimeTimeAllocs(t *testing.T) {
+}
+
+func TestSafeDurationUnpacker(t *testing.T) {
+	t.Run("duration", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMaxAllocs(0)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				d := time.Duration(10)
+
+				sdu := time.SafeDurationUnpacker{}
+				sdu.BindThread(thread)
+				if err := starlark.UnpackPositionalArgs("parse_duration", starlark.Tuple{d}, nil, 1, &sdu); err != nil {
+					st.Error(err)
+				}
+
+				result := sdu.Duration()
+				if result != d {
+					st.Errorf("incorrect value returned: expected %v but got %v", d, result)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMaxAllocs(0)
+		st.SetMinExecutionSteps(uint64(len("1h")))
+		st.SetMaxExecutionSteps(uint64(len("1h")))
+		st.RunThread(func(thread *starlark.Thread) {
+			expected, err := gotime.ParseDuration(fmt.Sprintf("%dh", st.N))
+			if err != nil {
+				st.Fatal(err)
+			}
+			expectedDuration := time.Duration(expected)
+
+			raw := starlark.String(strings.Repeat("1h", st.N))
+			sdu := time.SafeDurationUnpacker{}
+			sdu.BindThread(thread)
+			if err := starlark.UnpackPositionalArgs("parse_duration", starlark.Tuple{raw}, nil, 1, &sdu); err != nil {
+				st.Error(err)
+			}
+
+			result := sdu.Duration()
+			if result != expectedDuration {
+				st.Errorf("incorrect value returned: expected %v but got %v", expectedDuration, result)
+			}
+			st.KeepAlive(result)
+		})
+	})
 }
