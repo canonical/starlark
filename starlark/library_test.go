@@ -7861,6 +7861,54 @@ func TestSetSymmetricDifferenceAllocs(t *testing.T) {
 }
 
 func TestSetUnionSteps(t *testing.T) {
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.CPUSafe)
+
+		set := starlark.NewSet(0)
+		set_union, _ := set.Attr("union")
+		if set_union == nil {
+			t.Fatal("no such method: set.union")
+		}
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, set_union, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("execution", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		// Iteration over items of a dict is 1 step per N,
+		// cloning (insertion) of the dict is 1 step per N,
+		// insertion cost averages to ~2.5 per N.
+		st.SetMinExecutionSteps(4)
+		st.SetMaxExecutionSteps(5)
+		st.RunThread(func(thread *starlark.Thread) {
+			set := starlark.NewSet(st.N)
+			for i := 0; i < st.N; i++ {
+				set.Insert(starlark.MakeInt(i))
+			}
+			set_union, _ := set.Attr("union")
+			if set_union == nil {
+				t.Fatal("no such method: set.union")
+			}
+
+			iter := testIterable{
+				maxN: st.N,
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.MakeInt(-n), nil
+				},
+			}
+			_, err := starlark.Call(thread, set_union, starlark.Tuple{&iter}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
 }
 
 func TestSetUnionAllocs(t *testing.T) {
