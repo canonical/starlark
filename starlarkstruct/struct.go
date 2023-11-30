@@ -4,7 +4,6 @@
 
 // Package starlarkstruct defines the Starlark types 'struct' and
 // 'module', both optional language extensions.
-//
 package starlarkstruct // import "github.com/canonical/starlark/starlarkstruct"
 
 // It is tempting to introduce a variant of Struct that is a wrapper
@@ -36,10 +35,9 @@ import (
 //
 // An application can add 'struct' to the Starlark environment like so:
 //
-// 	globals := starlark.StringDict{
-// 		"struct":  starlark.NewBuiltin("struct", starlarkstruct.Make),
-// 	}
-//
+//	globals := starlark.StringDict{
+//		"struct":  starlark.NewBuiltin("struct", starlarkstruct.Make),
+//	}
 func Make(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(args) > 0 {
 		return nil, fmt.Errorf("struct: unexpected positional arguments")
@@ -119,8 +117,8 @@ type entry struct {
 }
 
 var (
-	_ starlark.HasAttrs  = (*Struct)(nil)
-	_ starlark.HasBinary = (*Struct)(nil)
+	_ starlark.HasSafeAttrs = (*Struct)(nil)
+	_ starlark.HasBinary    = (*Struct)(nil)
 )
 
 // ToStringDict adds a name/value entry to d for each field of the struct.
@@ -130,6 +128,7 @@ func (s *Struct) ToStringDict(d starlark.StringDict) {
 	}
 }
 
+// TODO: test
 func (s *Struct) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
 	const safety = starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
@@ -226,6 +225,41 @@ func (x *Struct) Binary(op syntax.Token, y starlark.Value, side starlark.Side) (
 		return FromStringDict(x.constructor, z), nil
 	}
 	return nil, nil // unhandled
+}
+
+// TODO: test
+func (s *Struct) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	if err := starlark.CheckSafety(thread, starlark.MemSafe|starlark.CPUSafe|starlark.IOSafe); err != nil {
+		return nil, err
+	}
+	// Binary search the entries.
+	// This implementation is a specialization of
+	// sort.Search that avoids dynamic dispatch.
+	n := len(s.entries)
+	i, j := 0, n
+	for i < j {
+		if thread != nil {
+			if err := thread.AddExecutionSteps(1); err != nil {
+				return nil, err
+			}
+		}
+		h := int(uint(i+j) >> 1)
+		if s.entries[h].name < name {
+			i = h + 1
+		} else {
+			j = h
+		}
+	}
+	if i < n && s.entries[i].name == name {
+		return s.entries[i].value, nil
+	}
+
+	var ctor string
+	if s.constructor != Default {
+		ctor = s.constructor.String() + " "
+	}
+	return nil, starlark.NoSuchAttrError(
+		fmt.Sprintf("%sstruct has no .%s attribute", ctor, name))
 }
 
 // Attr returns the value of the specified field.

@@ -55,6 +55,9 @@ func MakeModule(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tupl
 	if err := starlark.UnpackPositionalArgs(b.Name(), args, nil, 1, &name); err != nil {
 		return nil, err
 	}
+	if err := thread.AddAllocs(starlark.EstimateMakeSize(starlark.StringDict{}, len(kwargs))); err != nil {
+		return nil, err
+	}
 	members := make(starlark.StringDict, len(kwargs))
 	for _, kwarg := range kwargs {
 		k := string(kwarg[0].(starlark.String))
