@@ -80,7 +80,7 @@ func init() {
 		"any":       MemSafe | IOSafe | CPUSafe,
 		"all":       MemSafe | IOSafe | CPUSafe,
 		"bool":      MemSafe | IOSafe | CPUSafe,
-		"bytes":     MemSafe | IOSafe,
+		"bytes":     MemSafe | IOSafe | CPUSafe,
 		"chr":       MemSafe | IOSafe | CPUSafe,
 		"dict":      MemSafe | IOSafe | CPUSafe,
 		"dir":       MemSafe | IOSafe | CPUSafe,
@@ -1615,6 +1615,9 @@ func utf8Transcode(s string) string {
 }
 
 func safeUtf8Transcode(thread *Thread, s string) (string, error) {
+	if err := thread.AddExecutionSteps(int64(len(s))); err != nil {
+		return "", err
+	}
 	if utf8.ValidString(s) {
 		return s, nil
 	}
