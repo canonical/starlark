@@ -8,9 +8,11 @@ package starlark_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/syntax"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -154,4 +156,96 @@ func TestParamDefault(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSafeString(t *testing.T) {
+	testFunction, err := starlark.ExprFuncOptions(&syntax.FileOptions{}, "test", "True", starlark.StringDict{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name  string
+		value starlark.SafeStringer
+	}{{
+		name:  "Bool",
+		value: starlark.True,
+	}, {
+		name: "Builtin",
+		value: starlark.NewBuiltin(
+			"test",
+			func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+				return starlark.None, nil
+			}),
+	}, {
+		name:  "Bytes",
+		value: starlark.Bytes("test"),
+	}, {
+		name:  "Dict",
+		value: starlark.NewDict(0),
+	}, {
+		name:  "Int(small)",
+		value: starlark.MakeInt(10),
+	}, {
+		name:  "Float",
+		value: starlark.Float(3.14),
+	}, {
+		name:  "Function",
+		value: testFunction,
+	}, {
+		name:  "Int(big)",
+		value: starlark.MakeInt64(1 << 32),
+	}, {
+		name:  "None",
+		value: starlark.None,
+	}, {
+		name:  "Set",
+		value: starlark.NewSet(0),
+	}, {
+		name:  "String",
+		value: starlark.String("test"),
+	}, {
+		name:  "StringDict",
+		value: starlark.StringDict{"none": starlark.None},
+	}, {
+		name:  "Tuple",
+		value: starlark.Tuple{starlark.None},
+	}, {
+		name:  "Bytes iterable",
+		value: starlark.Bytes("test").AsIterable().(starlark.SafeStringer),
+	}, {
+		name:  "Range",
+		value: starlark.Range(0, 10, 1).(starlark.SafeStringer),
+	}, {
+		name:  "String elems(chars)",
+		value: starlark.String("test").AsElems(false).(starlark.SafeStringer),
+	}, {
+		name:  "String elems(ords)",
+		value: starlark.String("test").AsElems(true).(starlark.SafeStringer),
+	}, {
+		name:  "String codepoints(chars)",
+		value: starlark.String("test").AsCodepoints(false).(starlark.SafeStringer),
+	}, {
+		name:  "String codepoints(ords)",
+		value: starlark.String("test").AsCodepoints(true).(starlark.SafeStringer),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			builder := new(strings.Builder)
+			if err := test.value.SafeString(nil, builder); err != nil {
+				t.Errorf("undexpected error: %v", err)
+			}
+			// At least for builtin variables, the result should be the
+			// same regardless of the safety of the context.
+			if stringer, ok := test.value.(fmt.Stringer); ok {
+				expected := stringer.String()
+				actual := builder.String()
+				if expected != actual {
+					t.Errorf("inconsistent stringer implementation: expected %s got %s", expected, actual)
+				}
+			}
+		})
+	}
+
 }
