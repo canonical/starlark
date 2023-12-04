@@ -78,7 +78,7 @@ func TestSafeString(t *testing.T) {
 		input: starlarkstruct.FromStringDict(
 			starlark.String("foo"),
 			starlark.StringDict{
-				"baz": starlark.None,
+				"bar": starlark.None,
 			},
 		),
 	}, {
@@ -86,7 +86,7 @@ func TestSafeString(t *testing.T) {
 		input: &starlarkstruct.Module{
 			Name: "foo",
 			Members: starlark.StringDict{
-				"baz": starlark.None,
+				"bar": starlark.None,
 			},
 		},
 	}}
