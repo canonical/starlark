@@ -797,10 +797,11 @@ func TestBytesAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("hello, world!")
 			for i := 0; i < st.N; i++ {
-				_, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
+				result, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
 				if err != nil {
 					st.Error(err)
 				}
+				st.KeepAlive(result)
 			}
 		})
 	})
