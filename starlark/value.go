@@ -1502,7 +1502,7 @@ func (s *Set) Difference(other Iterator) (Value, error) {
 }
 
 func (s *Set) safeDifference(thread *Thread, other Iterator) (Value, error) {
-	if err := CheckSafety(thread, MemSafe|IOSafe); err != nil {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
 		return nil, err
 	}
 
@@ -1512,7 +1512,7 @@ func (s *Set) safeDifference(thread *Thread, other Iterator) (Value, error) {
 	}
 	var x Value
 	for other.Next(&x) {
-		if _, err := diff.Delete(x); err != nil {
+		if _, _, err := diff.ht.delete(thread, x); err != nil {
 			return nil, err
 		}
 	}

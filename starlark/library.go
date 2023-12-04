@@ -258,7 +258,7 @@ var (
 	setMethodSafeties = map[string]SafetyFlags{
 		"add":                  MemSafe | IOSafe | CPUSafe,
 		"clear":                MemSafe | IOSafe | CPUSafe,
-		"difference":           MemSafe | IOSafe,
+		"difference":           MemSafe | IOSafe | CPUSafe,
 		"discard":              MemSafe | IOSafe | CPUSafe,
 		"intersection":         MemSafe | IOSafe,
 		"issubset":             MemSafe | IOSafe,

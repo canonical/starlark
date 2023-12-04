@@ -7400,6 +7400,64 @@ func TestSetClearAllocs(t *testing.T) {
 }
 
 func TestSetDifferenceSteps(t *testing.T) {
+	t.Run("safety-respected", func(t *testing.T) {
+		set := starlark.NewSet(0)
+		set_difference, _ := set.Attr("difference")
+		if set_difference == nil {
+			t.Fatal("no such method: set.difference")
+		}
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.CPUSafe)
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, set_difference, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("iterable", func(t *testing.T) {
+		const elems = 100
+
+		set := starlark.NewSet(elems)
+		for i := 0; i < elems; i++ {
+			set.Insert(starlark.MakeInt(i))
+		}
+		set_difference, _ := set.Attr("difference")
+		if set_difference == nil {
+			t.Fatal("no such method: set.difference")
+		}
+
+		iter := &testIterable{
+			maxN: elems,
+			nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+				if n%2 == 0 {
+					return starlark.MakeInt(n), nil // in set
+				} else {
+					return starlark.MakeInt(-n), nil // not in set
+				}
+			},
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		// The step cost per N is:
+		// - For cloning the set, on average elems
+		// - For iteration, elems
+		// - For removal, on average elems
+		st.SetMinExecutionSteps(3*elems + 1)
+		st.SetMaxExecutionSteps(3*elems + 1)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, set_difference, starlark.Tuple{iter}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
 }
 
 func TestSetDifferenceAllocs(t *testing.T) {
