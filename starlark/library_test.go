@@ -6856,34 +6856,40 @@ func TestSetDifferenceSteps(t *testing.T) {
 		}
 	})
 
-	t.Run("execution", func(t *testing.T) {
+	t.Run("iterable", func(t *testing.T) {
 		const elems = 100
+
 		set := starlark.NewSet(elems)
-		list := starlark.NewList(make([]starlark.Value, 0, elems))
 		for i := 0; i < elems; i++ {
 			set.Insert(starlark.MakeInt(i))
-			if i%2 == 0 {
-				list.Append(starlark.MakeInt(i))
-			} else {
-				list.Append(starlark.MakeInt(-i))
-			}
 		}
 		set_difference, _ := set.Attr("difference")
 		if set_difference == nil {
 			t.Fatal("no such method: set.difference")
 		}
 
+		iter := &testIterable{
+			maxN: elems,
+			nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+				if n%2 == 0 {
+					return starlark.MakeInt(n), nil
+				} else {
+					return starlark.MakeInt(-n), nil
+				}
+			},
+		}
+
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		// The cost is:
-		// - avg 1 per element in the set for cloning
-		// - 1 per element in the list for iteration
-		// - avg 1 per element in the list for removing
+		// The step cost per N is:
+		// - For cloning the set, on average elems
+		// - For iteration, elems
+		// - For removal, on average elems
 		st.SetMinExecutionSteps(3*elems + 1)
 		st.SetMaxExecutionSteps(3*elems + 1)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				_, err := starlark.Call(thread, set_difference, starlark.Tuple{list}, nil)
+				_, err := starlark.Call(thread, set_difference, starlark.Tuple{iter}, nil)
 				if err != nil {
 					st.Error(err)
 				}
