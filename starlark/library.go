@@ -208,7 +208,7 @@ var (
 		"capitalize":     MemSafe | IOSafe,
 		"codepoint_ords": MemSafe | IOSafe,
 		"codepoints":     MemSafe | IOSafe,
-		"count":          MemSafe | IOSafe,
+		"count":          MemSafe | IOSafe | CPUSafe,
 		"elem_ords":      MemSafe | IOSafe,
 		"elems":          MemSafe | IOSafe,
 		"endswith":       MemSafe | IOSafe | CPUSafe,
@@ -2247,6 +2247,9 @@ func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		slice = recv[start:end]
 	}
 
+	if err := thread.AddExecutionSteps(int64(len(slice))); err != nil {
+		return nil, err
+	}
 	result := Value(MakeInt(strings.Count(slice, sub)))
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
