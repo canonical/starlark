@@ -131,7 +131,8 @@ func (s *Struct) ToStringDict(d starlark.StringDict) {
 }
 
 func (s *Struct) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
-	if err := starlark.CheckSafety(thread, starlark.MemSafe|starlark.CPUSafe|starlark.IOSafe); err != nil {
+	const safety = starlark. | starlark.IOSafe | starlark.CPUSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return err
 	}
 	switch constructor := s.constructor.(type) {

@@ -1285,7 +1285,8 @@ func (r rangeValue) Slice(start, end, step int) Value {
 func (r rangeValue) Freeze() {} // immutable
 
 func (r rangeValue) SafeString(thread *Thread, sb StringBuilder) error {
-	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+	const safety = MemSafe | IOSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
 	var err error
@@ -2200,7 +2201,8 @@ type bytesIterable struct{ bytes Bytes }
 var _ Iterable = (*bytesIterable)(nil)
 
 func (bi bytesIterable) SafeString(thread *Thread, sb StringBuilder) error {
-	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+	const safety = MemSafe | IOSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
 	if err := bi.bytes.SafeString(thread, sb); err != nil {

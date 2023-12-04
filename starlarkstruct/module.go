@@ -27,7 +27,7 @@ func (m *Module) Truth() starlark.Bool                     { return true }
 func (m *Module) Type() string                             { return "module" }
 
 func (m *Module) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
-	const safety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe
+	const safety = starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return err
 	}

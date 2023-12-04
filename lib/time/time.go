@@ -194,7 +194,8 @@ func (d *Duration) Unpack(v starlark.Value) error {
 
 // SafeString implements the SafeStringer interface.
 func (d Duration) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
-	if err := starlark.CheckSafety(thread, starlark.CPUSafe|starlark.MemSafe|starlark.IOSafe); err != nil {
+	const safety = starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return err
 	}
 	// Conversion to string is bounded (and small) both in memory and time.
@@ -413,7 +414,8 @@ func newTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, 
 }
 
 func (t Time) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
-	if err := starlark.CheckSafety(thread, starlark.CPUSafe|starlark.MemSafe|starlark.IOSafe); err != nil {
+	const safety = starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return err
 	}
 	// Conversion to string is bounded (and small) both in memory and time.

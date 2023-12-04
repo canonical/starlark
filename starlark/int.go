@@ -199,7 +199,8 @@ func (i Int) Format(s fmt.State, ch rune) {
 }
 
 func (i Int) SafeString(thread *Thread, sb StringBuilder) error {
-	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
+	const safety = MemSafe | IOSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
 	iSmall, iBig := i.get()
