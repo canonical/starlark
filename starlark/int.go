@@ -205,10 +205,10 @@ func (i Int) SafeString(thread *Thread, sb StringBuilder) error {
 	}
 	iSmall, iBig := i.get()
 	if iBig != nil {
-		// log2(10) = 3.3219
-		// log10(x) = log2(x) / log2(10) > log2(10) / 3
-		maxDigits := int64(iBig.BitLen() / 3)
 		if thread != nil {
+			// log2(10) > 3
+			// log10(x) = log2(x) / log2(10) < log2(x) / 3
+			maxDigits := int64(iBig.BitLen() / 3)
 			if err := thread.CheckExecutionSteps(maxDigits); err != nil {
 				return err
 			}

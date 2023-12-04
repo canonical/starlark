@@ -68,14 +68,14 @@ func Range(start, stop, step int) Value {
 	}
 }
 
-func (b Bytes) AsIterable() Value {
+func (b Bytes) Iterable() Value {
 	return bytesIterable{b}
 }
 
-func (s String) AsCodepoints(ords bool) Value {
+func (s String) Codepoints(ords bool) Value {
 	return stringCodepoints{s, ords}
 }
 
-func (s String) AsElems(ords bool) Value {
+func (s String) Elems(ords bool) Value {
 	return stringElems{s, ords}
 }

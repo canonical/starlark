@@ -550,7 +550,7 @@ func (f Float) SafeString(thread *Thread, sb StringBuilder) error {
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
-	return f.format(sb, 'g')
+	return writeValue(thread, sb, f, nil)
 }
 
 func (f Float) String() string { return toString(f) }
@@ -1758,7 +1758,7 @@ func writeValue(thread *Thread, out StringBuilder, x Value, path []Value) error 
 			}
 		} else {
 			if thread != nil {
-				// Add 1 step per element to match the cost of an iteration.
+				// Add 1 step per element to match the cost of using SafeIterate.
 				if err := thread.AddExecutionSteps(int64(len(x.elems))); err != nil {
 					return err
 				}
@@ -1783,7 +1783,7 @@ func writeValue(thread *Thread, out StringBuilder, x Value, path []Value) error 
 			return err
 		}
 		if thread != nil {
-			// Add 1 step per element to match the cost of an iteration.
+			// Add 1 step per element to match the cost of using SafeIterate.
 			if err := thread.AddExecutionSteps(int64(len(x))); err != nil {
 				return err
 			}
@@ -1834,6 +1834,7 @@ func writeValue(thread *Thread, out StringBuilder, x Value, path []Value) error 
 		} else {
 			sep := ""
 			if thread != nil {
+				// Add 1 step per element to match the cost of using SafeIterate.
 				if err := thread.AddExecutionSteps(int64(x.ht.len)); err != nil {
 					return err
 				}
@@ -1864,6 +1865,7 @@ func writeValue(thread *Thread, out StringBuilder, x Value, path []Value) error 
 			return err
 		}
 		if thread != nil {
+			// Add 1 step per element to match the cost of using SafeIterate.
 			if err := thread.AddExecutionSteps(int64(x.ht.len)); err != nil {
 				return err
 			}

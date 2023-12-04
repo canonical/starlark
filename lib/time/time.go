@@ -198,8 +198,8 @@ func (d Duration) SafeString(thread *starlark.Thread, sb starlark.StringBuilder)
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return err
 	}
-	// Conversion to string is bounded (and small) both in memory and time.
-	// As such, we can make this simple and accept a (very small) spike.
+	// String conversion is cheap in both memory and time.
+	// Hence, we can make this simple and accept a small spike.
 	_, err := sb.WriteString(time.Duration(d).String())
 	return err
 }
@@ -418,9 +418,9 @@ func (t Time) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) err
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return err
 	}
-	// Conversion to string is bounded (and small) both in memory and time.
-	// As such, we can make this simple and accept a (very small) spike.
-	_, err := sb.WriteString(time.Time(t).String())
+	// String conversion is cheap in both memory and time.
+	// Hence, we can make this simple and accept a small spike.
+	_, err := sb.WriteString(t.String())
 	return err
 }
 

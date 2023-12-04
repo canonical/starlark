@@ -2,9 +2,9 @@ package time_test
 
 import (
 	"errors"
-	"testing"
-	"strings"
 	"fmt"
+	"strings"
+	"testing"
 	gotime "time"
 
 	"github.com/canonical/starlark/lib/time"
@@ -360,4 +360,43 @@ func TestSafeDurationUnpacker(t *testing.T) {
 			st.KeepAlive(result)
 		})
 	})
+}
+
+func TestSafeString(t *testing.T) {
+	tests := []struct {
+		name  string
+		input starlark.SafeStringer
+	}{{
+		name:  "Duration",
+		input: time.Duration(gotime.Second),
+	}, {
+		name:  "Time",
+		input: time.Time(gotime.Now()),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Run("nil-thread", func(t *testing.T) {
+				builder := new(strings.Builder)
+				if err := test.input.SafeString(nil, builder); err != nil {
+					t.Errorf("undexpected error: %v", err)
+				}
+			})
+
+			t.Run("consitency", func(t *testing.T) {
+				thread := &starlark.Thread{}
+				builder := new(strings.Builder)
+				if err := test.input.SafeString(thread, builder); err != nil {
+					t.Errorf("undexpected error: %v", err)
+				}
+				if stringer, ok := test.input.(fmt.Stringer); ok {
+					expected := stringer.String()
+					actual := builder.String()
+					if expected != actual {
+						t.Errorf("inconsistent stringer implementation: expected %s got %s", expected, actual)
+					}
+				}
+			})
+		})
+	}
 }

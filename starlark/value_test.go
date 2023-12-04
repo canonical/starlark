@@ -159,93 +159,105 @@ func TestParamDefault(t *testing.T) {
 }
 
 func TestSafeString(t *testing.T) {
-	testFunction, err := starlark.ExprFuncOptions(&syntax.FileOptions{}, "test", "True", starlark.StringDict{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	tests := []struct {
 		name  string
-		value starlark.SafeStringer
+		input starlark.SafeStringer
 	}{{
 		name:  "Bool",
-		value: starlark.True,
+		input: starlark.True,
 	}, {
 		name: "Builtin",
-		value: starlark.NewBuiltin(
+		input: starlark.NewBuiltin(
 			"test",
 			func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 				return starlark.None, nil
 			}),
 	}, {
 		name:  "Bytes",
-		value: starlark.Bytes("test"),
+		input: starlark.Bytes("test"),
 	}, {
 		name:  "Dict",
-		value: starlark.NewDict(0),
+		input: starlark.NewDict(0),
 	}, {
 		name:  "Int(small)",
-		value: starlark.MakeInt(10),
+		input: starlark.MakeInt(10),
 	}, {
 		name:  "Float",
-		value: starlark.Float(3.14),
+		input: starlark.Float(3.14),
 	}, {
-		name:  "Function",
-		value: testFunction,
+		name: "Function",
+		input: func() *starlark.Function {
+			const name = "test"
+			const code = "True"
+			f, err := starlark.ExprFuncOptions(&syntax.FileOptions{}, name, code, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return f
+		}(),
 	}, {
 		name:  "Int(big)",
-		value: starlark.MakeInt64(1 << 32),
+		input: starlark.MakeInt64(1 << 32),
 	}, {
 		name:  "None",
-		value: starlark.None,
+		input: starlark.None,
 	}, {
 		name:  "Set",
-		value: starlark.NewSet(0),
+		input: starlark.NewSet(0),
 	}, {
 		name:  "String",
-		value: starlark.String("test"),
+		input: starlark.String("test"),
 	}, {
 		name:  "StringDict",
-		value: starlark.StringDict{"none": starlark.None},
+		input: starlark.StringDict{"none": starlark.None},
 	}, {
 		name:  "Tuple",
-		value: starlark.Tuple{starlark.None},
+		input: starlark.Tuple{starlark.None},
 	}, {
 		name:  "Bytes iterable",
-		value: starlark.Bytes("test").AsIterable().(starlark.SafeStringer),
+		input: starlark.Bytes("test").Iterable().(starlark.SafeStringer),
 	}, {
 		name:  "Range",
-		value: starlark.Range(0, 10, 1).(starlark.SafeStringer),
+		input: starlark.Range(0, 10, 1).(starlark.SafeStringer),
 	}, {
 		name:  "String elems(chars)",
-		value: starlark.String("test").AsElems(false).(starlark.SafeStringer),
+		input: starlark.String("test").Elems(false).(starlark.SafeStringer),
 	}, {
 		name:  "String elems(ords)",
-		value: starlark.String("test").AsElems(true).(starlark.SafeStringer),
+		input: starlark.String("test").Elems(true).(starlark.SafeStringer),
 	}, {
 		name:  "String codepoints(chars)",
-		value: starlark.String("test").AsCodepoints(false).(starlark.SafeStringer),
+		input: starlark.String("test").Codepoints(false).(starlark.SafeStringer),
 	}, {
 		name:  "String codepoints(ords)",
-		value: starlark.String("test").AsCodepoints(true).(starlark.SafeStringer),
+		input: starlark.String("test").Codepoints(true).(starlark.SafeStringer),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			builder := new(strings.Builder)
-			if err := test.value.SafeString(nil, builder); err != nil {
-				t.Errorf("undexpected error: %v", err)
-			}
-			// At least for builtin variables, the result should be the
-			// same regardless of the safety of the context.
-			if stringer, ok := test.value.(fmt.Stringer); ok {
-				expected := stringer.String()
-				actual := builder.String()
-				if expected != actual {
-					t.Errorf("inconsistent stringer implementation: expected %s got %s", expected, actual)
+			t.Run("nil-thread", func(t *testing.T) {
+				builder := new(strings.Builder)
+				if err := test.input.SafeString(nil, builder); err != nil {
+					t.Errorf("undexpected error: %v", err)
 				}
-			}
+			})
+
+			t.Run("consitency", func(t *testing.T) {
+				thread := &starlark.Thread{}
+				builder := new(strings.Builder)
+				if err := test.input.SafeString(thread, builder); err != nil {
+					t.Errorf("undexpected error: %v", err)
+				}
+				// At least for builtin variables, the result should be the
+				// same regardless of the safety of the context.
+				if stringer, ok := test.input.(fmt.Stringer); ok {
+					expected := stringer.String()
+					actual := builder.String()
+					if expected != actual {
+						t.Errorf("inconsistent stringer implementation: expected %s got %s", expected, actual)
+					}
+				}
+			})
 		})
 	}
-
 }
