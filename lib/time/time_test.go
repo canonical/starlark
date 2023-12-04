@@ -373,21 +373,20 @@ func TestSafeString(t *testing.T) {
 		name:  "Time",
 		input: time.Time(gotime.Now()),
 	}}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Run("nil-thread", func(t *testing.T) {
 				builder := new(strings.Builder)
 				if err := test.input.SafeString(nil, builder); err != nil {
-					t.Errorf("undexpected error: %v", err)
+					t.Errorf("unexpected error: %v", err)
 				}
 			})
 
-			t.Run("consitency", func(t *testing.T) {
+			t.Run("consistency", func(t *testing.T) {
 				thread := &starlark.Thread{}
 				builder := new(strings.Builder)
 				if err := test.input.SafeString(thread, builder); err != nil {
-					t.Errorf("undexpected error: %v", err)
+					t.Errorf("unexpected error: %v", err)
 				}
 				if stringer, ok := test.input.(fmt.Stringer); ok {
 					expected := stringer.String()

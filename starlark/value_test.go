@@ -188,8 +188,8 @@ func TestSafeString(t *testing.T) {
 		name: "Function",
 		input: func() *starlark.Function {
 			const name = "test"
-			const code = "True"
-			f, err := starlark.ExprFuncOptions(&syntax.FileOptions{}, name, code, nil)
+			const expr = "True"
+			f, err := starlark.ExprFuncOptions(&syntax.FileOptions{}, name, expr, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -232,21 +232,20 @@ func TestSafeString(t *testing.T) {
 		name:  "String codepoints(ords)",
 		input: starlark.String("test").Codepoints(true).(starlark.SafeStringer),
 	}}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Run("nil-thread", func(t *testing.T) {
 				builder := new(strings.Builder)
 				if err := test.input.SafeString(nil, builder); err != nil {
-					t.Errorf("undexpected error: %v", err)
+					t.Errorf("unexpected error: %v", err)
 				}
 			})
 
-			t.Run("consitency", func(t *testing.T) {
+			t.Run("consistency", func(t *testing.T) {
 				thread := &starlark.Thread{}
 				builder := new(strings.Builder)
 				if err := test.input.SafeString(thread, builder); err != nil {
-					t.Errorf("undexpected error: %v", err)
+					t.Errorf("unexpected error: %v", err)
 				}
 				// At least for builtin variables, the result should be the
 				// same regardless of the safety of the context.
