@@ -347,7 +347,7 @@ func TestFunctionCall(t *testing.T) {
 			st.RunString(`
 				def empty():
 					st.keep_alive(stack_frame())
-		
+
 				for _ in st.ntimes():
 					empty()
 			`)
@@ -362,7 +362,7 @@ func TestFunctionCall(t *testing.T) {
 					st.keep_alive(stack_frame())
 					if depth < st.n:
 						recurse(depth + 1)
-		
+
 				recurse()
 			`)
 		})
@@ -378,7 +378,7 @@ func TestFunctionCall(t *testing.T) {
 					def closure():
 						st.keep_alive(sf, stack_frame())
 					closure()
-		
+
 				for _ in st.ntimes():
 					run()
 			`)

@@ -3,6 +3,9 @@ package time_test
 import (
 	"errors"
 	"testing"
+	"strings"
+	"fmt"
+	gotime "time"
 
 	"github.com/canonical/starlark/lib/time"
 	"github.com/canonical/starlark/starlark"
@@ -105,6 +108,22 @@ func TestTimeNowSafety(t *testing.T) {
 }
 
 func TestTimeFromTimestampSteps(t *testing.T) {
+	from_timestamp, ok := time.Module.Members["from_timestamp"]
+	if !ok {
+		t.Fatalf("no such builtin: time.from_timestamp")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.SetMaxExecutionSteps(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			_, err := starlark.Call(thread, from_timestamp, starlark.Tuple{starlark.MakeInt(10000)}, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		}
+	})
 }
 
 func TestTimeFromTimestampAllocs(t *testing.T) {
@@ -167,6 +186,21 @@ func TestTimeIsValidTimezoneAllocs(t *testing.T) {
 }
 
 func TestTimeNowSteps(t *testing.T) {
+	now, ok := time.Module.Members["now"]
+	if !ok {
+		t.Fatal("no such builtin: now")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			_, err := starlark.Call(thread, now, nil, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		}
+	})
 }
 
 func TestTimeNowAllocs(t *testing.T) {
@@ -189,6 +223,41 @@ func TestTimeNowAllocs(t *testing.T) {
 }
 
 func TestTimeParseDurationSteps(t *testing.T) {
+	parse_duration, ok := time.Module.Members["parse_duration"]
+	if !ok {
+		t.Fatalf("no such builtin: parse_duration")
+	}
+
+	t.Run("arg=duration", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, parse_duration, starlark.Tuple{time.Duration(10)}, nil)
+				if err != nil {
+					t.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("arg=string", func(t *testing.T) {
+		const timestamp = "10h47m"
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.SetMinExecutionSteps(uint64(len(timestamp)))
+		st.SetMaxExecutionSteps(uint64(len(timestamp)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, parse_duration, starlark.Tuple{starlark.String(timestamp)}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
 }
 
 func TestTimeParseDurationAllocs(t *testing.T) {
@@ -237,4 +306,58 @@ func TestTimeTimeSteps(t *testing.T) {
 }
 
 func TestTimeTimeAllocs(t *testing.T) {
+}
+
+func TestSafeDurationUnpacker(t *testing.T) {
+	t.Run("duration", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMaxAllocs(0)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				d := time.Duration(10)
+
+				sdu := time.SafeDurationUnpacker{}
+				sdu.BindThread(thread)
+				if err := starlark.UnpackPositionalArgs("parse_duration", starlark.Tuple{d}, nil, 1, &sdu); err != nil {
+					st.Error(err)
+				}
+
+				result := sdu.Duration()
+				if result != d {
+					st.Errorf("incorrect value returned: expected %v but got %v", d, result)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMaxAllocs(0)
+		st.SetMinExecutionSteps(uint64(len("1h")))
+		st.SetMaxExecutionSteps(uint64(len("1h")))
+		st.RunThread(func(thread *starlark.Thread) {
+			expected, err := gotime.ParseDuration(fmt.Sprintf("%dh", st.N))
+			if err != nil {
+				st.Fatal(err)
+			}
+			expectedDuration := time.Duration(expected)
+
+			raw := starlark.String(strings.Repeat("1h", st.N))
+			sdu := time.SafeDurationUnpacker{}
+			sdu.BindThread(thread)
+			if err := starlark.UnpackPositionalArgs("parse_duration", starlark.Tuple{raw}, nil, 1, &sdu); err != nil {
+				st.Error(err)
+			}
+
+			result := sdu.Duration()
+			if result != expectedDuration {
+				st.Errorf("incorrect value returned: expected %v but got %v", expectedDuration, result)
+			}
+			st.KeepAlive(result)
+		})
+	})
 }

@@ -80,7 +80,7 @@ func init() {
 		"any":       MemSafe | IOSafe | CPUSafe,
 		"all":       MemSafe | IOSafe | CPUSafe,
 		"bool":      MemSafe | IOSafe | CPUSafe,
-		"bytes":     MemSafe | IOSafe,
+		"bytes":     MemSafe | IOSafe | CPUSafe,
 		"chr":       MemSafe | IOSafe | CPUSafe,
 		"dict":      MemSafe | IOSafe | CPUSafe,
 		"dir":       MemSafe | IOSafe | CPUSafe,
@@ -101,11 +101,11 @@ func init() {
 		"repr":      MemSafe | IOSafe,
 		"reversed":  MemSafe | IOSafe | CPUSafe,
 		"set":       MemSafe | IOSafe | CPUSafe,
-		"sorted":    MemSafe | IOSafe,
+		"sorted":    MemSafe | IOSafe | CPUSafe,
 		"str":       MemSafe | IOSafe,
-		"tuple":     MemSafe | IOSafe,
+		"tuple":     MemSafe | IOSafe | CPUSafe,
 		"type":      MemSafe | IOSafe | CPUSafe,
-		"zip":       MemSafe | IOSafe,
+		"zip":       MemSafe | IOSafe | CPUSafe,
 	}
 
 	for name, flags := range universeSafeties {
@@ -144,7 +144,7 @@ var (
 		"pop":        MemSafe | IOSafe | CPUSafe,
 		"popitem":    MemSafe | IOSafe | CPUSafe,
 		"setdefault": MemSafe | IOSafe | CPUSafe,
-		"update":     MemSafe | IOSafe,
+		"update":     MemSafe | IOSafe | CPUSafe,
 		"values":     MemSafe | IOSafe | CPUSafe,
 	}
 
@@ -160,7 +160,7 @@ var (
 	listMethodSafeties = map[string]SafetyFlags{
 		"append": MemSafe | IOSafe | CPUSafe,
 		"clear":  MemSafe | IOSafe | CPUSafe,
-		"extend": MemSafe | IOSafe,
+		"extend": MemSafe | IOSafe | CPUSafe,
 		"index":  MemSafe | IOSafe | CPUSafe,
 		"insert": MemSafe | IOSafe | CPUSafe,
 		"pop":    MemSafe | IOSafe | CPUSafe,
@@ -208,7 +208,7 @@ var (
 		"capitalize":     MemSafe | IOSafe,
 		"codepoint_ords": MemSafe | IOSafe | CPUSafe,
 		"codepoints":     MemSafe | IOSafe | CPUSafe,
-		"count":          MemSafe | IOSafe,
+		"count":          MemSafe | IOSafe | CPUSafe,
 		"elem_ords":      MemSafe | IOSafe | CPUSafe,
 		"elems":          MemSafe | IOSafe | CPUSafe,
 		"endswith":       MemSafe | IOSafe | CPUSafe,
@@ -228,7 +228,7 @@ var (
 		"partition":      MemSafe | IOSafe | CPUSafe,
 		"removeprefix":   MemSafe | IOSafe | CPUSafe,
 		"removesuffix":   MemSafe | IOSafe | CPUSafe,
-		"replace":        MemSafe | IOSafe,
+		"replace":        MemSafe | IOSafe | CPUSafe,
 		"rfind":          MemSafe | IOSafe | CPUSafe,
 		"rindex":         MemSafe | IOSafe | CPUSafe,
 		"rpartition":     MemSafe | IOSafe | CPUSafe,
@@ -1463,7 +1463,7 @@ func set(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#sorted
-func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (l Value, err error) {
 	// Oddly, Python's sorted permits all arguments to be positional, thus so do we.
 	var iterable Iterable
 	var key Callable
@@ -1512,7 +1512,16 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		}
 	}
 
-	slice := &sortSlice{keys: keys, values: values}
+	slice := &sortSlice{keys: keys, values: values, thread: thread}
+	defer func() {
+		if v := recover(); v != nil {
+			if sortErr, ok := v.(sortError); ok {
+				err = sortErr.err
+			} else {
+				panic(v)
+			}
+		}
+	}()
 	if reverse {
 		sort.Stable(sort.Reverse(slice))
 	} else {
@@ -1521,24 +1530,31 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
 		return nil, err
 	}
-	return NewList(slice.values), slice.err
+	return NewList(slice.values), nil
+}
+
+type sortError struct {
+	err error
 }
 
 type sortSlice struct {
 	keys   []Value // nil => values[i] is key
 	values []Value
-	err    error
+	thread *Thread
 }
 
 func (s *sortSlice) Len() int { return len(s.values) }
 func (s *sortSlice) Less(i, j int) bool {
+	if err := s.thread.AddExecutionSteps(1); err != nil {
+		panic(sortError{err})
+	}
 	keys := s.keys
 	if s.keys == nil {
 		keys = s.values
 	}
 	ok, err := Compare(syntax.LT, keys[i], keys[j])
 	if err != nil {
-		s.err = err
+		panic(sortError{err})
 	}
 	return ok
 }
@@ -1599,6 +1615,9 @@ func utf8Transcode(s string) string {
 }
 
 func safeUtf8Transcode(thread *Thread, s string) (string, error) {
+	if err := thread.AddExecutionSteps(int64(len(s))); err != nil {
+		return "", err
+	}
 	if utf8.ValidString(s) {
 		return s, nil
 	}
@@ -1695,6 +1714,11 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	var result []Value
 	if rows >= 0 {
 		// length known
+
+		// Equalise step cost for fast and slow path.
+		if err := thread.AddExecutionSteps(int64(rows)); err != nil {
+			return nil, err
+		}
 		resultSize := EstimateMakeSize([]Value{Tuple{}}, rows)
 		arraySize := EstimateMakeSize(Tuple{}, cols*rows)
 		if err := thread.AddAllocs(resultSize + arraySize); err != nil {
@@ -2223,6 +2247,9 @@ func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		slice = recv[start:end]
 	}
 
+	if err := thread.AddExecutionSteps(int64(len(slice))); err != nil {
+		return nil, err
+	}
 	result := Value(MakeInt(strings.Count(slice, sub)))
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
@@ -2721,10 +2748,24 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 
-	if err := thread.CheckAllocs(int64(len(recv) * len(new) / len(old))); err != nil {
+	max := func(a, b int) int {
+		if a > b {
+			return a
+		}
+		return b
+	}
+	maxResultSize := int64((len(recv) + 1) * len(new) / max(len(old), 1))
+	if err := thread.CheckExecutionSteps(maxResultSize); err != nil {
 		return nil, err
 	}
-	result := Value(String(strings.Replace(recv, old, new, count)))
+	if err := thread.CheckAllocs(maxResultSize); err != nil {
+		return nil, err
+	}
+	replaced := strings.Replace(recv, old, new, count)
+	if err := thread.AddExecutionSteps(int64(max(len(replaced), len(recv)))); err != nil {
+		return nil, err
+	}
+	result := Value(String(replaced)) // Avoid allocation.
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
 	}
