@@ -797,11 +797,12 @@ type stringCodepointsIterator struct {
 }
 
 var _ SafeIterator = &stringCodepointsIterator{}
-var runeSize = EstimateSize(ord)
 
 func (it *stringCodepointsIterator) BindThread(thread *Thread) {
 	it.thread = thread
 }
+
+var runeSize = EstimateSize(ord)
 
 func (it *stringCodepointsIterator) Next(p *Value) bool {
 	if it.err != nil {
