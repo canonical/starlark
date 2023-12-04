@@ -6872,9 +6872,9 @@ func TestSetDifferenceSteps(t *testing.T) {
 			maxN: elems,
 			nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
 				if n%2 == 0 {
-					return starlark.MakeInt(n), nil // In set
+					return starlark.MakeInt(n), nil // in set
 				} else {
-					return starlark.MakeInt(-n), nil // Not in set
+					return starlark.MakeInt(-n), nil // not in set
 				}
 			},
 		}
