@@ -63,6 +63,7 @@ type ST struct {
 	alive             []interface{}
 	N                 int
 	runFailed         bool
+	anyRunFailed      bool
 	requiredSafety    starlark.SafetyFlags
 	safetyGiven       bool
 	predecls          starlark.StringDict
@@ -93,6 +94,7 @@ func From(base TestBase) *ST {
 func (st *ST) Error(args ...interface{}) {
 	st.TestBase.Error(args...)
 	st.runFailed = true
+	st.anyRunFailed = true
 }
 
 // Errorf reports a formatted error via the test base and stops the test loop
@@ -100,6 +102,12 @@ func (st *ST) Error(args ...interface{}) {
 func (st *ST) Errorf(format string, args ...interface{}) {
 	st.TestBase.Errorf(format, args...)
 	st.runFailed = true
+	st.anyRunFailed = true
+}
+
+// Failed reports whether the test has failed.
+func (st *ST) Failed() bool {
+	return st.anyRunFailed || st.TestBase.Failed()
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per unit of st.N.
@@ -239,9 +247,9 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) (ok bool) {
 		thread.SetLocal(k, v)
 	}
 
-	stats, ok := st.measureExecution(thread, fn)
-	if !ok {
-		return
+	stats := st.measureExecution(thread, fn)
+	if st.runFailed {
+		return false
 	}
 
 	mean := func(x uint64) uint64 { return (x + stats.nSum/2) / stats.nSum }
@@ -275,7 +283,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) (ok bool) {
 		}
 	}
 
-	return !st.Failed()
+	return !st.runFailed
 }
 
 // KeepAlive causes the memory of the passed objects to be measured.
@@ -288,7 +296,7 @@ type runStats struct {
 	executionStepsRequired bool
 }
 
-func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) (stats runStats, ok bool) {
+func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) runStats {
 	const nMax = 100_000
 	const memoryMax = 200 * (1 << 20)
 	const timeMax = time.Second
@@ -338,8 +346,8 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		beforeAllocs := readMemoryUsage(st.requiredSafety.Contains(starlark.MemSafe))
 		fn(thread)
 		afterAllocs := readMemoryUsage(st.requiredSafety.Contains(starlark.MemSafe))
-		if st.Failed() {
-			return runStats{}, false
+		if st.runFailed {
+			return runStats{}
 		}
 
 		runtime.KeepAlive(alive)
@@ -372,7 +380,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		nSum:                   nSum,
 		allocSum:               allocSum,
 		executionStepsRequired: executionStepsRequired,
-	}, true
+	}
 }
 
 // readMemoryUsage returns the number of bytes in use by the Go runtime. If

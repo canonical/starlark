@@ -321,96 +321,184 @@ func TestThread(t *testing.T) {
 }
 
 func TestFailed(t *testing.T) {
-	dummy := &dummyBase{}
-	st := startest.From(dummy)
+	t.Run("logging", func(t *testing.T) {
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
 
-	if st.Failed() {
-		t.Error("startest reported that it failed prematurely")
-	}
+		if st.Failed() {
+			t.Error("startest reported that it failed prematurely")
+		}
 
-	st.Log("foobar")
+		st.Log("foobar")
 
-	if st.Failed() {
-		t.Error("startest reported that it failed prematurely")
-	}
-	if log := dummy.Logs(); log != "foobar" {
-		t.Errorf("unexpected log output: %s", log)
-	}
-	if errLog := dummy.Errors(); errLog != "" {
-		t.Errorf("unexpected error logged: %s", errLog)
-	}
+		if st.Failed() {
+			t.Error("startest reported that it failed prematurely")
+		}
+		if log := dummy.Logs(); log != "foobar" {
+			t.Errorf("unexpected log output: %s", log)
+		}
+		if errLog := dummy.Errors(); errLog != "" {
+			t.Errorf("unexpected error logged: %s", errLog)
+		}
 
-	st.Error("snafu")
+		st.Error("snafu")
 
-	if !st.Failed() {
-		t.Error("startest did not report that it had failed")
-	}
-	if log := dummy.Logs(); log != "foobar" {
-		t.Errorf("unexpected log output: %s", log)
-	}
-	if errLog := dummy.Errors(); errLog != "snafu" {
-		t.Errorf("unexpected error logged: %s", errLog)
-	}
+		if !st.Failed() {
+			t.Error("startest did not report that it had failed")
+		}
+		if log := dummy.Logs(); log != "foobar" {
+			t.Errorf("unexpected log output: %s", log)
+		}
+		if errLog := dummy.Errors(); errLog != "snafu" {
+			t.Errorf("unexpected error logged: %s", errLog)
+		}
+	})
+
+	t.Run("failed-base", func(t *testing.T) {
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+		if st.Failed() {
+			t.Error("unused test reported failed")
+		}
+		dummy.Error("tally-ho!")
+		if !st.Failed() {
+			t.Error("failed base did not fail test")
+		}
+	})
+
+	t.Run("RunString", func(t *testing.T) {
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+
+		ok := st.RunString("st.error('tally-ho!')")
+		if ok {
+			t.Error("RunString returned ok on failed run")
+		}
+		if !st.Failed() {
+			t.Error("error in RunString led to !st.Failed()")
+		}
+
+		ok = st.RunString("True")
+		if !ok {
+			t.Error("RunString returned !ok on okay run")
+		}
+		if !st.Failed() {
+			t.Error("error in RunString led to !st.Failed()")
+		}
+	})
+
+	t.Run("RunThread", func(t *testing.T) {
+		dummy := &dummyBase{}
+		st := startest.From(dummy)
+
+		ok := st.RunThread(func(*starlark.Thread) {
+			st.Error("tally-ho!")
+		})
+		if ok {
+			t.Error("RunThread returned ok on failed run")
+		}
+		if !st.Failed() {
+			t.Error("error in RunThread led to !st.Failed()")
+		}
+
+		ok = st.RunThread(func(*starlark.Thread) {
+			// Do nothing.
+		})
+		if !ok {
+			t.Error("RunThread returned !ok on successful run")
+		}
+		if !st.Failed() {
+			t.Error("error in RunThread led to !st.Failed()")
+		}
+	})
 }
 
 func TestMultipleRunCalls(t *testing.T) {
 	t.Run("method=RunThread", func(t *testing.T) {
-		var executed bool
-
-		dummy := &dummyBase{}
-		st := startest.From(dummy)
-		for i := 0; i < 2; i++ {
-			executed = false
-			st.RunThread(func(*starlark.Thread) {
-				executed = true
-				st.Error("oh no!")
-			})
-			if !executed {
-				t.Errorf("test code was not executed on iteration i=%d", i)
+		t.Run("no-errors", func(t *testing.T) {
+			st := startest.From(t)
+			for i := 0; i < 2; i++ {
+				executed := false
+				ok := st.RunThread(func(*starlark.Thread) {
+					executed = true
+				})
+				if !ok {
+					t.Error("expected RunThread to return true")
+				}
+				if !executed {
+					t.Errorf("test code was not executed on iteration i=%d", i)
+				}
 			}
-		}
+		})
+		t.Run("many-errors", func(t *testing.T) {
+			dummy := &dummyBase{}
+			st := startest.From(dummy)
+			for i := 0; i < 2; i++ {
+				executed := false
+				ok := st.RunThread(func(*starlark.Thread) {
+					executed = true
+					st.Error("oh no!")
+				})
+				if ok {
+					t.Error("expected RunThread to return false")
+				}
+				if !executed {
+					t.Errorf("test code was not executed on iteration i=%d", i)
+				}
+			}
+		})
 	})
 
 	t.Run("method=RunString", func(t *testing.T) {
-		t.Run("errorCall=explicit", func(t *testing.T) {
-			const expected = "oh no!\nanyway"
-
-			dummy := &dummyBase{}
-			st := startest.From(dummy)
+		t.Run("no-errors", func(t *testing.T) {
+			st := startest.From(t)
 			st.RequireSafety(starlark.NotSafe)
-
-			msgs := []string{"oh no!", "anyway"}
-			for i, msg := range msgs {
-				if ok := st.RunString(fmt.Sprintf("st.error(%q)", msg)); ok {
-					t.Errorf("RunString returned true on iteration with i=%d", i)
-				}
-			}
-
-			if errLog := dummy.Errors(); errLog != expected {
-				t.Errorf("Unexpected error(s): %s", errLog)
+			if ok := st.RunString("None"); !ok {
+				t.Error("unexpected error")
 			}
 		})
 
-		t.Run("errorCall=implicit", func(t *testing.T) {
-			const expected = "oh no!\nanyway"
+		t.Run("many-errors", func(t *testing.T) {
+			t.Run("errorCall=explicit", func(t *testing.T) {
+				const expected = "oh no!\nanyway"
 
-			fn := starlark.NewBuiltinWithSafety("fn", startest.STSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-				return starlark.None, errors.New(string(args[0].(starlark.String)))
+				dummy := &dummyBase{}
+				st := startest.From(dummy)
+				st.RequireSafety(starlark.NotSafe)
+
+				msgs := []string{"oh no!", "anyway"}
+				for i, msg := range msgs {
+					if ok := st.RunString(fmt.Sprintf("st.error(%q)", msg)); ok {
+						t.Errorf("RunString returned true on iteration with i=%d", i)
+					}
+				}
+
+				if errLog := dummy.Errors(); errLog != expected {
+					t.Errorf("Unexpected error(s): %s", errLog)
+				}
 			})
 
-			dummy := &dummyBase{}
-			st := startest.From(dummy)
-			st.AddBuiltin(fn)
-			msgs := []string{"oh no!", "anyway"}
-			for i, msg := range msgs {
-				if ok := st.RunString(fmt.Sprintf("fn(%q)", msg)); ok {
-					t.Errorf("RunString returned true on iteration with i=%d", i)
-				}
-			}
+			t.Run("errorCall=implicit", func(t *testing.T) {
+				const expected = "oh no!\nanyway"
 
-			if errLog := dummy.Errors(); errLog != expected {
-				t.Errorf("Unexpected error(s): %s", errLog)
-			}
+				fn := starlark.NewBuiltinWithSafety("fn", startest.STSafe, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+					return starlark.None, errors.New(string(args[0].(starlark.String)))
+				})
+
+				dummy := &dummyBase{}
+				st := startest.From(dummy)
+				st.AddBuiltin(fn)
+				msgs := []string{"oh no!", "anyway"}
+				for i, msg := range msgs {
+					if ok := st.RunString(fmt.Sprintf("fn(%q)", msg)); ok {
+						t.Errorf("RunString returned true on iteration with i=%d", i)
+					}
+				}
+
+				if errLog := dummy.Errors(); errLog != expected {
+					t.Errorf("Unexpected error(s): %s", errLog)
+				}
+			})
 		})
 	})
 }
