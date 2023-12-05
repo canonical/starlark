@@ -192,6 +192,18 @@ func (d *Duration) Unpack(v starlark.Value) error {
 	return fmt.Errorf("got %s, want a duration, string, or int", v.Type())
 }
 
+// SafeString implements the SafeStringer interface.
+func (d Duration) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
+	const safety = starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
+		return err
+	}
+	// String conversion is cheap in both memory and time.
+	// Hence, we can make this simple and accept a small spike.
+	_, err := sb.WriteString(time.Duration(d).String())
+	return err
+}
+
 // String implements the Stringer interface.
 func (d Duration) String() string { return time.Duration(d).String() }
 
@@ -401,9 +413,20 @@ func newTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, 
 	return Time(time.Date(year, time.Month(month), day, hour, min, sec, nsec, location)), nil
 }
 
+func (t Time) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
+	const safety = starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
+		return err
+	}
+	// String conversion is cheap in both memory and time.
+	// Hence, we can make this simple and accept a small spike.
+	_, err := sb.WriteString(t.String())
+	return err
+}
+
 // String returns the time formatted using the format string
 //	"2006-01-02 15:04:05.999999999 -0700 MST".
-func (t Time) String() string { return time.Time(t).String() }
+func (t Time) String() string { return time.Time(t).Format("2006-01-02 15:04:05.999999999 -0700 MST") }
 
 // Type returns "time.time".
 func (t Time) Type() string { return "time.time" }
