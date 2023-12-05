@@ -1644,7 +1644,7 @@ func TestSafeBinary(t *testing.T) {
 			// - For iteration, 1
 			// - For removal, on average 1
 			minSteps: 3,
-			maxSteps: 4, // TODO(marco6): remove the +1 as it's related to the guardedIterator overcount.
+			maxSteps: 3,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -1932,22 +1932,16 @@ func TestSafeBinary(t *testing.T) {
 			op:        op,
 			left:      constant(starlark.False),
 			right:     makeList,
-			// The step cost per N is:
-			// - For iteration over right, 1
-			// - For the SafeIterate over-count, 1
-			minSteps: 1,
-			maxSteps: 2,
+			minSteps:  1,
+			maxSteps:  1,
 		}, {
 			name:      fmt.Sprintf("int %s tuple", op),
 			noInplace: true,
 			op:        op,
 			left:      makeSmallInt,
 			right:     makeTuple,
-			// The step cost per N is:
-			// - For iteration over right, 1
-			// - For the SafeIterate over-count, 1
-			minSteps: 1,
-			maxSteps: 2,
+			minSteps:  1,
+			maxSteps:  1,
 		}, {
 			name:      fmt.Sprintf("int %s mapping", op),
 			noInplace: true,
@@ -2055,9 +2049,8 @@ func TestSafeBinary(t *testing.T) {
 			// - For creating a new dict, 1
 			// - For iterating over the right, 1
 			// - For insertion, on average, just above 1
-			// - For SafeIterator over-count, 1
 			minSteps: 3,
-			maxSteps: 4,
+			maxSteps: 3,
 		}, {
 			name:  "set | set",
 			op:    syntax.PIPE,
@@ -2069,7 +2062,7 @@ func TestSafeBinary(t *testing.T) {
 			// - For insertion, on average, just above 1
 			// - For SafeIterator over-count, 1
 			minSteps: 3,
-			maxSteps: 4,
+			maxSteps: 3,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -2092,7 +2085,7 @@ func TestSafeBinary(t *testing.T) {
 			left:  makeSet,
 			right: makeAlternatingSet,
 			// The step cost per N is:
-			// - For iteration over left, 1
+			// - For iteration over right, 1
 			// - For checking membership of right, on average 1.5
 			// - For insertion into the result, on average, just above 1
 			minSteps: 3,
@@ -2119,11 +2112,11 @@ func TestSafeBinary(t *testing.T) {
 			left:  makeSet,
 			right: makeAlternatingSet,
 			// The step cost per N is:
-			// For iterating over left, 1
-			// For cloning, on average, just above 1
-			// For deletion, on average, just above 1
-			// For insertion, on average, just above 1
-			minSteps: 4,
+			// For iterating over right, 1
+			// For cloning left, on average, approximately 1
+			// For insertion, on average, approximately 1
+			// For deletion, on average, approximately 0.5
+			minSteps: 3,
 			maxSteps: 4,
 		}}
 		for _, test := range tests {
