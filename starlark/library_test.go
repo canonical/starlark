@@ -11,6 +11,7 @@ import (
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
+	"github.com/canonical/starlark/syntax"
 )
 
 func TestUniverseSafeties(t *testing.T) {
@@ -1424,7 +1425,187 @@ func TestEnumerateAllocs(t *testing.T) {
 	})
 }
 
+type writeValueStepTest struct {
+	name  string
+	input starlark.Value
+	steps uint64
+}
+
+func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail bool, otherTests []writeValueStepTest) {
+	fn, ok := starlark.Universe[name]
+	if !ok {
+		t.Fatalf("no such builtin: %s", name)
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.Print = func(thread *starlark.Thread, msg string) {}
+		thread.RequireSafety(starlark.CPUSafe)
+
+		stringer := &testSafeStringer{
+			safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
+				return nil
+			},
+		}
+		_, err := starlark.Call(thread, fn, starlark.Tuple{stringer}, nil)
+		if shouldFail {
+			if err == nil {
+				t.Error("expected error")
+			}
+		} else {
+			if err != nil {
+				t.Error(err)
+			}
+		}
+		if stringer.unsafeCalled {
+			t.Errorf("unsafe String method called in a safe execution")
+		}
+	})
+
+	tests := []writeValueStepTest{{
+		name:  "Bool",
+		input: starlark.True,
+		steps: uint64(len("True")),
+	}, {
+		name: "Builtin",
+		input: starlark.NewBuiltin(
+			"test",
+			func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+				return starlark.None, nil
+			}),
+		steps: uint64(len("<built-in function test>")),
+	}, {
+		name: "Dict",
+		input: func() *starlark.Dict {
+			dict := starlark.NewDict(2)
+			dict.SetKey(starlark.MakeInt(1), starlark.None)
+			dict.SetKey(starlark.MakeInt(2), &testSafeStringer{
+				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
+					return thread.AddExecutionSteps(100)
+				},
+			})
+			return dict
+		}(),
+		steps: uint64(len("{1: None, 2: }")) + 100 + 2,
+	}, {
+		name:  "Int(small)",
+		input: starlark.MakeInt(10),
+		steps: uint64(len("10")),
+	}, {
+		name:  "Int(big)",
+		input: starlark.MakeInt64(1 << 32),
+		steps: 32 / 3, /* ~= log10(1 << 32) */
+	}, {
+		name:  "Float",
+		input: starlark.Float(3.14),
+		steps: uint64(len("3.14")),
+	}, {
+		name: "Function",
+		input: func() *starlark.Function {
+			const name = "test"
+			const expr = "True"
+			f, err := starlark.ExprFuncOptions(&syntax.FileOptions{}, name, expr, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return f
+		}(),
+		steps: uint64(len("<function <expr>>")),
+	}, {
+		name:  "None",
+		input: starlark.None,
+		steps: uint64(len("None")),
+	}, {
+		name: "Set",
+		input: func() *starlark.Set {
+			set := starlark.NewSet(2)
+			set.Insert(starlark.None)
+			set.Insert(&testSafeStringer{
+				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
+					return thread.AddExecutionSteps(100)
+				},
+			})
+			return set
+		}(),
+		steps: uint64(len("set([None, ])")) + 100 + 2,
+	}, {
+		name: "Tuple",
+		input: starlark.Tuple{
+			starlark.None,
+			&testSafeStringer{
+				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
+					return thread.AddExecutionSteps(100)
+				},
+			},
+		},
+		steps: uint64(len("(None, )")) + 2 + 100,
+	}, {
+		name:  "Bytes iterable",
+		input: starlark.Bytes("test").Iterable(),
+		steps: uint64(len(`b"test".elems()`)),
+	}, {
+		name:  "Range",
+		input: starlark.Range(0, 10, 2),
+		steps: uint64(len("range(0, 10, 2)")),
+	}, {
+		name:  "String elems(chars)",
+		input: starlark.String("test").Elems(false),
+		steps: uint64(len(`"test".elems()`)),
+	}, {
+		name:  "String elems(ords)",
+		input: starlark.String("test").Elems(true),
+		steps: uint64(len(`"test".elem_ords()`)),
+	}, {
+		name:  "String codepoints(chars)",
+		input: starlark.String("test").Codepoints(false),
+		steps: uint64(len(`"test".codepoints()`)),
+	}, {
+		name:  "String codepoints(ords)",
+		input: starlark.String("test").Codepoints(true),
+		steps: uint64(len(`"test".codepoint_ords()`)),
+	}}
+	for _, test := range append(tests, otherTests...) {
+		t.Run(test.name, func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMinExecutionSteps(overhead + test.steps)
+			st.SetMaxExecutionSteps(overhead + test.steps)
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.Print = func(thread *starlark.Thread, msg string) {}
+				for i := 0; i < st.N; i++ {
+					_, err := starlark.Call(thread, fn, starlark.Tuple{test.input}, nil)
+					if shouldFail {
+						if err == nil {
+							st.Error("expected error")
+						}
+					} else {
+						if err != nil {
+							st.Error(err)
+						}
+					}
+				}
+			})
+		})
+	}
+
+}
+
 func TestFailSteps(t *testing.T) {
+	overhead := uint64(len("fail: "))
+	invalidString := string([]byte{0x80, 0x80, 0x80, 0x80})
+	testWriteValueSteps(t, "fail", overhead, true, []writeValueStepTest{{
+		name:  "String",
+		input: starlark.String("test"),
+		steps: uint64(len("test")),
+	}, {
+		name:  "Bytes",
+		input: starlark.Bytes("test"),
+		steps: uint64(len(`b"test"`)),
+	}, {
+		name:  "Bytes (invalid)",
+		input: starlark.Bytes(invalidString),
+		steps: uint64(len(`b"\x80\x80\x80\x80"`)),
+	}})
 }
 
 func TestFailAllocs(t *testing.T) {
@@ -2640,6 +2821,21 @@ func TestOrdAllocs(t *testing.T) {
 }
 
 func TestPrintSteps(t *testing.T) {
+	overhead := uint64(0)
+	invalidString := string([]byte{0x80, 0x80, 0x80, 0x80})
+	testWriteValueSteps(t, "print", overhead, false, []writeValueStepTest{{
+		name:  "String",
+		input: starlark.String("test"),
+		steps: uint64(len("test")),
+	}, {
+		name:  "Bytes",
+		input: starlark.Bytes("test"),
+		steps: uint64(len(`test`)),
+	}, {
+		name:  "Bytes (invalid)",
+		input: starlark.Bytes(invalidString),
+		steps: uint64(len(invalidString)),
+	}})
 }
 
 func TestPrintAllocs(t *testing.T) {
@@ -2793,7 +2989,47 @@ func TestRangeAllocs(t *testing.T) {
 	})
 }
 
+type testSafeStringer struct {
+	unsafeCalled bool
+	safeString   func(thread *starlark.Thread, sb starlark.StringBuilder) error
+}
+
+var _ starlark.Value = &testSafeStringer{}
+var _ starlark.SafeStringer = &testSafeStringer{}
+
+func (tss *testSafeStringer) Freeze()               {}
+func (tss *testSafeStringer) Truth() starlark.Bool  { return starlark.False }
+func (tss *testSafeStringer) Type() string          { return "testSafeStringer" }
+func (tss *testSafeStringer) Hash() (uint32, error) { return 0, nil }
+
+func (tss *testSafeStringer) String() string {
+	tss.unsafeCalled = true
+	builder := new(strings.Builder)
+	tss.SafeString(nil, builder)
+	return builder.String()
+}
+
+func (tss *testSafeStringer) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
+	if tss.safeString == nil {
+		return errors.New("testSafeStringer called with nil safeString function")
+	}
+	return tss.safeString(thread, sb)
+}
+
 func TestReprSteps(t *testing.T) {
+	testWriteValueSteps(t, "repr", 0, false, []writeValueStepTest{{
+		name:  "String",
+		input: starlark.String("test"),
+		steps: uint64(len(`"test"`)),
+	}, {
+		name:  "Bytes",
+		input: starlark.Bytes("test"),
+		steps: uint64(len(`b"test"`)),
+	}, {
+		name:  "Bytes (invalid)",
+		input: starlark.Bytes(string([]byte{0x80, 0x80, 0x80, 0x80})),
+		steps: uint64(len(`b"\x80\x80\x80\x80"`)),
+	}})
 }
 
 func TestReprAllocs(t *testing.T) {
@@ -3371,6 +3607,20 @@ func TestSortedAllocs(t *testing.T) {
 }
 
 func TestStrSteps(t *testing.T) {
+	invalidString := string([]byte{0x80, 0x80, 0x80, 0x80})
+	testWriteValueSteps(t, "str", 0, false, []writeValueStepTest{{
+		name:  "String",
+		input: starlark.String("test"),
+		steps: 0,
+	}, {
+		name:  "Bytes",
+		input: starlark.Bytes("test"),
+		steps: uint64(len("test")),
+	}, {
+		name:  "Bytes (invalid)",
+		input: starlark.Bytes(invalidString),
+		steps: uint64(len("\uFFFD\uFFFD\uFFFD\uFFFD") + len(invalidString)),
+	}})
 }
 
 func TestStrAllocs(t *testing.T) {
