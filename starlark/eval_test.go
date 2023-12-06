@@ -1930,9 +1930,33 @@ func TestSafeBinaryAllocs(t *testing.T) {
 
 	t.Run("^", func(t *testing.T) {})
 
-	t.Run("<<", func(t *testing.T) {})
+	t.Run("<<", func(t *testing.T) {
+		tests := []safeBinaryAllocTest{{
+			name: "int << int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(n)
+				r := starlark.MakeInt(511)
+				return l, syntax.LTLT, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
 
-	t.Run(">>", func(t *testing.T) {})
+	t.Run(">>", func(t *testing.T) {
+		tests := []safeBinaryAllocTest{{
+			name: "int >> int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(1).Lsh(uint(n))
+				r := starlark.MakeInt(n / 2)
+				return l, syntax.GTGT, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
 }
 
 func TestThreadEnsureStack(t *testing.T) {
