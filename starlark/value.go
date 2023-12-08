@@ -1686,15 +1686,28 @@ func (s *Set) safeIntersection(thread *Thread, other Iterator) (*Set, error) {
 }
 
 func (s *Set) SymmetricDifference(other Iterator) (Value, error) {
-	diff, _ := s.clone(nil) // can't fail
+	return s.safeSymmetricDifference(nil, other)
+}
+
+func (s *Set) safeSymmetricDifference(thread *Thread, other Iterator) (Value, error) {
+	if err := CheckSafety(thread, MemSafe); err != nil {
+		return nil, err
+	}
+
+	diff, err := s.clone(thread)
+	if err != nil {
+		return nil, err
+	}
 	var x Value
 	for other.Next(&x) {
-		found, err := diff.Delete(x)
+		_, found, err := diff.ht.delete(thread, x)
 		if err != nil {
 			return nil, err
 		}
 		if !found {
-			diff.Insert(x)
+			if err := diff.ht.insert(thread, x, None); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return diff, nil
