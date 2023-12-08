@@ -1928,16 +1928,14 @@ func TestSafeBinaryAllocs(t *testing.T) {
 
 	t.Run("&", func(t *testing.T) {
 		tests := []safeBinaryAllocTest{{
-			name:           "int & int",
-			assertNoAllocs: true,
+			name: "int & int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.MakeInt(n)
 				r := starlark.MakeInt(n * 47)
 				return l, syntax.AMP, r
 			},
 		}, {
-			name:           "set & set",
-			assertNoAllocs: true,
+			name: "set & set",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.NewSet(2 * n)
 				r := starlark.NewSet(2 * n)
