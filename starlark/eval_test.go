@@ -1928,7 +1928,35 @@ func TestSafeBinaryAllocs(t *testing.T) {
 
 	t.Run("&", func(t *testing.T) {})
 
-	t.Run("^", func(t *testing.T) {})
+	t.Run("^", func(t *testing.T) {
+		tests := []safeBinaryAllocTest{{
+			name: "int ^ int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(10)
+				r := starlark.MakeInt(1).Lsh(uint(n))
+				return l, syntax.CIRCUMFLEX, r
+			},
+		}, {
+			name: "set ^ set",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.NewSet(n)
+				r := starlark.NewSet(n)
+				for i := 0; i < n/2; i++ {
+					// Disjoint parts
+					l.Insert(starlark.MakeInt(2 * i))
+					r.Insert(starlark.MakeInt(2*i + 1))
+
+					// Intersection
+					l.Insert(starlark.MakeInt(-i))
+					r.Insert(starlark.MakeInt(-i))
+				}
+				return l, syntax.CIRCUMFLEX, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
 
 	t.Run("<<", func(t *testing.T) {})
 

@@ -1778,13 +1778,32 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		switch x := x.(type) {
 		case Int:
 			if y, ok := y.(Int); ok {
+				if thread != nil {
+					delta := EstimateSize(x)
+					if ySize := EstimateSize(y); ySize > delta {
+						delta = ySize
+					}
+					if err := thread.AddAllocs(delta); err != nil {
+						return nil, err
+					}
+				}
 				return x.Xor(y), nil
 			}
 		case *Set: // symmetric difference
 			if y, ok := y.(*Set); ok {
-				iter := y.Iterate()
+				iter, err := SafeIterate(thread, y)
+				if err != nil {
+					return nil, err
+				}
 				defer iter.Done()
-				return x.SymmetricDifference(iter)
+				z, err := x.safeSymmetricDifference(thread, iter)
+				if err != nil {
+					return nil, err
+				}
+				if err := iter.Err(); err != nil {
+					return nil, err
+				}
+				return z, nil
 			}
 		}
 
