@@ -1815,8 +1815,10 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				return z, nil
 			} else {
 				if thread != nil {
-					if err := thread.CheckAllocs(EstimateSize(x)); err != nil {
-						return nil, err
+					if maxBigIntDelta := EstimateSize(x) - int64(y/8); maxBigIntDelta > 0 {
+						if err := thread.CheckAllocs(EstimateSize(maxBigIntDelta)); err != nil {
+							return nil, err
+						}
 					}
 				}
 				z := x.Rsh(uint(y))
