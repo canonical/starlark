@@ -266,7 +266,7 @@ var (
 		"pop":                  MemSafe | IOSafe | CPUSafe,
 		"remove":               MemSafe | IOSafe | CPUSafe,
 		"symmetric_difference": MemSafe | IOSafe,
-		"union":                MemSafe | IOSafe,
+		"union":                MemSafe | IOSafe | CPUSafe,
 	}
 )
 
@@ -3339,20 +3339,9 @@ func set_union(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 	defer iter.Done()
-	if err := thread.AddAllocs(EstimateSize(&Set{})); err != nil {
+	union, err := b.Receiver().(*Set).safeUnion(thread, iter)
+	if err != nil {
 		return nil, err
-	}
-	union := new(Set)
-	for e := b.Receiver().(*Set).ht.head; e != nil; e = e.next {
-		if err := union.ht.insert(thread, e.key, None); err != nil {
-			return nil, err
-		}
-	}
-	var x Value
-	for iter.Next(&x) {
-		if err := union.ht.insert(thread, x, None); err != nil {
-			return nil, err
-		}
 	}
 	if err := iter.Err(); err != nil {
 		return nil, nameErr(b, err)
