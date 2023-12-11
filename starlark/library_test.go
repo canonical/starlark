@@ -7086,30 +7086,36 @@ func TestSetIntersectionSteps(t *testing.T) {
 		const elems = 100
 
 		set := starlark.NewSet(elems)
-		list := starlark.NewList(make([]starlark.Value, 0, elems))
 		for i := 0; i < elems; i++ {
 			set.Insert(starlark.MakeInt(i))
-			if i%2 == 0 {
-				list.Append(starlark.MakeInt(i))
-			} else {
-				list.Append(starlark.MakeInt(-i))
-			}
 		}
 		set_intersection, _ := set.Attr("intersection")
 		if set_intersection == nil {
 			t.Fatal("no such method: set.intersection")
 		}
 
+		iter := &testIterable{
+			maxN: elems,
+			nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+				if n%2 == 0 {
+					return starlark.MakeInt(n), nil // in set
+				} else {
+					return starlark.MakeInt(-n), nil // not in set
+				}
+			},
+		}
+
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		// Iteration over items of a dict is 1 per element.
-		// Lookup averages to 1 step per element.
-		// Insertion averages to ~2.5 step per element, but on half of them.
-		st.SetMinExecutionSteps((1 + 1 + 1) * elems)
-		st.SetMaxExecutionSteps((1 + 1 + 2) * elems)
+		// The step cost per N is:
+		// - For iterating over list, elems
+		// - For lookups, on average elems
+		// - For insertion, on average 2.5 * half of elems (1.25 * elems)
+		st.SetMinExecutionSteps(3 * elems)
+		st.SetMaxExecutionSteps(4 * elems)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				_, err := starlark.Call(thread, set_intersection, starlark.Tuple{list}, nil)
+				_, err := starlark.Call(thread, set_intersection, starlark.Tuple{iter}, nil)
 				if err != nil {
 					st.Error(err)
 				}
