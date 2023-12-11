@@ -5435,22 +5435,44 @@ func TestListRemoveAllocs(t *testing.T) {
 }
 
 func TestStringCapitalizeSteps(t *testing.T) {
-	string_capitalize, _ := starlark.String("ıııııııııı").Attr("capitalize")
-	if string_capitalize == nil {
-		t.Fatal("no such method: string.capitalize")
+	runTest := func(t *testing.T, input, result string) {
+		string_capitalize, _ := starlark.String(input).Attr("capitalize")
+		if string_capitalize == nil {
+			t.Fatal("no such method: string.capitalize")
+		}
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(result)))
+		st.SetMaxExecutionSteps(uint64(len(result)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, string_capitalize, nil, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
 	}
 
-	st := startest.From(t)
-	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(uint64(len("Iııııııııı")))
-	st.SetMaxExecutionSteps(uint64(len("Iııııııııı")))
-	st.RunThread(func(thread *starlark.Thread) {
-		for i := 0; i < st.N; i++ {
-			_, err := starlark.Call(thread, string_capitalize, nil, nil)
-			if err != nil {
-				st.Error(err)
-			}
-		}
+	t.Run("ASCII", func(t *testing.T) {
+		const input = "input"
+		const result = "Input"
+		runTest(t, input, result)
+	})
+
+	t.Run("Unicode", func(t *testing.T) {
+		t.Run("bigger", func(t *testing.T) {
+			const input = "ɐdroit"
+			const result = "Ɐdroit"
+			runTest(t, input, result)
+		})
+
+		t.Run("smaller", func(t *testing.T) {
+			const input = "ınput"
+			const result = "Input"
+			runTest(t, input, result)
+		})
 	})
 }
 
