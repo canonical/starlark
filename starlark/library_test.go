@@ -6141,6 +6141,119 @@ func TestStringFindAllocs(t *testing.T) {
 }
 
 func TestStringFormatSteps(t *testing.T) {
+	t.Run("safety-respected", func(t *testing.T) {
+		format := starlark.String("{{{0!s}}}")
+		string_format, _ := format.Attr("format")
+		if string_format == nil {
+			t.Fatal("no such method: string.format")
+		}
+
+		thread := &starlark.Thread{}
+		thread.Print = func(thread *starlark.Thread, msg string) {}
+		thread.RequireSafety(starlark.CPUSafe)
+
+		stringer := &unsafeTestStringer{t}
+		_, err := starlark.Call(thread, string_format, starlark.Tuple{stringer}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	tests := []struct {
+		name  string
+		input starlark.Value
+		steps uint64
+	}{{
+		name:  "None",
+		input: starlark.None,
+		steps: uint64(len("{None}")),
+	}, {
+		name:  "Bool",
+		input: starlark.True,
+		steps: uint64(len("{True}")),
+	}, {
+		name:  "Int(small)",
+		input: starlark.MakeInt(1),
+		steps: uint64(len("{1}")),
+	}, {
+		name:  "Int(big)",
+		input: starlark.MakeInt64(1 << 40),
+		steps: uint64(len("{1099511627776}")),
+	}, {
+		name:  "String",
+		input: starlark.String(`"test"`),
+		steps: uint64(len(`{"test"}`)),
+	}, {
+		name: "Dict",
+		input: func() starlark.Value {
+			dict := starlark.NewDict(1)
+			dict.SetKey(starlark.None, starlark.None)
+			return dict
+		}(),
+		steps: uint64(len("{{None: None}}")) + 1,
+	}, {
+		name: "Set",
+		input: func() starlark.Value {
+			set := starlark.NewSet(1)
+			set.Insert(starlark.None)
+			return set
+		}(),
+		steps: uint64(len("{set([None])}")) + 1,
+	}, {
+		name:  "List",
+		input: starlark.NewList([]starlark.Value{starlark.False}),
+		steps: uint64(len("{[False]}")) + 1,
+	}, {
+		name:  "Tuple",
+		input: starlark.Tuple{starlark.False},
+		steps: uint64(len("{(False,)}")) + 1,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Run("args", func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.CPUSafe)
+				st.SetMinExecutionSteps(test.steps)
+				st.SetMaxExecutionSteps(test.steps)
+				st.RunThread(func(thread *starlark.Thread) {
+					format := starlark.String("{{{0!s}}}")
+					string_format, _ := format.Attr("format")
+					if string_format == nil {
+						st.Fatal("no such method: string.format")
+					}
+					for i := 0; i < st.N; i++ {
+						_, err := starlark.Call(thread, string_format, starlark.Tuple{test.input}, nil)
+						if err != nil {
+							st.Error(err)
+						}
+					}
+				})
+			})
+
+			t.Run("kwargs", func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.CPUSafe)
+				st.SetMinExecutionSteps(test.steps)
+				st.SetMaxExecutionSteps(test.steps)
+				st.RunThread(func(thread *starlark.Thread) {
+					kwargs := []starlark.Tuple{{starlark.String("a"), test.input}}
+					format := starlark.String("{{{a!s}}}")
+					string_format, _ := format.Attr("format")
+					if string_format == nil {
+						st.Fatal("no such method: string.format")
+					}
+					for i := 0; i < st.N; i++ {
+						_, err := starlark.Call(thread, string_format, nil, kwargs)
+						if err != nil {
+							st.Error(err)
+						}
+					}
+				})
+			})
+		})
+	}
 }
 
 func TestStringFormatAllocs(t *testing.T) {
