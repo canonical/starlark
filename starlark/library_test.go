@@ -7707,7 +7707,6 @@ func TestSetSymmetricDifferenceSteps(t *testing.T) {
 					}
 				},
 			}
-
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{iter}, nil)
 				if err != nil {
