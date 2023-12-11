@@ -956,48 +956,45 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 
 // getAttr implements x.dot.
 func getAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
-	var getAttrNames func() []string
-	var attr Value
-	var err error
+	if x, ok := x.(HasAttrs); ok {
+		var attr Value
+		var err error
 
-	switch x := x.(type) {
-	case HasSafeAttrs:
-		getAttrNames = x.AttrNames
-		attr, err = x.SafeAttr(thread, name)
-	case HasAttrs:
-		if err := CheckSafety(thread, NotSafe); err != nil {
-			return nil, err
-		}
-
-		getAttrNames = x.AttrNames
-		attr, err = x.Attr(name)
-		if attr == nil && err == nil {
-			err = ErrNoSuchAttr
-		}
-	default:
-		return nil, fmt.Errorf("%s has no .%s field or method", x.Type(), name)
-	}
-
-	if err != nil {
-		var errmsg string
-		if nsa, ok := err.(NoSuchAttrError); ok {
-			errmsg = string(nsa)
-		} else if err == ErrNoSuchAttr {
-			errmsg = fmt.Sprintf("%s has no .%s field or method", x.Type(), name)
+		if x, ok := x.(HasSafeAttrs); ok {
+			attr, err = x.SafeAttr(thread, name)
 		} else {
-			return nil, err // return error as is
-		}
+			if err := CheckSafety(thread, NotSafe); err != nil {
+				return nil, err
+			}
 
-		// add spelling hint
-		if hint {
-			if n := spell.Nearest(name, getAttrNames()); n != "" {
-				errmsg = fmt.Sprintf("%s (did you mean .%s?)", errmsg, n)
+			attr, err = x.Attr(name)
+			if attr == nil && err == nil {
+				err = ErrNoSuchAttr
 			}
 		}
 
-		return nil, errors.New(errmsg)
+		if err != nil {
+			var errmsg string
+			if nsa, ok := err.(NoSuchAttrError); ok {
+				errmsg = string(nsa)
+			} else if err == ErrNoSuchAttr {
+				errmsg = fmt.Sprintf("%s has no .%s field or method", x.Type(), name)
+			} else {
+				return nil, err // return error as is
+			}
+
+			// add spelling hint
+			if hint {
+				if n := spell.Nearest(name, x.AttrNames()); n != "" {
+					errmsg = fmt.Sprintf("%s (did you mean .%s?)", errmsg, n)
+				}
+			}
+
+			return nil, errors.New(errmsg)
+		}
+		return attr, nil
 	}
-	return attr, nil
+	return nil, fmt.Errorf("%s has no .%s field or method", x.Type(), name)
 }
 
 // setField implements x.name = y.

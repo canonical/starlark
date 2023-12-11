@@ -1595,11 +1595,12 @@ var _ starlark.HasSafeAttrs = &testSafeAttr{}
 func (tsa *testSafeAttr) Hash() (uint32, error) {
 	return 0, fmt.Errorf("unhashable type: %s", tsa.Type())
 }
-func (tsa *testSafeAttr) Freeze()              {}
-func (tsa *testSafeAttr) String() string       { return "<testSafeAttr>" }
-func (tsa *testSafeAttr) Truth() starlark.Bool { return false }
-func (tsa *testSafeAttr) Type() string         { return "testSafeAttr" }
-func (tsa *testSafeAttr) AttrNames() []string  { return nil }
+func (tsa *testSafeAttr) Freeze()                                  {}
+func (tsa *testSafeAttr) String() string                           { return "<testSafeAttr>" }
+func (tsa *testSafeAttr) Truth() starlark.Bool                     { return false }
+func (tsa *testSafeAttr) Type() string                             { return "testSafeAttr" }
+func (tsa *testSafeAttr) AttrNames() []string                      { return nil }
+func (tsa *testSafeAttr) Attr(name string) (starlark.Value, error) { return tsa.SafeAttr(nil, name) }
 func (tsa *testSafeAttr) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
 	if err := starlark.CheckSafety(thread, tsa.safety); err != nil {
 		return nil, err
