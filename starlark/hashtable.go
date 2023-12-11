@@ -239,7 +239,7 @@ func (ht *hashtable) lookup(thread *Thread, k Value) (v Value, found bool, err e
 }
 
 // count returns the number of distinct elements of iter that are elements of ht.
-func (ht *hashtable) count(iter Iterator) (int, error) {
+func (ht *hashtable) count(thread *Thread, iter Iterator) (int, error) {
 	if ht.table == nil {
 		return 0, nil // empty
 	}
@@ -250,6 +250,13 @@ func (ht *hashtable) count(iter Iterator) (int, error) {
 	// Use a bitset per table entry to record seen elements of ht.
 	// Elements are identified by their bucket number and index within the bucket.
 	// Each bitset gets one word initially, but may grow.
+	transientSize := EstimateMakeSize([]big.Word{}, len(ht.table)) +
+		EstimateMakeSize([]big.Int{}, len(ht.table))
+	if thread != nil {
+		if err := thread.CheckAllocs(transientSize); err != nil {
+			return 0, err
+		}
+	}
 	storage := make([]big.Word, len(ht.table))
 	bitsets := make([]big.Int, len(ht.table))
 	for i := range bitsets {
@@ -268,6 +275,11 @@ func (ht *hashtable) count(iter Iterator) (int, error) {
 		bucketId := h & (uint32(len(ht.table) - 1))
 		i := 0
 		for p := &ht.table[bucketId]; p != nil; p = p.next {
+			if thread != nil {
+				if err := thread.AddExecutionSteps(1); err != nil {
+					return 0, err
+				}
+			}
 			for j := range p.entries {
 				e := &p.entries[j]
 				if e.hash == h {
