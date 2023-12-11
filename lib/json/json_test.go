@@ -64,6 +64,106 @@ func TestModuleSafeties(t *testing.T) {
 }
 
 func TestJsonEncodeSteps(t *testing.T) {
+	json_encode, _ := json.Module.Attr("encode")
+	if json_encode == nil {
+		t.Fatal("no such method: json.encode")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.CPUSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, json_encode, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	tests := []struct {
+		name  string
+		input starlark.Value
+		steps uint64
+	}{{
+		name:  "Int(small)",
+		input: starlark.MakeInt(0xbeef),
+		steps: uint64(len("48879")), // 0xbeef
+	}, {
+		name:  "Int(big)",
+		input: starlark.MakeInt64(0xdeadbeef << 10),
+		steps: uint64(len("3825590844416")), // 0xdeadbeef << 10
+	}, {
+		name:  "Float",
+		input: starlark.Float(1.4218e-1),
+		steps: uint64(len("0.14218")),
+	}, {
+		name:  "Bool",
+		input: starlark.True,
+		steps: uint64(len("True")),
+	}, {
+		name:  "None",
+		input: starlark.None,
+		steps: uint64(len("null")),
+	}, {
+		name:  "Tuple",
+		input: starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(2)},
+		steps: uint64(len("[1,2]")) + 3,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Run("standalone", func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.CPUSafe)
+				st.SetMinExecutionSteps(test.steps)
+				st.SetMaxExecutionSteps(test.steps)
+				st.RunThread(func(thread *starlark.Thread) {
+					for i := 0; i < st.N; i++ {
+						_, err := starlark.Call(thread, json_encode, starlark.Tuple{test.input}, nil)
+						if err != nil {
+							st.Error(err)
+						}
+					}
+				})
+			})
+			t.Run("list", func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.CPUSafe)
+				const listOverheadSteps = 2 // iteration + writing ','
+				st.SetMinExecutionSteps(test.steps + listOverheadSteps)
+				st.SetMaxExecutionSteps(test.steps + listOverheadSteps)
+				st.RunThread(func(thread *starlark.Thread) {
+					elems := make([]starlark.Value, st.N)
+					for i := 0; i < st.N; i++ {
+						elems[i] = test.input
+					}
+					_, err := starlark.Call(thread, json_encode, starlark.Tuple{starlark.NewList(elems)}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				})
+			})
+
+			t.Run("map", func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.CPUSafe)
+				const listOverheadSteps = 2 // iteration + writing ','
+				st.SetMinExecutionSteps(test.steps + uint64(len(`,"000000000000":`)+1))
+				st.SetMaxExecutionSteps(test.steps + uint64(len(`,"000000000000":`)+1))
+				st.RunThread(func(thread *starlark.Thread) {
+					dict := starlark.NewDict(st.N)
+					for i := 0; i < st.N; i++ {
+						dict.SetKey(starlark.String(fmt.Sprintf("%012d", i)), test.input)
+					}
+					_, err := starlark.Call(thread, json_encode, starlark.Tuple{dict}, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				})
+			})
+		})
+	}
 }
 
 func TestJsonEncodeAllocs(t *testing.T) {

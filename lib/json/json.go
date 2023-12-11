@@ -82,7 +82,7 @@ var Module = &starlarkstruct.Module{
 	},
 }
 var safeties = map[string]starlark.SafetyFlags{
-	"encode": starlark.MemSafe | starlark.IOSafe,
+	"encode": starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"decode": starlark.MemSafe | starlark.IOSafe,
 	"indent": starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 }
@@ -141,6 +141,9 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 
 		switch x := x.(type) {
 		case json.Marshaler:
+			if err := starlark.CheckSafety(thread, starlark.NotSafe); err != nil {
+				return err
+			}
 			// Application-defined starlark.Value types
 			// may define their own JSON encoding.
 			data, err := x.MarshalJSON()
@@ -191,6 +194,9 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				return err
 			}
 			items := x.Items()
+			if err := thread.AddExecutionSteps(int64(len(items))); err != nil {
+				return err
+			}
 			for _, item := range items {
 				if _, ok := item[0].(starlark.String); !ok {
 					return fmt.Errorf("%s has %s key, want string", x.Type(), item[0].Type())
@@ -251,11 +257,22 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			if err := buf.WriteByte('{'); err != nil {
 				return err
 			}
+			// This is a spike both in memory and steps, but it's
+			// expected for the attributes to be a relatively small set.
 			var names []string
 			names = append(names, x.AttrNames()...)
 			sort.Strings(names)
+			if err := thread.AddExecutionSteps(int64(len(names))); err != nil {
+				return err
+			}
 			for i, name := range names {
-				v, err := x.Attr(name)
+				var v starlark.Value
+				var err error
+				if x, ok := x.(starlark.HasSafeAttrs); ok {
+					v, err = x.SafeAttr(thread, name)
+				} else if err = starlark.CheckSafety(thread, starlark.NotSafe); err == nil {
+					v, err = x.Attr(name)
+				}
 				if err != nil {
 					return fmt.Errorf("cannot access attribute %s.%s: %w", x.Type(), name, err)
 				}
