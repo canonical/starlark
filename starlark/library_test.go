@@ -7691,8 +7691,9 @@ func TestSetSymmetricDifferenceSteps(t *testing.T) {
 	t.Run("execution", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		// The cost of cloning averages to 2 per element.
-		// The cost of deletion/insert averages to 2 per element.
+		// The step cost per N is:
+		// - For cloning, 2 * elems
+		// - For deletion/insertion, just above 2 per element
 		st.SetMinExecutionSteps(elems * 4)
 		st.SetMaxExecutionSteps(elems * 5)
 		st.RunThread(func(thread *starlark.Thread) {
