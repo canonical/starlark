@@ -7882,9 +7882,10 @@ func TestSetUnionSteps(t *testing.T) {
 	t.Run("execution", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		// Iteration over items of a dict is 1 step per N,
-		// cloning (insertion) of the dict is 1 step per N,
-		// insertion cost averages to ~2.5 per N.
+		// The step cost per N is:
+		// - For iterating over the dict, 1
+		// - For cloning the dict, 1
+		// - For insertion, on average 2.5
 		st.SetMinExecutionSteps(4)
 		st.SetMaxExecutionSteps(5)
 		st.RunThread(func(thread *starlark.Thread) {
