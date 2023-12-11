@@ -1859,7 +1859,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 			name: "string % mapping",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				lBuilder := &strings.Builder{}
-				substitutions := 1 + n / 2
+				substitutions := 1 + n/2
 				r := starlark.NewDict(substitutions)
 				for i := 0; i < substitutions; i++ {
 					key := fmt.Sprintf("k_%d", i)
@@ -1880,7 +1880,51 @@ func TestSafeBinaryAllocs(t *testing.T) {
 
 	t.Run("not in", func(t *testing.T) {})
 
-	t.Run("|", func(t *testing.T) {})
+	t.Run("|", func(t *testing.T) {
+		tests := []safeBinaryAllocTest{{
+			name: "int | int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(n / 2)
+				r := starlark.MakeInt(n / 2)
+				return l, syntax.PIPE, r
+			},
+		}, {
+			name: "dict | dict",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				// Create overlapping dicts whose union has size n
+				l := starlark.NewDict(3 * n / 4)
+				r := starlark.NewDict(3 * n / 4)
+				for i := 0; i < n/2; i++ {
+					l.SetKey(starlark.MakeInt(i), starlark.None)
+					r.SetKey(starlark.MakeInt(-i), starlark.None)
+				}
+				for i := 0; i < n/4; i++ {
+					l.SetKey(starlark.MakeInt(-i), starlark.None)
+					r.SetKey(starlark.MakeInt(i), starlark.None)
+				}
+				return l, syntax.PIPE, r
+			},
+		}, {
+			name: "set | set",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				// Create overlapping sets whose union has size n
+				l := starlark.NewSet(3 * n / 4)
+				r := starlark.NewSet(3 * n / 4)
+				for i := 0; i < n/2; i++ {
+					l.Insert(starlark.MakeInt(i))
+					r.Insert(starlark.MakeInt(-i))
+				}
+				for i := 0; i < n/4; i++ {
+					l.Insert(starlark.MakeInt(-i))
+					r.Insert(starlark.MakeInt(i))
+				}
+				return l, syntax.PIPE, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
 
 	t.Run("&", func(t *testing.T) {})
 

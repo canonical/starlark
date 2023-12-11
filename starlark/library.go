@@ -80,7 +80,7 @@ func init() {
 		"any":       MemSafe | IOSafe | CPUSafe,
 		"all":       MemSafe | IOSafe | CPUSafe,
 		"bool":      MemSafe | IOSafe | CPUSafe,
-		"bytes":     MemSafe | IOSafe,
+		"bytes":     MemSafe | IOSafe | CPUSafe,
 		"chr":       MemSafe | IOSafe | CPUSafe,
 		"dict":      MemSafe | IOSafe | CPUSafe,
 		"dir":       MemSafe | IOSafe | CPUSafe,
@@ -206,11 +206,11 @@ var (
 	}
 	stringMethodSafeties = map[string]SafetyFlags{
 		"capitalize":     MemSafe | IOSafe | CPUSafe,
-		"codepoint_ords": MemSafe | IOSafe,
-		"codepoints":     MemSafe | IOSafe,
-		"count":          MemSafe | IOSafe,
-		"elem_ords":      MemSafe | IOSafe,
-		"elems":          MemSafe | IOSafe,
+		"codepoint_ords": MemSafe | IOSafe | CPUSafe,
+		"codepoints":     MemSafe | IOSafe | CPUSafe,
+		"count":          MemSafe | IOSafe | CPUSafe,
+		"elem_ords":      MemSafe | IOSafe | CPUSafe,
+		"elems":          MemSafe | IOSafe | CPUSafe,
 		"endswith":       MemSafe | IOSafe | CPUSafe,
 		"find":           MemSafe | IOSafe | CPUSafe,
 		"format":         MemSafe | IOSafe,
@@ -258,11 +258,11 @@ var (
 	setMethodSafeties = map[string]SafetyFlags{
 		"add":                  MemSafe | IOSafe | CPUSafe,
 		"clear":                MemSafe | IOSafe | CPUSafe,
-		"difference":           MemSafe | IOSafe,
+		"difference":           MemSafe | IOSafe | CPUSafe,
 		"discard":              MemSafe | IOSafe | CPUSafe,
 		"intersection":         MemSafe | IOSafe,
-		"issubset":             MemSafe | IOSafe,
-		"issuperset":           MemSafe | IOSafe,
+		"issubset":             MemSafe | IOSafe | CPUSafe,
+		"issuperset":           MemSafe | IOSafe | CPUSafe,
 		"pop":                  MemSafe | IOSafe | CPUSafe,
 		"remove":               MemSafe | IOSafe | CPUSafe,
 		"symmetric_difference": MemSafe | IOSafe,
@@ -641,7 +641,7 @@ func fail(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 				return nil, err
 			}
 		} else {
-			if err := writeValue(buf, v, nil); err != nil {
+			if err := writeValue(thread, buf, v, nil); err != nil {
 				return nil, err
 			}
 		}
@@ -1183,7 +1183,7 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 				return nil, err
 			}
 		} else {
-			if err := writeValue(buf, v, nil); err != nil {
+			if err := writeValue(thread, buf, v, nil); err != nil {
 				return nil, err
 			}
 		}
@@ -1283,6 +1283,23 @@ func (r rangeValue) Slice(start, end, step int) Value {
 }
 
 func (r rangeValue) Freeze() {} // immutable
+
+func (r rangeValue) SafeString(thread *Thread, sb StringBuilder) error {
+	const safety = MemSafe | IOSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
+		return err
+	}
+	var err error
+	if r.step != 1 {
+		_, err = fmt.Fprintf(sb, "range(%d, %d, %d)", r.start, r.stop, r.step)
+	} else if r.start != 0 {
+		_, err = fmt.Fprintf(sb, "range(%d, %d)", r.start, r.stop)
+	} else {
+		_, err = fmt.Fprintf(sb, "range(%d)", r.stop)
+	}
+	return err
+}
+
 func (r rangeValue) String() string {
 	if r.step != 1 {
 		return fmt.Sprintf("range(%d, %d, %d)", r.start, r.stop, r.step)
@@ -1615,6 +1632,9 @@ func utf8Transcode(s string) string {
 }
 
 func safeUtf8Transcode(thread *Thread, s string) (string, error) {
+	if err := thread.AddExecutionSteps(int64(len(s))); err != nil {
+		return "", err
+	}
 	if utf8.ValidString(s) {
 		return s, nil
 	}
@@ -2180,6 +2200,18 @@ type bytesIterable struct{ bytes Bytes }
 
 var _ Iterable = (*bytesIterable)(nil)
 
+func (bi bytesIterable) SafeString(thread *Thread, sb StringBuilder) error {
+	const safety = MemSafe | IOSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
+		return err
+	}
+	if err := bi.bytes.SafeString(thread, sb); err != nil {
+		return err
+	}
+	_, err := sb.WriteString(".elems()")
+	return err
+}
+
 func (bi bytesIterable) String() string        { return bi.bytes.String() + ".elems()" }
 func (bi bytesIterable) Type() string          { return "bytes.elems" }
 func (bi bytesIterable) Freeze()               {} // immutable
@@ -2244,6 +2276,9 @@ func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		slice = recv[start:end]
 	}
 
+	if err := thread.AddExecutionSteps(int64(len(slice))); err != nil {
+		return nil, err
+	}
 	result := Value(MakeInt(strings.Count(slice, sub)))
 	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 		return nil, err
@@ -2564,12 +2599,12 @@ func string_format(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Valu
 					return nil, err
 				}
 			} else {
-				if err := writeValue(buf, arg, nil); err != nil {
+				if err := writeValue(thread, buf, arg, nil); err != nil {
 					return nil, err
 				}
 			}
 		case "r":
-			if err := writeValue(buf, arg, nil); err != nil {
+			if err := writeValue(thread, buf, arg, nil); err != nil {
 				return nil, err
 			}
 		default:
@@ -3172,19 +3207,20 @@ func set_issubset(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
+	recv := b.Receiver().(*Set)
 	iter, err := SafeIterate(thread, other)
 	if err != nil {
 		return nil, err
 	}
 	defer iter.Done()
-	diff, err := b.Receiver().(*Set).IsSubset(iter)
+	count, err := recv.ht.count(thread, iter)
 	if err != nil {
 		return nil, nameErr(b, err)
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
-	return Bool(diff), nil
+	return Bool(count == recv.Len()), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set_issuperset.
@@ -3193,19 +3229,26 @@ func set_issuperset(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
+	recv := b.Receiver().(*Set)
 	iter, err := SafeIterate(thread, other)
 	if err != nil {
 		return nil, err
 	}
 	defer iter.Done()
-	diff, err := b.Receiver().(*Set).IsSuperset(iter)
-	if err != nil {
-		return nil, nameErr(b, err)
+	var x Value
+	for iter.Next(&x) {
+		_, found, err := recv.ht.lookup(thread, x)
+		if err != nil {
+			return nil, nameErr(b, err)
+		}
+		if !found {
+			return False, nil
+		}
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
-	return Bool(diff), nil
+	return True, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·discard.

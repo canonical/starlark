@@ -442,6 +442,8 @@ func (tb *SafeStringBuilder) Err() error     { return tb.err }
 // It is not a true starlark.Value.
 type StringDict map[string]Value
 
+var _ SafeStringer = StringDict(nil)
+
 // Keys returns a new sorted slice of d's keys.
 func (d StringDict) Keys() []string {
 	names := make([]string, 0, len(d))
@@ -452,18 +454,39 @@ func (d StringDict) Keys() []string {
 	return names
 }
 
-func (d StringDict) String() string {
-	buf := new(strings.Builder)
-	buf.WriteByte('{')
+func (d StringDict) SafeString(thread *Thread, sb StringBuilder) error {
+	const safety = MemSafe | IOSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
+		return err
+	}
+	if err := sb.WriteByte('{'); err != nil {
+		return err
+	}
 	sep := ""
 	for _, name := range d.Keys() {
-		buf.WriteString(sep)
-		buf.WriteString(name)
-		buf.WriteString(": ")
-		writeValue(buf, d[name], nil)
+		if _, err := sb.WriteString(sep); err != nil {
+			return err
+		}
+		if _, err := sb.WriteString(name); err != nil {
+			return err
+		}
+		if _, err := sb.WriteString(": "); err != nil {
+			return err
+		}
+		if err := writeValue(thread, sb, d[name], nil); err != nil {
+			return err
+		}
 		sep = ", "
 	}
-	buf.WriteByte('}')
+	if err := sb.WriteByte('}'); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d StringDict) String() string {
+	buf := new(strings.Builder)
+	d.SafeString(nil, buf)
 	return buf.String()
 }
 
@@ -1700,20 +1723,40 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		switch x := x.(type) {
 		case Int:
 			if y, ok := y.(Int); ok {
-				return x.Or(y), nil
+				if thread != nil {
+					if err := thread.CheckAllocs(max(EstimateSize(x), EstimateSize(y))); err != nil {
+						return nil, err
+					}
+				}
+				result := Value(x.Or(y))
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+						return nil, err
+					}
+				}
+				return result, nil
 			}
 
 		case *Dict: // union
 			if y, ok := y.(*Dict); ok {
-				return x.Union(y), nil
+				return x.safeUnion(thread, y)
 			}
 
 		case *Set: // union
 			if y, ok := y.(*Set); ok {
-				// TODO: use SafeIterate
-				iter := Iterate(y)
+				iter, err := SafeIterate(thread, y)
+				if err != nil {
+					return nil, err
+				}
 				defer iter.Done()
-				return x.Union(iter)
+				z, err := x.safeUnion(thread, iter)
+				if err != nil {
+					return nil, err
+				}
+				if err := iter.Err(); err != nil {
+					return nil, err
+				}
+				return z, nil
 			}
 		}
 
@@ -2290,7 +2333,7 @@ func interpolate(thread *Thread, format string, x Value) (Value, error) {
 					return nil, err
 				}
 			} else {
-				if err := writeValue(buf, arg, nil); err != nil {
+				if err := writeValue(thread, buf, arg, nil); err != nil {
 					return nil, err
 				}
 			}

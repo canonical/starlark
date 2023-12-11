@@ -67,3 +67,15 @@ func Range(start, stop, step int) Value {
 		len:   rangeLen(start, stop, step),
 	}
 }
+
+func (b Bytes) Iterable() Value {
+	return bytesIterable{b}
+}
+
+func (s String) Codepoints(ords bool) Value {
+	return stringCodepoints{s, ords}
+}
+
+func (s String) Elems(ords bool) Value {
+	return stringElems{s, ords}
+}
