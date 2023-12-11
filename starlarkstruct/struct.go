@@ -130,26 +130,48 @@ func (s *Struct) ToStringDict(d starlark.StringDict) {
 	}
 }
 
-func (s *Struct) String() string {
-	buf := new(strings.Builder)
+func (s *Struct) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
+	const safety = starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
+		return err
+	}
 	switch constructor := s.constructor.(type) {
 	case starlark.String:
 		// NB: The Java implementation always prints struct
 		// even for Bazel provider instances.
-		buf.WriteString(constructor.GoString()) // avoid String()'s quotation
+		if _, err := sb.WriteString(constructor.GoString()); err != nil { // avoid String()'s quotation
+			return err
+		}
 	default:
-		buf.WriteString(s.constructor.String())
+		if _, err := sb.WriteString(s.constructor.String()); err != nil {
+			return err
+		}
 	}
-	buf.WriteByte('(')
+	if err := sb.WriteByte('('); err != nil {
+		return err
+	}
 	for i, e := range s.entries {
 		if i > 0 {
-			buf.WriteString(", ")
+			if _, err := sb.WriteString(", "); err != nil {
+				return err
+			}
 		}
-		buf.WriteString(e.name)
-		buf.WriteString(" = ")
-		buf.WriteString(e.value.String())
+		if _, err := sb.WriteString(e.name); err != nil {
+			return err
+		}
+		if _, err := sb.WriteString(" = "); err != nil {
+			return err
+		}
+		if _, err := sb.WriteString(e.value.String()); err != nil {
+			return err
+		}
 	}
-	buf.WriteByte(')')
+	return sb.WriteByte(')')
+}
+
+func (s *Struct) String() string {
+	buf := new(strings.Builder)
+	s.SafeString(nil, buf)
 	return buf.String()
 }
 

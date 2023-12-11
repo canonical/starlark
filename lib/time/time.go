@@ -68,10 +68,10 @@ var Module = &starlarkstruct.Module{
 	},
 }
 var safeties = map[string]starlark.SafetyFlags{
-	"from_timestamp":    starlark.MemSafe | starlark.IOSafe,
+	"from_timestamp":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"is_valid_timezone": starlark.MemSafe,
-	"now":               starlark.MemSafe | starlark.IOSafe,
-	"parse_duration":    starlark.MemSafe | starlark.IOSafe,
+	"now":               starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
+	"parse_duration":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"parse_time":        starlark.NotSafe,
 	"time":              starlark.NotSafe,
 }
@@ -90,13 +90,15 @@ func init() {
 // so that it can be overridden, for example by applications that require their
 // Starlark scripts to be fully deterministic.
 var NowFunc = time.Now
-var NowFuncSafety = starlark.MemSafe
+var NowFuncSafety = starlark.MemSafe | starlark.CPUSafe
 
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	var d Duration
-	if err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &d); err != nil {
+	sdu := SafeDurationUnpacker{}
+	sdu.BindThread(thread)
+	if err := starlark.UnpackPositionalArgs("parse_duration", args, kwargs, 1, &sdu); err != nil {
 		return nil, err
 	}
+	d := sdu.Duration()
 	if err := thread.AddAllocs(starlark.EstimateSize(Duration(0))); err != nil {
 		return nil, err
 	}
@@ -185,9 +187,21 @@ func (d *Duration) Unpack(v starlark.Value) error {
 
 		*d = Duration(dur)
 		return nil
-	}
+	} // If more cases are added, be careful to update conversion cost computations.
 
 	return fmt.Errorf("got %s, want a duration, string, or int", v.Type())
+}
+
+// SafeString implements the SafeStringer interface.
+func (d Duration) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
+	const safety = starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
+		return err
+	}
+	// String conversion is cheap in both memory and time.
+	// Hence, we can make this simple and accept a small spike.
+	_, err := sb.WriteString(time.Duration(d).String())
+	return err
 }
 
 // String implements the Stringer interface.
@@ -331,6 +345,44 @@ func (d Duration) Binary(op syntax.Token, y starlark.Value, side starlark.Side) 
 	return nil, nil
 }
 
+type SafeDurationUnpacker struct {
+	duration Duration
+	thread *starlark.Thread
+}
+
+func (sdu *SafeDurationUnpacker) Unpack(v starlark.Value) error {
+	switch x := v.(type) {
+	case Duration:
+		sdu.duration = x
+		return nil
+	case starlark.String:
+		if sdu.thread != nil {
+			if err := sdu.thread.AddExecutionSteps(int64(len(string(x)))); err != nil {
+				return err
+			}
+		}
+		dur, err := time.ParseDuration(string(x))
+		if err != nil {
+			return err
+		}
+		sdu.duration = Duration(dur)
+		return nil
+	default:
+		return fmt.Errorf("got %s, want a duration, string, or int", v.Type())
+	}
+}
+
+// Duration returns the unpacked duration.
+func (sdu *SafeDurationUnpacker) Duration() Duration {
+	return sdu.duration
+}
+
+// BindThread causes this unpacker to report its resource
+// usage to the given thread.
+func (sdu *SafeDurationUnpacker) BindThread(thread *starlark.Thread) {
+	sdu.thread = thread
+}
+
 // Time is a Starlark representation of a moment in time.
 type Time time.Time
 
@@ -361,9 +413,20 @@ func newTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, 
 	return Time(time.Date(year, time.Month(month), day, hour, min, sec, nsec, location)), nil
 }
 
+func (t Time) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
+	const safety = starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
+		return err
+	}
+	// String conversion is cheap in both memory and time.
+	// Hence, we can make this simple and accept a small spike.
+	_, err := sb.WriteString(t.String())
+	return err
+}
+
 // String returns the time formatted using the format string
 //	"2006-01-02 15:04:05.999999999 -0700 MST".
-func (t Time) String() string { return time.Time(t).String() }
+func (t Time) String() string { return time.Time(t).Format("2006-01-02 15:04:05.999999999 -0700 MST") }
 
 // Type returns "time.time".
 func (t Time) Type() string { return "time.time" }

@@ -1777,13 +1777,154 @@ func TestSafeBinaryAllocs(t *testing.T) {
 
 	})
 
-	t.Run("%", func(t *testing.T) {})
+	t.Run("%", func(t *testing.T) {
+		t.Run("unsafe-mapping", func(t *testing.T) {
+			thread := &starlark.Thread{}
+			thread.RequireSafety(starlark.MemSafe)
+			_, err := starlark.SafeBinary(thread, syntax.PERCENT, starlark.String("%(foo)s"), &unsafeTestMapping{})
+			if !errors.Is(err, starlark.ErrSafety) {
+				t.Errorf("expected safety error: got %v", err)
+			}
+		})
+
+		tests := []safeBinaryAllocTest{{
+			name: "int % int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				r := starlark.MakeInt(1).Lsh(uint(n) + 1)
+				l := starlark.MakeInt(1).Lsh(uint(n)).Add(r)
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "int % float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(1).Lsh(1023)
+				r := starlark.Float(1e9)
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "float % float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(n * 3)
+				r := starlark.Float(n * 2)
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "float % int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.Float(1e32)
+				r := starlark.MakeInt(1).Lsh(1023)
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "string % string",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.String(strings.Repeat("[", n/4) + "%s" + strings.Repeat("]", n/4))
+				r := starlark.String(strings.Repeat("[", n/4) + strings.Repeat("]", n/4))
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "string % int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.String(strings.Repeat("%d", n))
+				r := make(starlark.Tuple, 0, n)
+				num := starlark.MakeInt(100000000)
+				for i := 0; i < cap(r); i++ {
+					r = append(r, num)
+				}
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "string % float",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.String(strings.Repeat("%d", n))
+				r := make(starlark.Tuple, 0, n)
+				float := starlark.Float(3e9)
+				for i := 0; i < cap(r); i++ {
+					r = append(r, float)
+				}
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "string % rune",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.String(strings.Repeat("%s", n))
+				r := make(starlark.Tuple, 0, n)
+				rune := starlark.String('a')
+				for i := 0; i < cap(r); i++ {
+					r = append(r, rune)
+				}
+				return l, syntax.PERCENT, r
+			},
+		}, {
+			name: "string % mapping",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				lBuilder := &strings.Builder{}
+				substitutions := 1 + n/2
+				r := starlark.NewDict(substitutions)
+				for i := 0; i < substitutions; i++ {
+					key := fmt.Sprintf("k_%d", i)
+					lBuilder.WriteString(fmt.Sprintf("%%(%s)s", key))
+					replacement := key + key
+					r.SetKey(starlark.String(key), starlark.String(replacement))
+				}
+				l := starlark.String(lBuilder.String())
+				return l, syntax.PERCENT, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
 
 	t.Run("in", func(t *testing.T) {})
 
 	t.Run("not in", func(t *testing.T) {})
 
-	t.Run("|", func(t *testing.T) {})
+	t.Run("|", func(t *testing.T) {
+		tests := []safeBinaryAllocTest{{
+			name: "int | int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(n / 2)
+				r := starlark.MakeInt(n / 2)
+				return l, syntax.PIPE, r
+			},
+		}, {
+			name: "dict | dict",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				// Create overlapping dicts whose union has size n
+				l := starlark.NewDict(3 * n / 4)
+				r := starlark.NewDict(3 * n / 4)
+				for i := 0; i < n/2; i++ {
+					l.SetKey(starlark.MakeInt(i), starlark.None)
+					r.SetKey(starlark.MakeInt(-i), starlark.None)
+				}
+				for i := 0; i < n/4; i++ {
+					l.SetKey(starlark.MakeInt(-i), starlark.None)
+					r.SetKey(starlark.MakeInt(i), starlark.None)
+				}
+				return l, syntax.PIPE, r
+			},
+		}, {
+			name: "set | set",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				// Create overlapping sets whose union has size n
+				l := starlark.NewSet(3 * n / 4)
+				r := starlark.NewSet(3 * n / 4)
+				for i := 0; i < n/2; i++ {
+					l.Insert(starlark.MakeInt(i))
+					r.Insert(starlark.MakeInt(-i))
+				}
+				for i := 0; i < n/4; i++ {
+					l.Insert(starlark.MakeInt(-i))
+					r.Insert(starlark.MakeInt(i))
+				}
+				return l, syntax.PIPE, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
 
 	t.Run("&", func(t *testing.T) {})
 
@@ -1816,5 +1957,60 @@ func TestThreadEnsureStack(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.EnsureStack(10)
 		thread.EnsureStack(-1)
+	})
+}
+
+func TestSafeAppenderNilThread(t *testing.T) {
+	t.Run("append", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err != nil {
+				t.Error(err)
+			}
+		}()
+
+		const initialSliceCap = 100
+		slice := make([]int, 0, initialSliceCap)
+		sliceAppender := starlark.NewSafeAppender(nil, &slice)
+		for i := 0; i < 2*initialSliceCap; i++ {
+			if err := sliceAppender.Append(i); err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
+
+	t.Run("append-slice", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err != nil {
+				t.Error(err)
+			}
+		}()
+
+		const initialSliceCap = 100
+		slice := make([]int, 0, initialSliceCap)
+		sliceAppender := starlark.NewSafeAppender(nil, &slice)
+
+		toAppend := make([]int, 0, 2*initialSliceCap)
+		for i := 0; i < cap(toAppend); i++ {
+			toAppend = append(toAppend, i)
+		}
+		if err := sliceAppender.AppendSlice(toAppend); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func TestSafeStringBuilderNilThread(t *testing.T) {
+	st := startest.From(t)
+	st.RunThread(func(*starlark.Thread) {
+		defer func() {
+			if err := recover(); err != nil {
+				t.Error(err)
+			}
+		}()
+
+		sb := starlark.NewSafeStringBuilder(nil)
+		if _, err := sb.WriteString(strings.Repeat("blicket", st.N)); err != nil {
+			t.Error(err)
+		}
 	})
 }

@@ -131,7 +131,7 @@ func TestHashtableCount(t *testing.T) {
 		ht.insert(nil, MakeInt(i), None)
 	}
 
-	if c, err := ht.count(rangeValue{0, count, 1, count}.Iterate()); err != nil {
+	if c, err := ht.count(nil, rangeValue{0, count, 1, count}.Iterate()); err != nil {
 		t.Error(err)
 	} else if c != count {
 		t.Errorf("count doesn't match: expected %d got %d", count, c)

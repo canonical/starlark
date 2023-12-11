@@ -7,6 +7,7 @@ package starlarkstruct_test
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
@@ -66,4 +67,52 @@ func (sym *symbol) CallInternal(thread *starlark.Thread, args starlark.Tuple, kw
 		return nil, fmt.Errorf("%s: unexpected positional arguments", sym)
 	}
 	return starlarkstruct.FromKeywords(sym, kwargs), nil
+}
+
+func TestSafeString(t *testing.T) {
+	tests := []struct {
+		name  string
+		input starlark.SafeStringer
+	}{{
+		name: "Struct",
+		input: starlarkstruct.FromStringDict(
+			starlark.String("foo"),
+			starlark.StringDict{
+				"bar": starlark.None,
+			},
+		),
+	}, {
+		name: "Module",
+		input: &starlarkstruct.Module{
+			Name: "foo",
+			Members: starlark.StringDict{
+				"bar": starlark.None,
+			},
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Run("nil-thread", func(t *testing.T) {
+				builder := new(strings.Builder)
+				if err := test.input.SafeString(nil, builder); err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			})
+
+			t.Run("consistency", func(t *testing.T) {
+				thread := &starlark.Thread{}
+				builder := new(strings.Builder)
+				if err := test.input.SafeString(thread, builder); err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				if stringer, ok := test.input.(fmt.Stringer); ok {
+					expected := stringer.String()
+					actual := builder.String()
+					if expected != actual {
+						t.Errorf("inconsistent stringer implementation: expected %s got %s", expected, actual)
+					}
+				}
+			})
+		})
+	}
 }
