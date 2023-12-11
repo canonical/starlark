@@ -1442,23 +1442,12 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 		thread.Print = func(thread *starlark.Thread, msg string) {}
 		thread.RequireSafety(starlark.CPUSafe)
 
-		stringer := &testSafeStringer{
-			safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
-				return nil
-			},
-		}
+		stringer := &unsafeTestStringer{t: t}
 		_, err := starlark.Call(thread, fn, starlark.Tuple{stringer}, nil)
-		if shouldFail {
-			if err == nil {
-				t.Error("expected error")
-			}
-		} else {
-			if err != nil {
-				t.Error(err)
-			}
-		}
-		if stringer.unsafeCalled {
-			t.Errorf("unsafe String method called in a safe execution")
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -2989,25 +2978,28 @@ func TestRangeAllocs(t *testing.T) {
 	})
 }
 
+type unsafeTestStringer struct {
+	t startest.TestBase
+}
+
+var _ starlark.Value = &unsafeTestStringer{}
+
+func (uts *unsafeTestStringer) Freeze()               {}
+func (uts *unsafeTestStringer) Truth() starlark.Bool  { return starlark.False }
+func (uts *unsafeTestStringer) Type() string          { return "unsafeTestStringer" }
+func (uts *unsafeTestStringer) Hash() (uint32, error) { return 0, nil }
+func (uts *unsafeTestStringer) String() string {
+	uts.t.Error("String called")
+	return ""
+}
+
 type testSafeStringer struct {
-	unsafeCalled bool
-	safeString   func(thread *starlark.Thread, sb starlark.StringBuilder) error
+	unsafeTestStringer
+	safeString func(thread *starlark.Thread, sb starlark.StringBuilder) error
 }
 
 var _ starlark.Value = &testSafeStringer{}
 var _ starlark.SafeStringer = &testSafeStringer{}
-
-func (tss *testSafeStringer) Freeze()               {}
-func (tss *testSafeStringer) Truth() starlark.Bool  { return starlark.False }
-func (tss *testSafeStringer) Type() string          { return "testSafeStringer" }
-func (tss *testSafeStringer) Hash() (uint32, error) { return 0, nil }
-
-func (tss *testSafeStringer) String() string {
-	tss.unsafeCalled = true
-	builder := new(strings.Builder)
-	tss.SafeString(nil, builder)
-	return builder.String()
-}
 
 func (tss *testSafeStringer) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
 	if tss.safeString == nil {
