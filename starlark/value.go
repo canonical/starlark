@@ -1626,7 +1626,7 @@ func (s *Set) IsSuperset(other Iterator) (bool, error) {
 }
 
 func (s *Set) IsSubset(other Iterator) (bool, error) {
-	if count, err := s.ht.count(other); err != nil {
+	if count, err := s.ht.count(nil, other); err != nil {
 		return false, err
 	} else {
 		return count == s.Len(), nil
