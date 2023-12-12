@@ -6009,9 +6009,11 @@ func TestStringJoinSteps(t *testing.T) {
 	t.Run("execution", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		const iterationCost = 1
-		st.SetMinExecutionSteps(uint64(len("aa") + len("b") + iterationCost))
-		st.SetMaxExecutionSteps(uint64(len("aa") + len("b") + iterationCost))
+		// The step cost per N is:
+		// - For iterating over the receiver, 1
+		// - For writing the output, 1 for each byte
+		st.SetMinExecutionSteps(uint64(len("aab") + 1))
+		st.SetMaxExecutionSteps(uint64(len("aab") + 1))
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				maxN: st.N,
