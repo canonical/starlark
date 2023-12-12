@@ -5510,19 +5510,19 @@ func TestListRemoveAllocs(t *testing.T) {
 func TestStringCapitalizeSteps(t *testing.T) {
 	tests := []struct {
 		name          string
-		input, result string
+		input, output string
 	}{{
-		name:   "ASCII",
+		name:   "ascii",
 		input:  "input",
-		result: "Input",
+		output: "Input",
 	}, {
-		name:   "Unicode-larger-result",
+		name:   "unicode-larger-result",
 		input:  "ɐdroit",
-		result: "Ɐdroit",
+		output: "Ɐdroit",
 	}, {
-		name:   "Unicode-smaller-result",
+		name:   "unicode-smaller-result",
 		input:  "ınput",
-		result: "Input",
+		output: "Input",
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -5535,8 +5535,8 @@ func TestStringCapitalizeSteps(t *testing.T) {
 			st.RequireSafety(starlark.CPUSafe)
 			// Steps are counted on the result only as input and output
 			// are tied and it's not worth being exactly precise.
-			st.SetMinExecutionSteps(uint64(len(test.result)))
-			st.SetMaxExecutionSteps(uint64(len(test.result)))
+			st.SetMinExecutionSteps(uint64(len(test.output)))
+			st.SetMaxExecutionSteps(uint64(len(test.output)))
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					_, err := starlark.Call(thread, string_capitalize, nil, nil)
