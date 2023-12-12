@@ -268,8 +268,8 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			for i, name := range names {
 				var v starlark.Value
 				var err error
-				if x, ok := x.(starlark.HasSafeAttrs); ok {
-					v, err = x.SafeAttr(thread, name)
+				if x2, ok := x.(starlark.HasSafeAttrs); ok {
+					v, err = x2.SafeAttr(thread, name)
 				} else if err = starlark.CheckSafety(thread, starlark.NotSafe); err == nil {
 					v, err = x.Attr(name)
 				}
