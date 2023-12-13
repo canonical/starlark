@@ -101,7 +101,6 @@ func TestStructSafeAttr(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-
 		unsafeResult, err := struct_.Attr("bar")
 		if err != nil {
 			t.Error(err)
@@ -139,10 +138,10 @@ func TestStructSafeString(t *testing.T) {
 		if err := struct_.SafeString(thread, builder); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		expected := struct_.String()
-		actual := builder.String()
-		if expected != actual {
-			t.Errorf("inconsistent stringer implementation: expected %s got %s", expected, actual)
+		unsafeResult := struct_.String()
+		safeResult := builder.String()
+		if unsafeResult != safeResult {
+			t.Errorf("inconsistent stringer implementation: expected %s got %s", unsafeResult, safeResult)
 		}
 	})
 }
@@ -197,10 +196,10 @@ func TestFromStringDict(t *testing.T) {
 			}
 		}()
 
-		d := starlark.StringDict{
+		dict := starlark.StringDict{
 			"foo": starlark.None,
 		}
-		_, err := starlarkstruct.SafeFromStringDict(nil, starlarkstruct.Default, d)
+		_, err := starlarkstruct.SafeFromStringDict(nil, starlarkstruct.Default, dict)
 		if err != nil {
 			t.Error(err)
 		}

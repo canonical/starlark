@@ -53,7 +53,7 @@ const MakeModuleSafety = starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe
 // function, module(name, **kwargs). It returns a new module with the
 // specified name and members.
 //
-// An application can add 'struct' to the Starlark environment like so:
+// An application can add 'module' to the Starlark environment like so:
 //
 //	globals := starlark.StringDict{
 //		"module":  starlark.NewBuiltinWithSafety("module", starlarkstruct.MakeModuleSafety, starlarkstruct.MakeModule),

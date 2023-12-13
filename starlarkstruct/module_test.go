@@ -39,10 +39,10 @@ func TestModuleSafeString(t *testing.T) {
 		if err := module.SafeString(thread, builder); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		expected := module.String()
-		actual := builder.String()
-		if expected != actual {
-			t.Errorf("inconsistent stringer implementation: expected %s got %s", expected, actual)
+		unsafeResult := module.String()
+		safeResult := builder.String()
+		if unsafeResult != safeResult {
+			t.Errorf("inconsistent stringer implementation: expected %s got %s", unsafeResult, safeResult)
 		}
 	})
 }
@@ -72,23 +72,25 @@ func TestModuleSafeAttr(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlarkstruct.MakeModuleSafety)
 
-		expected, err := module.SafeAttr(nil, "bar")
+		safeResult, err := module.SafeAttr(nil, "bar")
 		if err != nil {
 			t.Error(err)
 		}
-		actual, err := module.Attr("bar")
+		unsafeResult, err := module.Attr("bar")
 		if err != nil {
 			t.Error(err)
 		}
-		if expected != actual {
-			t.Errorf("unconsistent SafeAttr implementation: expected %v and %v to be equal", expected, actual)
+		if safeResult != unsafeResult {
+			t.Errorf("unconsistent SafeAttr implementation: expected %v and %v to be equal", safeResult, unsafeResult)
 		}
 	})
 }
 
-func TestMakeModuleAllocs(t *testing.T) {
+func TestMakeModuleResources(t *testing.T) {
 	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
+	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+	st.SetMinExecutionSteps(1)
+	st.SetMaxExecutionSteps(1)
 	st.RunThread(func(thread *starlark.Thread) {
 		pairs := make([][2]starlark.Value, st.N)
 		kwargs := make([]starlark.Tuple, st.N)
@@ -106,29 +108,5 @@ func TestMakeModuleAllocs(t *testing.T) {
 			st.Error(err)
 		}
 		st.KeepAlive(result)
-	})
-}
-
-func TestMakeModuleSteps(t *testing.T) {
-	st := startest.From(t)
-	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(1)
-	st.SetMaxExecutionSteps(1)
-	st.RunThread(func(thread *starlark.Thread) {
-		pairs := make([][2]starlark.Value, st.N)
-		kwargs := make([]starlark.Tuple, st.N)
-		for i := 0; i < st.N; i++ {
-			key := starlark.String(fmt.Sprintf("%012d", i))
-			if err := thread.AddAllocs(starlark.EstimateSize(key)); err != nil {
-				st.Error(err)
-			}
-			pairs[i] = [2]starlark.Value{key, starlark.None}
-			kwargs[i] = pairs[i][:]
-		}
-		args := starlark.Tuple{starlark.String("module")}
-		_, err := starlark.Call(thread, makeModule, args, kwargs)
-		if err != nil {
-			st.Error(err)
-		}
 	})
 }
