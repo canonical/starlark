@@ -272,7 +272,8 @@ func (x *Struct) Binary(op syntax.Token, y starlark.Value, side starlark.Side) (
 }
 
 func (s *Struct) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
-	if err := starlark.CheckSafety(thread, starlark.MemSafe|starlark.CPUSafe|starlark.IOSafe); err != nil {
+	const safety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
 	// Binary search the entries.
