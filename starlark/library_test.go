@@ -1491,7 +1491,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 		}
 	})
 
-	tests := append(otherTests, []writeValueStepTest{{
+	tests := append([]writeValueStepTest{{
 		name:  "Bool",
 		input: starlark.True,
 		steps: uint64(len("True")),
@@ -1607,7 +1607,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 		name:  "String codepoints (ords)",
 		input: starlark.String("test").Codepoints(true),
 		steps: uint64(len(`"test".codepoint_ords()`)),
-	}}...)
+	}}, otherTests...)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			st := startest.From(t)
