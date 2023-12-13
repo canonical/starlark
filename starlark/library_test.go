@@ -5508,6 +5508,45 @@ func TestListRemoveAllocs(t *testing.T) {
 }
 
 func TestStringCapitalizeSteps(t *testing.T) {
+	tests := []struct {
+		name          string
+		input, output string
+	}{{
+		name:   "ascii",
+		input:  "input",
+		output: "Input",
+	}, {
+		name:   "unicode-larger-result",
+		input:  "ɐdroit",
+		output: "Ɐdroit",
+	}, {
+		name:   "unicode-smaller-result",
+		input:  "ınput",
+		output: "Input",
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			string_capitalize, _ := starlark.String(test.input).Attr("capitalize")
+			if string_capitalize == nil {
+				t.Fatal("no such method: string.capitalize")
+			}
+
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			// Steps are counted on the result only as input and output
+			// are closely tied and it's not worth being exactly precise.
+			st.SetMinExecutionSteps(uint64(len(test.output)))
+			st.SetMaxExecutionSteps(uint64(len(test.output)))
+			st.RunThread(func(thread *starlark.Thread) {
+				for i := 0; i < st.N; i++ {
+					_, err := starlark.Call(thread, string_capitalize, nil, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+	}
 }
 
 func TestStringCapitalizeAllocs(t *testing.T) {
