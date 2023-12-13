@@ -13,7 +13,10 @@ import (
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarkstruct"
 	"github.com/canonical/starlark/starlarktest"
+	"github.com/canonical/starlark/startest"
 )
+
+var struct_ = starlark.NewBuiltinWithSafety("struct", starlarkstruct.MakeSafety, starlarkstruct.Make)
 
 func Test(t *testing.T) {
 	testdata := starlarktest.DataFile("starlarkstruct", ".")
@@ -21,7 +24,7 @@ func Test(t *testing.T) {
 	starlarktest.SetReporter(thread, t)
 	filename := filepath.Join(testdata, "testdata/struct.star")
 	predeclared := starlark.StringDict{
-		"struct": starlark.NewBuiltin("struct", starlarkstruct.Make),
+		"struct": struct_,
 		"gensym": starlark.NewBuiltin("gensym", gensym),
 	}
 	if _, err := starlark.ExecFile(thread, filename, nil, predeclared); err != nil {
@@ -129,5 +132,99 @@ func TestStructSafeString(t *testing.T) {
 		if expected != actual {
 			t.Errorf("inconsistent stringer implementation: expected %s got %s", expected, actual)
 		}
+	})
+}
+
+func TestFromKeyword(t *testing.T) {
+	t.Run("nil-thread", func(t *testing.T) {
+		kwargs := []starlark.Tuple{
+			{starlark.String("foo"), starlark.None},
+		}
+		_, err := starlarkstruct.SafeFromKeywords(nil, starlarkstruct.Default, kwargs)
+		if err != nil {
+			t.Error(err)
+		}
+	})
+
+	t.Run("resources", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			pairs := make([][2]starlark.Value, st.N)
+			kwargs := make([]starlark.Tuple, st.N)
+			for i := 0; i < st.N; i++ {
+				key := starlark.String(fmt.Sprintf("%012d", i))
+				if err := thread.AddAllocs(starlark.EstimateSize(key)); err != nil {
+					st.Error(err)
+				}
+				pairs[i][0], pairs[i][1] = key, starlark.None
+				kwargs[i] = pairs[i][:]
+			}
+			result, err := starlarkstruct.SafeFromKeywords(thread, starlarkstruct.Default, kwargs)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+}
+
+func TestFromStringDict(t *testing.T) {
+	t.Run("nil-thread", func(t *testing.T) {
+		d := starlark.StringDict{
+			"foo": starlark.None,
+		}
+		_, err := starlarkstruct.SafeFromStringDict(nil, starlarkstruct.Default, d)
+		if err != nil {
+			t.Error(err)
+		}
+	})
+
+	t.Run("resources", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.SetMaxExecutionSteps(1)
+		st.RunThread(func(thread *starlark.Thread) {
+			d := make(starlark.StringDict, st.N)
+			for i := 0; i < st.N; i++ {
+				key := fmt.Sprintf("%012d", i)
+				if err := thread.AddAllocs(starlark.EstimateSize(key)); err != nil {
+					st.Error(err)
+				}
+				d[key] = starlark.None
+			}
+			result, err := starlarkstruct.SafeFromStringDict(thread, starlarkstruct.Default, d)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+}
+
+func TestStruct(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+	st.SetMinExecutionSteps(1)
+	st.SetMaxExecutionSteps(1)
+	st.RunThread(func(thread *starlark.Thread) {
+		pairs := make([][2]starlark.Value, st.N)
+		kwargs := make([]starlark.Tuple, st.N)
+		for i := 0; i < st.N; i++ {
+			key := starlark.String(fmt.Sprintf("%012d", i))
+			if err := thread.AddAllocs(starlark.EstimateSize(key)); err != nil {
+				st.Error(err)
+			}
+			pairs[i][0], pairs[i][1] = key, starlark.None
+			kwargs[i] = pairs[i][:]
+		}
+		result, err := starlark.Call(thread, struct_, nil, kwargs)
+		if err != nil {
+			st.Error(err)
+		}
+		st.KeepAlive(result)
 	})
 }

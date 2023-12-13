@@ -4,7 +4,6 @@
 
 // Package starlarkstruct defines the Starlark types 'struct' and
 // 'module', both optional language extensions.
-//
 package starlarkstruct // import "github.com/canonical/starlark/starlarkstruct"
 
 // It is tempting to introduce a variant of Struct that is a wrapper
@@ -36,22 +35,37 @@ import (
 //
 // An application can add 'struct' to the Starlark environment like so:
 //
-// 	globals := starlark.StringDict{
-// 		"struct":  starlark.NewBuiltin("struct", starlarkstruct.Make),
-// 	}
-//
-func Make(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+//	globals := starlark.StringDict{
+//		"struct":  starlark.NewBuiltin("struct", starlarkstruct.Make),
+//	}
+func Make(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(args) > 0 {
 		return nil, fmt.Errorf("struct: unexpected positional arguments")
 	}
-	return FromKeywords(Default, kwargs), nil
+	return SafeFromKeywords(thread, Default, kwargs)
 }
 
-// FromKeywords returns a new struct instance whose fields are specified by the
-// key/value pairs in kwargs.  (Each kwargs[i][0] must be a starlark.String.)
-func FromKeywords(constructor starlark.Value, kwargs []starlark.Tuple) *Struct {
+const MakeSafety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe
+
+// SafeFromKeywords returns a new struct instance whose fields are specified by the
+// key/value pairs in kwargs (each kwargs[i][0] must be a starlark.String.), taking
+// into account safety.
+func SafeFromKeywords(thread *starlark.Thread, constructor starlark.Value, kwargs []starlark.Tuple) (*Struct, error) {
+	if err := starlark.CheckSafety(thread, MakeSafety); err != nil {
+		return nil, err
+	}
 	if constructor == nil {
 		panic("nil constructor")
+	}
+	if thread != nil {
+		if err := thread.AddExecutionSteps(int64(len(kwargs))); err != nil {
+			return nil, err
+		}
+		resultSize := starlark.EstimateSize(&Struct{}) +
+			starlark.EstimateMakeSize(entries{}, len(kwargs))
+		if err := thread.AddAllocs(resultSize); err != nil {
+			return nil, err
+		}
 	}
 	s := &Struct{
 		constructor: constructor,
@@ -63,14 +77,34 @@ func FromKeywords(constructor starlark.Value, kwargs []starlark.Tuple) *Struct {
 		s.entries = append(s.entries, entry{k, v})
 	}
 	sort.Sort(s.entries)
-	return s
+	return s, nil
 }
 
-// FromStringDict returns a new struct instance whose elements are those of d.
+// FromKeywords returns a new struct instance whose fields are specified by the
+// key/value pairs in kwargs.  (Each kwargs[i][0] must be a starlark.String.)
+func FromKeywords(constructor starlark.Value, kwargs []starlark.Tuple) *Struct {
+	result, _ := SafeFromKeywords(nil, constructor, kwargs)
+	return result
+}
+
+// SafeFromStringDict returns a new struct instance whose elements are those of d.
 // The constructor parameter specifies the constructor; use Default for an ordinary struct.
-func FromStringDict(constructor starlark.Value, d starlark.StringDict) *Struct {
+func SafeFromStringDict(thread *starlark.Thread, constructor starlark.Value, d starlark.StringDict) (*Struct, error) {
+	if err := starlark.CheckSafety(thread, MakeSafety); err != nil {
+		return nil, err
+	}
 	if constructor == nil {
 		panic("nil constructor")
+	}
+	if thread != nil {
+		if err := thread.AddExecutionSteps(int64(len(d))); err != nil {
+			return nil, err
+		}
+		resultSize := starlark.EstimateSize(&Struct{}) +
+			starlark.EstimateMakeSize(entries{}, len(d))
+		if err := thread.AddAllocs(resultSize); err != nil {
+			return nil, err
+		}
 	}
 	s := &Struct{
 		constructor: constructor,
@@ -80,7 +114,14 @@ func FromStringDict(constructor starlark.Value, d starlark.StringDict) *Struct {
 		s.entries = append(s.entries, entry{k, v})
 	}
 	sort.Sort(s.entries)
-	return s
+	return s, nil
+}
+
+// FromStringDict returns a new struct instance whose elements are those of d.
+// The constructor parameter specifies the constructor; use Default for an ordinary struct.
+func FromStringDict(constructor starlark.Value, d starlark.StringDict) *Struct {
+	result, _ := SafeFromStringDict(nil, constructor, d)
+	return result
 }
 
 // Struct is an immutable Starlark type that maps field names to values.
