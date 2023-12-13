@@ -5534,7 +5534,7 @@ func TestStringCapitalizeSteps(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
 			// Steps are counted on the result only as input and output
-			// are tied and it's not worth being exactly precise.
+			// are closely tied and it's not worth being exactly precise.
 			st.SetMinExecutionSteps(uint64(len(test.output)))
 			st.SetMaxExecutionSteps(uint64(len(test.output)))
 			st.RunThread(func(thread *starlark.Thread) {
