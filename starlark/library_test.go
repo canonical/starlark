@@ -1478,7 +1478,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 	t.Run("safety-respected", func(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.Print = func(thread *starlark.Thread, msg string) {
-			// Do nothing
+			// Do nothing.
 		}
 		thread.RequireSafety(starlark.CPUSafe)
 
@@ -1491,7 +1491,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 		}
 	})
 
-	tests := []writeValueStepTest{{
+	tests := append(otherTests, []writeValueStepTest{{
 		name:  "Bool",
 		input: starlark.True,
 		steps: uint64(len("True")),
@@ -1510,6 +1510,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 			dict.SetKey(starlark.MakeInt(1), starlark.None)
 			dict.SetKey(starlark.MakeInt(2), &testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
+					// Writes nothing
 					return thread.AddExecutionSteps(100)
 				},
 			})
@@ -1546,6 +1547,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 			starlark.None,
 			&testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
+					// Writes nothing
 					return thread.AddExecutionSteps(100)
 				},
 			},
@@ -1562,6 +1564,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 			set.Insert(starlark.None)
 			set.Insert(&testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
+					// Writes nothing
 					return thread.AddExecutionSteps(100)
 				},
 			})
@@ -1574,6 +1577,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 			starlark.None,
 			&testSafeStringer{
 				safeString: func(thread *starlark.Thread, _ starlark.StringBuilder) error {
+					// Writes nothing
 					return thread.AddExecutionSteps(100)
 				},
 			},
@@ -1603,8 +1607,8 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 		name:  "String codepoints (ords)",
 		input: starlark.String("test").Codepoints(true),
 		steps: uint64(len(`"test".codepoint_ords()`)),
-	}}
-	for _, test := range append(tests, otherTests...) {
+	}}...)
+	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
@@ -1612,7 +1616,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 			st.SetMaxExecutionSteps(overhead + test.steps)
 			st.RunThread(func(thread *starlark.Thread) {
 				thread.Print = func(thread *starlark.Thread, msg string) {
-					// Do nothing
+					// Do nothing.
 				}
 				for i := 0; i < st.N; i++ {
 					_, err := starlark.Call(thread, builtin, starlark.Tuple{test.input}, nil)
@@ -1630,7 +1634,6 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 
 func TestFailSteps(t *testing.T) {
 	overhead := uint64(len("fail: "))
-	invalidString := string([]byte{0x80, 0x80, 0x80, 0x80})
 	testWriteValueSteps(t, "fail", overhead, true, []writeValueStepTest{{
 		name:  "String",
 		input: starlark.String("test"),
@@ -1641,7 +1644,7 @@ func TestFailSteps(t *testing.T) {
 		steps: uint64(len(`b"test"`)),
 	}, {
 		name:  "Bytes (invalid utf8)",
-		input: starlark.Bytes(invalidString),
+		input: starlark.Bytes(string([]byte{0x80, 0x80, 0x80, 0x80})),
 		steps: uint64(len(`b"\x80\x80\x80\x80"`)),
 	}})
 }
@@ -2860,7 +2863,6 @@ func TestOrdAllocs(t *testing.T) {
 
 func TestPrintSteps(t *testing.T) {
 	overhead := uint64(0)
-	invalidString := string([]byte{0x80, 0x80, 0x80, 0x80})
 	testWriteValueSteps(t, "print", overhead, false, []writeValueStepTest{{
 		name:  "String",
 		input: starlark.String("test"),
@@ -2871,8 +2873,8 @@ func TestPrintSteps(t *testing.T) {
 		steps: uint64(len(`test`)),
 	}, {
 		name:  "Bytes (invalid utf8)",
-		input: starlark.Bytes(invalidString),
-		steps: uint64(len(invalidString)),
+		input: starlark.Bytes(string([]byte{0x80, 0x80, 0x80, 0x80})),
+		steps: uint64(len([]byte{0x80, 0x80, 0x80, 0x80})),
 	}})
 }
 
