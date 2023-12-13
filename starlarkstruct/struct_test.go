@@ -69,50 +69,65 @@ func (sym *symbol) CallInternal(thread *starlark.Thread, args starlark.Tuple, kw
 	return starlarkstruct.FromKeywords(sym, kwargs), nil
 }
 
-func TestSafeString(t *testing.T) {
-	tests := []struct {
-		name  string
-		input starlark.SafeStringer
-	}{{
-		name: "Struct",
-		input: starlarkstruct.FromStringDict(
-			starlark.String("foo"),
-			starlark.StringDict{
-				"bar": starlark.None,
-			},
-		),
-	}, {
-		name: "Module",
-		input: &starlarkstruct.Module{
-			Name: "foo",
-			Members: starlark.StringDict{
-				"bar": starlark.None,
-			},
+func TestStructSafeAttr(t *testing.T) {
+	input := starlarkstruct.FromStringDict(
+		starlark.String("foo"),
+		starlark.StringDict{
+			"bar": starlark.None,
 		},
-	}}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Run("nil-thread", func(t *testing.T) {
-				builder := new(strings.Builder)
-				if err := test.input.SafeString(nil, builder); err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-			})
+	)
 
-			t.Run("consistency", func(t *testing.T) {
-				thread := &starlark.Thread{}
-				builder := new(strings.Builder)
-				if err := test.input.SafeString(thread, builder); err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				if stringer, ok := test.input.(fmt.Stringer); ok {
-					expected := stringer.String()
-					actual := builder.String()
-					if expected != actual {
-						t.Errorf("inconsistent stringer implementation: expected %s got %s", expected, actual)
-					}
-				}
-			})
-		})
-	}
+	t.Run("nil-thread", func(t *testing.T) {
+		_, err := input.SafeAttr(nil, "bar")
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("consistency", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlarkstruct.MakeModuleSafety)
+
+		safeResult, err := input.SafeAttr(nil, "bar")
+		if err != nil {
+			t.Error(err)
+		}
+
+		unsafeResult, err := input.Attr("bar")
+		if err != nil {
+			t.Error(err)
+		}
+		if safeResult != unsafeResult {
+			t.Errorf("unconsistent SafeAttr implementation: expected %v and %v to be equal", safeResult, unsafeResult)
+		}
+	})
+}
+
+func TestStructSafeString(t *testing.T) {
+	input := starlarkstruct.FromStringDict(
+		starlark.String("foo"),
+		starlark.StringDict{
+			"bar": starlark.None,
+		},
+	)
+
+	t.Run("nil-thread", func(t *testing.T) {
+		builder := new(strings.Builder)
+		if err := input.SafeString(nil, builder); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("consistency", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		builder := new(strings.Builder)
+		if err := input.SafeString(thread, builder); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		expected := input.String()
+		actual := builder.String()
+		if expected != actual {
+			t.Errorf("inconsistent stringer implementation: expected %s got %s", expected, actual)
+		}
+	})
 }

@@ -2,6 +2,7 @@ package starlarkstruct_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
@@ -10,6 +11,69 @@ import (
 )
 
 var makeModule = starlark.NewBuiltinWithSafety("make_module", starlarkstruct.MakeModuleSafety, starlarkstruct.MakeModule)
+
+func TestModuleSafeString(t *testing.T) {
+	input := &starlarkstruct.Module{
+		Name: "foo",
+		Members: starlark.StringDict{
+			"bar": starlark.None,
+		},
+	}
+
+	t.Run("nil-thread", func(t *testing.T) {
+		builder := new(strings.Builder)
+		if err := input.SafeString(nil, builder); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("consistency", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		builder := new(strings.Builder)
+		if err := input.SafeString(thread, builder); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		expected := input.String()
+		actual := builder.String()
+		if expected != actual {
+			t.Errorf("inconsistent stringer implementation: expected %s got %s", expected, actual)
+		}
+	})
+}
+
+func TestModuleSafeAttr(t *testing.T) {
+	input := &starlarkstruct.Module{
+		Name: "foo",
+		Members: starlark.StringDict{
+			"bar": starlark.None,
+		},
+	}
+
+	t.Run("nil-thread", func(t *testing.T) {
+		_, err := input.SafeAttr(nil, "bar")
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("consistency", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlarkstruct.MakeModuleSafety)
+
+		safeResult, err := input.SafeAttr(nil, "bar")
+		if err != nil {
+			t.Error(err)
+		}
+
+		unsafeResult, err := input.Attr("bar")
+		if err != nil {
+			t.Error(err)
+		}
+		if safeResult != unsafeResult {
+			t.Errorf("unconsistent SafeAttr implementation: expected %v and %v to be equal", safeResult, unsafeResult)
+		}
+	})
+}
 
 func TestMakeModuleAllocs(t *testing.T) {
 	st := startest.From(t)

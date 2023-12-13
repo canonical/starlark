@@ -130,7 +130,6 @@ func (s *Struct) ToStringDict(d starlark.StringDict) {
 	}
 }
 
-// TODO: test
 func (s *Struct) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
 	const safety = starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
@@ -229,7 +228,6 @@ func (x *Struct) Binary(op syntax.Token, y starlark.Value, side starlark.Side) (
 	return nil, nil // unhandled
 }
 
-// TODO: test
 func (s *Struct) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
 	if err := starlark.CheckSafety(thread, starlark.MemSafe|starlark.CPUSafe|starlark.IOSafe); err != nil {
 		return nil, err
