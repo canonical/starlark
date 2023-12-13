@@ -16,7 +16,7 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
-var struct_ = starlark.NewBuiltinWithSafety("struct", starlarkstruct.MakeSafety, starlarkstruct.Make)
+var make_struct = starlark.NewBuiltinWithSafety("struct", starlarkstruct.MakeSafety, starlarkstruct.Make)
 
 func Test(t *testing.T) {
 	testdata := starlarktest.DataFile("starlarkstruct", ".")
@@ -24,7 +24,7 @@ func Test(t *testing.T) {
 	starlarktest.SetReporter(thread, t)
 	filename := filepath.Join(testdata, "testdata/struct.star")
 	predeclared := starlark.StringDict{
-		"struct": struct_,
+		"struct": make_struct,
 		"gensym": starlark.NewBuiltin("gensym", gensym),
 	}
 	if _, err := starlark.ExecFile(thread, filename, nil, predeclared); err != nil {
@@ -147,7 +147,7 @@ func TestStructSafeString(t *testing.T) {
 	})
 }
 
-func TestFromKeyword(t *testing.T) {
+func TestFromKeywords(t *testing.T) {
 	t.Run("nil-thread", func(t *testing.T) {
 		defer func() {
 			if err := recover(); err != nil {
@@ -245,7 +245,7 @@ func TestStruct(t *testing.T) {
 			pairs[i] = [2]starlark.Value{key, starlark.None}
 			kwargs[i] = pairs[i][:]
 		}
-		result, err := starlark.Call(thread, struct_, nil, kwargs)
+		result, err := starlark.Call(thread, make_struct, nil, kwargs)
 		if err != nil {
 			st.Error(err)
 		}
