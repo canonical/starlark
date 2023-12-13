@@ -228,7 +228,7 @@ func TestFromStringDict(t *testing.T) {
 	})
 }
 
-func TestStruct(t *testing.T) {
+func TestStructResources(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
 	st.SetMinExecutionSteps(1)
