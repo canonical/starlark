@@ -7679,6 +7679,7 @@ func TestSetSymmetricDifferenceSteps(t *testing.T) {
 	t.Run("safety-respected", func(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlark.CPUSafe)
+
 		iter := &unsafeTestIterable{t}
 		_, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{iter}, nil)
 		if err == nil {
