@@ -13,7 +13,7 @@ import (
 var makeModule = starlark.NewBuiltinWithSafety("make_module", starlarkstruct.MakeModuleSafety, starlarkstruct.MakeModule)
 
 func TestModuleSafeString(t *testing.T) {
-	input := &starlarkstruct.Module{
+	module := &starlarkstruct.Module{
 		Name: "foo",
 		Members: starlark.StringDict{
 			"bar": starlark.None,
@@ -21,8 +21,14 @@ func TestModuleSafeString(t *testing.T) {
 	}
 
 	t.Run("nil-thread", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+
 		builder := new(strings.Builder)
-		if err := input.SafeString(nil, builder); err != nil {
+		if err := module.SafeString(nil, builder); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -30,10 +36,10 @@ func TestModuleSafeString(t *testing.T) {
 	t.Run("consistency", func(t *testing.T) {
 		thread := &starlark.Thread{}
 		builder := new(strings.Builder)
-		if err := input.SafeString(thread, builder); err != nil {
+		if err := module.SafeString(thread, builder); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		expected := input.String()
+		expected := module.String()
 		actual := builder.String()
 		if expected != actual {
 			t.Errorf("inconsistent stringer implementation: expected %s got %s", expected, actual)
@@ -42,7 +48,7 @@ func TestModuleSafeString(t *testing.T) {
 }
 
 func TestModuleSafeAttr(t *testing.T) {
-	input := &starlarkstruct.Module{
+	module := &starlarkstruct.Module{
 		Name: "foo",
 		Members: starlark.StringDict{
 			"bar": starlark.None,
@@ -50,7 +56,13 @@ func TestModuleSafeAttr(t *testing.T) {
 	}
 
 	t.Run("nil-thread", func(t *testing.T) {
-		_, err := input.SafeAttr(nil, "bar")
+		defer func() {
+			if err := recover(); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+
+		_, err := module.SafeAttr(nil, "bar")
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -60,17 +72,16 @@ func TestModuleSafeAttr(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlarkstruct.MakeModuleSafety)
 
-		safeResult, err := input.SafeAttr(nil, "bar")
+		expected, err := module.SafeAttr(nil, "bar")
 		if err != nil {
 			t.Error(err)
 		}
-
-		unsafeResult, err := input.Attr("bar")
+		actual, err := module.Attr("bar")
 		if err != nil {
 			t.Error(err)
 		}
-		if safeResult != unsafeResult {
-			t.Errorf("unconsistent SafeAttr implementation: expected %v and %v to be equal", safeResult, unsafeResult)
+		if expected != actual {
+			t.Errorf("unconsistent SafeAttr implementation: expected %v and %v to be equal", expected, actual)
 		}
 	})
 }
@@ -86,7 +97,7 @@ func TestMakeModuleAllocs(t *testing.T) {
 			if err := thread.AddAllocs(starlark.EstimateSize(key)); err != nil {
 				st.Error(err)
 			}
-			pairs[i][0], pairs[i][1] = key, starlark.None
+			pairs[i] = [2]starlark.Value{key, starlark.None}
 			kwargs[i] = pairs[i][:]
 		}
 		args := starlark.Tuple{starlark.String("module")}
@@ -111,14 +122,13 @@ func TestMakeModuleSteps(t *testing.T) {
 			if err := thread.AddAllocs(starlark.EstimateSize(key)); err != nil {
 				st.Error(err)
 			}
-			pairs[i][0], pairs[i][1] = key, starlark.None
+			pairs[i] = [2]starlark.Value{key, starlark.None}
 			kwargs[i] = pairs[i][:]
 		}
 		args := starlark.Tuple{starlark.String("module")}
-		result, err := starlark.Call(thread, makeModule, args, kwargs)
+		_, err := starlark.Call(thread, makeModule, args, kwargs)
 		if err != nil {
 			st.Error(err)
 		}
-		st.KeepAlive(result)
 	})
 }

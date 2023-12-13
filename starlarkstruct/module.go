@@ -52,6 +52,12 @@ const MakeModuleSafety = starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe
 // MakeModule may be used as the implementation of a Starlark built-in
 // function, module(name, **kwargs). It returns a new module with the
 // specified name and members.
+//
+// An application can add 'struct' to the Starlark environment like so:
+//
+//	globals := starlark.StringDict{
+//		"module":  starlark.NewBuiltinWithSafety("module", starlarkstruct.MakeModuleSafety, starlarkstruct.MakeModule),
+//	}
 func MakeModule(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var name string
 	if err := starlark.UnpackPositionalArgs(b.Name(), args, nil, 1, &name); err != nil {
@@ -60,16 +66,15 @@ func MakeModule(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tupl
 	if err := thread.AddExecutionSteps(int64(len(kwargs))); err != nil {
 		return nil, err
 	}
-	if err := thread.AddAllocs(starlark.EstimateMakeSize(starlark.StringDict{}, len(kwargs))); err != nil {
+	resultSize := starlark.EstimateMakeSize(starlark.StringDict{}, len(kwargs)) +
+		starlark.EstimateSize(&Module{})
+	if err := thread.AddAllocs(resultSize); err != nil {
 		return nil, err
 	}
 	members := make(starlark.StringDict, len(kwargs))
 	for _, kwarg := range kwargs {
 		k := string(kwarg[0].(starlark.String))
 		members[k] = kwarg[1]
-	}
-	if err := thread.AddAllocs(starlark.EstimateSize(&Module{})); err != nil {
-		return nil, err
 	}
 	return &Module{name, members}, nil
 }

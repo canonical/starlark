@@ -73,7 +73,7 @@ func (sym *symbol) CallInternal(thread *starlark.Thread, args starlark.Tuple, kw
 }
 
 func TestStructSafeAttr(t *testing.T) {
-	input := starlarkstruct.FromStringDict(
+	struct_ := starlarkstruct.FromStringDict(
 		starlark.String("foo"),
 		starlark.StringDict{
 			"bar": starlark.None,
@@ -81,7 +81,13 @@ func TestStructSafeAttr(t *testing.T) {
 	)
 
 	t.Run("nil-thread", func(t *testing.T) {
-		_, err := input.SafeAttr(nil, "bar")
+		defer func() {
+			if err := recover(); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+
+		_, err := struct_.SafeAttr(nil, "bar")
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -91,12 +97,12 @@ func TestStructSafeAttr(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.RequireSafety(starlarkstruct.MakeModuleSafety)
 
-		safeResult, err := input.SafeAttr(nil, "bar")
+		safeResult, err := struct_.SafeAttr(nil, "bar")
 		if err != nil {
 			t.Error(err)
 		}
 
-		unsafeResult, err := input.Attr("bar")
+		unsafeResult, err := struct_.Attr("bar")
 		if err != nil {
 			t.Error(err)
 		}
@@ -107,7 +113,7 @@ func TestStructSafeAttr(t *testing.T) {
 }
 
 func TestStructSafeString(t *testing.T) {
-	input := starlarkstruct.FromStringDict(
+	struct_ := starlarkstruct.FromStringDict(
 		starlark.String("foo"),
 		starlark.StringDict{
 			"bar": starlark.None,
@@ -115,8 +121,14 @@ func TestStructSafeString(t *testing.T) {
 	)
 
 	t.Run("nil-thread", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+
 		builder := new(strings.Builder)
-		if err := input.SafeString(nil, builder); err != nil {
+		if err := struct_.SafeString(nil, builder); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -124,10 +136,10 @@ func TestStructSafeString(t *testing.T) {
 	t.Run("consistency", func(t *testing.T) {
 		thread := &starlark.Thread{}
 		builder := new(strings.Builder)
-		if err := input.SafeString(thread, builder); err != nil {
+		if err := struct_.SafeString(thread, builder); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		expected := input.String()
+		expected := struct_.String()
 		actual := builder.String()
 		if expected != actual {
 			t.Errorf("inconsistent stringer implementation: expected %s got %s", expected, actual)
@@ -137,6 +149,12 @@ func TestStructSafeString(t *testing.T) {
 
 func TestFromKeyword(t *testing.T) {
 	t.Run("nil-thread", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+
 		kwargs := []starlark.Tuple{
 			{starlark.String("foo"), starlark.None},
 		}
@@ -159,7 +177,7 @@ func TestFromKeyword(t *testing.T) {
 				if err := thread.AddAllocs(starlark.EstimateSize(key)); err != nil {
 					st.Error(err)
 				}
-				pairs[i][0], pairs[i][1] = key, starlark.None
+				pairs[i] = [2]starlark.Value{key, starlark.None}
 				kwargs[i] = pairs[i][:]
 			}
 			result, err := starlarkstruct.SafeFromKeywords(thread, starlarkstruct.Default, kwargs)
@@ -173,6 +191,12 @@ func TestFromKeyword(t *testing.T) {
 
 func TestFromStringDict(t *testing.T) {
 	t.Run("nil-thread", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+
 		d := starlark.StringDict{
 			"foo": starlark.None,
 		}
@@ -218,7 +242,7 @@ func TestStruct(t *testing.T) {
 			if err := thread.AddAllocs(starlark.EstimateSize(key)); err != nil {
 				st.Error(err)
 			}
-			pairs[i][0], pairs[i][1] = key, starlark.None
+			pairs[i] = [2]starlark.Value{key, starlark.None}
 			kwargs[i] = pairs[i][:]
 		}
 		result, err := starlark.Call(thread, struct_, nil, kwargs)
