@@ -339,10 +339,37 @@ func TestSafeStringBuilder(t *testing.T) {
 		})
 	})
 
+	t.Run("nil-thread", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+
+		builder := starlark.NewSafeStringBuilder(nil)
+		builder.Grow(1)
+		if err := builder.Err(); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if _, err := builder.Write([]byte{1, 2, 3}); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if err := builder.WriteByte(4); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if _, err := builder.WriteRune('5'); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if _, err := builder.WriteString("6789"); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
 	t.Run("counting", func(t *testing.T) {
 		t.Run("small", func(t *testing.T) {
 			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
+			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+			st.SetMaxExecutionSteps(0)
 			st.SetMaxAllocs(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
@@ -371,7 +398,9 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("Write", func(t *testing.T) {
 			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
+			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -387,11 +416,13 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("WriteString", func(t *testing.T) {
 			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
+			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+			st.SetMinExecutionSteps(uint64(len("a🥩")))
+			st.SetMaxExecutionSteps(uint64(len("a🥩")))
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
-				if _, err := builder.WriteString(strings.Repeat("a", st.N)); err != nil {
+				if _, err := builder.WriteString(strings.Repeat("a🥩", st.N)); err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
 				if uint64(builder.Cap()) != (thread.Allocs() - allocs) {
@@ -403,7 +434,9 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("WriteByte", func(t *testing.T) {
 			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
+			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+			st.SetMinExecutionSteps(1)
+			st.SetMaxExecutionSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
@@ -421,12 +454,17 @@ func TestSafeStringBuilder(t *testing.T) {
 
 		t.Run("WriteRune", func(t *testing.T) {
 			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
+			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+			st.SetMinExecutionSteps(uint64(len("a🥩")))
+			st.SetMaxExecutionSteps(uint64(len("a🥩")))
 			st.RunThread(func(thread *starlark.Thread) {
 				allocs := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
 				for i := 0; i < st.N; i++ {
 					if _, err := builder.WriteRune('a'); err != nil {
+						t.Errorf("unexpected error: %v", err)
+					}
+					if _, err := builder.WriteRune('🥩'); err != nil {
 						t.Errorf("unexpected error: %v", err)
 					}
 				}
