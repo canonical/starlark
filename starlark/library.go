@@ -3301,26 +3301,14 @@ func set_symmetric_difference(thread *Thread, b *Builtin, args Tuple, kwargs []T
 		return nil, err
 	}
 	recv := b.Receiver().(*Set)
-	diff, err := recv.clone(thread)
-	if err != nil {
-		return nil, err
-	}
 	iter, err := SafeIterate(thread, other)
 	if err != nil {
 		return nil, err
 	}
 	defer iter.Done()
-	var x Value
-	for iter.Next(&x) {
-		_, found, err := diff.ht.delete(thread, x)
-		if err != nil {
-			return nil, err
-		}
-		if !found {
-			if err := diff.ht.insert(thread, x, None); err != nil {
-				return nil, err
-			}
-		}
+	diff, err := recv.safeSymmetricDifference(thread, iter)
+	if err != nil {
+		return nil, err
 	}
 	if err := iter.Err(); err != nil {
 		return nil, nameErr(b, err)
