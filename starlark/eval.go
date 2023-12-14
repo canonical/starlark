@@ -1763,16 +1763,13 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 	case syntax.AMP:
 		switch x := x.(type) {
 		case Int:
-			if thread != nil {
-				resultSize := EstimateSize(x)
-				if ySize := EstimateSize(y); ySize > resultSize {
-					resultSize = ySize
-				}
-				if err := thread.AddAllocs(resultSize); err != nil {
-					return nil, err
-				}
-			}
 			if y, ok := y.(Int); ok {
+				if thread != nil {
+					resultSize := max(EstimateSize(x), EstimateSize(y))
+					if err := thread.AddAllocs(resultSize); err != nil {
+						return nil, err
+					}
+				}
 				return x.And(y), nil
 			}
 		case *Set: // intersection
