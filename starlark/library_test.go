@@ -6212,7 +6212,7 @@ func TestStringFormatSteps(t *testing.T) {
 		toFormat: starlark.Tuple{starlark.False},
 		steps:    uint64(len("{(False,)}")) + 1,
 	}, {
-		name:     "Tuple",
+		name:     "Tuple (many)",
 		toFormat: starlark.Tuple{starlark.False, starlark.True},
 		steps:    uint64(len("{(False, True)}")) + 2,
 	}}
@@ -6260,6 +6260,30 @@ func TestStringFormatSteps(t *testing.T) {
 			})
 		})
 	}
+
+	t.Run("String (repr)", func(t *testing.T) {
+		const toFormat = starlark.String(`"test"`)
+		const steps = uint64(len(`{"\"test\""}`))
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(steps)
+		st.SetMaxExecutionSteps(steps)
+		st.RunThread(func(thread *starlark.Thread) {
+			format := starlark.String("{{{0!r}}}")
+			string_format, _ := format.Attr("format")
+			if string_format == nil {
+				st.Fatal("no such method: string.format")
+			}
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, string_format, starlark.Tuple{toFormat}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
 }
 
 func TestStringFormatAllocs(t *testing.T) {
