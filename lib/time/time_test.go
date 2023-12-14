@@ -300,6 +300,60 @@ func TestTimeParseTimeSteps(t *testing.T) {
 }
 
 func TestTimeParseTimeAllocs(t *testing.T) {
+	parse_time, ok := time.Module.Members["parse_time"]
+	if !ok {
+		t.Fatalf("no such builtin: parse_time")
+	}
+
+	t.Run("default-args", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			raw := starlark.String("2011-11-11T12:00:00Z")
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, parse_time, starlark.Tuple{raw}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("with-format", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			raw := starlark.String("2011-11-11")
+			format := starlark.String("2006-01-02")
+			args := starlark.Tuple{raw, format}
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, parse_time, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("with-location", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			raw := starlark.String("2011-11-11")
+			format := starlark.String("2006-01-02")
+			location := starlark.String("Europe/Riga")
+			args := starlark.Tuple{raw, format, location}
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, parse_time, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestTimeTimeSteps(t *testing.T) {

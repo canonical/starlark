@@ -72,7 +72,7 @@ var safeties = map[string]starlark.SafetyFlags{
 	"is_valid_timezone": starlark.MemSafe,
 	"now":               starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"parse_duration":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
-	"parse_time":        starlark.NotSafe,
+	"parse_time":        starlark.MemSafe,
 	"time":              starlark.NotSafe,
 }
 
@@ -129,7 +129,11 @@ func parseTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple
 		if err != nil {
 			return nil, err
 		}
-		return Time(t), nil
+		res := Time(t)
+		if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+			return nil, err
+		}
+		return res, nil
 	}
 
 	loc, err := time.LoadLocation(location)
@@ -140,7 +144,11 @@ func parseTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple
 	if err != nil {
 		return nil, err
 	}
-	return Time(t), nil
+	res := Time(t)
+	if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 func fromTimestamp(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
