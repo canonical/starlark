@@ -6149,8 +6149,10 @@ func TestStringFormatSteps(t *testing.T) {
 		}
 
 		thread := &starlark.Thread{}
-		thread.Print = func(thread *starlark.Thread, msg string) {}
 		thread.RequireSafety(starlark.CPUSafe)
+		thread.Print = func(thread *starlark.Thread, msg string) {
+			// Do nothing.
+		}
 
 		stringer := &unsafeTestStringer{t}
 		_, err := starlark.Call(thread, string_format, starlark.Tuple{stringer}, nil)
@@ -6162,32 +6164,32 @@ func TestStringFormatSteps(t *testing.T) {
 	})
 
 	tests := []struct {
-		name  string
-		input starlark.Value
-		steps uint64
+		name     string
+		toFormat starlark.Value
+		steps    uint64
 	}{{
-		name:  "None",
-		input: starlark.None,
-		steps: uint64(len("{None}")),
+		name:     "None",
+		toFormat: starlark.None,
+		steps:    uint64(len("{None}")),
 	}, {
-		name:  "Bool",
-		input: starlark.True,
-		steps: uint64(len("{True}")),
+		name:     "Bool",
+		toFormat: starlark.True,
+		steps:    uint64(len("{True}")),
 	}, {
-		name:  "Int(small)",
-		input: starlark.MakeInt(1),
-		steps: uint64(len("{1}")),
+		name:     "Int (small)",
+		toFormat: starlark.MakeInt(1),
+		steps:    uint64(len("{1}")),
 	}, {
-		name:  "Int(big)",
-		input: starlark.MakeInt64(1 << 40),
-		steps: uint64(len("{1099511627776}")),
+		name:     "Int (big)",
+		toFormat: starlark.MakeInt64(1 << 40),
+		steps:    uint64(len(fmt.Sprintf("{%d}", 1<<40))),
 	}, {
-		name:  "String",
-		input: starlark.String(`"test"`),
-		steps: uint64(len(`{"test"}`)),
+		name:     "String",
+		toFormat: starlark.String(`"test"`),
+		steps:    uint64(len(`{"test"}`)),
 	}, {
 		name: "Dict",
-		input: func() starlark.Value {
+		toFormat: func() starlark.Value {
 			dict := starlark.NewDict(1)
 			dict.SetKey(starlark.None, starlark.None)
 			return dict
@@ -6195,24 +6197,28 @@ func TestStringFormatSteps(t *testing.T) {
 		steps: uint64(len("{{None: None}}")) + 1,
 	}, {
 		name: "Set",
-		input: func() starlark.Value {
+		toFormat: func() starlark.Value {
 			set := starlark.NewSet(1)
 			set.Insert(starlark.None)
 			return set
 		}(),
 		steps: uint64(len("{set([None])}")) + 1,
 	}, {
-		name:  "List",
-		input: starlark.NewList([]starlark.Value{starlark.False}),
-		steps: uint64(len("{[False]}")) + 1,
+		name:     "List",
+		toFormat: starlark.NewList([]starlark.Value{starlark.False}),
+		steps:    uint64(len("{[False]}")) + 1,
 	}, {
-		name:  "Tuple",
-		input: starlark.Tuple{starlark.False},
-		steps: uint64(len("{(False,)}")) + 1,
+		name:     "Tuple (single)",
+		toFormat: starlark.Tuple{starlark.False},
+		steps:    uint64(len("{(False,)}")) + 1,
+	}, {
+		name:     "Tuple",
+		toFormat: starlark.Tuple{starlark.False, starlark.True},
+		steps:    uint64(len("{(False, True)}")) + 2,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Run("args", func(t *testing.T) {
+			t.Run("positional", func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
 				st.SetMinExecutionSteps(test.steps)
@@ -6224,7 +6230,7 @@ func TestStringFormatSteps(t *testing.T) {
 						st.Fatal("no such method: string.format")
 					}
 					for i := 0; i < st.N; i++ {
-						_, err := starlark.Call(thread, string_format, starlark.Tuple{test.input}, nil)
+						_, err := starlark.Call(thread, string_format, starlark.Tuple{test.toFormat}, nil)
 						if err != nil {
 							st.Error(err)
 						}
@@ -6232,14 +6238,14 @@ func TestStringFormatSteps(t *testing.T) {
 				})
 			})
 
-			t.Run("kwargs", func(t *testing.T) {
+			t.Run("named", func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
 				st.SetMinExecutionSteps(test.steps)
 				st.SetMaxExecutionSteps(test.steps)
 				st.RunThread(func(thread *starlark.Thread) {
-					kwargs := []starlark.Tuple{{starlark.String("a"), test.input}}
-					format := starlark.String("{{{a!s}}}")
+					kwargs := []starlark.Tuple{{starlark.String("toInsert"), test.toFormat}}
+					format := starlark.String("{{{toInsert!s}}}")
 					string_format, _ := format.Attr("format")
 					if string_format == nil {
 						st.Fatal("no such method: string.format")
