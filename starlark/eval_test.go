@@ -1930,7 +1930,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 		tests := []safeBinaryAllocTest{{
 			name: "int & int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				l := starlark.MakeInt(n)
+				l := starlark.MakeInt(1).Lsh(uint(n))
 				r := starlark.MakeInt(n * 47)
 				return l, syntax.AMP, r
 			},
