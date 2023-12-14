@@ -297,6 +297,100 @@ func TestTimeParseDurationAllocs(t *testing.T) {
 }
 
 func TestTimeParseTimeSteps(t *testing.T) {
+	parse_time, ok := time.Module.Members["parse_time"]
+	if !ok {
+		t.Fatalf("no such builtin: parse_time")
+	}
+
+	t.Run("default-args", func(t *testing.T) {
+		raw := starlark.String("2011-11-11T12:00:00Z")
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(raw)))
+		st.SetMinExecutionSteps(uint64(len(raw)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{raw}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("with-format", func(t *testing.T) {
+		raw := starlark.String("2011-11-11")
+		format := starlark.String("2006-01-02")
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(raw)))
+		st.SetMinExecutionSteps(uint64(len(raw)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{raw, format}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("with-location", func(t *testing.T) {
+		raw := starlark.String("2011-11-11")
+		format := starlark.String("2006-01-02")
+		location := starlark.String("Europe/Riga")
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(raw)))
+		st.SetMinExecutionSteps(uint64(len(raw)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{raw, format, location}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("malformed-date-too-long", func(t *testing.T) {
+		raw := starlark.String("2011-2011")
+		format := starlark.String("2006")
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(raw)))
+		st.SetMaxExecutionSteps(uint64(len(raw)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{raw, format}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("malformed-date-too-short", func(t *testing.T) {
+		raw := starlark.String("2011")
+		format := starlark.String("2006-01-02")
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(raw)))
+		st.SetMaxExecutionSteps(uint64(len(raw)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{raw, format}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
 }
 
 func TestTimeParseTimeAllocs(t *testing.T) {

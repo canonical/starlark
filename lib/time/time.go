@@ -72,7 +72,7 @@ var safeties = map[string]starlark.SafetyFlags{
 	"is_valid_timezone": starlark.MemSafe,
 	"now":               starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"parse_duration":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
-	"parse_time":        starlark.NotSafe,
+	"parse_time":        starlark.CPUSafe,
 	"time":              starlark.NotSafe,
 }
 
@@ -121,6 +121,14 @@ func parseTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple
 		format   = time.RFC3339
 	)
 	if err := starlark.UnpackArgs("parse_time", args, kwargs, "x", &x, "format?", &format, "location?", &location); err != nil {
+		return nil, err
+	}
+
+	stepDelta := len(x)
+	if formatLen := len(format); formatLen < stepDelta {
+		stepDelta = formatLen
+	}
+	if err := thread.AddExecutionSteps(int64(stepDelta)); err != nil {
 		return nil, err
 	}
 
