@@ -213,7 +213,7 @@ var (
 		"elems":          MemSafe | IOSafe | CPUSafe,
 		"endswith":       MemSafe | IOSafe | CPUSafe,
 		"find":           MemSafe | IOSafe | CPUSafe,
-		"format":         MemSafe | IOSafe,
+		"format":         MemSafe | IOSafe | CPUSafe,
 		"index":          MemSafe | IOSafe | CPUSafe,
 		"isalnum":        MemSafe | IOSafe | CPUSafe,
 		"isalpha":        MemSafe | IOSafe | CPUSafe,
