@@ -1934,7 +1934,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 		tests := []safeBinaryAllocTest{{
 			name: "int << int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				l := starlark.MakeInt(n)
+				l := starlark.MakeInt(1).Lsh(uint(n))
 				r := starlark.MakeInt(511)
 				return l, syntax.LTLT, r
 			},
