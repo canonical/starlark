@@ -146,6 +146,38 @@ func TestTimeFromTimestampAllocs(t *testing.T) {
 }
 
 func TestTimeIsValidTimezoneSteps(t *testing.T) {
+	is_valid_timezone, ok := time.Module.Members["is_valid_timezone"]
+	if !ok {
+		t.Fatalf("no such builtin: time.is_valid_timezone")
+	}
+
+	t.Run("timezone=valid", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, is_valid_timezone, starlark.Tuple{starlark.String("Europe/Prague")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("timezone=invalid", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, is_valid_timezone, starlark.Tuple{starlark.String("Middle_Earth/Minas_Tirith")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
 }
 
 func TestTimeIsValidTimezoneAllocs(t *testing.T) {
