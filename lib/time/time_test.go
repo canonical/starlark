@@ -357,6 +357,52 @@ func TestTimeParseTimeAllocs(t *testing.T) {
 }
 
 func TestTimeTimeSteps(t *testing.T) {
+	time_, ok := time.Module.Members["time"]
+	if !ok {
+		t.Fatal("no such builtin: time.time")
+	}
+
+	tests := []struct {
+		kwarg string
+		value starlark.Value
+	}{{
+		kwarg: "year",
+		value: starlark.MakeInt(2011),
+	}, {
+		kwarg: "month",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "day",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "minute",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "second",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "nanosecond",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "location",
+		value: starlark.String("Europe/Riga"),
+	}}
+	for _, test := range tests {
+		t.Run(test.kwarg, func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMaxExecutionSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				kwargs := []starlark.Tuple{
+					{starlark.String(test.kwarg), test.value},
+				}
+				_, err := starlark.Call(thread, time_, nil, kwargs)
+				if err != nil {
+					st.Error(err)
+				}
+			})
+		})
+	}
 }
 
 func TestTimeTimeAllocs(t *testing.T) {

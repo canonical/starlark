@@ -73,7 +73,7 @@ var safeties = map[string]starlark.SafetyFlags{
 	"now":               starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"parse_duration":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"parse_time":        starlark.MemSafe,
-	"time":              starlark.NotSafe,
+	"time":              starlark.CPUSafe,
 }
 
 func init() {
