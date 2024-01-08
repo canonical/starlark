@@ -412,9 +412,8 @@ type HasAttrs interface {
 // and returns either a value or an error. If the attribute does not exist, it
 // returns ErrNoSuchAttr.
 type HasSafeAttrs interface {
-	Value
+	HasAttrs
 	SafeAttr(thread *Thread, name string) (Value, error)
-	AttrNames() []string
 }
 
 var (
@@ -1638,7 +1637,7 @@ func (s *Set) Intersection(other Iterator) (Value, error) {
 }
 
 func (s *Set) safeIntersection(thread *Thread, other Iterator) (*Set, error) {
-	if err := CheckSafety(thread, MemSafe|IOSafe); err != nil {
+	if err := CheckSafety(thread, MemSafe|CPUSafe|IOSafe); err != nil {
 		return nil, err
 	}
 
@@ -1650,7 +1649,7 @@ func (s *Set) safeIntersection(thread *Thread, other Iterator) (*Set, error) {
 	}
 	var x Value
 	for other.Next(&x) {
-		found, err := s.Has(x)
+		_, found, err := s.ht.lookup(thread, x)
 		if err != nil {
 			return nil, err
 		}

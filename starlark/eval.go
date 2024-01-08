@@ -956,48 +956,43 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 
 // getAttr implements x.dot.
 func getAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
-	var getAttrNames func() []string
-	var attr Value
-	var err error
-
-	switch x := x.(type) {
-	case HasSafeAttrs:
-		getAttrNames = x.AttrNames
-		attr, err = x.SafeAttr(thread, name)
-	case HasAttrs:
-		if err := CheckSafety(thread, NotSafe); err != nil {
-			return nil, err
-		}
-
-		getAttrNames = x.AttrNames
-		attr, err = x.Attr(name)
-		if attr == nil && err == nil {
-			err = ErrNoSuchAttr
-		}
-	default:
-		return nil, fmt.Errorf("%s has no .%s field or method", x.Type(), name)
-	}
-
-	if err != nil {
-		var errmsg string
-		if nsa, ok := err.(NoSuchAttrError); ok {
-			errmsg = string(nsa)
-		} else if err == ErrNoSuchAttr {
-			errmsg = fmt.Sprintf("%s has no .%s field or method", x.Type(), name)
+	if x, ok := x.(HasAttrs); ok {
+		var attr Value
+		var err error
+		if x2, ok := x.(HasSafeAttrs); ok {
+			attr, err = x2.SafeAttr(thread, name)
 		} else {
-			return nil, err // return error as is
-		}
-
-		// add spelling hint
-		if hint {
-			if n := spell.Nearest(name, getAttrNames()); n != "" {
-				errmsg = fmt.Sprintf("%s (did you mean .%s?)", errmsg, n)
+			if err := CheckSafety(thread, NotSafe); err != nil {
+				return nil, err
+			}
+			attr, err = x.Attr(name)
+			if attr == nil && err == nil {
+				err = ErrNoSuchAttr
 			}
 		}
 
-		return nil, errors.New(errmsg)
+		if err != nil {
+			var errmsg string
+			if nsa, ok := err.(NoSuchAttrError); ok {
+				errmsg = string(nsa)
+			} else if err == ErrNoSuchAttr {
+				errmsg = fmt.Sprintf("%s has no .%s field or method", x.Type(), name)
+			} else {
+				return nil, err // return error as is
+			}
+
+			// add spelling hint
+			if hint {
+				if n := spell.Nearest(name, x.AttrNames()); n != "" {
+					errmsg = fmt.Sprintf("%s (did you mean .%s?)", errmsg, n)
+				}
+			}
+
+			return nil, errors.New(errmsg)
+		}
+		return attr, nil
 	}
-	return attr, nil
+	return nil, fmt.Errorf("%s has no .%s field or method", x.Type(), name)
 }
 
 // setField implements x.name = y.
@@ -1764,13 +1759,29 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		switch x := x.(type) {
 		case Int:
 			if y, ok := y.(Int); ok {
+				if thread != nil {
+					resultSize := max(EstimateSize(x), EstimateSize(y))
+					if err := thread.AddAllocs(resultSize); err != nil {
+						return nil, err
+					}
+				}
 				return x.And(y), nil
 			}
 		case *Set: // intersection
 			if y, ok := y.(*Set); ok {
-				iter := y.Iterate()
+				iter, err := SafeIterate(thread, y)
+				if err != nil {
+					return nil, err
+				}
 				defer iter.Done()
-				return x.Intersection(iter)
+				z, err := x.safeIntersection(thread, iter)
+				if err != nil {
+					return nil, err
+				}
+				if err := iter.Err(); err != nil {
+					return nil, err
+				}
+				return z, err
 			}
 		}
 

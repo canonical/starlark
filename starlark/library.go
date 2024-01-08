@@ -85,7 +85,7 @@ func init() {
 		"dict":      MemSafe | IOSafe | CPUSafe,
 		"dir":       MemSafe | IOSafe | CPUSafe,
 		"enumerate": MemSafe | IOSafe | CPUSafe,
-		"fail":      MemSafe | IOSafe,
+		"fail":      MemSafe | IOSafe | CPUSafe,
 		"float":     MemSafe | IOSafe | CPUSafe,
 		"getattr":   MemSafe | IOSafe | CPUSafe,
 		"hasattr":   MemSafe | IOSafe | CPUSafe,
@@ -96,13 +96,13 @@ func init() {
 		"max":       MemSafe | IOSafe | CPUSafe,
 		"min":       MemSafe | IOSafe | CPUSafe,
 		"ord":       MemSafe | IOSafe | CPUSafe,
-		"print":     MemSafe,
+		"print":     MemSafe | CPUSafe,
 		"range":     MemSafe | IOSafe | CPUSafe,
-		"repr":      MemSafe | IOSafe,
+		"repr":      MemSafe | IOSafe | CPUSafe,
 		"reversed":  MemSafe | IOSafe | CPUSafe,
 		"set":       MemSafe | IOSafe | CPUSafe,
 		"sorted":    MemSafe | IOSafe | CPUSafe,
-		"str":       MemSafe | IOSafe,
+		"str":       MemSafe | IOSafe | CPUSafe,
 		"tuple":     MemSafe | IOSafe | CPUSafe,
 		"type":      MemSafe | IOSafe | CPUSafe,
 		"zip":       MemSafe | IOSafe | CPUSafe,
@@ -205,7 +205,7 @@ var (
 		"upper":          NewBuiltin("upper", string_upper),
 	}
 	stringMethodSafeties = map[string]SafetyFlags{
-		"capitalize":     MemSafe | IOSafe,
+		"capitalize":     MemSafe | IOSafe | CPUSafe,
 		"codepoint_ords": MemSafe | IOSafe | CPUSafe,
 		"codepoints":     MemSafe | IOSafe | CPUSafe,
 		"count":          MemSafe | IOSafe | CPUSafe,
@@ -213,7 +213,7 @@ var (
 		"elems":          MemSafe | IOSafe | CPUSafe,
 		"endswith":       MemSafe | IOSafe | CPUSafe,
 		"find":           MemSafe | IOSafe | CPUSafe,
-		"format":         MemSafe | IOSafe,
+		"format":         MemSafe | IOSafe | CPUSafe,
 		"index":          MemSafe | IOSafe | CPUSafe,
 		"isalnum":        MemSafe | IOSafe | CPUSafe,
 		"isalpha":        MemSafe | IOSafe | CPUSafe,
@@ -222,7 +222,7 @@ var (
 		"isspace":        MemSafe | IOSafe | CPUSafe,
 		"istitle":        MemSafe | IOSafe | CPUSafe,
 		"isupper":        MemSafe | IOSafe | CPUSafe,
-		"join":           MemSafe | IOSafe,
+		"join":           MemSafe | IOSafe | CPUSafe,
 		"lower":          MemSafe | IOSafe | CPUSafe,
 		"lstrip":         MemSafe | IOSafe | CPUSafe,
 		"partition":      MemSafe | IOSafe | CPUSafe,
@@ -260,13 +260,13 @@ var (
 		"clear":                MemSafe | IOSafe | CPUSafe,
 		"difference":           MemSafe | IOSafe | CPUSafe,
 		"discard":              MemSafe | IOSafe | CPUSafe,
-		"intersection":         MemSafe | IOSafe,
+		"intersection":         MemSafe | IOSafe | CPUSafe,
 		"issubset":             MemSafe | IOSafe | CPUSafe,
-		"issuperset":           MemSafe | IOSafe,
+		"issuperset":           MemSafe | IOSafe | CPUSafe,
 		"pop":                  MemSafe | IOSafe | CPUSafe,
 		"remove":               MemSafe | IOSafe | CPUSafe,
-		"symmetric_difference": MemSafe | IOSafe,
-		"union":                MemSafe | IOSafe,
+		"symmetric_difference": MemSafe | IOSafe | CPUSafe,
+		"union":                MemSafe | IOSafe | CPUSafe,
 	}
 )
 
@@ -760,39 +760,32 @@ func hasattr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, err
 		return nil, err
 	}
 
-	var getAttrNames func() []string
-	switch object := object.(type) {
-	case HasSafeAttrs:
-		if _, err := object.SafeAttr(thread, name); err == ErrNoSuchAttr {
-			return False, nil
-		} else if _, ok := err.(NoSuchAttrError); ok {
-			return False, nil
-		} else if errors.Is(err, ErrSafety) {
-			return nil, err
-		}
-		getAttrNames = object.AttrNames
-
-	case HasAttrs:
-		if err := CheckSafety(thread, NotSafe); err != nil {
-			return nil, err
-		}
-		v, err := object.Attr(name)
-		if err == nil {
-			return Bool(v != nil), nil
+	if object, ok := object.(HasAttrs); ok {
+		if object2, ok := object.(HasSafeAttrs); ok {
+			if _, err := object2.SafeAttr(thread, name); err == ErrNoSuchAttr {
+				return False, nil
+			} else if _, ok := err.(NoSuchAttrError); ok {
+				return False, nil
+			} else if errors.Is(err, ErrSafety) {
+				return nil, err
+			}
+		} else {
+			if err := CheckSafety(thread, NotSafe); err != nil {
+				return nil, err
+			}
+			if v, err := object.Attr(name); err == nil {
+				return Bool(v != nil), nil
+			}
 		}
 
-		getAttrNames = object.AttrNames
-	default:
-		return False, nil
-	}
-
-	// An error does not conclusively indicate presence or
-	// absence of a field: it could occur while computing
-	// the value of a present attribute, or it could be a
-	// "no such attribute" error with details.
-	for _, x := range getAttrNames() {
-		if x == name {
-			return True, nil
+		// An error does not conclusively indicate presence or
+		// absence of a field: it could occur while computing
+		// the value of a present attribute, or it could be a
+		// "no such attribute" error with details.
+		for _, x := range object.AttrNames() {
+			if x == name {
+				return True, nil
+			}
 		}
 	}
 	return False, nil
@@ -3229,19 +3222,26 @@ func set_issuperset(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
+	recv := b.Receiver().(*Set)
 	iter, err := SafeIterate(thread, other)
 	if err != nil {
 		return nil, err
 	}
 	defer iter.Done()
-	diff, err := b.Receiver().(*Set).IsSuperset(iter)
-	if err != nil {
-		return nil, nameErr(b, err)
+	var x Value
+	for iter.Next(&x) {
+		_, found, err := recv.ht.lookup(thread, x)
+		if err != nil {
+			return nil, nameErr(b, err)
+		}
+		if !found {
+			return False, nil
+		}
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
-	return Bool(diff), nil
+	return True, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·discard.
@@ -3305,7 +3305,7 @@ func set_symmetric_difference(thread *Thread, b *Builtin, args Tuple, kwargs []T
 	defer iter.Done()
 	var x Value
 	for iter.Next(&x) {
-		found, err := diff.Delete(x)
+		_, found, err := diff.ht.delete(thread, x)
 		if err != nil {
 			return nil, err
 		}
@@ -3332,20 +3332,9 @@ func set_union(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 	defer iter.Done()
-	if err := thread.AddAllocs(EstimateSize(&Set{})); err != nil {
+	union, err := b.Receiver().(*Set).safeUnion(thread, iter)
+	if err != nil {
 		return nil, err
-	}
-	union := new(Set)
-	for e := b.Receiver().(*Set).ht.head; e != nil; e = e.next {
-		if err := union.ht.insert(thread, e.key, None); err != nil {
-			return nil, err
-		}
-	}
-	var x Value
-	for iter.Next(&x) {
-		if err := union.ht.insert(thread, x, None); err != nil {
-			return nil, err
-		}
 	}
 	if err := iter.Err(); err != nil {
 		return nil, nameErr(b, err)
