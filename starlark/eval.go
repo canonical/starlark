@@ -1802,7 +1802,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					return nil, fmt.Errorf("shift count too large: %v", y)
 				}
 				if thread != nil {
-					if err := thread.CheckAllocs(EstimateSize(x) + int64(y/8)); err != nil {
+					if err := thread.CheckAllocs(EstimateSize(x)); err != nil {
 						return nil, err
 					}
 				}
