@@ -146,6 +146,38 @@ func TestTimeFromTimestampAllocs(t *testing.T) {
 }
 
 func TestTimeIsValidTimezoneSteps(t *testing.T) {
+	is_valid_timezone, ok := time.Module.Members["is_valid_timezone"]
+	if !ok {
+		t.Fatalf("no such builtin: time.is_valid_timezone")
+	}
+
+	t.Run("timezone=valid", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, is_valid_timezone, starlark.Tuple{starlark.String("Europe/Prague")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("timezone=invalid", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, is_valid_timezone, starlark.Tuple{starlark.String("Middle_Earth/Minas_Tirith")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
 }
 
 func TestTimeIsValidTimezoneAllocs(t *testing.T) {
@@ -406,6 +438,53 @@ func TestTimeTimeSteps(t *testing.T) {
 }
 
 func TestTimeTimeAllocs(t *testing.T) {
+	time_, ok := time.Module.Members["time"]
+	if !ok {
+		t.Fatal("no such builtin: time.time")
+	}
+
+	tests := []struct {
+		kwarg string
+		value starlark.Value
+	}{{
+		kwarg: "year",
+		value: starlark.MakeInt(2011),
+	}, {
+		kwarg: "month",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "day",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "minute",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "second",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "nanosecond",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "location",
+		value: starlark.String("Europe/Riga"),
+	}}
+	for _, test := range tests {
+		t.Run(test.kwarg, func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.SetMaxAllocs(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				kwargs := []starlark.Tuple{
+					{starlark.String(test.kwarg), test.value},
+				}
+				result, err := starlark.Call(thread, time_, nil, kwargs)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			})
+		})
+	}
 }
 
 func TestSafeDurationUnpacker(t *testing.T) {
