@@ -73,7 +73,7 @@ var safeties = map[string]starlark.SafetyFlags{
 	"now":               starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"parse_duration":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"parse_time":        starlark.MemSafe,
-	"time":              starlark.MemSafe,
+	"time":              starlark.MemSafe | starlark.CPUSafe,
 }
 
 func init() {
@@ -355,7 +355,7 @@ func (d Duration) Binary(op syntax.Token, y starlark.Value, side starlark.Side) 
 
 type SafeDurationUnpacker struct {
 	duration Duration
-	thread *starlark.Thread
+	thread   *starlark.Thread
 }
 
 func (sdu *SafeDurationUnpacker) Unpack(v starlark.Value) error {
