@@ -83,7 +83,7 @@ var Module = &starlarkstruct.Module{
 }
 var safeties = map[string]starlark.SafetyFlags{
 	"encode": starlark.MemSafe | starlark.IOSafe,
-	"decode": starlark.MemSafe | starlark.IOSafe,
+	"decode": starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"indent": starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 }
 
@@ -469,6 +469,9 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			closed := false
 			j := i + 1
 			for ; j < len(s); j++ {
+				if err := thread.AddExecutionSteps(1); err != nil {
+					failWith(err)
+				}
 				b := s[j]
 				if b == '\\' {
 					safe = false
