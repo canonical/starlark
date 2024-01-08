@@ -362,12 +362,14 @@ func TestTimeParseTimeSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(raw)))
-		st.SetMaxExecutionSteps(uint64(len(raw)))
+		st.SetMinExecutionSteps(uint64(len(format)))
+		st.SetMaxExecutionSteps(uint64(len(format)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, parse_time, starlark.Tuple{raw, format}, nil)
-				if err != nil {
+				if err == nil {
+					st.Error("error expected")
+				} else if err.Error() != `parsing time "2011-2011": extra text: "-2011"` {
 					st.Error(err)
 				}
 			}
@@ -385,7 +387,9 @@ func TestTimeParseTimeSteps(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, parse_time, starlark.Tuple{raw, format}, nil)
-				if err != nil {
+				if err == nil {
+					st.Error("error expected")
+				} else if err.Error() != `parsing time "2011" as "2006-01-02": cannot parse "" as "-"` {
 					st.Error(err)
 				}
 			}
