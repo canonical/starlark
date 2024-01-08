@@ -959,8 +959,8 @@ func getAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
 	if x, ok := x.(HasAttrs); ok {
 		var attr Value
 		var err error
-		if x, ok := x.(HasSafeAttrs); ok {
-			attr, err = x.SafeAttr(thread, name)
+		if x2, ok := x.(HasSafeAttrs); ok {
+			attr, err = x2.SafeAttr(thread, name)
 		} else {
 			if err := CheckSafety(thread, NotSafe); err != nil {
 				return nil, err

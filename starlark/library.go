@@ -761,8 +761,8 @@ func hasattr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	}
 
 	if object, ok := object.(HasAttrs); ok {
-		if object, ok := object.(HasSafeAttrs); ok {
-			if _, err := object.SafeAttr(thread, name); err == ErrNoSuchAttr {
+		if object2, ok := object.(HasSafeAttrs); ok {
+			if _, err := object2.SafeAttr(thread, name); err == ErrNoSuchAttr {
 				return False, nil
 			} else if _, ok := err.(NoSuchAttrError); ok {
 				return False, nil
