@@ -73,7 +73,7 @@ var safeties = map[string]starlark.SafetyFlags{
 	"now":               starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"parse_duration":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"parse_time":        starlark.MemSafe,
-	"time":              starlark.NotSafe,
+	"time":              starlark.MemSafe,
 }
 
 func init() {
@@ -418,7 +418,11 @@ func newTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, 
 	if err != nil {
 		return nil, err
 	}
-	return Time(time.Date(year, time.Month(month), day, hour, min, sec, nsec, location)), nil
+	res := starlark.Value(Time(time.Date(year, time.Month(month), day, hour, min, sec, nsec, location)))
+	if thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 func (t Time) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
