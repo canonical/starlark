@@ -89,11 +89,11 @@ func TestJsonEncodeSteps(t *testing.T) {
 	}{{
 		name:  "Int(small)",
 		input: starlark.MakeInt(0xbeef),
-		steps: uint64(len("48879")), // 0xbeef
+		steps: uint64(len(fmt.Sprintf("%d", 0xbeef))),
 	}, {
 		name:  "Int(big)",
 		input: starlark.MakeInt64(0xdeadbeef << 10),
-		steps: uint64(len("3825590844416")), // 0xdeadbeef << 10
+		steps: uint64(len(fmt.Sprintf("%d", 0xdeadbeef<<10))),
 	}, {
 		name:  "Float",
 		input: starlark.Float(1.4218e-1),
@@ -106,6 +106,10 @@ func TestJsonEncodeSteps(t *testing.T) {
 		name:  "None",
 		input: starlark.None,
 		steps: uint64(len("null")),
+	}, {
+		name:  "String",
+		input: starlark.String(`"tnetennba"`),
+		steps: uint64(len(`"\"tnetennba\""`)),
 	}, {
 		name:  "Tuple",
 		input: starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(2)},
