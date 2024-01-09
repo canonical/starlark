@@ -1145,3 +1145,13 @@ func TestCPUSafeCheck(t *testing.T) {
 		})
 	})
 }
+
+func TestStartestSteps(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+	st.SetMaxExecutionSteps(0)
+	st.RunString(`
+		for _ in st.ntimes():
+			st.keep_alive()
+	`)
+}
