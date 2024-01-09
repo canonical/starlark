@@ -230,22 +230,22 @@ func TestAbsSteps(t *testing.T) {
 			name  string
 			input starlark.Value
 		}{{
-			name:  "Int (0)",
+			name:  "Int (zero)",
 			input: starlark.MakeInt(0),
 		}, {
-			name:  "Int (Small positive)",
+			name:  "Int (small positive)",
 			input: starlark.MakeInt(1),
 		}, {
-			name:  "Int (Small negative)",
+			name:  "Int (small negative)",
 			input: starlark.MakeInt(-1),
 		}, {
-			name:  "Float (0)",
+			name:  "Float (zero)",
 			input: starlark.Float(0),
 		}, {
-			name:  "Float (Positive)",
+			name:  "Float (positive)",
 			input: starlark.Float(1e20),
 		}, {
-			name:  "Float (Negative)",
+			name:  "Float (negative)",
 			input: starlark.Float(-1e20),
 		}}
 		for _, test := range tests {
