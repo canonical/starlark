@@ -226,28 +226,45 @@ func TestAbsSteps(t *testing.T) {
 	}
 
 	t.Run("const-size", func(t *testing.T) {
-		inputs := []starlark.Value{
-			starlark.MakeInt(0),
-			starlark.MakeInt(-1),
-			starlark.MakeInt(-1000),
-			starlark.MakeInt64(-(1 << 40)),
-			starlark.Float(-1e20),
-		}
-		for _, input := range inputs {
-			st := startest.From(t)
-			st.RequireSafety(starlark.CPUSafe)
-			st.SetMaxExecutionSteps(0)
-			st.RunThread(func(thread *starlark.Thread) {
-				_, err := starlark.Call(thread, abs, starlark.Tuple{input}, nil)
-				if err != nil {
-					st.Error(err)
-				}
+		tests := []struct {
+			name  string
+			input starlark.Value
+		}{{
+			name:  "Int(0)",
+			input: starlark.MakeInt(0),
+		}, {
+			name:  "Int(Small positive)",
+			input: starlark.MakeInt(1),
+		}, {
+			name:  "Int(Small negative)",
+			input: starlark.MakeInt(-1),
+		}, {
+			name:  "Float (Positive)",
+			input: starlark.Float(1e20),
+		}, {
+			name:  "Float (Negative)",
+			input: starlark.Float(-1e20),
+		}}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.CPUSafe)
+				st.SetMinExecutionSteps(0)
+				st.SetMaxExecutionSteps(0)
+				st.RunThread(func(thread *starlark.Thread) {
+					for i := 0; i < st.N; i++ {
+						_, err := starlark.Call(thread, abs, starlark.Tuple{test.input}, nil)
+						if err != nil {
+							st.Error(err)
+						}
+					}
+				})
 			})
 		}
 	})
 
 	t.Run("var-size", func(t *testing.T) {
-		t.Run("positive", func(t *testing.T) {
+		t.Run("Int (Positive)", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
 			st.SetMaxExecutionSteps(0)
@@ -260,7 +277,7 @@ func TestAbsSteps(t *testing.T) {
 			})
 		})
 
-		t.Run("negative", func(t *testing.T) {
+		t.Run("Int (Negative)", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
 			st.SetMaxExecutionSteps(1)
