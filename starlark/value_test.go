@@ -270,6 +270,13 @@ func TestSafeUnary(t *testing.T) {
 		}
 		return num, nil
 	}
+	makeFloat := func(thread *starlark.Thread, n int) (starlark.Value, error) {
+		num := starlark.Value(starlark.Float(n) * starlark.Float(n))
+		if err := thread.AddAllocs(starlark.EstimateSize(num)); err != nil {
+			return nil, err
+		}
+		return num, nil
+	}
 	tests := []struct {
 		name           string
 		input          func(thread *starlark.Thread, n int) (starlark.Value, error)
@@ -290,6 +297,21 @@ func TestSafeUnary(t *testing.T) {
 		input:          makeInt,
 		op:             syntax.TILDE,
 		executionSteps: 1,
+	}, {
+		name:           "+Float",
+		input:          makeFloat,
+		op:             syntax.PLUS,
+		executionSteps: 0,
+	}, {
+		name:           "-Float",
+		input:          makeFloat,
+		op:             syntax.MINUS,
+		executionSteps: 0,
+	}, {
+		name:           "~Float",
+		input:          makeFloat,
+		op:             syntax.TILDE,
+		executionSteps: 0,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
