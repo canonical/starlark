@@ -335,15 +335,15 @@ func TestTimeParseTimeSteps(t *testing.T) {
 	}
 
 	t.Run("default-args", func(t *testing.T) {
-		raw := starlark.String("2011-11-11T12:00:00Z")
+		date := starlark.String("2011-11-11T12:00:00Z")
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(raw)))
-		st.SetMinExecutionSteps(uint64(len(raw)))
+		st.SetMinExecutionSteps(uint64(len(date)))
+		st.SetMinExecutionSteps(uint64(len(date)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				_, err := starlark.Call(thread, parse_time, starlark.Tuple{raw}, nil)
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date}, nil)
 				if err != nil {
 					st.Error(err)
 				}
@@ -352,16 +352,16 @@ func TestTimeParseTimeSteps(t *testing.T) {
 	})
 
 	t.Run("with-format", func(t *testing.T) {
-		raw := starlark.String("2011-11-11")
+		date := starlark.String("2011-11-11")
 		format := starlark.String("2006-01-02")
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(raw)))
-		st.SetMinExecutionSteps(uint64(len(raw)))
+		st.SetMinExecutionSteps(uint64(len(date)))
+		st.SetMinExecutionSteps(uint64(len(date)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				_, err := starlark.Call(thread, parse_time, starlark.Tuple{raw, format}, nil)
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date, format}, nil)
 				if err != nil {
 					st.Error(err)
 				}
@@ -370,17 +370,17 @@ func TestTimeParseTimeSteps(t *testing.T) {
 	})
 
 	t.Run("with-location", func(t *testing.T) {
-		raw := starlark.String("2011-11-11")
+		date := starlark.String("2011-11-11")
 		format := starlark.String("2006-01-02")
 		location := starlark.String("Europe/Riga")
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(raw)))
-		st.SetMinExecutionSteps(uint64(len(raw)))
+		st.SetMinExecutionSteps(uint64(len(date)))
+		st.SetMinExecutionSteps(uint64(len(date)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				_, err := starlark.Call(thread, parse_time, starlark.Tuple{raw, format, location}, nil)
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date, format, location}, nil)
 				if err != nil {
 					st.Error(err)
 				}
@@ -389,7 +389,7 @@ func TestTimeParseTimeSteps(t *testing.T) {
 	})
 
 	t.Run("malformed-date-too-long", func(t *testing.T) {
-		raw := starlark.String("2011-2011")
+		date := starlark.String("2011-2011")
 		format := starlark.String("2006")
 
 		st := startest.From(t)
@@ -398,7 +398,7 @@ func TestTimeParseTimeSteps(t *testing.T) {
 		st.SetMaxExecutionSteps(uint64(len(format)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				_, err := starlark.Call(thread, parse_time, starlark.Tuple{raw, format}, nil)
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date, format}, nil)
 				if err == nil {
 					st.Error("error expected")
 				} else if err.Error() != `parsing time "2011-2011": extra text: "-2011"` {
@@ -409,16 +409,16 @@ func TestTimeParseTimeSteps(t *testing.T) {
 	})
 
 	t.Run("malformed-date-too-short", func(t *testing.T) {
-		raw := starlark.String("2011")
+		date := starlark.String("2011")
 		format := starlark.String("2006-01-02")
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(raw)))
-		st.SetMaxExecutionSteps(uint64(len(raw)))
+		st.SetMinExecutionSteps(uint64(len(date)))
+		st.SetMaxExecutionSteps(uint64(len(date)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				_, err := starlark.Call(thread, parse_time, starlark.Tuple{raw, format}, nil)
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date, format}, nil)
 				if err == nil {
 					st.Error("error expected")
 				} else if err.Error() != `parsing time "2011" as "2006-01-02": cannot parse "" as "-"` {
