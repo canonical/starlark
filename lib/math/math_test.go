@@ -86,7 +86,7 @@ func testUnarySteps(t *testing.T, name string, inputs []starlark.Value) {
 	for _, input := range inputs {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, builtin, starlark.Tuple{input}, nil)
@@ -107,7 +107,7 @@ func testBinarySteps(t *testing.T, name string, inputs [][2]starlark.Value) {
 	for _, input := range inputs {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, builtin, starlark.Tuple{input[0], input[1]}, nil)

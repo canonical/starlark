@@ -89,8 +89,8 @@ func TestModuleSafeAttr(t *testing.T) {
 func TestMakeModuleResources(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-	st.SetMinExecutionSteps(1)
-	st.SetMaxExecutionSteps(1)
+	st.SetMinSteps(1)
+	st.SetMaxSteps(1)
 	st.RunThread(func(thread *starlark.Thread) {
 		pairs := make([][2]starlark.Value, st.N)
 		kwargs := make([]starlark.Tuple, st.N)

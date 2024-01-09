@@ -229,7 +229,7 @@ func TestStepBounding(t *testing.T) {
 	t.Run("steps=safe-min", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
+		st.SetMinSteps(1)
 		st.RunString(`
 			i = 0
 			for _ in st.ntimes():
@@ -241,7 +241,7 @@ func TestStepBounding(t *testing.T) {
 	t.Run("steps=safe-max", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(10)
+		st.SetMaxSteps(10)
 		st.RunString(`
 			for _ in st.ntimes():
 				pass
@@ -249,12 +249,12 @@ func TestStepBounding(t *testing.T) {
 	})
 
 	t.Run("steps=not-safe-min", func(t *testing.T) {
-		expected := regexp.MustCompile(`execution steps are below minimum \(\d+ < 100\)`)
+		expected := regexp.MustCompile(`steps are below minimum \(\d+ < 100\)`)
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(100)
+		st.SetMinSteps(100)
 		st.RunString(`
 			for _ in st.ntimes():
 				pass
@@ -268,12 +268,12 @@ func TestStepBounding(t *testing.T) {
 	})
 
 	t.Run("steps=not-safe-max", func(t *testing.T) {
-		expected := regexp.MustCompile(`execution steps are above maximum \(\d+ > 1\)`)
+		expected := regexp.MustCompile(`steps are above maximum \(\d+ > 1\)`)
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(1)
+		st.SetMaxSteps(1)
 		st.RunString(`
 			i = 0
 			for _ in st.ntimes():
@@ -1152,7 +1152,7 @@ func TestStartestSteps(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunString(`
 			for _ in st.ntimes():
 				pass
@@ -1162,7 +1162,7 @@ func TestStartestSteps(t *testing.T) {
 	t.Run("ntimes", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunString(`
 			for _ in st.ntimes():
 				st.ntimes()
@@ -1172,7 +1172,7 @@ func TestStartestSteps(t *testing.T) {
 	t.Run("keep_alive", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunString(`
 			for _ in st.ntimes():
 				st.keep_alive()
@@ -1182,7 +1182,7 @@ func TestStartestSteps(t *testing.T) {
 	t.Run("n", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunString(`
 			for _ in st.ntimes():
 				st.n

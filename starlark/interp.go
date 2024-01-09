@@ -137,7 +137,7 @@ loop:
 		}
 
 		if cost := instuctionSteps(op, arg); cost > 0 {
-			if err = thread.AddExecutionSteps(cost); err != nil {
+			if err = thread.AddSteps(cost); err != nil {
 				break loop
 			}
 		}

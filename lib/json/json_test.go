@@ -121,8 +121,8 @@ func TestJsonEncodeSteps(t *testing.T) {
 			t.Run("standalone", func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
-				st.SetMinExecutionSteps(test.steps)
-				st.SetMaxExecutionSteps(test.steps)
+				st.SetMinSteps(test.steps)
+				st.SetMaxSteps(test.steps)
 				st.RunThread(func(thread *starlark.Thread) {
 					for i := 0; i < st.N; i++ {
 						_, err := starlark.Call(thread, json_encode, starlark.Tuple{test.input}, nil)
@@ -136,8 +136,8 @@ func TestJsonEncodeSteps(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
 				const listOverheadSteps = 2 // iteration + writing ','
-				st.SetMinExecutionSteps(test.steps + listOverheadSteps)
-				st.SetMaxExecutionSteps(test.steps + listOverheadSteps)
+				st.SetMinSteps(test.steps + listOverheadSteps)
+				st.SetMaxSteps(test.steps + listOverheadSteps)
 				st.RunThread(func(thread *starlark.Thread) {
 					elems := make([]starlark.Value, st.N)
 					for i := 0; i < st.N; i++ {
@@ -154,8 +154,8 @@ func TestJsonEncodeSteps(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
 				const listOverheadSteps = 2 // iteration + writing ','
-				st.SetMinExecutionSteps(test.steps + uint64(len(`,"000000000000":`)+1))
-				st.SetMaxExecutionSteps(test.steps + uint64(len(`,"000000000000":`)+1))
+				st.SetMinSteps(test.steps + uint64(len(`,"000000000000":`)+1))
+				st.SetMaxSteps(test.steps + uint64(len(`,"000000000000":`)+1))
 				st.RunThread(func(thread *starlark.Thread) {
 					dict := starlark.NewDict(st.N)
 					for i := 0; i < st.N; i++ {
@@ -233,8 +233,8 @@ func TestJsonDecodeSteps(t *testing.T) {
 	tests := []struct {
 		name              string
 		input             string
-		minExecutionSteps uint64
-		maxExecutionSteps uint64
+		minSteps uint64
+		maxSteps uint64
 	}{{
 		name:  "int",
 		input: "48879",
@@ -256,8 +256,8 @@ func TestJsonDecodeSteps(t *testing.T) {
 	}, {
 		name:              "string",
 		input:             `"tnetennba"`,
-		minExecutionSteps: 10,
-		maxExecutionSteps: 10,
+		minSteps: 10,
+		maxSteps: 10,
 	}, {
 		name:  "empty-list",
 		input: "[]",
@@ -275,13 +275,13 @@ func TestJsonDecodeSteps(t *testing.T) {
 			buf.WriteByte(']')
 			return buf.String()
 		}(),
-		minExecutionSteps: populatedLength,
-		maxExecutionSteps: populatedLength,
+		minSteps: populatedLength,
+		maxSteps: populatedLength,
 	}, {
 		name:              "nested-list",
 		input:             "[[[]]]",
-		minExecutionSteps: 2,
-		maxExecutionSteps: 2,
+		minSteps: 2,
+		maxSteps: 2,
 	}, {
 		name:  "empty-mapping",
 		input: "{}",
@@ -299,20 +299,20 @@ func TestJsonDecodeSteps(t *testing.T) {
 			buf.WriteByte('}')
 			return buf.String()
 		}(),
-		minExecutionSteps: (2 + 11) * populatedLength, // Expect on average 2.5*len steps for insertion, 11 per parsed key
-		maxExecutionSteps: (3 + 11) * populatedLength,
+		minSteps: (2 + 11) * populatedLength, // Expect on average 2.5*len steps for insertion, 11 per parsed key
+		maxSteps: (3 + 11) * populatedLength,
 	}, {
 		name:              "nested-mapping",
 		input:             `{"l1": {"l2": {"l3": {}}}}`,
-		minExecutionSteps: 3 + 3*3, // 3 steps for the nesting, 3 steps per parsed key
-		maxExecutionSteps: 3 + 3*3,
+		minSteps: 3 + 3*3, // 3 steps for the nesting, 3 steps per parsed key
+		maxSteps: 3 + 3*3,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(test.minExecutionSteps)
-			st.SetMaxExecutionSteps(test.maxExecutionSteps)
+			st.SetMinSteps(test.minSteps)
+			st.SetMaxSteps(test.maxSteps)
 			st.RunThread(func(thread *starlark.Thread) {
 				json_document := starlark.String(test.input)
 				for i := 0; i < st.N; i++ {
@@ -366,8 +366,8 @@ func TestJsonIndentSteps(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
 	// 127 is the lenght of the expected indented json.
-	st.SetMinExecutionSteps(127)
-	st.SetMaxExecutionSteps(127)
+	st.SetMinSteps(127)
+	st.SetMaxSteps(127)
 	st.RunThread(func(thread *starlark.Thread) {
 		document := starlark.String(`{"l":[[[[[[{"i":10,"n":null}]]]]]]}`)
 		for i := 0; i < st.N; i++ {

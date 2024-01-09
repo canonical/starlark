@@ -278,46 +278,46 @@ func TestSafeUnary(t *testing.T) {
 		return num, nil
 	}
 	tests := []struct {
-		name           string
-		input          func(thread *starlark.Thread, n int) (starlark.Value, error)
-		op             syntax.Token
-		executionSteps uint64
+		name  string
+		input func(thread *starlark.Thread, n int) (starlark.Value, error)
+		op    syntax.Token
+		steps uint64
 	}{{
-		name:           "+Int",
-		input:          makeInt,
-		op:             syntax.PLUS,
-		executionSteps: 0,
+		name:  "+Int",
+		input: makeInt,
+		op:    syntax.PLUS,
+		steps: 0,
 	}, {
-		name:           "-Int",
-		input:          makeInt,
-		op:             syntax.MINUS,
-		executionSteps: 1,
+		name:  "-Int",
+		input: makeInt,
+		op:    syntax.MINUS,
+		steps: 1,
 	}, {
-		name:           "~Int",
-		input:          makeInt,
-		op:             syntax.TILDE,
-		executionSteps: 1,
+		name:  "~Int",
+		input: makeInt,
+		op:    syntax.TILDE,
+		steps: 1,
 	}, {
-		name:           "+Float",
-		input:          makeFloat,
-		op:             syntax.PLUS,
-		executionSteps: 0,
+		name:  "+Float",
+		input: makeFloat,
+		op:    syntax.PLUS,
+		steps: 0,
 	}, {
-		name:           "-Float",
-		input:          makeFloat,
-		op:             syntax.MINUS,
-		executionSteps: 0,
+		name:  "-Float",
+		input: makeFloat,
+		op:    syntax.MINUS,
+		steps: 0,
 	}, {
-		name:           "~Float",
-		input:          makeFloat,
-		op:             syntax.TILDE,
-		executionSteps: 0,
+		name:  "~Float",
+		input: makeFloat,
+		op:    syntax.TILDE,
+		steps: 0,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-			st.SetMaxExecutionSteps(test.executionSteps)
+			st.SetMaxSteps(test.steps)
 			st.RunThread(func(thread *starlark.Thread) {
 				input, err := test.input(thread, st.N)
 				if err != nil {

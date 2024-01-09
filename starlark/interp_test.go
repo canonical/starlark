@@ -48,7 +48,7 @@ func TestUnary(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-				st.SetMinExecutionSteps(1)
+				st.SetMinSteps(1)
 				st.AddValue("input", test.input)
 				st.RunString(`
 					for _ in st.ntimes():
@@ -76,7 +76,7 @@ func TestUnary(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-				st.SetMinExecutionSteps(1)
+				st.SetMinSteps(1)
 				st.AddValue("input", test.input)
 				st.RunString(`
 					for _ in st.ntimes():
@@ -104,7 +104,7 @@ func TestUnary(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-				st.SetMinExecutionSteps(1)
+				st.SetMinSteps(1)
 				st.AddValue("input", test.input)
 				st.RunString(`
 					for _ in st.ntimes():
@@ -129,7 +129,7 @@ func TestUnary(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-				st.SetMinExecutionSteps(1)
+				st.SetMinSteps(1)
 				st.AddValue("input", test.input)
 				st.RunString(`
 					for _ in st.ntimes():
@@ -144,7 +144,7 @@ func TestTupleCreation(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
+		st.SetMinSteps(1)
 		st.RunString(`
 			for _ in st.ntimes():
 				st.keep_alive(())
@@ -154,7 +154,7 @@ func TestTupleCreation(t *testing.T) {
 	t.Run("not-empty", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(4)
+		st.SetMinSteps(4)
 		st.RunString(`
 			for _ in st.ntimes():
 				st.keep_alive((1, "2", 3.0))
@@ -166,7 +166,7 @@ func TestListCreation(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
+		st.SetMinSteps(1)
 		st.RunString(`
 			for _ in st.ntimes():
 				st.keep_alive([])
@@ -176,7 +176,7 @@ func TestListCreation(t *testing.T) {
 	t.Run("not-empty", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(4)
+		st.SetMinSteps(4)
 		st.RunString(`
 			for _ in st.ntimes():
 				st.keep_alive([ False, 1, "2", 3.0 ])
@@ -194,7 +194,7 @@ func TestListComprehension(t *testing.T) {
 		// - For calling range, 1
 		// - For iterating twice, 2
 		// - For appending twice, 2
-		st.SetMinExecutionSteps(7)
+		st.SetMinSteps(7)
 		st.RunString(`
 			for _ in st.ntimes():
 				st.keep_alive([v for v in range(2)])
@@ -204,7 +204,7 @@ func TestListComprehension(t *testing.T) {
 	t.Run("big", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
+		st.SetMinSteps(2)
 		st.RunString(`
 			st.keep_alive([v for v in range(st.n)])
 		`)
@@ -215,7 +215,7 @@ func TestDictCreation(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
+		st.SetMinSteps(1)
 		st.RunString(`
 			for _ in st.ntimes():
 				st.keep_alive({})
@@ -230,7 +230,7 @@ func TestDictCreation(t *testing.T) {
 		// - For loading the keys, 3
 		// - For loading the values, 3
 		// - For adding the items, 3
-		st.SetMinExecutionSteps(10)
+		st.SetMinSteps(10)
 		st.RunString(`
 			for _ in st.ntimes():
 				st.keep_alive({ 1: False, 2: "2", 3: 3.0 })
@@ -249,7 +249,7 @@ func TestDictComprehension(t *testing.T) {
 		// - For iterating twice, 2
 		// - For loading the constant twice, 2
 		// - For appending twice, 2
-		st.SetMinExecutionSteps(9)
+		st.SetMinSteps(9)
 		st.RunString(`
 			for _ in st.ntimes():
 				st.keep_alive({i: None for i in range(2)})
@@ -263,7 +263,7 @@ func TestDictComprehension(t *testing.T) {
 		// - For iterating, 1
 		// - For loading the constant, 1
 		// - For appending, 1
-		st.SetMinExecutionSteps(3)
+		st.SetMinSteps(3)
 		st.RunString(`
 			st.keep_alive({i: None for i in range(st.n)})
 		`)
@@ -274,7 +274,7 @@ func TestIterate(t *testing.T) {
 	t.Run("small", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
+		st.SetMinSteps(2)
 		st.RunString(`
 			for _ in st.ntimes():
 				for j in range(2):
@@ -286,7 +286,7 @@ func TestIterate(t *testing.T) {
 	t.Run("big", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
+		st.SetMinSteps(1)
 		st.RunString(`
 			for _ in range(st.n):
 				pass
@@ -298,7 +298,7 @@ func TestSequenceAssignment(t *testing.T) {
 	t.Run("list-single", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
+		st.SetMinSteps(2)
 		st.RunString(`
 			for _ in st.ntimes():
 				[ single ] = range(1)
@@ -309,7 +309,7 @@ func TestSequenceAssignment(t *testing.T) {
 	t.Run("list-double", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(4)
+		st.SetMinSteps(4)
 		st.RunString(`
 			for _ in st.ntimes():
 				[ first, second ] = range(2)
@@ -320,7 +320,7 @@ func TestSequenceAssignment(t *testing.T) {
 	t.Run("double", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(4)
+		st.SetMinSteps(4)
 		st.RunString(`
 			for _ in st.ntimes():
 				first, second = range(2)
@@ -359,7 +359,7 @@ func TestAttrAccessAllocs(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
+			st.SetMinSteps(1)
 			st.AddValue("input", test.input)
 			st.RunString(fmt.Sprintf(`
 				for _ in st.ntimes():
@@ -424,7 +424,7 @@ func (tsf *testSetField) SafeSetField(thread *starlark.Thread, name string, val 
 		if err := thread.AddAllocs(tsf.allocs); err != nil {
 			return err
 		}
-		if err := thread.AddExecutionSteps(tsf.steps); err != nil {
+		if err := thread.AddSteps(tsf.steps); err != nil {
 			return err
 		}
 	}
@@ -470,7 +470,7 @@ func TestSetField(t *testing.T) {
 			allocs: 100,
 		})
 		st.SetMaxAllocs(100)
-		st.SetMinExecutionSteps(100)
+		st.SetMinSteps(100)
 		st.RunString(`
 			for _ in st.ntimes():
 				input.field = 1
@@ -596,7 +596,7 @@ func TestIndexing(t *testing.T) {
 				t.Run(test.name, func(t *testing.T) {
 					st := startest.From(t)
 					st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-					st.SetMinExecutionSteps(1)
+					st.SetMinSteps(1)
 					st.AddValue("input", test.input)
 					st.RunString(`
 						for _ in st.ntimes():
@@ -621,7 +621,7 @@ func TestIndexing(t *testing.T) {
 				t.Run(test.name, func(t *testing.T) {
 					st := startest.From(t)
 					st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-					st.SetMinExecutionSteps(1)
+					st.SetMinSteps(1)
 					st.AddValue("input", test.input)
 					st.RunString(`
 						for _ in st.ntimes():

@@ -194,7 +194,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				return err
 			}
 			items := x.Items()
-			if err := thread.AddExecutionSteps(int64(len(items))); err != nil {
+			if err := thread.AddSteps(int64(len(items))); err != nil {
 				return err
 			}
 			for _, item := range items {
@@ -262,7 +262,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			var names []string
 			names = append(names, x.AttrNames()...)
 			sort.Strings(names)
-			if err := thread.AddExecutionSteps(int64(len(names))); err != nil {
+			if err := thread.AddSteps(int64(len(names))); err != nil {
 				return err
 			}
 			for i, name := range names {
@@ -395,7 +395,7 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	// The second approach has the potential of actually reduce the
 	// transient allocation and speed up the execution, but it's probably
 	// not worth it for a "pretty print" function.
-	if err := thread.CheckExecutionSteps(int64(worstCase)); err != nil {
+	if err := thread.CheckSteps(int64(worstCase)); err != nil {
 		return nil, err
 	}
 	if err := thread.CheckAllocs(int64(len(str) + worstCase*2)); err != nil {
@@ -404,7 +404,7 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	if err := json.Indent(buf, []byte(str), prefix, indent); err != nil {
 		return nil, fmt.Errorf("%s: %v", b.Name(), err)
 	}
-	if err := thread.AddExecutionSteps(int64(buf.Len())); err != nil {
+	if err := thread.AddSteps(int64(buf.Len())); err != nil {
 		return nil, err
 	}
 	if err := thread.AddAllocs(int64(buf.Cap()) + starlark.StringTypeOverhead); err != nil {
@@ -486,7 +486,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			closed := false
 			j := i + 1
 			for ; j < len(s); j++ {
-				if err := thread.AddExecutionSteps(1); err != nil {
+				if err := thread.AddSteps(1); err != nil {
 					failWith(err)
 				}
 				b := s[j]

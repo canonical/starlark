@@ -1111,7 +1111,7 @@ func NewDict(size int) *Dict {
 func SafeNewDict(thread *Thread, size int) (*Dict, error) {
 	if thread != nil {
 		if size > 0 {
-			if err := thread.AddExecutionSteps(int64(size)); err != nil {
+			if err := thread.AddSteps(int64(size)); err != nil {
 				return nil, err
 			}
 		}
@@ -1849,7 +1849,7 @@ func writeValue(thread *Thread, out StringBuilder, x Value, path []Value) error 
 		} else {
 			if thread != nil {
 				// Add 1 step per element to match the cost of using SafeIterate.
-				if err := thread.AddExecutionSteps(int64(len(x.elems))); err != nil {
+				if err := thread.AddSteps(int64(len(x.elems))); err != nil {
 					return err
 				}
 			}
@@ -1874,7 +1874,7 @@ func writeValue(thread *Thread, out StringBuilder, x Value, path []Value) error 
 		}
 		if thread != nil {
 			// Add 1 step per element to match the cost of using SafeIterate.
-			if err := thread.AddExecutionSteps(int64(len(x))); err != nil {
+			if err := thread.AddSteps(int64(len(x))); err != nil {
 				return err
 			}
 		}
@@ -1925,7 +1925,7 @@ func writeValue(thread *Thread, out StringBuilder, x Value, path []Value) error 
 			sep := ""
 			if thread != nil {
 				// Add 1 step per element to match the cost of using SafeIterate.
-				if err := thread.AddExecutionSteps(int64(x.ht.len)); err != nil {
+				if err := thread.AddSteps(int64(x.ht.len)); err != nil {
 					return err
 				}
 			}
@@ -1956,7 +1956,7 @@ func writeValue(thread *Thread, out StringBuilder, x Value, path []Value) error 
 		}
 		if thread != nil {
 			// Add 1 step per element to match the cost of using SafeIterate.
-			if err := thread.AddExecutionSteps(int64(x.ht.len)); err != nil {
+			if err := thread.AddSteps(int64(x.ht.len)); err != nil {
 				return err
 			}
 		}
@@ -2185,7 +2185,7 @@ func (gi *guardedIterator) Next(p *Value) bool {
 		return false
 	}
 
-	if err := gi.thread.AddExecutionSteps(1); err != nil {
+	if err := gi.thread.AddSteps(1); err != nil {
 		gi.err = err
 		return false
 	}
