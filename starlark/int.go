@@ -72,13 +72,19 @@ func (i Int) Unary(op syntax.Token) (Value, error) {
 }
 
 func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
-	if err := CheckSafety(thread, MemSafe|IOSafe); err != nil {
+	const safety = MemSafe | IOSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
 
 	switch op {
 	case syntax.MINUS:
 		if thread != nil {
+			if _, iBig := i.get(); iBig != nil {
+				if err := thread.AddExecutionSteps(int64(len(iBig.Bits()))); err != nil {
+					return nil, err
+				}
+			}
 			if err := thread.AddAllocs(EstimateSize(i)); err != nil {
 				return nil, err
 			}
@@ -94,6 +100,11 @@ func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
 		return i, nil
 	case syntax.TILDE:
 		if thread != nil {
+			if _, iBig := i.get(); iBig != nil {
+				if err := thread.AddExecutionSteps(int64(len(iBig.Bits()))); err != nil {
+					return nil, err
+				}
+			}
 			if err := thread.AddAllocs(EstimateSize(i)); err != nil {
 				return nil, err
 			}

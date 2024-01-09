@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/startest"
 	"github.com/canonical/starlark/syntax"
 	"github.com/google/go-cmp/cmp"
 )
@@ -256,6 +257,55 @@ func TestSafeString(t *testing.T) {
 						t.Errorf("inconsistent stringer implementation: expected %s got %s", expected, actual)
 					}
 				}
+			})
+		})
+	}
+}
+
+func TestSafeUnary(t *testing.T) {
+	makeInt := func(thread *starlark.Thread, n int) (starlark.Value, error) {
+		num := starlark.Value(starlark.MakeInt(1).Lsh(uint(n)))
+		if err := thread.AddAllocs(starlark.EstimateSize(num)); err != nil {
+			return nil, err
+		}
+		return num, nil
+	}
+	tests := []struct {
+		name  string
+		input func(thread *starlark.Thread, n int) (starlark.Value, error)
+		op    syntax.Token
+		steps uint64
+	}{{
+		name:  "Int (+)",
+		input: makeInt,
+		op:    syntax.PLUS,
+		steps: 0,
+	}, {
+		name:  "Int (-)",
+		input: makeInt,
+		op:    syntax.MINUS,
+		steps: 1,
+	}, {
+		name:  "Int (~)",
+		input: makeInt,
+		op:    syntax.TILDE,
+		steps: 1,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+			st.SetMaxExecutionSteps(test.steps)
+			st.RunThread(func(thread *starlark.Thread) {
+				input, err := test.input(thread, st.N)
+				if err != nil {
+					st.Error(err)
+				}
+				result, err := starlark.SafeUnary(thread, test.op, input)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
 			})
 		})
 	}
