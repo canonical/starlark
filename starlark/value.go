@@ -630,10 +630,28 @@ func (x Float) Mod(y Float) Float {
 
 // Unary implements the operations +float and -float.
 func (f Float) Unary(op syntax.Token) (Value, error) {
+	return f.SafeUnary(nil, op)
+}
+
+func (f Float) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
+	const safety = MemSafe | IOSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
+		return nil, err
+	}
 	switch op {
 	case syntax.MINUS:
+		if thread != nil {
+			if err := thread.AddExecutionSteps(floatSize); err != nil {
+				return nil, err
+			}
+		}
 		return -f, nil
 	case syntax.PLUS:
+		if thread != nil {
+			if err := thread.AddExecutionSteps(floatSize); err != nil {
+				return nil, err
+			}
+		}
 		return +f, nil
 	}
 	return nil, nil
