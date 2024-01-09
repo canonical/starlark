@@ -336,7 +336,12 @@ type IterableMapping interface {
 	Items() []Tuple    // a new slice containing all key/value pairs
 }
 
-var _ IterableMapping = (*Dict)(nil)
+type SequenceMapping interface {
+	IterableMapping
+	Len() int
+}
+
+var _ SequenceMapping = (*Dict)(nil)
 
 // A HasSetKey supports map update using x[k]=v syntax, like a dictionary.
 type HasSetKey interface {
