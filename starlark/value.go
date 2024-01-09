@@ -388,7 +388,6 @@ type HasUnary interface {
 
 type SafeHasUnary interface {
 	Value
-	SafetyAware
 	SafeUnary(thread *Thread, op syntax.Token) (Value, error)
 }
 

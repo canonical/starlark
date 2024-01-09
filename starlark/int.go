@@ -68,41 +68,39 @@ var (
 
 // Unary implements the operations +int, -int, and ~int.
 func (i Int) Unary(op syntax.Token) (Value, error) {
-	switch op {
-	case syntax.MINUS:
-		return zero.Sub(i), nil
-	case syntax.PLUS:
-		return i, nil
-	case syntax.TILDE:
-		return i.Not(), nil
-	}
-	return nil, nil
+	return i.SafeUnary(nil, op)
 }
 
 func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
+	if err := CheckSafety(thread, MemSafe|IOSafe); err != nil {
+		return nil, err
+	}
+
 	switch op {
 	case syntax.MINUS:
-		if err := thread.AddAllocs(EstimateSize(i)); err != nil {
-			return nil, err
+		if thread != nil {
+			if err := thread.AddAllocs(EstimateSize(i)); err != nil {
+				return nil, err
+			}
 		}
 		return zero.Sub(i), nil
 	case syntax.PLUS:
 		// The pointed-to content is shared
-		if err := thread.AddAllocs(EstimateSize(Int{})); err != nil {
-			return nil, err
+		if thread != nil {
+			if err := thread.AddAllocs(EstimateSize(Int{})); err != nil {
+				return nil, err
+			}
 		}
 		return i, nil
 	case syntax.TILDE:
-		if err := thread.AddAllocs(EstimateSize(i)); err != nil {
-			return nil, err
+		if thread != nil {
+			if err := thread.AddAllocs(EstimateSize(i)); err != nil {
+				return nil, err
+			}
 		}
 		return i.Not(), nil
 	}
 	return nil, nil
-}
-
-func (i Int) Safety() SafetyFlags {
-	return MemSafe | IOSafe
 }
 
 // Int64 returns the value as an int64.
