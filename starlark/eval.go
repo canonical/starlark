@@ -1123,28 +1123,23 @@ func Unary(op syntax.Token, x Value) (Value, error) {
 	return SafeUnary(nil, op, x)
 }
 
+// SafeUnary applies a unary operator (+, -, ~, not) to its operand,
+// respecting safety.
 func SafeUnary(thread *Thread, op syntax.Token, x Value) (Value, error) {
 	// The NOT operator is not customizable.
 	if op == syntax.NOT {
 		return !x.Truth(), nil
 	}
 
-	if thread != nil {
-		if x, ok := x.(SafeHasUnary); ok {
-			if err := thread.CheckPermits(x.Safety()); err != nil {
-				return nil, err
-			}
-
-			return x.SafeUnary(thread, op)
-		}
-
-		if err := thread.CheckPermits(NotSafe); err != nil {
-			return nil, err
-		}
+	if x, ok := x.(SafeHasUnary); ok {
+		return x.SafeUnary(thread, op)
 	}
 
 	// Int, Float, and user-defined types
 	if x, ok := x.(HasUnary); ok {
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return nil, err
+		}
 		// (nil, nil) => unhandled
 		y, err := x.Unary(op)
 		if y != nil || err != nil {
