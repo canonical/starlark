@@ -439,9 +439,9 @@ func TestTimeParseTimeAllocs(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
-			raw := starlark.String("2011-11-11T12:00:00Z")
+			date := starlark.String("2011-11-11T12:00:00Z")
 			for i := 0; i < st.N; i++ {
-				result, err := starlark.Call(thread, parse_time, starlark.Tuple{raw}, nil)
+				result, err := starlark.Call(thread, parse_time, starlark.Tuple{date}, nil)
 				if err != nil {
 					st.Error(err)
 				}
@@ -454,9 +454,9 @@ func TestTimeParseTimeAllocs(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
-			raw := starlark.String("2011-11-11")
+			date := starlark.String("2011-11-11")
 			format := starlark.String("2006-01-02")
-			args := starlark.Tuple{raw, format}
+			args := starlark.Tuple{date, format}
 			for i := 0; i < st.N; i++ {
 				result, err := starlark.Call(thread, parse_time, args, nil)
 				if err != nil {
@@ -471,10 +471,10 @@ func TestTimeParseTimeAllocs(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
-			raw := starlark.String("2011-11-11")
+			date := starlark.String("2011-11-11")
 			format := starlark.String("2006-01-02")
 			location := starlark.String("Europe/Riga")
-			args := starlark.Tuple{raw, format, location}
+			args := starlark.Tuple{date, format, location}
 			for i := 0; i < st.N; i++ {
 				result, err := starlark.Call(thread, parse_time, args, nil)
 				if err != nil {
