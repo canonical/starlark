@@ -230,14 +230,17 @@ func TestAbsSteps(t *testing.T) {
 			name  string
 			input starlark.Value
 		}{{
-			name:  "Int(0)",
+			name:  "Int (0)",
 			input: starlark.MakeInt(0),
 		}, {
-			name:  "Int(Small positive)",
+			name:  "Int (Small positive)",
 			input: starlark.MakeInt(1),
 		}, {
-			name:  "Int(Small negative)",
+			name:  "Int (Small negative)",
 			input: starlark.MakeInt(-1),
+		}, {
+			name:  "Float (0)",
+			input: starlark.Float(0),
 		}, {
 			name:  "Float (Positive)",
 			input: starlark.Float(1e20),
@@ -249,7 +252,6 @@ func TestAbsSteps(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
-				st.SetMinExecutionSteps(0)
 				st.SetMaxExecutionSteps(0)
 				st.RunThread(func(thread *starlark.Thread) {
 					for i := 0; i < st.N; i++ {
