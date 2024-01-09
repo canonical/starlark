@@ -211,7 +211,6 @@ func TestJsonDecodeSteps(t *testing.T) {
 			st.SetMaxExecutionSteps(test.maxExecutionSteps)
 			st.RunThread(func(thread *starlark.Thread) {
 				json_document := starlark.String(test.input)
-				fmt.Println(json_document)
 				for i := 0; i < st.N; i++ {
 					_, err := starlark.Call(thread, json_decode, starlark.Tuple{json_document}, nil)
 					if err != nil {
