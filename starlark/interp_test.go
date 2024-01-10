@@ -261,7 +261,7 @@ func TestIndexingAllocs(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				dummy := &testing.T{}
 				st := startest.From(dummy)
-				st.RequireSafety(starlark.MemSafe)
+				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
 				st.AddValue("input", test.input)
 				ok := st.RunString(`
 					input[0]
@@ -302,7 +302,8 @@ func TestIndexingAllocs(t *testing.T) {
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
-				st.RequireSafety(starlark.MemSafe)
+				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+				st.SetMinExecutionSteps(1)
 				st.AddValue("input", test.input)
 				st.RunString(`
 					for _ in st.ntimes():
@@ -317,7 +318,8 @@ func TestIndexingAllocs(t *testing.T) {
 		input.SetKey(starlark.String("key"), starlark.String("value"))
 
 		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
 		st.AddValue("input", input)
 		st.RunString(`
 			for _ in st.ntimes():
