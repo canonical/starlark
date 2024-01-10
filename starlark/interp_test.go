@@ -10,7 +10,7 @@ import (
 
 func TestPass(t *testing.T) {
 	st := startest.From(t)
-	st.RequireSafety(starlark.CPUSafe)
+	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
 	st.SetMinExecutionSteps(1)
 	st.RunString(`
 		for _ in st.ntimes():
