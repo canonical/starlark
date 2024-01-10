@@ -8,6 +8,16 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+func TestPass(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.CPUSafe)
+	st.SetMinExecutionSteps(1)
+	st.RunString(`
+		for _ in st.ntimes():
+			pass
+	`)
+}
+
 func TestUnaryAllocs(t *testing.T) {
 	t.Run("not", func(t *testing.T) {
 		inputs := []starlark.Value{
