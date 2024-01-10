@@ -408,13 +408,13 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 }
 
 func (st *ST) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
-	// The cost to call this function is:
-	// - 1 for loading st;
-	// - 1 for loading "keep_alive";
-	// - 1 for calling this function.
-	const keepAliveCost = 3
-	if err := thread.AddExecutionSteps(-keepAliveCost); err != nil {
-		return nil, err
+	if thread != nil {
+		// The steps counted to call this function is:
+		// - 1 for loading st;
+		// - 1 for getting the attr.
+		if err := thread.AddExecutionSteps(-2); err != nil {
+			return nil, err
+		}
 	}
 	return st.Attr(name) // Assume test code is safe.
 }
@@ -472,14 +472,16 @@ func st_keep_alive(thread *starlark.Thread, b *starlark.Builtin, args starlark.T
 		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
 	}
 
+	// Remove the cost of the CALL for this function.
+	if err := thread.AddExecutionSteps(-1); err != nil {
+		return nil, err
+	}
+
 	// keep_alive does not capture the backing array for args. Hence
 	// the allocation is removed aligning declared allocations with
 	// user expectations.
 	argsSize := starlark.EstimateMakeSize(starlark.Tuple{}, cap(args))
 	if err := thread.AddAllocs(-argsSize); err != nil {
-		return nil, err
-	}
-	if err := thread.AddExecutionSteps(-2); err != nil { // Remove the cost of this call, including the result discard.
 		return nil, err
 	}
 	recv := b.Receiver().(*ST)
@@ -490,12 +492,17 @@ func st_keep_alive(thread *starlark.Thread, b *starlark.Builtin, args starlark.T
 	return starlark.None, nil
 }
 
-func st_ntimes(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func st_ntimes(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(args) != 0 {
 		return nil, fmt.Errorf("%s: unexpected positional arguments", b.Name())
 	}
 	if len(kwargs) > 0 {
 		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
+	}
+
+	// Remove the cost of the CALL for this function.
+	if err := thread.AddExecutionSteps(-1); err != nil {
+		return nil, err
 	}
 
 	recv := b.Receiver().(*ST)
@@ -533,13 +540,16 @@ func (it *ntimes_iterator) Done()                              {}
 func (it *ntimes_iterator) Err() error                         { return it.err }
 func (it *ntimes_iterator) Next(p *starlark.Value) bool {
 	if it.n > 0 {
-		// Next cost is composed by:
-		// - 4 for ITERJMP (as it's padded with nops);
-		// - 1 for the Next() call;
-		// - 1 for the SETGLOBAL to record the result.
-		if err := it.thread.AddExecutionSteps(-6); err != nil {
-			it.err = err
-			return false
+		if it.thread != nil {
+			// Loop iteration steps counted comprise:
+			// - 1 for the ITERJMP;
+			// - 1 for guardedIterator's Next;
+			// - 1 for the SET{LOCAL,GLOBAL} to record the result;
+			// - 1 for the JMP back to the loop's ITERJMP.
+			if err := it.thread.AddExecutionSteps(-4); err != nil {
+				it.err = err
+				return false
+			}
 		}
 		it.n--
 		*p = starlark.None

@@ -15,6 +15,16 @@ import (
 
 const vmdebug = false // TODO(adonovan): use a bitfield of specific kinds of error.
 
+func opCost(op compile.Opcode, arg uint32) int64 {
+	// Count steps only for instructions doing actual work.
+	switch op {
+	case compile.NOP, compile.DUP, compile.DUP2, compile.POP, compile.EXCH:
+		return 0
+	default:
+		return 1
+	}
+}
+
 // TODO(adonovan):
 // - optimize position table.
 // - opt: record MaxIterStack during compilation and preallocate the stack.
@@ -109,10 +119,6 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (_ 
 	code := f.Code
 loop:
 	for {
-		if err = thread.AddExecutionSteps(1); err != nil {
-			break loop
-		}
-
 		if reason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); reason != nil {
 			err = fmt.Errorf("Starlark computation cancelled: %w", *(*error)(reason))
 			break loop
@@ -135,9 +141,16 @@ loop:
 				}
 			}
 		}
+
 		if vmdebug {
 			fmt.Fprintln(os.Stderr, stack[:sp]) // very verbose!
 			compile.PrintOp(f, fr.pc, op, arg)
+		}
+
+		if cost := opCost(op, arg); cost > 0 {
+			if err = thread.AddExecutionSteps(cost); err != nil {
+				break loop
+			}
 		}
 
 		switch op {
