@@ -245,7 +245,7 @@ func (utm *unsafeTestMapping) Get(starlark.Value) (v starlark.Value, found bool,
 	return nil, false, fmt.Errorf("unsafeTestMapping.Get called")
 }
 
-func TestIndexingAllocs(t *testing.T) {
+func TestIndexing(t *testing.T) {
 	t.Run("safety-respected", func(t *testing.T) {
 		tests := []struct {
 			name  string
