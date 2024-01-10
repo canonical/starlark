@@ -69,11 +69,11 @@ var Module = &starlarkstruct.Module{
 }
 var safeties = map[string]starlark.SafetyFlags{
 	"from_timestamp":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
-	"is_valid_timezone": starlark.MemSafe | starlark.CPUSafe,
+	"is_valid_timezone": starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"now":               starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"parse_duration":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
-	"parse_time":        starlark.MemSafe | starlark.CPUSafe,
-	"time":              starlark.MemSafe | starlark.CPUSafe,
+	"parse_time":        starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
+	"time":              starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 }
 
 func init() {
@@ -90,7 +90,7 @@ func init() {
 // so that it can be overridden, for example by applications that require their
 // Starlark scripts to be fully deterministic.
 var NowFunc = time.Now
-var NowFuncSafety = starlark.MemSafe | starlark.CPUSafe
+var NowFuncSafety = starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe
 
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	sdu := SafeDurationUnpacker{}
