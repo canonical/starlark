@@ -408,6 +408,14 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 }
 
 func (st *ST) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	// The cost to call this function is:
+	// - 1 for loading st;
+	// - 1 for loading "keep_alive";
+	// - 1 for calling this function.
+	const keepAliveCost = 3
+	if err := thread.AddExecutionSteps(-keepAliveCost); err != nil {
+		return nil, err
+	}
 	return st.Attr(name) // Assume test code is safe.
 }
 
@@ -471,6 +479,9 @@ func st_keep_alive(thread *starlark.Thread, b *starlark.Builtin, args starlark.T
 	if err := thread.AddAllocs(-argsSize); err != nil {
 		return nil, err
 	}
+	if err := thread.AddExecutionSteps(-2); err != nil { // Remove the cost of this call, including the result discard.
+		return nil, err
+	}
 	recv := b.Receiver().(*ST)
 	for _, arg := range args {
 		recv.KeepAlive(arg)
@@ -505,21 +516,31 @@ func (it *ntimes_iterable) String() string       { return "st.ntimes()" }
 func (it *ntimes_iterable) Truth() starlark.Bool { return true }
 func (it *ntimes_iterable) Type() string         { return "st.ntimes" }
 func (it *ntimes_iterable) Iterate() starlark.Iterator {
-	return &ntimes_iterator{it.n}
+	return &ntimes_iterator{n: it.n}
 }
 
 type ntimes_iterator struct {
-	n int
+	n      int
+	thread *starlark.Thread
+	err    error
 }
 
 var _ starlark.SafeIterator = &ntimes_iterator{}
 
 func (it *ntimes_iterator) Safety() starlark.SafetyFlags       { return stSafe }
-func (it *ntimes_iterator) BindThread(thread *starlark.Thread) {}
+func (it *ntimes_iterator) BindThread(thread *starlark.Thread) { it.thread = thread }
 func (it *ntimes_iterator) Done()                              {}
-func (it *ntimes_iterator) Err() error                         { return nil }
+func (it *ntimes_iterator) Err() error                         { return it.err }
 func (it *ntimes_iterator) Next(p *starlark.Value) bool {
 	if it.n > 0 {
+		// Next cost is composed by:
+		// - 4 for ITERJMP (as it's padded with nops);
+		// - 1 for the Next() call;
+		// - 1 for the SETGLOBAL to record the result.
+		if err := it.thread.AddExecutionSteps(-6); err != nil {
+			it.err = err
+			return false
+		}
 		it.n--
 		*p = starlark.None
 		return true
