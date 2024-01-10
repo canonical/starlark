@@ -641,14 +641,14 @@ func (f Float) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
 	switch op {
 	case syntax.MINUS:
 		if thread != nil {
-			if err := thread.AddExecutionSteps(floatSize); err != nil {
+			if err := thread.AddAllocs(floatSize); err != nil {
 				return nil, err
 			}
 		}
 		return -f, nil
 	case syntax.PLUS:
 		if thread != nil {
-			if err := thread.AddExecutionSteps(floatSize); err != nil {
+			if err := thread.AddAllocs(floatSize); err != nil {
 				return nil, err
 			}
 		}
