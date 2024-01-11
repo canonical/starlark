@@ -2,10 +2,10 @@
 
 Resource management is a crucial aspect in every modern industry, and the IT sector is no exception. The types of resources typically considered include:
 
+ - Time [^1]
  - Memory
  - CPU cycles
  - I/O (Network, Disk, etc.)
- - Time [^1]
 
 While it is often acceptable to allow their usage to grow without bounds, especially when resources are abundant, there are instances where more stringent control becomes necessary.
 
@@ -26,7 +26,7 @@ This parallel is akin to the relationship between *fibers*/*coroutines* and *thr
 
 Certainly, *fibers* (or *coroutines*) are not immune to malicious software, which can create fairness issues and prevent other routines from running. Nevertheless, their execution is fast, and crucially, their implementation does not rely on any platform-specific features, making them a valuable abstraction for any language [^5].
 
-The *cooperation* concept behind them can be extended to virtually any resource.
+The manual control *fibers* have over when to switch is crucial: it is not realistic to give control back at every instruction as it would be too expensive to achieve this granularity. In this case, the trade-off is up to the implementer/designer who, most likely, has a higher level view of the goals of the system. This trade-off between granularity and simplicity/speed is what makes this cooperation a *best-effort* one as it doesn't give too many guarantees (as opposed to a preemptive scheduler). Both the *cooperation* and the *best-effort* concepts behind *fibers* (or *coroutines*) can be extended to virtually any resource.
 
 ### Cancellation (Time)
 
@@ -34,7 +34,7 @@ Cooperation over a *cancellation*[^6] aspect has been explored by many languages
 
 In this case, each routine is responsible for managing the cancellation event or waiting for cancellation to occur.
 
-While nothing prevents a malicious (or poorly written) routine from ignoring the token altogether, there is no firm guarantee that an execution thread will actually stop once the token is canceled (the *cooperation* aspect) or meet any time deadline for the cancellation (the *best-effort* aspect). However, in practice, this works in most cases.
+While nothing prevents a malicious (or poorly written) routine from ignoring the token altogether and there is no firm guarantee that an execution thread will actually stop once the token is canceled (the *cooperation* aspect) or meet any time deadline for the cancellation (the *best-effort* aspect), in practice, this works well in most cases.
 
 ### Memory
 
