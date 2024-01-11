@@ -219,6 +219,7 @@ func TestAttrAccessAllocs(t *testing.T) {
 type unsafeTestIndexable struct{}
 
 var _ starlark.Indexable = &unsafeTestIndexable{}
+var _ starlark.HasSetIndex = &unsafeTestIndexable{}
 
 func (uti *unsafeTestIndexable) Freeze()              {}
 func (uti *unsafeTestIndexable) String() string       { return "unsafeTestIndexable" }
@@ -229,10 +230,14 @@ func (uti *unsafeTestIndexable) Hash() (uint32, error) {
 }
 func (uti *unsafeTestIndexable) Len() int                 { return 1 }
 func (uti *unsafeTestIndexable) Index(int) starlark.Value { panic("Index called") }
+func (*unsafeTestIndexable) SetIndex(index int, v starlark.Value) error {
+	return fmt.Errorf("SetIndex called")
+}
 
 type unsafeTestMapping struct{}
 
 var _ starlark.Mapping = &unsafeTestMapping{}
+var _ starlark.HasSetKey = &unsafeTestMapping{}
 
 func (utm *unsafeTestMapping) Freeze()              {}
 func (utm *unsafeTestMapping) String() string       { return "unsafeTestMapping" }
@@ -243,6 +248,9 @@ func (utm *unsafeTestMapping) Hash() (uint32, error) {
 }
 func (utm *unsafeTestMapping) Get(starlark.Value) (v starlark.Value, found bool, err error) {
 	return nil, false, fmt.Errorf("unsafeTestMapping.Get called")
+}
+func (*unsafeTestMapping) SetKey(k starlark.Value, v starlark.Value) error {
+	return fmt.Errorf("SetKey called")
 }
 
 func TestIndexing(t *testing.T) {
@@ -259,72 +267,107 @@ func TestIndexing(t *testing.T) {
 		}}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				dummy := &testing.T{}
-				st := startest.From(dummy)
-				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-				st.AddValue("input", test.input)
-				ok := st.RunString(`
-					input[0]
-				`)
-				if ok {
-					st.Error("expected error")
-				}
+				t.Run("get", func(t *testing.T) {
+					dummy := &testing.T{}
+					st := startest.From(dummy)
+					st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+					st.AddValue("input", test.input)
+					ok := st.RunString(`
+						input[0]
+					`)
+					if ok {
+						st.Error("expected error")
+					}
+				})
+
+				t.Run("set", func(t *testing.T) {
+					dummy := &testing.T{}
+					st := startest.From(dummy)
+					st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+					st.AddValue("input", test.input)
+					ok := st.RunString(`
+						input[0] = None
+					`)
+					if ok {
+						st.Error("expected error")
+					}
+				})
 			})
 		}
 	})
 
-	t.Run("builtin-indexable", func(t *testing.T) {
-		tests := []struct {
-			name  string
-			input starlark.Value
-		}{{
-			name:  "string",
-			input: starlark.String("test"),
-		}, {
-			name:  "bytes",
-			input: starlark.Bytes("test"),
-		}, {
-			name:  "stringElems-chars",
-			input: starlark.StringElems("test", false),
-		}, {
-			name:  "stringElems-ords",
-			input: starlark.StringElems("test", true),
-		}, {
-			name:  "list",
-			input: starlark.NewList([]starlark.Value{starlark.None}),
-		}, {
-			name:  "tuple",
-			input: starlark.Tuple{starlark.None},
-		}, {
-			name:  "range",
-			input: starlark.Range(0, 10, 1),
-		}}
-		for _, test := range tests {
-			t.Run(test.name, func(t *testing.T) {
-				st := startest.From(t)
-				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-				st.SetMinExecutionSteps(1)
-				st.AddValue("input", test.input)
-				st.RunString(`
-					for _ in st.ntimes():
-						st.keep_alive(input[0])
-				`)
-			})
-		}
-	})
+	t.Run("builtin", func(t *testing.T) {
+		t.Run("get", func(t *testing.T) {
+			tests := []struct {
+				name  string
+				input starlark.Value
+			}{{
+				name:  "bytes",
+				input: starlark.Bytes("test"),
+			}, {
+				name: "dict",
+				input: func() starlark.Value {
+					dict := starlark.NewDict(1)
+					dict.SetKey(starlark.MakeInt(0), starlark.None)
+					return dict
+				}(),
+			}, {
+				name:  "list",
+				input: starlark.NewList([]starlark.Value{starlark.None}),
+			}, {
+				name:  "range",
+				input: starlark.Range(0, 10, 1),
+			}, {
+				name:  "string",
+				input: starlark.String("test"),
+			}, {
+				name:  "stringElems-chars",
+				input: starlark.StringElems("test", false),
+			}, {
+				name:  "stringElems-ords",
+				input: starlark.StringElems("test", true),
+			}, {
+				name:  "tuple",
+				input: starlark.Tuple{starlark.None},
+			}}
+			for _, test := range tests {
+				t.Run(test.name, func(t *testing.T) {
+					st := startest.From(t)
+					st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+					st.SetMinExecutionSteps(1)
+					st.AddValue("input", test.input)
+					st.RunString(`
+						for _ in st.ntimes():
+							st.keep_alive(input[0])
+					`)
+				})
+			}
+		})
 
-	t.Run("builtin-mapping", func(t *testing.T) {
-		input := starlark.NewDict(1)
-		input.SetKey(starlark.String("key"), starlark.String("value"))
-
-		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.AddValue("input", input)
-		st.RunString(`
-			for _ in st.ntimes():
-				st.keep_alive(input["key"])
-		`)
+		t.Run("set", func(t *testing.T) {
+			tests := []struct {
+				name  string
+				input starlark.Value
+			}{{
+				name:  "dict",
+				input: starlark.NewDict(1),
+			}, {
+				name:  "list",
+				input: starlark.NewList([]starlark.Value{starlark.None}),
+			}}
+			for _, test := range tests {
+				t.Run(test.name, func(t *testing.T) {
+					st := startest.From(t)
+					st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+					st.SetMinExecutionSteps(1)
+					st.AddValue("input", test.input)
+					st.RunString(`
+						for _ in st.ntimes():
+							input[0] = None
+					`)
+				})
+			}
+		})
 	})
 }
 

@@ -1356,7 +1356,8 @@ func (l *List) SetIndex(i int, v Value) error {
 }
 
 func (l *List) SafeSetIndex(thread *Thread, i int, v Value) error {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	const safety = MemSafe | IOSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
 	return l.SetIndex(i, v)
