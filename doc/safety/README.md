@@ -36,6 +36,26 @@ In this case, each routine is responsible for managing the cancellation event or
 
 While nothing prevents a malicious (or poorly written) routine from ignoring the token altogether, there is no firm guarantee that an execution thread will actually stop once the token is canceled (the *cooperation* aspect) or meet any time deadline for the cancellation (the *best-effort* aspect). However, in practice, this works in most cases.
 
+### Memory
+
+Memory management consists of two primitive operations: allocating and releasing. The primary objective of memory management is to ensure that $M_{used} \leq M_{limit}$.
+
+This implies that it is possible to cooperatively limit the amount of memory used by an execution thread[^7] by monitoring the memory amount before performing an allocation and comparing the total to a limit. If there is insufficient memory available, the routine should abstain from the allocation. This can be referred to as the *cooperation* aspect for memory.
+
+This simple concept can be enhanced by considering memory release as well. Memory is one of the few resources that can both *grow* and *shrink*.
+
+While in (semi-)manually managed memory languages like C, C++, and Rust, it is clear when and how to remove the allocation from the amount used, as both the lifetime and the size of objects are explicit, it still poses questions around *ownership*. Specifically:
+
+ - How to constrain memory for objects shared among two or more separate constrained execution contexts.
+ - How to account for memory of objects that should outlive a constrained region of code.
+ - How to account for memory allocated outside but used inside a constrained region.
+
+On the other hand, automatic memory management (like Garbage Collection) makes it almost impossible to reliably account for memory release. Moreover, higher-level languages sometimes make it difficult to precisely measure the size of an object tree.
+
+In all these cases, a conservative approach can be followed by *estimating the amount of memory used* such that: $M_{estimated} \geq M_{used}$. Consequently, if $M_{estimated} \leq M_{limit}$, then $M_{used} \leq M_{limit}$ holds. This can be referred to as the *best-effort* aspect for memory.
+
+This simplification can be beneficial when it is challenging to know the size of an object and when understanding the lifetime of an object is difficult (or impossible). In the former case, it is usually possible to *overestimate*. In the latter case, it is sufficient to never release memory[^8].
+
 [^1]: While time is typically a derivative resource (i.e. a function of memory, I/O and CPU cycles), it primarily influences the user's perception, making it important in its own right.
 
 [^2]: Although it is possible to react before termination (e.g. cgroups) or isolate the execution of each part of the application in a different process for finer granularity, this approach is more resource-intensive and necessitates inter-process communication (IPC) and/or per-platform solutions.
@@ -47,3 +67,7 @@ While nothing prevents a malicious (or poorly written) routine from ignoring the
 [^5]: While it is true that fibers or coroutines *in general* do not depend on the platform, some implementations still rely on details to ease the job of the compiler or overcome certain compiler limitations (like the lack of coroutines).
 
 [^6]: Since a cancellation token (or abort signal) can be given a timeout, cooperative (or best-effort) cancellation manages *time* as well as some other sources of cancellation.
+
+[^7]: In this case, the term *execution thread* refers to the logical execution of a group of routines, not the OS thread facility.
+
+[^8]: While never counting memory releases may seem problematic, in practice, it is significant primarily for long-running routines. Usually, Arenas follow the same approach, never releasing memory during their lifetime but doing so in a single operation when the Arena itself is discarded.
