@@ -1303,7 +1303,7 @@ type safeBinaryTest struct {
 	name              string
 	inputs            func(n int) (starlark.Value, syntax.Token, starlark.Value)
 	assertNoAllocs    bool
-	cpuSafe           bool // TODO(kcza): remove this once all binary tests are CPUSafe
+	cpuSafe           bool // TODO(kcza): remove this once all binary tests are CPUSafe.
 	minExecutionSteps uint64
 	maxExecutionSteps uint64
 }
