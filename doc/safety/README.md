@@ -44,7 +44,7 @@ This implies that it is possible to cooperatively limit the amount of memory use
 
 This simple concept can be enhanced by considering memory release as well. Memory is one of the few resources that can both *grow* and *shrink*.
 
-While in (semi-)manually managed memory languages like C, C++, and Rust, it is clear when and how to remove the allocation from the amount used, as both the lifetime and the size of objects are explicit, it still poses questions around *ownership*. Specifically:
+While in (semi-)manually managed memory languages like C, C++, and Rust, it is clear when and how to remove the allocation from the amount used, as both the lifetime and the size of objects are explicit[^8], it still poses questions around *ownership*. Specifically:
 
  - How to constrain memory for objects shared among two or more separate constrained execution contexts.
  - How to account for memory of objects that should outlive a constrained region of code.
@@ -70,4 +70,6 @@ This simplification can be beneficial when it is challenging to know the size of
 
 [^7]: In this case, the term *execution thread* refers to the logical execution of a group of routines, not the OS thread facility.
 
-[^8]: While never counting memory releases may seem problematic, in practice, it is significant primarily for long-running routines. Usually, Arenas follow the same approach, never releasing memory during their lifetime but doing so in a single operation when the Arena itself is discarded.
+[^8]: the determinism of the release of memory can be lost if ref-counted resources are used and is shared among more than one concurrent execution thread. This makes it difficult even for those language to properly limit memory without occuring in non-deterministic behaviors.
+
+[^9]: While never counting memory releases may seem problematic, in practice, it is significant primarily for long-running routines. Usually, Arenas follow the same approach, never releasing memory during their lifetime but doing so in a single operation when the Arena itself is discarded.
