@@ -56,6 +56,40 @@ In all these cases, a conservative approach can be followed by *estimating the a
 
 This simplification can be beneficial when it is challenging to know the size of an object and when understanding the lifetime of an object is difficult (or impossible). In the former case, it is usually possible to *overestimate*. In the latter case, it is sufficient to never release memory[^9].
 
+### CPU Cycles
+
+CPU cycles are a contentious resource. In theory, it is possible to measure the amount of cycles precisely using hardware/OS features. Moreover, once computational power is utilized, it cannot be reclaimed, making the usage of this resource inherently monotonic.
+
+Despite this, several factors complicate the measurement and limitation of CPU cycles:
+
+- In a concurrent environment, the total count of executed instructions is not deterministic[^10].
+- The cost of an instruction is generally not a fixed measure on modern processors[^11].
+- The cost of an instruction depends on *the processor*, not the instruction set.
+- The execution cost may change depending on the cache state of the processor.
+- Unpredictable interactions between user-level and kernel components make measurements challenging.
+- The same routine may switch implementation depending on the available instruction set or input.
+- And more.
+
+Furthermore, many measurements are OS-/platform-specific and challenging to map in a high-level language.
+
+There is also some overlap between [Cancellation](#Cancellation-Time) and CPU cycles. However, it is useful to distinguish between the two cases.
+For example:
+
+- In the case of high system load, *wall clock time* continues to progress even if the routine doesn't get any chance to execute.
+- In the case of a blocking I/O call, the same applies.
+
+In all these cases, CPU cycles will not be noticeably affected.
+
+Delving into the reasons for limiting CPU cycles, the rationale can be summarized: it's acceptable for a code region to take more *wall clock time* (e.g., during I/O), but it's unacceptable for this region to consume all computational resources during that time[^12]. This line of thinking not only renders this limit useful but also suggests a way to simplify its management. Having a rough measure of the execution cost of each routine (referred to as *steps* from now on) ensures that the function doesn't monopolize all computational resources. This cost doesn't need to be consistent among different routines or with real CPU cycles; it is sufficient for it to be somehow proportional to the number of operations performed. Moreover, the same reasoning about overestimating carried out in [Memory](#Memory) can be applied here. This concept is the *best-effort* aspect for CPU cycles.
+
+Similar to memory, the *cooperation* aspect here involves each routine counting its own steps and verifying that there are enough left to continue the computation.
+
+### I/O
+
+While it would be certainly possible for I/O to be constraned in a similar way of Memory an CPU, the diverse nature of I/O doesn't really makes up for a shared framework and needs to be discussed per-resource type. For example, disk could be constrained from the POV of size (like memory), but it should also be constrained from the point of view of folders. Network usage on the other hand could be constrained in total size or in bits per second (throughput), depending on what the main target is. 
+
+It is likely that the dualism *best-effort*/*cooperative* can be applied with success there as well.
+
 [^1]: While time is typically a derivative resource (i.e. a function of memory, I/O and CPU cycles), it primarily influences the user's perception, making it important in its own right.
 
 [^2]: Although it is possible to react before termination (e.g. cgroups) or isolate the execution of each part of the application in a different process for finer granularity, this approach is more resource-intensive and necessitates inter-process communication (IPC) and/or per-platform solutions.
@@ -73,3 +107,9 @@ This simplification can be beneficial when it is challenging to know the size of
 [^8]: the determinism of the release of memory can be lost if ref-counted resources are used and is shared among more than one concurrent execution thread. This makes it difficult even for those language to properly limit memory without occuring in non-deterministic behaviors.
 
 [^9]: While never counting memory releases may seem problematic, in practice, it is significant primarily for long-running routines. Usually, Arenas follow the same approach, never releasing memory during their lifetime but doing so in a single operation when the Arena itself is discarded.
+
+[^10]: Contention and patterns like [spinlocks](https://en.wikipedia.org/wiki/Spinlock) and [optimistic concurrency control](https://en.wikipedia.org/wiki/Optimistic_concurrency_control) are clear examples of why this happens.
+
+[^11]: See [Speculative execution](https://en.wikipedia.org/wiki/Speculative_execution) and [Instruction pipelining](https://en.wikipedia.org/wiki/Instruction_pipelining) for quick examples.
+
+[^12]: Imagine allowing 1 minute of execution, so that a network/IO request can be properly executed. An unconstrained logic might use 1 minute of CPU time, without performing any IO. This might easily consume too much computational power.
