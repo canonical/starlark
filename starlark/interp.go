@@ -767,8 +767,7 @@ loop:
 func instuctionSteps(op compile.Opcode, arg uint32) int64 {
 	switch op {
 	case compile.NOP, compile.DUP, compile.DUP2, compile.POP, compile.EXCH:
-		// Ignore stack management ops as they are always
-		// part of a composed expression
+		// Ignore stack management ops as these are setup for other instructions
 		return 0
 	default:
 		return 1
