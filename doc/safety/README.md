@@ -86,9 +86,9 @@ Similar to memory, the *cooperation* aspect here involves each routine counting 
 
 ### I/O
 
-While it would be certainly possible for I/O to be constraned in a similar way of Memory an CPU, the diverse nature of I/O doesn't really makes up for a shared framework and needs to be discussed per-resource type. For example, disk could be constrained from the POV of size (like memory), but it should also be constrained from the point of view of folders. Network usage on the other hand could be constrained in total size or in bits per second (throughput), depending on what the main target is. 
+While constraining I/O in a manner similar to Memory and CPU is certainly possible, the diverse nature of I/O doesn't lend itself to a shared framework and needs to be discussed on a per-resource type basis. For instance, disk usage could be constrained from the perspective of size (similar to memory), but it should also be constrained from the point of view of folders. In contrast, network usage could be constrained in total size or in bits per second (throughput), depending on the primary target.
 
-It is likely that the dualism *best-effort*/*cooperative* can be applied with success there as well.
+It is likely that the dualism of *best-effort*/*cooperative* can be successfully applied in I/O management as well.
 
 [^1]: While time is typically a derivative resource (i.e. a function of memory, I/O and CPU cycles), it primarily influences the user's perception, making it important in its own right.
 
