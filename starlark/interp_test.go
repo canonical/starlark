@@ -63,7 +63,7 @@ func TestUnary(t *testing.T) {
 			name  string
 			input starlark.Value
 		}{{
-			name:  "Int",
+			name:  "Int (small)",
 			input: starlark.MakeInt(10),
 		}, {
 			name:  "Int (big)",
