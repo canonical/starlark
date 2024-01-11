@@ -109,10 +109,6 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (_ 
 	code := f.Code
 loop:
 	for {
-		if err = thread.AddExecutionSteps(1); err != nil {
-			break loop
-		}
-
 		if reason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); reason != nil {
 			err = fmt.Errorf("Starlark computation cancelled: %w", *(*error)(reason))
 			break loop
@@ -140,6 +136,11 @@ loop:
 			compile.PrintOp(f, fr.pc, op, arg)
 		}
 
+		if cost := instuctionSteps(op, arg); cost > 0 {
+			if err = thread.AddExecutionSteps(cost); err != nil {
+				break loop
+			}
+		}
 		switch op {
 		case compile.NOP:
 			// nop
@@ -761,6 +762,16 @@ loop:
 	}
 	// (deferred cleanup runs here)
 	return result, err
+}
+
+func instuctionSteps(op compile.Opcode, arg uint32) int64 {
+	switch op {
+	case compile.NOP, compile.DUP, compile.DUP2, compile.POP, compile.EXCH:
+		// Ignore stack management ops as these are setup for other instructions.
+		return 0
+	default:
+		return 1
+	}
 }
 
 type wrappedError struct {
