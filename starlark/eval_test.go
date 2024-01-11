@@ -1299,6 +1299,34 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 	}
 }
 
+func TestSafeBinarySteps(t *testing.T) {
+	t.Run("+", func(t *testing.T) {})
+
+	t.Run("-", func(t *testing.T) {})
+
+	t.Run("*", func(t *testing.T) {})
+
+	t.Run("/", func(t *testing.T) {})
+
+	t.Run("//", func(t *testing.T) {})
+
+	t.Run("%", func(t *testing.T) {})
+
+	t.Run("in", func(t *testing.T) {})
+
+	t.Run("not in", func(t *testing.T) {})
+
+	t.Run("|", func(t *testing.T) {})
+
+	t.Run("&", func(t *testing.T) {})
+
+	t.Run("^", func(t *testing.T) {})
+
+	t.Run("<<", func(t *testing.T) {})
+
+	t.Run(">>", func(t *testing.T) {})
+}
+
 type safeBinaryAllocTest struct {
 	name           string
 	inputs         func(n int) (starlark.Value, syntax.Token, starlark.Value)
