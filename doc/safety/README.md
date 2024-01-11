@@ -54,7 +54,7 @@ On the other hand, automatic memory management (like Garbage Collection) makes i
 
 In all these cases, a conservative approach can be followed by *estimating the amount of memory used* such that: $M_{estimated} \geq M_{used}$. Consequently, if $M_{estimated} \leq M_{limit}$, then $M_{used} \leq M_{limit}$ holds. This can be referred to as the *best-effort* aspect for memory.
 
-This simplification can be beneficial when it is challenging to know the size of an object and when understanding the lifetime of an object is difficult (or impossible). In the former case, it is usually possible to *overestimate*. In the latter case, it is sufficient to never release memory[^8].
+This simplification can be beneficial when it is challenging to know the size of an object and when understanding the lifetime of an object is difficult (or impossible). In the former case, it is usually possible to *overestimate*. In the latter case, it is sufficient to never release memory[^9].
 
 [^1]: While time is typically a derivative resource (i.e. a function of memory, I/O and CPU cycles), it primarily influences the user's perception, making it important in its own right.
 
