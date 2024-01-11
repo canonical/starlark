@@ -541,7 +541,7 @@ func (it *ntimes_iterator) Err() error                         { return it.err }
 func (it *ntimes_iterator) Next(p *starlark.Value) bool {
 	if it.n > 0 {
 		if it.thread != nil {
-			// Loop iteration steps counted comprise:
+			// Counted loop iteration steps comprise:
 			// - 1 for the ITERJMP;
 			// - 1 for guardedIterator's Next;
 			// - 1 for the SET{LOCAL,GLOBAL} to record the result;

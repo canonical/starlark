@@ -15,16 +15,6 @@ import (
 
 const vmdebug = false // TODO(adonovan): use a bitfield of specific kinds of error.
 
-func opCost(op compile.Opcode, arg uint32) int64 {
-	// Count steps only for instructions doing actual work.
-	switch op {
-	case compile.NOP, compile.DUP, compile.DUP2, compile.POP, compile.EXCH:
-		return 0
-	default:
-		return 1
-	}
-}
-
 // TODO(adonovan):
 // - optimize position table.
 // - opt: record MaxIterStack during compilation and preallocate the stack.
@@ -141,18 +131,16 @@ loop:
 				}
 			}
 		}
-
 		if vmdebug {
 			fmt.Fprintln(os.Stderr, stack[:sp]) // very verbose!
 			compile.PrintOp(f, fr.pc, op, arg)
 		}
 
-		if cost := opCost(op, arg); cost > 0 {
+		if cost := instuctionSteps(op, arg); cost > 0 {
 			if err = thread.AddExecutionSteps(cost); err != nil {
 				break loop
 			}
 		}
-
 		switch op {
 		case compile.NOP:
 			// nop
@@ -774,6 +762,16 @@ loop:
 	}
 	// (deferred cleanup runs here)
 	return result, err
+}
+
+func instuctionSteps(op compile.Opcode, arg uint32) int64 {
+	// Count steps only for instructions doing actual work.
+	switch op {
+	case compile.NOP, compile.DUP, compile.DUP2, compile.POP, compile.EXCH:
+		return 0
+	default:
+		return 1
+	}
 }
 
 type wrappedError struct {
