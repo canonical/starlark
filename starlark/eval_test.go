@@ -1299,19 +1299,22 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 	}
 }
 
-type safeBinaryAllocTest struct {
-	name           string
-	inputs         func(n int) (starlark.Value, syntax.Token, starlark.Value)
-	assertNoAllocs bool
+type safeBinaryTest struct {
+	name              string
+	inputs            func(n int) (starlark.Value, syntax.Token, starlark.Value)
+	assertNoAllocs    bool
+	cpuSafe           bool // TODO(kcza): remove this once all binary tests are CPUSafe.
+	minExecutionSteps uint64
+	maxExecutionSteps uint64
 }
 
-func (b safeBinaryAllocTest) Run(t *testing.T) {
-	t.Run(b.name, func(t *testing.T) {
-		if b.inputs == nil {
-			t.Fatalf("binary test '%v' missing inputs field", b.name)
+func (sbt safeBinaryTest) Run(t *testing.T) {
+	t.Run(sbt.name, func(t *testing.T) {
+		if sbt.inputs == nil {
+			t.Fatalf("binary test '%v' missing inputs field", sbt.name)
 		}
-		if b.name == "" {
-			x, op, y := b.inputs(1)
+		if sbt.name == "" {
+			x, op, y := sbt.inputs(1)
 			t.Fatalf("binary test of %v %v %v has empty name field", x.Type(), op, y.Type())
 		}
 
@@ -1345,7 +1348,7 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 					t.Errorf("unexpected panic: %v", err)
 				}
 			}()
-			x, op, y := b.inputs(1)
+			x, op, y := sbt.inputs(1)
 			_, err := starlark.SafeBinary(nil, op, x, y)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
@@ -1354,12 +1357,17 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 
 		t.Run("small", func(t *testing.T) {
 			st := startest.From(t)
-			if b.assertNoAllocs {
+			st.RequireSafety(starlark.MemSafe)
+			if sbt.cpuSafe {
+				st.RequireSafety(starlark.CPUSafe)
+				st.SetMinExecutionSteps(sbt.minExecutionSteps)
+				st.SetMaxExecutionSteps(sbt.maxExecutionSteps)
+			}
+			if sbt.assertNoAllocs {
 				st.SetMaxAllocs(0)
 			}
-			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
-				x, op, y := b.inputs(1)
+				x, op, y := sbt.inputs(1)
 				for i := 0; i < st.N; i++ {
 					result, err := starlark.SafeBinary(thread, op, x, y)
 					if err != nil {
@@ -1372,12 +1380,17 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 
 		t.Run("large", func(t *testing.T) {
 			st := startest.From(t)
-			if b.assertNoAllocs {
+			st.RequireSafety(starlark.MemSafe)
+			if sbt.cpuSafe {
+				st.RequireSafety(starlark.CPUSafe)
+				st.SetMinExecutionSteps(sbt.minExecutionSteps)
+				st.SetMaxExecutionSteps(sbt.maxExecutionSteps)
+			}
+			if sbt.assertNoAllocs {
 				st.SetMaxAllocs(0)
 			}
-			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
-				x, op, y := b.inputs(st.N)
+				x, op, y := sbt.inputs(st.N)
 				result, err := starlark.SafeBinary(thread, op, x, y)
 				if err != nil {
 					st.Error(err)
@@ -1400,7 +1413,7 @@ func (uv unsafeTestValue) String() string       { return "unsafeTestValue" }
 func (uv unsafeTestValue) Truth() starlark.Bool { return starlark.False }
 func (uv unsafeTestValue) Type() string         { return "unsafeTestValue" }
 
-func TestSafeBinaryAllocs(t *testing.T) {
+func TestSafeBinary(t *testing.T) {
 	t.Run("+", func(t *testing.T) {
 		t.Run("in-starlark", func(t *testing.T) {
 			st := startest.From(t)
@@ -1412,7 +1425,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 			`)
 		})
 
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "string + string",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				str := starlark.String(strings.Repeat("x", n/2))
@@ -1480,7 +1493,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	})
 
 	t.Run("-", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int - int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				shift := n - 1
@@ -1594,7 +1607,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	})
 
 	t.Run("*", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int * int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				num := starlark.MakeInt(int(math.Sqrt(float64(n))))
@@ -1707,7 +1720,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	})
 
 	t.Run("/", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int / int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.MakeInt(n * n)
@@ -1742,7 +1755,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	})
 
 	t.Run("//", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int // int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.MakeInt(1).Lsh(uint(n * 2))
@@ -1787,7 +1800,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 			}
 		})
 
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int % int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				r := starlark.MakeInt(1).Lsh(uint(n) + 1)
@@ -1881,7 +1894,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	t.Run("not in", func(t *testing.T) {})
 
 	t.Run("|", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int | int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.MakeInt(n / 2)
@@ -1927,7 +1940,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	})
 
 	t.Run("&", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int & int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.MakeInt(1).Lsh(uint(n))
@@ -1958,7 +1971,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	t.Run("^", func(t *testing.T) {})
 
 	t.Run("<<", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int << int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.MakeInt(1).Lsh(uint(n))
@@ -1972,7 +1985,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	})
 
 	t.Run(">>", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int >> int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.MakeInt(1).Lsh(uint(n))
