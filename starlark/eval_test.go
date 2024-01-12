@@ -1416,9 +1416,16 @@ func (uv unsafeTestValue) Type() string         { return "unsafeTestValue" }
 func TestSafeBinary(t *testing.T) {
 	t.Run("+", func(t *testing.T) {
 		t.Run("in-starlark", func(t *testing.T) {
+			const elems = 20
+			tuple := make(starlark.Tuple, elems)
+			for i := range tuple {
+				tuple[i] = starlark.None
+			}
+
 			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
-			st.AddValue("t", starlark.Tuple{starlark.True})
+			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+			st.SetMinExecutionSteps(elems * 2)
+			st.AddValue("t", tuple)
 			st.RunString(`
 				for _ in st.ntimes():
 					st.keep_alive(t + t)
@@ -1428,19 +1435,21 @@ func TestSafeBinary(t *testing.T) {
 		tests := []safeBinaryTest{{
 			name: "string + string",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				str := starlark.String(strings.Repeat("x", n/2))
+				str := starlark.String(strings.Repeat("x", n))
 				return str, syntax.PLUS, str
 			},
+			cpuSafe:           true,
+			minExecutionSteps: 2,
+			maxExecutionSteps: 2,
 		}, {
 			name: "int + int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				shift := n - 1
-				if shift < 0 {
-					shift = 0
-				}
-				num := starlark.MakeInt(1).Lsh(uint(shift))
+				num := starlark.MakeInt(1).Lsh(uint(n * 32))
 				return num, syntax.PLUS, num
 			},
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 1,
 		}, {
 			name: "int + float",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
@@ -1448,6 +1457,7 @@ func TestSafeBinary(t *testing.T) {
 				r := starlark.Float(n)
 				return l, syntax.PLUS, r
 			},
+			cpuSafe: true,
 		}, {
 			name: "float + int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
@@ -1455,41 +1465,43 @@ func TestSafeBinary(t *testing.T) {
 				r := starlark.MakeInt(1).Lsh(308)
 				return l, syntax.PLUS, r
 			},
+			cpuSafe: true,
 		}, {
 			name: "float + float",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				num := starlark.Float(n)
 				return num, syntax.PLUS, num
 			},
+			cpuSafe: true,
 		}, {
 			name: "list + list",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				lElems := make([]starlark.Value, n/2)
-				rElems := make([]starlark.Value, n/2)
+				elems := make([]starlark.Value, n)
 				for i := 0; i < n/2; i++ {
-					lElems[i] = starlark.String("a")
-					rElems[i] = starlark.String("b")
+					elems[i] = starlark.String("a")
 				}
-				l := starlark.NewList(lElems)
-				r := starlark.NewList(rElems)
-				return l, syntax.PLUS, r
+				l := starlark.NewList(elems)
+				return l, syntax.PLUS, l
 			},
+			cpuSafe:           true,
+			minExecutionSteps: 2,
+			maxExecutionSteps: 2,
 		}, {
 			name: "tuple + tuple",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				l := make(starlark.Tuple, n/2)
-				r := make(starlark.Tuple, n/2)
+				t := make(starlark.Tuple, n)
 				for i := 0; i < n/2; i++ {
-					l[i] = starlark.String("a")
-					r[i] = starlark.String("b")
+					t[i] = starlark.String("a")
 				}
-				return l, syntax.PLUS, r
+				return t, syntax.PLUS, t
 			},
+			cpuSafe:           true,
+			minExecutionSteps: 2,
+			maxExecutionSteps: 2,
 		}}
 		for _, test := range tests {
 			test.Run(t)
 		}
-
 	})
 
 	t.Run("-", func(t *testing.T) {

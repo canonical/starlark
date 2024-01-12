@@ -1165,8 +1165,16 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 var floatSize = EstimateSize(Float(0))
 
 func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	const safety = MemSafe | IOSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
+	}
+
+	intLen := func(i Int) int64 {
+		if _, iBig := i.get(); iBig != nil {
+			return int64(len(iBig.Bits()))
+		}
+		return 0
 	}
 
 	max := func(a, b int64) int64 {
@@ -1181,7 +1189,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case String:
 			if y, ok := y.(String); ok {
 				if thread != nil {
-					resultSize := EstimateMakeSize([]byte{}, len(x)+len(y)) + StringTypeOverhead
+					resultLen := len(x) + len(y)
+					if err := thread.AddExecutionSteps(int64(resultLen)); err != nil {
+						return nil, err
+					}
+					resultSize := EstimateMakeSize([]byte{}, resultLen) + StringTypeOverhead
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
@@ -1192,6 +1204,9 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			switch y := y.(type) {
 			case Int:
 				if thread != nil {
+					if err := thread.AddExecutionSteps(max(intLen(x), intLen(y))); err != nil {
+						return nil, err
+					}
 					if err := thread.CheckAllocs(max(EstimateSize(x), EstimateSize(y))); err != nil {
 						return nil, err
 					}
@@ -1237,26 +1252,34 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *List:
 			if y, ok := y.(*List); ok {
+				resultLen := x.Len() + y.Len()
 				if thread != nil {
+					if err := thread.AddExecutionSteps(int64(resultLen)); err != nil {
+						return nil, err
+					}
 					resultSize := EstimateMakeSize([]Value{}, x.Len()+y.Len()) + EstimateSize(&List{})
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
 				}
-				z := make([]Value, 0, x.Len()+y.Len())
+				z := make([]Value, 0, resultLen)
 				z = append(z, x.elems...)
 				z = append(z, y.elems...)
 				return NewList(z), nil
 			}
 		case Tuple:
 			if y, ok := y.(Tuple); ok {
+				resultLen := len(x) + len(y)
 				if thread != nil {
+					if err := thread.AddExecutionSteps(int64(resultLen)); err != nil {
+						return nil, err
+					}
 					zSize := EstimateMakeSize(Tuple{}, len(x)+len(y)) + SliceTypeOverhead
 					if err := thread.AddAllocs(zSize); err != nil {
 						return nil, err
 					}
 				}
-				z := make(Tuple, 0, len(x)+len(y))
+				z := make(Tuple, 0, resultLen)
 				z = append(z, x...)
 				z = append(z, y...)
 				return z, nil
