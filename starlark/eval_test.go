@@ -1480,8 +1480,8 @@ func TestSafeBinary(t *testing.T) {
 				for i := 0; i < n/2; i++ {
 					elems[i] = starlark.String("a")
 				}
-				l := starlark.NewList(elems)
-				return l, syntax.PLUS, l
+				list := starlark.NewList(elems)
+				return list, syntax.PLUS, list
 			},
 			cpuSafe:           true,
 			minExecutionSteps: 2,
