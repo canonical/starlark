@@ -1955,15 +1955,12 @@ func TestSafeBinaryAllocs(t *testing.T) {
 				r := starlark.NewSet(n)
 				for i := 0; i < n/2; i++ {
 					// Disjoint parts
-					lToRetain := starlark.MakeInt(2 * i)
-					rToRetain := starlark.MakeInt(2*i + 1)
-					l.Insert(lToRetain)
-					r.Insert(rToRetain)
+					l.Insert(starlark.MakeInt(2 * i))
+					r.Insert(starlark.MakeInt(2*i + 1))
 
 					// Intersection
-					toBeDiscarded := starlark.MakeInt(-i)
-					l.Insert(toBeDiscarded)
-					r.Insert(toBeDiscarded)
+					l.Insert(starlark.MakeInt(-i))
+					r.Insert(starlark.MakeInt(-i))
 				}
 				return l, syntax.CIRCUMFLEX, r
 			},
