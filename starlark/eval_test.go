@@ -1496,14 +1496,13 @@ func TestSafeBinary(t *testing.T) {
 		tests := []safeBinaryTest{{
 			name: "int - int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				shift := n - 1
-				if shift < 0 {
-					shift = 0
-				}
-				l := starlark.MakeInt(1).Lsh(uint(shift))
-				r := starlark.MakeInt(-1).Lsh(uint(shift))
+				l := starlark.MakeInt(1).Lsh(uint(n*32 - 1))
+				r := starlark.MakeInt(-1).Lsh(uint(n*32 - 1))
 				return l, syntax.MINUS, r
 			},
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 1,
 		}, {
 			name: "int - float",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
@@ -1511,6 +1510,7 @@ func TestSafeBinary(t *testing.T) {
 				r := starlark.Float(-n)
 				return l, syntax.MINUS, r
 			},
+			cpuSafe: true,
 		}, {
 			name: "float - int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
@@ -1518,6 +1518,7 @@ func TestSafeBinary(t *testing.T) {
 				r := starlark.MakeInt(-1).Lsh(308)
 				return l, syntax.MINUS, r
 			},
+			cpuSafe: true,
 		}, {
 			name: "float - float",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
@@ -1525,29 +1526,33 @@ func TestSafeBinary(t *testing.T) {
 				r := starlark.Float(-n)
 				return l, syntax.MINUS, r
 			},
+			cpuSafe: true,
 		}}
 		for _, test := range tests {
 			test.Run(t)
 		}
 
 		t.Run("set - set", func(t *testing.T) {
-			inputs := func(thread *starlark.Thread, n int) (starlark.Value, syntax.Token, starlark.Value, error) {
-				l := starlark.NewSet(2 * n)
+			inputs := func(thread *starlark.Thread, n int) (starlark.Value, starlark.Value, error) {
+				l := starlark.NewSet(n)
 				r := starlark.NewSet(n)
 				for i := 0; i < n; i++ {
-					toRetain := starlark.MakeInt(2 * i)
-					if thread != nil {
-						if err := thread.AddAllocs(starlark.EstimateSize(toRetain)); err != nil {
-							return nil, 0, nil, err
+					elem := starlark.MakeInt(i)
+					keep := (i % 2) == 0
+					if keep {
+						if thread != nil {
+							if err := thread.AddAllocs(starlark.EstimateSize(elem)); err != nil {
+								return nil, nil, err
+							}
 						}
+						l.Insert(elem)
+						r.Insert(elem)
+					} else {
+						l.Insert(elem)
+						r.Insert(starlark.MakeInt(-i))
 					}
-					l.Insert(toRetain)
-
-					toBeDiscarded := starlark.MakeInt(2*i + 1)
-					l.Insert(toBeDiscarded)
-					r.Insert(toBeDiscarded)
 				}
-				return l, syntax.MINUS, r, nil
+				return l, r, nil
 			}
 
 			t.Run("nil-thread", func(t *testing.T) {
@@ -1556,29 +1561,36 @@ func TestSafeBinary(t *testing.T) {
 						t.Errorf("unexpected panic: %v", err)
 					}
 				}()
-				x, op, y, err := inputs(nil, 1)
+				x, y, err := inputs(nil, 1)
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
 					return
 				}
 
-				_, err = starlark.SafeBinary(nil, op, x, y)
+				_, err = starlark.SafeBinary(nil, syntax.MINUS, x, y)
 				if err != nil {
 					t.Errorf("unexpectd error: %v", err)
 				}
 			})
 
+			// The step cost per N is:
+			// - For cloning the set, on average 1
+			// - For iteration, 1
+			// - For removal, on average 1
 			t.Run("small", func(t *testing.T) {
 				st := startest.From(t)
-				st.RequireSafety(starlark.MemSafe)
+				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+				// TODO(marco6): remove the +1 as it's related to the guardedIterator overcount.
+				st.SetMinExecutionSteps(3 + 1)
+				st.SetMaxExecutionSteps(3 + 1)
 				st.RunThread(func(thread *starlark.Thread) {
-					x, op, y, err := inputs(thread, 1)
+					x, y, err := inputs(thread, 1)
 					if err != nil {
 						st.Fatal(err)
 					}
 
 					for i := 0; i < st.N; i++ {
-						result, err := starlark.SafeBinary(thread, op, x, y)
+						result, err := starlark.SafeBinary(thread, syntax.MINUS, x, y)
 						if err != nil {
 							st.Error(err)
 						}
@@ -1589,14 +1601,16 @@ func TestSafeBinary(t *testing.T) {
 
 			t.Run("large", func(t *testing.T) {
 				st := startest.From(t)
-				st.RequireSafety(starlark.MemSafe)
+				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+				st.SetMinExecutionSteps(3)
+				st.SetMaxExecutionSteps(3)
 				st.RunThread(func(thread *starlark.Thread) {
-					x, op, y, err := inputs(thread, st.N)
+					x, y, err := inputs(thread, st.N)
 					if err != nil {
 						st.Fatal(err)
 					}
 
-					result, err := starlark.SafeBinary(thread, op, x, y)
+					result, err := starlark.SafeBinary(thread, syntax.MINUS, x, y)
 					if err != nil {
 						st.Error(err)
 					}

@@ -1165,8 +1165,16 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 var floatSize = EstimateSize(Float(0))
 
 func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	const safety = MemSafe | IOSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
+	}
+
+	intLen := func(i Int) int64 {
+		if _, iBig := i.get(); iBig != nil {
+			return int64(len(iBig.Bits()))
+		}
+		return 0
 	}
 
 	max := func(a, b int64) int64 {
@@ -1269,6 +1277,9 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			switch y := y.(type) {
 			case Int:
 				if thread != nil {
+					if err := thread.AddExecutionSteps(max(intLen(x), intLen(y))); err != nil {
+						return nil, err
+					}
 					if err := thread.CheckAllocs(max(EstimateSize(x), EstimateSize(y))); err != nil {
 						return nil, err
 					}
