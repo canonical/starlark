@@ -1779,11 +1779,8 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Int:
 			if y, ok := y.(Int); ok {
 				if thread != nil {
-					delta := EstimateSize(x)
-					if ySize := EstimateSize(y); ySize > delta {
-						delta = ySize
-					}
-					if err := thread.AddAllocs(delta); err != nil {
+					resultSize := max(EstimateSize(x), EstimateSize(y))
+					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
 				}
