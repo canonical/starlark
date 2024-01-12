@@ -1170,13 +1170,12 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		return nil, err
 	}
 
-	intSteps := func(i Int) int64 {
+	intLenSteps := func(i Int) int64 {
 		if _, iBig := i.get(); iBig != nil {
 			return int64(len(iBig.Bits()))
 		}
 		return 0
 	}
-
 	max := func(a, b int64) int64 {
 		if a > b {
 			return a
@@ -1204,7 +1203,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			switch y := y.(type) {
 			case Int:
 				if thread != nil {
-					if err := thread.AddExecutionSteps(max(intSteps(x), intSteps(y))); err != nil {
+					if err := thread.AddExecutionSteps(max(intLenSteps(x), intLenSteps(y))); err != nil {
 						return nil, err
 					}
 					if err := thread.CheckAllocs(max(EstimateSize(x), EstimateSize(y))); err != nil {

@@ -1489,11 +1489,11 @@ func TestSafeBinary(t *testing.T) {
 		}, {
 			name: "tuple + tuple",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				t := make(starlark.Tuple, n)
+				tuple := make(starlark.Tuple, n)
 				for i := 0; i < n/2; i++ {
-					t[i] = starlark.String("a")
+					tuple[i] = starlark.String("a")
 				}
-				return t, syntax.PLUS, t
+				return tuple, syntax.PLUS, tuple
 			},
 			cpuSafe:           true,
 			minExecutionSteps: 2,
