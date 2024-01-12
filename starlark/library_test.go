@@ -1559,7 +1559,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 	}, {
 		name:  "Int(big)",
 		input: starlark.MakeInt64(1 << 32),
-		steps: uint64(len(fmt.Sprintf("%d", 1<<32))),
+		steps: uint64(len(fmt.Sprintf("%d", int64(1<<32)))),
 	}, {
 		name: "List",
 		input: starlark.NewList([]starlark.Value{
@@ -6202,7 +6202,7 @@ func TestStringFormatSteps(t *testing.T) {
 	}, {
 		name:     "Int (big)",
 		toFormat: starlark.MakeInt64(1 << 40),
-		steps:    uint64(len(fmt.Sprintf("{%d}", 1<<40))),
+		steps:    uint64(len(fmt.Sprintf("{%d}", int64(1<<40)))),
 	}, {
 		name:     "String",
 		toFormat: starlark.String(`"test"`),
