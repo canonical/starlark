@@ -146,6 +146,38 @@ func TestTimeFromTimestampAllocs(t *testing.T) {
 }
 
 func TestTimeIsValidTimezoneSteps(t *testing.T) {
+	is_valid_timezone, ok := time.Module.Members["is_valid_timezone"]
+	if !ok {
+		t.Fatalf("no such builtin: time.is_valid_timezone")
+	}
+
+	t.Run("timezone=valid", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, is_valid_timezone, starlark.Tuple{starlark.String("Europe/Prague")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("timezone=invalid", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, is_valid_timezone, starlark.Tuple{starlark.String("Middle_Earth/Minas_Tirith")}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
 }
 
 func TestTimeIsValidTimezoneAllocs(t *testing.T) {
@@ -297,15 +329,260 @@ func TestTimeParseDurationAllocs(t *testing.T) {
 }
 
 func TestTimeParseTimeSteps(t *testing.T) {
+	parse_time, ok := time.Module.Members["parse_time"]
+	if !ok {
+		t.Fatalf("no such builtin: parse_time")
+	}
+
+	t.Run("default-args", func(t *testing.T) {
+		date := starlark.String("2011-11-11T12:00:00Z")
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(date)))
+		st.SetMinExecutionSteps(uint64(len(date)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("with-format", func(t *testing.T) {
+		date := starlark.String("2011-11-11")
+		format := starlark.String("2006-01-02")
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(date)))
+		st.SetMinExecutionSteps(uint64(len(date)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date, format}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("with-location", func(t *testing.T) {
+		date := starlark.String("2011-11-11")
+		format := starlark.String("2006-01-02")
+		location := starlark.String("Europe/Riga")
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(date)))
+		st.SetMinExecutionSteps(uint64(len(date)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date, format, location}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("malformed-date-too-long", func(t *testing.T) {
+		date := starlark.String("2011-2011")
+		format := starlark.String("2006")
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(format)))
+		st.SetMaxExecutionSteps(uint64(len(format)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date, format}, nil)
+				if err == nil {
+					st.Error("error expected")
+				} else if err.Error() != `parsing time "2011-2011": extra text: "-2011"` {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("malformed-date-too-short", func(t *testing.T) {
+		date := starlark.String("2011")
+		format := starlark.String("2006-01-02")
+
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(date)))
+		st.SetMaxExecutionSteps(uint64(len(date)))
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date, format}, nil)
+				if err == nil {
+					st.Error("error expected")
+				} else if err.Error() != `parsing time "2011" as "2006-01-02": cannot parse "" as "-"` {
+					st.Error(err)
+				}
+			}
+		})
+	})
 }
 
 func TestTimeParseTimeAllocs(t *testing.T) {
+	parse_time, ok := time.Module.Members["parse_time"]
+	if !ok {
+		t.Fatalf("no such builtin: parse_time")
+	}
+
+	t.Run("default-args", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			date := starlark.String("2011-11-11T12:00:00Z")
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, parse_time, starlark.Tuple{date}, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("with-format", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			date := starlark.String("2011-11-11")
+			format := starlark.String("2006-01-02")
+			args := starlark.Tuple{date, format}
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, parse_time, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("with-location", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			date := starlark.String("2011-11-11")
+			format := starlark.String("2006-01-02")
+			location := starlark.String("Europe/Riga")
+			args := starlark.Tuple{date, format, location}
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, parse_time, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
 }
 
 func TestTimeTimeSteps(t *testing.T) {
+	time_, ok := time.Module.Members["time"]
+	if !ok {
+		t.Fatal("no such builtin: time.time")
+	}
+
+	tests := []struct {
+		kwarg string
+		value starlark.Value
+	}{{
+		kwarg: "year",
+		value: starlark.MakeInt(2011),
+	}, {
+		kwarg: "month",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "day",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "minute",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "second",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "nanosecond",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "location",
+		value: starlark.String("Europe/Riga"),
+	}}
+	for _, test := range tests {
+		t.Run(test.kwarg, func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMaxExecutionSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				kwargs := []starlark.Tuple{
+					{starlark.String(test.kwarg), test.value},
+				}
+				_, err := starlark.Call(thread, time_, nil, kwargs)
+				if err != nil {
+					st.Error(err)
+				}
+			})
+		})
+	}
 }
 
 func TestTimeTimeAllocs(t *testing.T) {
+	time_, ok := time.Module.Members["time"]
+	if !ok {
+		t.Fatal("no such builtin: time.time")
+	}
+
+	tests := []struct {
+		kwarg string
+		value starlark.Value
+	}{{
+		kwarg: "year",
+		value: starlark.MakeInt(2011),
+	}, {
+		kwarg: "month",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "day",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "minute",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "second",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "nanosecond",
+		value: starlark.MakeInt(11),
+	}, {
+		kwarg: "location",
+		value: starlark.String("Europe/Riga"),
+	}}
+	for _, test := range tests {
+		t.Run(test.kwarg, func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.SetMaxAllocs(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				kwargs := []starlark.Tuple{
+					{starlark.String(test.kwarg), test.value},
+				}
+				result, err := starlark.Call(thread, time_, nil, kwargs)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			})
+		})
+	}
 }
 
 func TestSafeDurationUnpacker(t *testing.T) {

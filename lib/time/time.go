@@ -69,11 +69,11 @@ var Module = &starlarkstruct.Module{
 }
 var safeties = map[string]starlark.SafetyFlags{
 	"from_timestamp":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
-	"is_valid_timezone": starlark.MemSafe,
+	"is_valid_timezone": starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"now":               starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 	"parse_duration":    starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
-	"parse_time":        starlark.NotSafe,
-	"time":              starlark.NotSafe,
+	"parse_time":        starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
+	"time":              starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe,
 }
 
 func init() {
@@ -90,7 +90,7 @@ func init() {
 // so that it can be overridden, for example by applications that require their
 // Starlark scripts to be fully deterministic.
 var NowFunc = time.Now
-var NowFuncSafety = starlark.MemSafe | starlark.CPUSafe
+var NowFuncSafety = starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe
 
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	sdu := SafeDurationUnpacker{}
@@ -124,12 +124,24 @@ func parseTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple
 		return nil, err
 	}
 
+	stepDelta := len(x)
+	if formatLen := len(format); formatLen < stepDelta {
+		stepDelta = formatLen
+	}
+	if err := thread.AddExecutionSteps(int64(stepDelta)); err != nil {
+		return nil, err
+	}
+
 	if location == "UTC" {
 		t, err := time.Parse(format, x)
 		if err != nil {
 			return nil, err
 		}
-		return Time(t), nil
+		res := Time(t)
+		if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+			return nil, err
+		}
+		return res, nil
 	}
 
 	loc, err := time.LoadLocation(location)
@@ -140,7 +152,11 @@ func parseTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple
 	if err != nil {
 		return nil, err
 	}
-	return Time(t), nil
+	res := Time(t)
+	if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 func fromTimestamp(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
@@ -347,7 +363,7 @@ func (d Duration) Binary(op syntax.Token, y starlark.Value, side starlark.Side) 
 
 type SafeDurationUnpacker struct {
 	duration Duration
-	thread *starlark.Thread
+	thread   *starlark.Thread
 }
 
 func (sdu *SafeDurationUnpacker) Unpack(v starlark.Value) error {
@@ -410,7 +426,11 @@ func newTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, 
 	if err != nil {
 		return nil, err
 	}
-	return Time(time.Date(year, time.Month(month), day, hour, min, sec, nsec, location)), nil
+	res := starlark.Value(Time(time.Date(year, time.Month(month), day, hour, min, sec, nsec, location)))
+	if thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 func (t Time) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {

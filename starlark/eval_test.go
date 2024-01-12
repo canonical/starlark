@@ -1299,19 +1299,22 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 	}
 }
 
-type safeBinaryAllocTest struct {
-	name           string
-	inputs         func(n int) (starlark.Value, syntax.Token, starlark.Value)
-	assertNoAllocs bool
+type safeBinaryTest struct {
+	name              string
+	inputs            func(n int) (starlark.Value, syntax.Token, starlark.Value)
+	assertNoAllocs    bool
+	cpuSafe           bool // TODO(kcza): remove this once all binary tests are CPUSafe.
+	minExecutionSteps uint64
+	maxExecutionSteps uint64
 }
 
-func (b safeBinaryAllocTest) Run(t *testing.T) {
-	t.Run(b.name, func(t *testing.T) {
-		if b.inputs == nil {
-			t.Fatalf("binary test '%v' missing inputs field", b.name)
+func (sbt safeBinaryTest) Run(t *testing.T) {
+	t.Run(sbt.name, func(t *testing.T) {
+		if sbt.inputs == nil {
+			t.Fatalf("binary test '%v' missing inputs field", sbt.name)
 		}
-		if b.name == "" {
-			x, op, y := b.inputs(1)
+		if sbt.name == "" {
+			x, op, y := sbt.inputs(1)
 			t.Fatalf("binary test of %v %v %v has empty name field", x.Type(), op, y.Type())
 		}
 
@@ -1345,7 +1348,7 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 					t.Errorf("unexpected panic: %v", err)
 				}
 			}()
-			x, op, y := b.inputs(1)
+			x, op, y := sbt.inputs(1)
 			_, err := starlark.SafeBinary(nil, op, x, y)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
@@ -1354,12 +1357,17 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 
 		t.Run("small", func(t *testing.T) {
 			st := startest.From(t)
-			if b.assertNoAllocs {
+			st.RequireSafety(starlark.MemSafe)
+			if sbt.cpuSafe {
+				st.RequireSafety(starlark.CPUSafe)
+				st.SetMinExecutionSteps(sbt.minExecutionSteps)
+				st.SetMaxExecutionSteps(sbt.maxExecutionSteps)
+			}
+			if sbt.assertNoAllocs {
 				st.SetMaxAllocs(0)
 			}
-			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
-				x, op, y := b.inputs(1)
+				x, op, y := sbt.inputs(1)
 				inputsSize := starlark.EstimateSize(x) + starlark.EstimateSize(y)
 				if err := thread.AddAllocs(inputsSize); err != nil {
 					st.Fatal(err)
@@ -1378,12 +1386,17 @@ func (b safeBinaryAllocTest) Run(t *testing.T) {
 
 		t.Run("large", func(t *testing.T) {
 			st := startest.From(t)
-			if b.assertNoAllocs {
+			st.RequireSafety(starlark.MemSafe)
+			if sbt.cpuSafe {
+				st.RequireSafety(starlark.CPUSafe)
+				st.SetMinExecutionSteps(sbt.minExecutionSteps)
+				st.SetMaxExecutionSteps(sbt.maxExecutionSteps)
+			}
+			if sbt.assertNoAllocs {
 				st.SetMaxAllocs(0)
 			}
-			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
-				x, op, y := b.inputs(st.N)
+				x, op, y := sbt.inputs(st.N)
 				inputsSize := starlark.EstimateSize(x) + starlark.EstimateSize(y)
 				if err := thread.AddAllocs(inputsSize); err != nil {
 					st.Fatal(err)
@@ -1412,34 +1425,43 @@ func (uv unsafeTestValue) String() string       { return "unsafeTestValue" }
 func (uv unsafeTestValue) Truth() starlark.Bool { return starlark.False }
 func (uv unsafeTestValue) Type() string         { return "unsafeTestValue" }
 
-func TestSafeBinaryAllocs(t *testing.T) {
+func TestSafeBinary(t *testing.T) {
 	t.Run("+", func(t *testing.T) {
 		t.Run("in-starlark", func(t *testing.T) {
+			const elems = 20
+			tuple := make(starlark.Tuple, elems)
+			for i := range tuple {
+				tuple[i] = starlark.None
+			}
+
 			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
-			st.AddValue("t", starlark.Tuple{starlark.True})
+			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+			st.SetMinExecutionSteps(elems * 2)
+			st.AddValue("t", tuple)
 			st.RunString(`
 				for _ in st.ntimes():
 					st.keep_alive(t + t)
 			`)
 		})
 
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "string + string",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				str := starlark.String(strings.Repeat("x", n/2))
+				str := starlark.String(strings.Repeat("x", n))
 				return str, syntax.PLUS, str
 			},
+			cpuSafe:           true,
+			minExecutionSteps: 2,
+			maxExecutionSteps: 2,
 		}, {
 			name: "int + int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				shift := n - 1
-				if shift < 0 {
-					shift = 0
-				}
-				num := starlark.MakeInt(1).Lsh(uint(shift))
+				num := starlark.MakeInt(1).Lsh(uint(n * 32))
 				return num, syntax.PLUS, num
 			},
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 1,
 		}, {
 			name: "int + float",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
@@ -1447,6 +1469,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 				r := starlark.Float(n)
 				return l, syntax.PLUS, r
 			},
+			cpuSafe: true,
 		}, {
 			name: "float + int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
@@ -1454,45 +1477,47 @@ func TestSafeBinaryAllocs(t *testing.T) {
 				r := starlark.MakeInt(1).Lsh(308)
 				return l, syntax.PLUS, r
 			},
+			cpuSafe: true,
 		}, {
 			name: "float + float",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				num := starlark.Float(n)
 				return num, syntax.PLUS, num
 			},
+			cpuSafe: true,
 		}, {
 			name: "list + list",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				lElems := make([]starlark.Value, n/2)
-				rElems := make([]starlark.Value, n/2)
+				elems := make([]starlark.Value, n)
 				for i := 0; i < n/2; i++ {
-					lElems[i] = starlark.String("a")
-					rElems[i] = starlark.String("b")
+					elems[i] = starlark.String("a")
 				}
-				l := starlark.NewList(lElems)
-				r := starlark.NewList(rElems)
-				return l, syntax.PLUS, r
+				list := starlark.NewList(elems)
+				return list, syntax.PLUS, list
 			},
+			cpuSafe:           true,
+			minExecutionSteps: 2,
+			maxExecutionSteps: 2,
 		}, {
 			name: "tuple + tuple",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				l := make(starlark.Tuple, n/2)
-				r := make(starlark.Tuple, n/2)
+				tuple := make(starlark.Tuple, n)
 				for i := 0; i < n/2; i++ {
-					l[i] = starlark.String("a")
-					r[i] = starlark.String("b")
+					tuple[i] = starlark.String("a")
 				}
-				return l, syntax.PLUS, r
+				return tuple, syntax.PLUS, tuple
 			},
+			cpuSafe:           true,
+			minExecutionSteps: 2,
+			maxExecutionSteps: 2,
 		}}
 		for _, test := range tests {
 			test.Run(t)
 		}
-
 	})
 
 	t.Run("-", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int - int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				shift := n - 1
@@ -1606,7 +1631,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	})
 
 	t.Run("*", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int * int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				num := starlark.MakeInt(int(math.Sqrt(float64(n))))
@@ -1719,7 +1744,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	})
 
 	t.Run("/", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int / int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.MakeInt(n * n)
@@ -1754,7 +1779,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	})
 
 	t.Run("//", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int // int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.MakeInt(1).Lsh(uint(n * 2))
@@ -1799,7 +1824,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 			}
 		})
 
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int % int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				r := starlark.MakeInt(1).Lsh(uint(n) + 1)
@@ -1893,7 +1918,7 @@ func TestSafeBinaryAllocs(t *testing.T) {
 	t.Run("not in", func(t *testing.T) {})
 
 	t.Run("|", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int | int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.MakeInt(n / 2)
@@ -1938,10 +1963,37 @@ func TestSafeBinaryAllocs(t *testing.T) {
 		}
 	})
 
-	t.Run("&", func(t *testing.T) {})
+	t.Run("&", func(t *testing.T) {
+		tests := []safeBinaryTest{{
+			name: "int & int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(1).Lsh(uint(n))
+				r := starlark.MakeInt(n * 47)
+				return l, syntax.AMP, r
+			},
+		}, {
+			name: "set & set",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.NewSet(2 * n)
+				r := starlark.NewSet(2 * n)
+				for i := 0; i < n; i++ {
+					l.Insert(starlark.MakeInt(2 * i))
+					r.Insert(starlark.MakeInt(2*i + 1))
+				}
+				for i := 0; i < n; i++ {
+					l.Insert(starlark.MakeInt(-i))
+					r.Insert(starlark.MakeInt(-i))
+				}
+				return l, syntax.AMP, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
 
 	t.Run("^", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int ^ int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.MakeInt(10)
@@ -1970,9 +2022,33 @@ func TestSafeBinaryAllocs(t *testing.T) {
 		}
 	})
 
-	t.Run("<<", func(t *testing.T) {})
+	t.Run("<<", func(t *testing.T) {
+		tests := []safeBinaryTest{{
+			name: "int << int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(1).Lsh(uint(n))
+				r := starlark.MakeInt(511)
+				return l, syntax.LTLT, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
 
-	t.Run(">>", func(t *testing.T) {})
+	t.Run(">>", func(t *testing.T) {
+		tests := []safeBinaryTest{{
+			name: "int >> int",
+			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
+				l := starlark.MakeInt(1).Lsh(uint(n))
+				r := starlark.MakeInt(n / 2)
+				return l, syntax.GTGT, r
+			},
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
 }
 
 func TestThreadEnsureStack(t *testing.T) {

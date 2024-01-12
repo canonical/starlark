@@ -408,6 +408,14 @@ func (st *ST) Attr(name string) (starlark.Value, error) {
 }
 
 func (st *ST) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	if thread != nil {
+		// The steps counted to call this function is:
+		// - 1 for loading st;
+		// - 1 for getting the attr.
+		if err := thread.AddExecutionSteps(-2); err != nil {
+			return nil, err
+		}
+	}
 	return st.Attr(name) // Assume test code is safe.
 }
 
@@ -464,6 +472,11 @@ func st_keep_alive(thread *starlark.Thread, b *starlark.Builtin, args starlark.T
 		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
 	}
 
+	// Remove the cost of the CALL for this function.
+	if err := thread.AddExecutionSteps(-1); err != nil {
+		return nil, err
+	}
+
 	// keep_alive does not capture the backing array for args. Hence
 	// the allocation is removed aligning declared allocations with
 	// user expectations.
@@ -479,12 +492,17 @@ func st_keep_alive(thread *starlark.Thread, b *starlark.Builtin, args starlark.T
 	return starlark.None, nil
 }
 
-func st_ntimes(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func st_ntimes(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(args) != 0 {
 		return nil, fmt.Errorf("%s: unexpected positional arguments", b.Name())
 	}
 	if len(kwargs) > 0 {
 		return nil, fmt.Errorf("%s: unexpected keyword arguments", b.Name())
+	}
+
+	// Remove the cost of the CALL for this function.
+	if err := thread.AddExecutionSteps(-1); err != nil {
+		return nil, err
 	}
 
 	recv := b.Receiver().(*ST)
@@ -505,21 +523,34 @@ func (it *ntimes_iterable) String() string       { return "st.ntimes()" }
 func (it *ntimes_iterable) Truth() starlark.Bool { return true }
 func (it *ntimes_iterable) Type() string         { return "st.ntimes" }
 func (it *ntimes_iterable) Iterate() starlark.Iterator {
-	return &ntimes_iterator{it.n}
+	return &ntimes_iterator{n: it.n}
 }
 
 type ntimes_iterator struct {
-	n int
+	n      int
+	thread *starlark.Thread
+	err    error
 }
 
 var _ starlark.SafeIterator = &ntimes_iterator{}
 
 func (it *ntimes_iterator) Safety() starlark.SafetyFlags       { return stSafe }
-func (it *ntimes_iterator) BindThread(thread *starlark.Thread) {}
+func (it *ntimes_iterator) BindThread(thread *starlark.Thread) { it.thread = thread }
 func (it *ntimes_iterator) Done()                              {}
-func (it *ntimes_iterator) Err() error                         { return nil }
+func (it *ntimes_iterator) Err() error                         { return it.err }
 func (it *ntimes_iterator) Next(p *starlark.Value) bool {
 	if it.n > 0 {
+		if it.thread != nil {
+			// Counted loop iteration steps comprise:
+			// - 1 for the ITERJMP;
+			// - 1 for guardedIterator's Next;
+			// - 1 for the SET{LOCAL,GLOBAL} to record the result;
+			// - 1 for the JMP back to the loop's ITERJMP.
+			if err := it.thread.AddExecutionSteps(-4); err != nil {
+				it.err = err
+				return false
+			}
+		}
 		it.n--
 		*p = starlark.None
 		return true

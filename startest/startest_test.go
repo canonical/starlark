@@ -1145,3 +1145,45 @@ func TestCPUSafeCheck(t *testing.T) {
 		})
 	})
 }
+
+func TestStartestSteps(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunString(`
+			for _ in st.ntimes():
+				pass
+		`)
+	})
+
+	t.Run("ntimes", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunString(`
+			for _ in st.ntimes():
+				st.ntimes()
+		`)
+	})
+
+	t.Run("keep_alive", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunString(`
+			for _ in st.ntimes():
+				st.keep_alive()
+		`)
+	})
+
+	t.Run("n", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMaxExecutionSteps(0)
+		st.RunString(`
+			for _ in st.ntimes():
+				st.n
+		`)
+	})
+}

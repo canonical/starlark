@@ -956,48 +956,43 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 
 // getAttr implements x.dot.
 func getAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
-	var getAttrNames func() []string
-	var attr Value
-	var err error
-
-	switch x := x.(type) {
-	case HasSafeAttrs:
-		getAttrNames = x.AttrNames
-		attr, err = x.SafeAttr(thread, name)
-	case HasAttrs:
-		if err := CheckSafety(thread, NotSafe); err != nil {
-			return nil, err
-		}
-
-		getAttrNames = x.AttrNames
-		attr, err = x.Attr(name)
-		if attr == nil && err == nil {
-			err = ErrNoSuchAttr
-		}
-	default:
-		return nil, fmt.Errorf("%s has no .%s field or method", x.Type(), name)
-	}
-
-	if err != nil {
-		var errmsg string
-		if nsa, ok := err.(NoSuchAttrError); ok {
-			errmsg = string(nsa)
-		} else if err == ErrNoSuchAttr {
-			errmsg = fmt.Sprintf("%s has no .%s field or method", x.Type(), name)
+	if x, ok := x.(HasAttrs); ok {
+		var attr Value
+		var err error
+		if x2, ok := x.(HasSafeAttrs); ok {
+			attr, err = x2.SafeAttr(thread, name)
 		} else {
-			return nil, err // return error as is
-		}
-
-		// add spelling hint
-		if hint {
-			if n := spell.Nearest(name, getAttrNames()); n != "" {
-				errmsg = fmt.Sprintf("%s (did you mean .%s?)", errmsg, n)
+			if err := CheckSafety(thread, NotSafe); err != nil {
+				return nil, err
+			}
+			attr, err = x.Attr(name)
+			if attr == nil && err == nil {
+				err = ErrNoSuchAttr
 			}
 		}
 
-		return nil, errors.New(errmsg)
+		if err != nil {
+			var errmsg string
+			if nsa, ok := err.(NoSuchAttrError); ok {
+				errmsg = string(nsa)
+			} else if err == ErrNoSuchAttr {
+				errmsg = fmt.Sprintf("%s has no .%s field or method", x.Type(), name)
+			} else {
+				return nil, err // return error as is
+			}
+
+			// add spelling hint
+			if hint {
+				if n := spell.Nearest(name, x.AttrNames()); n != "" {
+					errmsg = fmt.Sprintf("%s (did you mean .%s?)", errmsg, n)
+				}
+			}
+
+			return nil, errors.New(errmsg)
+		}
+		return attr, nil
 	}
-	return attr, nil
+	return nil, fmt.Errorf("%s has no .%s field or method", x.Type(), name)
 }
 
 // setField implements x.name = y.
@@ -1128,28 +1123,23 @@ func Unary(op syntax.Token, x Value) (Value, error) {
 	return SafeUnary(nil, op, x)
 }
 
+// SafeUnary applies a unary operator (+, -, ~, not) to its operand,
+// respecting safety.
 func SafeUnary(thread *Thread, op syntax.Token, x Value) (Value, error) {
 	// The NOT operator is not customizable.
 	if op == syntax.NOT {
 		return !x.Truth(), nil
 	}
 
-	if thread != nil {
-		if x, ok := x.(SafeHasUnary); ok {
-			if err := thread.CheckPermits(x.Safety()); err != nil {
-				return nil, err
-			}
-
-			return x.SafeUnary(thread, op)
-		}
-
-		if err := thread.CheckPermits(NotSafe); err != nil {
-			return nil, err
-		}
+	if x, ok := x.(SafeHasUnary); ok {
+		return x.SafeUnary(thread, op)
 	}
 
 	// Int, Float, and user-defined types
 	if x, ok := x.(HasUnary); ok {
+		if err := CheckSafety(thread, NotSafe); err != nil {
+			return nil, err
+		}
 		// (nil, nil) => unhandled
 		y, err := x.Unary(op)
 		if y != nil || err != nil {
@@ -1175,10 +1165,17 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 var floatSize = EstimateSize(Float(0))
 
 func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	const safety = MemSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
 
+	intLenSteps := func(i Int) int64 {
+		if _, iBig := i.get(); iBig != nil {
+			return int64(len(iBig.Bits()))
+		}
+		return 0
+	}
 	max := func(a, b int64) int64 {
 		if a > b {
 			return a
@@ -1191,7 +1188,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case String:
 			if y, ok := y.(String); ok {
 				if thread != nil {
-					resultSize := EstimateMakeSize([]byte{}, len(x)+len(y)) + StringTypeOverhead
+					resultLen := len(x) + len(y)
+					if err := thread.AddExecutionSteps(int64(resultLen)); err != nil {
+						return nil, err
+					}
+					resultSize := EstimateMakeSize([]byte{}, resultLen) + StringTypeOverhead
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
@@ -1202,6 +1203,9 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			switch y := y.(type) {
 			case Int:
 				if thread != nil {
+					if err := thread.AddExecutionSteps(max(intLenSteps(x), intLenSteps(y))); err != nil {
+						return nil, err
+					}
 					if err := thread.CheckAllocs(max(EstimateSize(x), EstimateSize(y))); err != nil {
 						return nil, err
 					}
@@ -1247,26 +1251,34 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *List:
 			if y, ok := y.(*List); ok {
+				resultLen := x.Len() + y.Len()
 				if thread != nil {
+					if err := thread.AddExecutionSteps(int64(resultLen)); err != nil {
+						return nil, err
+					}
 					resultSize := EstimateMakeSize([]Value{}, x.Len()+y.Len()) + EstimateSize(&List{})
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
 				}
-				z := make([]Value, 0, x.Len()+y.Len())
+				z := make([]Value, 0, resultLen)
 				z = append(z, x.elems...)
 				z = append(z, y.elems...)
 				return NewList(z), nil
 			}
 		case Tuple:
 			if y, ok := y.(Tuple); ok {
+				resultLen := len(x) + len(y)
 				if thread != nil {
+					if err := thread.AddExecutionSteps(int64(resultLen)); err != nil {
+						return nil, err
+					}
 					zSize := EstimateMakeSize(Tuple{}, len(x)+len(y)) + SliceTypeOverhead
 					if err := thread.AddAllocs(zSize); err != nil {
 						return nil, err
 					}
 				}
-				z := make(Tuple, 0, len(x)+len(y))
+				z := make(Tuple, 0, resultLen)
 				z = append(z, x...)
 				z = append(z, y...)
 				return z, nil
@@ -1764,13 +1776,29 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		switch x := x.(type) {
 		case Int:
 			if y, ok := y.(Int); ok {
+				if thread != nil {
+					resultSize := max(EstimateSize(x), EstimateSize(y))
+					if err := thread.AddAllocs(resultSize); err != nil {
+						return nil, err
+					}
+				}
 				return x.And(y), nil
 			}
 		case *Set: // intersection
 			if y, ok := y.(*Set); ok {
-				iter := y.Iterate()
+				iter, err := SafeIterate(thread, y)
+				if err != nil {
+					return nil, err
+				}
 				defer iter.Done()
-				return x.Intersection(iter)
+				z, err := x.safeIntersection(thread, iter)
+				if err != nil {
+					return nil, err
+				}
+				if err := iter.Err(); err != nil {
+					return nil, err
+				}
+				return z, err
 			}
 		}
 
@@ -1817,9 +1845,31 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				if y >= 512 {
 					return nil, fmt.Errorf("shift count too large: %v", y)
 				}
-				return x.Lsh(uint(y)), nil
+				if thread != nil {
+					if err := thread.CheckAllocs(EstimateSize(x)); err != nil {
+						return nil, err
+					}
+				}
+				z := x.Lsh(uint(y))
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(z)); err != nil {
+						return nil, err
+					}
+				}
+				return z, nil
 			} else {
-				return x.Rsh(uint(y)), nil
+				if thread != nil {
+					if err := thread.CheckAllocs(EstimateSize(x)); err != nil {
+						return nil, err
+					}
+				}
+				z := x.Rsh(uint(y))
+				if thread != nil {
+					if err := thread.AddAllocs(EstimateSize(z)); err != nil {
+						return nil, err
+					}
+				}
+				return z, nil
 			}
 		}
 
