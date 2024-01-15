@@ -1231,7 +1231,8 @@ var (
 func (r rangeValue) Len() int          { return r.len }
 func (r rangeValue) Index(i int) Value { return MakeInt(r.start + i*r.step) }
 func (r rangeValue) SafeIndex(thread *Thread, i int) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	const safety = MemSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
 	result := Value(MakeInt(r.start + i*r.step))
