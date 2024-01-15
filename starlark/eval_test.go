@@ -1981,7 +1981,7 @@ func TestSafeBinary(t *testing.T) {
 	})
 
 	t.Run("^", func(t *testing.T) {
-		tests := []safeBinaryAllocTest{{
+		tests := []safeBinaryTest{{
 			name: "int ^ int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
 				l := starlark.MakeInt(10)
@@ -2080,10 +2080,13 @@ func TestSafeBinary(t *testing.T) {
 		tests := []safeBinaryTest{{
 			name: "int << int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				l := starlark.MakeInt(1).Lsh(uint(n))
+				l := starlark.MakeInt(1).Lsh(uint(n * 32))
 				r := starlark.MakeInt(511)
 				return l, syntax.LTLT, r
 			},
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 1,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -2094,10 +2097,14 @@ func TestSafeBinary(t *testing.T) {
 		tests := []safeBinaryTest{{
 			name: "int >> int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				l := starlark.MakeInt(1).Lsh(uint(n))
-				r := starlark.MakeInt(n / 2)
+				intBits := reflect.ValueOf(int(0)).Type().Size() * 8
+				l := starlark.MakeInt(1).Lsh(uint(n * 2 * int(intBits)))
+				r := starlark.MakeInt(n)
 				return l, syntax.GTGT, r
 			},
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 1,
 		}}
 		for _, test := range tests {
 			test.Run(t)

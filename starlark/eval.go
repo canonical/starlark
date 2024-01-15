@@ -1849,6 +1849,9 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					return nil, fmt.Errorf("shift count too large: %v", y)
 				}
 				if thread != nil {
+					if err := thread.AddExecutionSteps(intLenSteps(x) + int64(y)); err != nil {
+						return nil, err
+					}
 					if err := thread.CheckAllocs(EstimateSize(x)); err != nil {
 						return nil, err
 					}
@@ -1862,6 +1865,9 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				return z, nil
 			} else {
 				if thread != nil {
+					if err := thread.AddExecutionSteps(max(intLenSteps(x)-int64(y), 0)); err != nil {
+						return nil, err
+					}
 					if err := thread.CheckAllocs(EstimateSize(x)); err != nil {
 						return nil, err
 					}
