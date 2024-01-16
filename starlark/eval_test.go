@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/bits"
 	"os/exec"
 	"path/filepath"
 	"reflect"
@@ -2080,9 +2081,16 @@ func TestSafeBinary(t *testing.T) {
 		tests := []safeBinaryTest{{
 			name: "int << int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				l := starlark.MakeInt(1).Lsh(uint(n * 32))
-				r := starlark.MakeInt(511)
-				return l, syntax.LTLT, r
+				if n < 512 {
+					l := starlark.MakeInt(1).Lsh(uint(n / 2))
+					r := starlark.MakeInt(n / 2)
+					return l, syntax.LTLT, r
+				} else {
+					// Avoid 512 left shift limit.
+					l := starlark.MakeInt(1).Lsh(uint(n*bits.UintSize - 511))
+					r := starlark.MakeInt(511)
+					return l, syntax.LTLT, r
+				}
 			},
 			cpuSafe:           true,
 			minExecutionSteps: 1,
@@ -2097,9 +2105,8 @@ func TestSafeBinary(t *testing.T) {
 		tests := []safeBinaryTest{{
 			name: "int >> int",
 			inputs: func(n int) (starlark.Value, syntax.Token, starlark.Value) {
-				intBits := reflect.ValueOf(int(0)).Type().Size() * 8
-				l := starlark.MakeInt(1).Lsh(uint(n * 2 * int(intBits)))
-				r := starlark.MakeInt(n)
+				l := starlark.MakeInt(1).Lsh(uint(n * 2 * bits.UintSize))
+				r := starlark.MakeInt(n * bits.UintSize)
 				return l, syntax.GTGT, r
 			},
 			cpuSafe:           true,
