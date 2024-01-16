@@ -227,23 +227,41 @@ func TestSequenceAssignment(t *testing.T) {
 }
 
 func TestAttrAccessAllocs(t *testing.T) {
-	inputs := []starlark.HasAttrs{
-		starlark.NewList(nil),
-		starlark.NewDict(1),
-		starlark.NewSet(1),
-		starlark.String("1"),
-		starlark.Bytes("1"),
-	}
-	for _, input := range inputs {
-		attr := input.AttrNames()[0]
-		t.Run(input.Type(), func(t *testing.T) {
+	tests := []struct {
+		name  string
+		attr  string
+		input starlark.Value
+	}{{
+		name:  "List",
+		attr:  "append",
+		input: starlark.NewList(nil),
+	}, {
+		name:  "Dict",
+		attr:  "update",
+		input: starlark.NewDict(1),
+	}, {
+		name:  "Set",
+		attr:  "union",
+		input: starlark.NewSet(1),
+	}, {
+		name:  "String",
+		attr:  "capitalize",
+		input: starlark.String("1"),
+	}, {
+		name:  "Bytes",
+		attr:  "elems",
+		input: starlark.Bytes("1"),
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
-			st.AddValue("input", input)
+			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+			st.SetMinExecutionSteps(1)
+			st.AddValue("input", test.input)
 			st.RunString(fmt.Sprintf(`
 				for _ in st.ntimes():
 					st.keep_alive(input.%s)
-			`, attr))
+			`, test.attr))
 		})
 	}
 }
