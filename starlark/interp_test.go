@@ -89,16 +89,25 @@ func TestUnaryAllocs(t *testing.T) {
 }
 
 func TestTupleCreation(t *testing.T) {
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunString(`
-		for _ in st.ntimes():
-			st.keep_alive(())
-	`)
-	st.RunString(`
-		for _ in st.ntimes():
-			st.keep_alive((1, "2", 3.0))
-	`)
+	t.Run("empty", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.RunString(`
+			for _ in st.ntimes():
+				st.keep_alive(())
+		`)
+	})
+
+	t.Run("not-empty", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMinExecutionSteps(4)
+		st.RunString(`
+			for _ in st.ntimes():
+				st.keep_alive((1, "2", 3.0))
+		`)
+	})
 }
 
 func TestListCreation(t *testing.T) {
