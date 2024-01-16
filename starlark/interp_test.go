@@ -175,23 +175,38 @@ func TestIterate(t *testing.T) {
 }
 
 func TestSequenceAssignment(t *testing.T) {
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunString(`
-		for _ in st.ntimes():
-			[ single ] = range(1)
-			st.keep_alive(single)
-	`)
-	st.RunString(`
-		for _ in st.ntimes():
-			[ first, second ] = range(2)
-			st.keep_alive(first, second)
-	`)
-	st.RunString(`
-		for _ in st.ntimes():
-			first, second = range(2)
-			st.keep_alive(first, second)
-	`)
+	t.Run("list-single", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMinExecutionSteps(2)
+		st.RunString(`
+			for _ in st.ntimes():
+				[ single ] = range(1)
+				st.keep_alive(single)
+		`)
+	})
+
+	t.Run("list-double", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMinExecutionSteps(4)
+		st.RunString(`
+			for _ in st.ntimes():
+				[ first, second ] = range(2)
+				st.keep_alive(first, second)
+		`)
+	})
+
+	t.Run("double", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMinExecutionSteps(4)
+		st.RunString(`
+			for _ in st.ntimes():
+				first, second = range(2)
+				st.keep_alive(first, second)
+		`)
+	})
 }
 
 func TestAttrAccessAllocs(t *testing.T) {
