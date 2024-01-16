@@ -81,8 +81,7 @@ func TestUnary(t *testing.T) {
 				st.RunString(`
 					i = input
 					for _ in st.ntimes():
-						i = -i
-						st.keep_alive(i)
+						st.keep_alive(-i)
 				`)
 			})
 		}
@@ -111,8 +110,7 @@ func TestUnary(t *testing.T) {
 				st.RunString(`
 					i = input
 					for _ in st.ntimes():
-						i = +i
-						st.keep_alive(i)
+						st.keep_alive(+i)
 				`)
 			})
 		}
@@ -138,8 +136,7 @@ func TestUnary(t *testing.T) {
 				st.RunString(`
 					i = input
 					for _ in st.ntimes():
-						i = ~i
-						st.keep_alive(i)
+						st.keep_alive(~i)
 				`)
 			})
 		}
