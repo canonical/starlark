@@ -163,33 +163,50 @@ func TestTupleCreation(t *testing.T) {
 }
 
 func TestListCreation(t *testing.T) {
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunString(`
-		for _ in st.ntimes():
-			st.keep_alive([])
-	`)
-	st.RunString(`
-		for _ in st.ntimes():
-			st.keep_alive([ False, 1, "2", 3.0 ])
-	`)
-}
-
-func TestListComprehension(t *testing.T) {
-	t.Run("big", func(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
 		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
 		st.RunString(`
-			st.keep_alive([v for v in st.ntimes()])
+			for _ in st.ntimes():
+				st.keep_alive([])
 		`)
 	})
 
+	t.Run("not-empty", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMinExecutionSteps(4)
+		st.RunString(`
+			for _ in st.ntimes():
+				st.keep_alive([ False, 1, "2", 3.0 ])
+		`)
+	})
+}
+
+func TestListComprehension(t *testing.T) {
 	t.Run("small", func(t *testing.T) {
 		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		// The step cost per N is at least 7:
+		// - For creating the list, 1
+		// - For loading the constant, 1
+		// - For calling range, 1
+		// - For iterating twice, 2
+		// - For appending twice, 2
+		st.SetMinExecutionSteps(7)
 		st.RunString(`
 			for _ in st.ntimes():
 				st.keep_alive([v for v in range(2)])
+		`)
+	})
+
+	t.Run("big", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMinExecutionSteps(2)
+		st.RunString(`
+			st.keep_alive([v for v in range(st.n)])
 		`)
 	})
 }
