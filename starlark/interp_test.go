@@ -168,19 +168,27 @@ func TestDictComprehension(t *testing.T) {
 }
 
 func TestIterate(t *testing.T) {
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunString(`
-		for i in range(st.n):
-			st.keep_alive(i)
-	`)
-	st.RunString(`
-		for i in range(st.n):
-			st.keep_alive(i)
-			for j in range(2):
-				st.keep_alive(j)
-				break
-	`)
+	t.Run("small", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMinExecutionSteps(2)
+		st.RunString(`
+			for _ in st.ntimes():
+				for j in range(2):
+					st.keep_alive(j)
+					break
+		`)
+	})
+
+	t.Run("big", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.RunString(`
+			for _ in range(st.n):
+				pass
+		`)
+	})
 }
 
 func TestSequenceAssignment(t *testing.T) {
