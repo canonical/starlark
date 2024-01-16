@@ -392,7 +392,7 @@ type HasUnary interface {
 }
 
 type HasSafeUnary interface {
-	Value
+	HasUnary
 	SafeUnary(thread *Thread, op syntax.Token) (Value, error)
 }
 
