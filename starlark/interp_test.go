@@ -8,82 +8,134 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
-func TestUnaryAllocs(t *testing.T) {
+func TestUnary(t *testing.T) {
 	t.Run("not", func(t *testing.T) {
-		inputs := []starlark.Value{
-			starlark.None,
-			starlark.True,
-			starlark.Tuple{},
-			starlark.MakeInt(1),
-			starlark.Float(1),
-			starlark.NewList(nil),
-			starlark.NewDict(1),
-			starlark.NewSet(1),
-			starlark.String("1"),
-			starlark.Bytes("1"),
-		}
-		for _, input := range inputs {
-			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
-			st.AddValue("input", input)
-			st.RunString(`
-				for _ in st.ntimes():
-					st.keep_alive(not input)
-			`)
+		tests := []struct {
+			name  string
+			input starlark.Value
+		}{{
+			name:  "None",
+			input: starlark.None,
+		}, {
+			name:  "True",
+			input: starlark.True,
+		}, {
+			name:  "Tuple",
+			input: starlark.Tuple{},
+		}, {
+			name:  "Int",
+			input: starlark.MakeInt(1),
+		}, {
+			name:  "Float",
+			input: starlark.Float(1),
+		}, {
+			name:  "List",
+			input: starlark.NewList(nil),
+		}, {
+			name:  "Dict",
+			input: starlark.NewDict(1),
+		}, {
+			name:  "Set",
+			input: starlark.NewSet(1),
+		}, {
+			name:  "String",
+			input: starlark.String("1"),
+		}, {
+			name:  "Bytes",
+			input: starlark.Bytes("1"),
+		}}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+				st.SetMinExecutionSteps(1)
+				st.AddValue("input", test.input)
+				st.RunString(`
+					for _ in st.ntimes():
+						st.keep_alive(not input)
+				`)
+			})
 		}
 	})
 
 	t.Run("minus", func(t *testing.T) {
-		inputs := []starlark.Value{
-			starlark.MakeInt(10),
-			starlark.MakeInt64(1 << 40),
-		}
-		for _, input := range inputs {
-			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
-			st.AddValue("input", input)
-			st.RunString(`
-				i = input
-				for _ in st.ntimes():
-					i = -i
-					st.keep_alive(i)
-			`)
+		tests := []struct {
+			name  string
+			input starlark.Value
+		}{{
+			name:  "Int (small)",
+			input: starlark.MakeInt(10),
+		}, {
+			name:  "Int (big)",
+			input: starlark.MakeInt64(1 << 40),
+		}, {
+			name:  "Float",
+			input: starlark.Float(1),
+		}}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+				st.SetMinExecutionSteps(1)
+				st.AddValue("input", test.input)
+				st.RunString(`
+					for _ in st.ntimes():
+						st.keep_alive(-input)
+				`)
+			})
 		}
 	})
 
 	t.Run("plus", func(t *testing.T) {
-		inputs := []starlark.Value{
-			starlark.MakeInt(10),
-			starlark.MakeInt64(1 << 40),
-		}
-		for _, input := range inputs {
-			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
-			st.AddValue("input", input)
-			st.RunString(`
-				i = input
-				for _ in st.ntimes():
-					i = +i
-					st.keep_alive(i)
-			`)
+		tests := []struct {
+			name  string
+			input starlark.Value
+		}{{
+			name:  "Int (small)",
+			input: starlark.MakeInt(10),
+		}, {
+			name:  "Int (big)",
+			input: starlark.MakeInt64(1 << 40),
+		}, {
+			name:  "Float",
+			input: starlark.Float(1),
+		}}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+				st.SetMinExecutionSteps(1)
+				st.AddValue("input", test.input)
+				st.RunString(`
+					for _ in st.ntimes():
+						st.keep_alive(+input)
+				`)
+			})
 		}
 	})
 
 	t.Run("neg", func(t *testing.T) {
-		inputs := []starlark.Value{
-			starlark.MakeInt(10),
-			starlark.MakeInt64(1 << 40),
-		}
-		for _, input := range inputs {
-			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe)
-			st.AddValue("input", input)
-			st.RunString(`
-				i = input
-				for _ in st.ntimes():
-					i = ~i
-					st.keep_alive(i)
-			`)
+		tests := []struct {
+			name  string
+			input starlark.Value
+		}{{
+			name:  "Int (small)",
+			input: starlark.MakeInt(10),
+		}, {
+			name:  "Int (big)",
+			input: starlark.MakeInt64(1 << 40),
+		}}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+				st.SetMinExecutionSteps(1)
+				st.AddValue("input", test.input)
+				st.RunString(`
+					for _ in st.ntimes():
+						st.keep_alive(~input)
+				`)
+			})
 		}
 	})
 }
