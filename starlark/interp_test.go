@@ -127,7 +127,13 @@ func TestListComprehension(t *testing.T) {
 	t.Run("small", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(8)
+		// The step cost per N is at least:
+		// - For creating the list, 1
+		// - For loading the constant, 1
+		// - For calling range, 1
+		// - For iterating twice, 2
+		// - For appending twice, 2
+		st.SetMinExecutionSteps(7)
 		st.RunString(`
 			for _ in st.ntimes():
 				st.keep_alive([v for v in range(2)])
@@ -137,7 +143,7 @@ func TestListComprehension(t *testing.T) {
 	t.Run("big", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(4)
+		st.SetMinExecutionSteps(2)
 		st.RunString(`
 			st.keep_alive([v for v in range(st.n)])
 		`)
