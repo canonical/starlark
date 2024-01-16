@@ -79,9 +79,8 @@ func TestUnary(t *testing.T) {
 				st.SetMinExecutionSteps(1)
 				st.AddValue("input", test.input)
 				st.RunString(`
-					i = input
 					for _ in st.ntimes():
-						st.keep_alive(-i)
+						st.keep_alive(-input)
 				`)
 			})
 		}
@@ -92,7 +91,7 @@ func TestUnary(t *testing.T) {
 			name  string
 			input starlark.Value
 		}{{
-			name:  "Int",
+			name:  "Int (small)",
 			input: starlark.MakeInt(10),
 		}, {
 			name:  "Int (big)",
@@ -108,9 +107,8 @@ func TestUnary(t *testing.T) {
 				st.SetMinExecutionSteps(1)
 				st.AddValue("input", test.input)
 				st.RunString(`
-					i = input
 					for _ in st.ntimes():
-						st.keep_alive(+i)
+						st.keep_alive(+input)
 				`)
 			})
 		}
@@ -121,7 +119,7 @@ func TestUnary(t *testing.T) {
 			name  string
 			input starlark.Value
 		}{{
-			name:  "Int",
+			name:  "Int (small)",
 			input: starlark.MakeInt(10),
 		}, {
 			name:  "Int (big)",
@@ -134,9 +132,8 @@ func TestUnary(t *testing.T) {
 				st.SetMinExecutionSteps(1)
 				st.AddValue("input", test.input)
 				st.RunString(`
-					i = input
 					for _ in st.ntimes():
-						st.keep_alive(~i)
+						st.keep_alive(~input)
 				`)
 			})
 		}
