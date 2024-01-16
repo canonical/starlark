@@ -127,7 +127,7 @@ func TestListComprehension(t *testing.T) {
 	t.Run("small", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		// The step cost per N is at least:
+		// The step cost per N is at least 7:
 		// - For creating the list, 1
 		// - For loading the constant, 1
 		// - For calling range, 1
