@@ -174,7 +174,7 @@ func TestDictComprehension(t *testing.T) {
 		st.SetMinExecutionSteps(9)
 		st.RunString(`
 			for _ in st.ntimes():
-				st.keep_alive({i:None for i in range(2)})
+				st.keep_alive({i: None for i in range(2)})
 		`)
 	})
 
@@ -187,7 +187,7 @@ func TestDictComprehension(t *testing.T) {
 		// - For appending, 1
 		st.SetMinExecutionSteps(3)
 		st.RunString(`
-			st.keep_alive({i:None for i in range(st.n)})
+			st.keep_alive({i: None for i in range(st.n)})
 		`)
 	})
 }
