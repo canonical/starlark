@@ -212,28 +212,62 @@ func TestListComprehension(t *testing.T) {
 }
 
 func TestDictCreation(t *testing.T) {
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunString(`
-		for _ in st.ntimes():
-			st.keep_alive({})
-	`)
-	st.RunString(`
-		for _ in st.ntimes():
-			st.keep_alive({ 1: False, 2: "2", 3: 3.0 })
-	`)
+	t.Run("empty", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.SetMinExecutionSteps(1)
+		st.RunString(`
+			for _ in st.ntimes():
+				st.keep_alive({})
+		`)
+	})
+
+	t.Run("not-empty", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		// The step cost per N is at least 10:
+		// - For creating the dict, 1
+		// - For loading the keys, 3
+		// - For loading the values, 3
+		// - For adding the items, 3
+		st.SetMinExecutionSteps(10)
+		st.RunString(`
+			for _ in st.ntimes():
+				st.keep_alive({ 1: False, 2: "2", 3: 3.0 })
+		`)
+	})
 }
 
 func TestDictComprehension(t *testing.T) {
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunString(`
-		for _ in st.ntimes():
-			st.keep_alive({i:i for i in range(10)})
-	`)
-	st.RunString(`
-		st.keep_alive({i:i for i in range(st.n)})
-	`)
+	t.Run("small", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		// The step cost per N is at least 9:
+		// - For creating the dict, 1
+		// - For loading the constant, 1
+		// - For calling range, 1
+		// - For iterating twice, 2
+		// - For loading the constant twice, 2
+		// - For appending twice, 2
+		st.SetMinExecutionSteps(9)
+		st.RunString(`
+			for _ in st.ntimes():
+				st.keep_alive({i: None for i in range(2)})
+		`)
+	})
+
+	t.Run("big", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		// The step cost per N is at least:
+		// - For iterating, 1
+		// - For loading the constant, 1
+		// - For appending, 1
+		st.SetMinExecutionSteps(3)
+		st.RunString(`
+			st.keep_alive({i: None for i in range(st.n)})
+		`)
+	})
 }
 
 func TestIterate(t *testing.T) {
