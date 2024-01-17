@@ -1924,6 +1924,22 @@ func TestSafeBinary(t *testing.T) {
 				result.SetKey(starlark.String("k"), starlark.True)
 				return result
 			}()),
+		}, {
+			name: "string % tuple",
+			op:   syntax.PERCENT,
+			left: constant(starlark.String("[%r, %r]")),
+			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+				s, err := makeString(thread, n/2)
+				if err != nil {
+					return nil, err
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(starlark.Tuple{}, 2)); err != nil {
+						return nil, err
+					}
+				}
+				return starlark.Tuple{s, s}, nil
+			},
 		}}
 		for _, test := range tests {
 			test.Run(t)
