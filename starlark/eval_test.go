@@ -1957,45 +1957,43 @@ func TestSafeBinary(t *testing.T) {
 	t.Run("|", func(t *testing.T) {
 		testSafetyRespected(t, syntax.PIPE)
 
-		tests := []safeBinaryTestOld{{
-			name: "int | int",
-			inputs: func(_ *starlark.Thread, n int) (starlark.Value, syntax.Token, starlark.Value, error) {
-				l := starlark.MakeInt(n / 2)
-				r := starlark.MakeInt(n / 2)
-				return l, syntax.PIPE, r, nil
-			},
+		tests := []safeBinaryTest{{
+			name:  "int | int",
+			op:    syntax.PIPE,
+			left:  makeBigInt,
+			right: makeBigInt,
 		}, {
 			name: "dict | dict",
-			inputs: func(_ *starlark.Thread, n int) (starlark.Value, syntax.Token, starlark.Value, error) {
-				// Create overlapping dicts whose union has size n
-				l := starlark.NewDict(3 * n / 4)
-				r := starlark.NewDict(3 * n / 4)
-				for i := 0; i < n/2; i++ {
-					l.SetKey(starlark.MakeInt(i), starlark.None)
-					r.SetKey(starlark.MakeInt(-i), starlark.None)
+			op:   syntax.PIPE,
+			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+				ret := starlark.NewDict(3 * n / 4)
+				for i := -n / 4; i < n/2; i++ {
+					ret.SetKey(starlark.MakeInt(i), starlark.None)
 				}
-				for i := 0; i < n/4; i++ {
-					l.SetKey(starlark.MakeInt(-i), starlark.None)
-					r.SetKey(starlark.MakeInt(i), starlark.None)
+				if thread != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(ret)); err != nil {
+						return nil, err
+					}
 				}
-				return l, syntax.PIPE, r, nil
+				return ret, nil
+			},
+			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+				ret := starlark.NewDict(3 * n / 4)
+				for i := -n / 2; i < n/4; i++ {
+					ret.SetKey(starlark.MakeInt(i), starlark.None)
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(ret)); err != nil {
+						return nil, err
+					}
+				}
+				return ret, nil
 			},
 		}, {
-			name: "set | set",
-			inputs: func(_ *starlark.Thread, n int) (starlark.Value, syntax.Token, starlark.Value, error) {
-				// Create overlapping sets whose union has size n
-				l := starlark.NewSet(3 * n / 4)
-				r := starlark.NewSet(3 * n / 4)
-				for i := 0; i < n/2; i++ {
-					l.Insert(starlark.MakeInt(i))
-					r.Insert(starlark.MakeInt(-i))
-				}
-				for i := 0; i < n/4; i++ {
-					l.Insert(starlark.MakeInt(-i))
-					r.Insert(starlark.MakeInt(i))
-				}
-				return l, syntax.PIPE, r, nil
-			},
+			name:  "set | set",
+			op:    syntax.PIPE,
+			left:  makePositiveSet,
+			right: makeMixedSet,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -2005,28 +2003,16 @@ func TestSafeBinary(t *testing.T) {
 	t.Run("&", func(t *testing.T) {
 		testSafetyRespected(t, syntax.AMP)
 
-		tests := []safeBinaryTestOld{{
-			name: "int & int",
-			inputs: func(_ *starlark.Thread, n int) (starlark.Value, syntax.Token, starlark.Value, error) {
-				l := starlark.MakeInt(1).Lsh(uint(n))
-				r := starlark.MakeInt(n * 47)
-				return l, syntax.AMP, r, nil
-			},
+		tests := []safeBinaryTest{{
+			name:  "int & int",
+			op:    syntax.AMP,
+			left:  makeBigInt,
+			right: makeBigInt,
 		}, {
-			name: "set & set",
-			inputs: func(_ *starlark.Thread, n int) (starlark.Value, syntax.Token, starlark.Value, error) {
-				l := starlark.NewSet(2 * n)
-				r := starlark.NewSet(2 * n)
-				for i := 0; i < n; i++ {
-					l.Insert(starlark.MakeInt(2 * i))
-					r.Insert(starlark.MakeInt(2*i + 1))
-				}
-				for i := 0; i < n; i++ {
-					l.Insert(starlark.MakeInt(-i))
-					r.Insert(starlark.MakeInt(-i))
-				}
-				return l, syntax.AMP, r, nil
-			},
+			name:  "set & set",
+			op:    syntax.AMP,
+			left:  makePositiveSet,
+			right: makeMixedSet,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -2040,13 +2026,11 @@ func TestSafeBinary(t *testing.T) {
 	t.Run("<<", func(t *testing.T) {
 		testSafetyRespected(t, syntax.LTLT)
 
-		tests := []safeBinaryTestOld{{
-			name: "int << int",
-			inputs: func(_ *starlark.Thread, n int) (starlark.Value, syntax.Token, starlark.Value, error) {
-				l := starlark.MakeInt(1).Lsh(uint(n))
-				r := starlark.MakeInt(511)
-				return l, syntax.LTLT, r, nil
-			},
+		tests := []safeBinaryTest{{
+			name:  "int << int",
+			op:    syntax.LTLT,
+			left:  makeBigInt,
+			right: constant(starlark.MakeInt(511)),
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -2056,12 +2040,26 @@ func TestSafeBinary(t *testing.T) {
 	t.Run(">>", func(t *testing.T) {
 		testSafetyRespected(t, syntax.GTGT)
 
-		tests := []safeBinaryTestOld{{
+		tests := []safeBinaryTest{{
 			name: "int >> int",
-			inputs: func(_ *starlark.Thread, n int) (starlark.Value, syntax.Token, starlark.Value, error) {
-				l := starlark.MakeInt(1).Lsh(uint(n))
-				r := starlark.MakeInt(n / 2)
-				return l, syntax.GTGT, r, nil
+			op:   syntax.GTGT,
+			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+				ret := starlark.MakeInt(1).Lsh(uint(n * 2 * 32))
+				if thread != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(ret)); err != nil {
+						return nil, err
+					}
+				}
+				return ret, nil
+			},
+			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+				ret := starlark.MakeInt(n)
+				if thread != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(ret)); err != nil {
+						return nil, err
+					}
+				}
+				return ret, nil
 			},
 		}}
 		for _, test := range tests {
