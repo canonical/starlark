@@ -641,14 +641,14 @@ func (f Float) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
 	switch op {
 	case syntax.MINUS:
 		if thread != nil {
-			if err := thread.AddExecutionSteps(floatSize); err != nil {
+			if err := thread.AddAllocs(floatSize); err != nil {
 				return nil, err
 			}
 		}
 		return -f, nil
 	case syntax.PLUS:
 		if thread != nil {
-			if err := thread.AddExecutionSteps(floatSize); err != nil {
+			if err := thread.AddAllocs(floatSize); err != nil {
 				return nil, err
 			}
 		}
@@ -695,7 +695,8 @@ func (s String) Hash() (uint32, error) { return hashString(string(s)), nil }
 func (s String) Len() int              { return len(s) } // bytes
 func (s String) Index(i int) Value     { return s[i : i+1] }
 func (s String) SafeIndex(thread *Thread, i int) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	const safety = MemSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
 	if thread != nil {
@@ -780,7 +781,8 @@ func (si stringElems) Index(i int) Value {
 	}
 }
 func (si stringElems) SafeIndex(thread *Thread, i int) (Value, error) {
-	if err := CheckSafety(thread, MemSafe|CPUSafe); err != nil {
+	const safety = MemSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
 	if si.ords {
@@ -1252,7 +1254,8 @@ func (l *List) Truth() Bool           { return l.Len() > 0 }
 func (l *List) Len() int              { return len(l.elems) }
 func (l *List) Index(i int) Value     { return l.elems[i] }
 func (l *List) SafeIndex(thread *Thread, i int) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	const safety = MemSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
 	return l.elems[i], nil
@@ -1353,7 +1356,8 @@ func (l *List) SetIndex(i int, v Value) error {
 }
 
 func (l *List) SafeSetIndex(thread *Thread, i int, v Value) error {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	const safety = MemSafe | IOSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
 	return l.SetIndex(i, v)
@@ -1384,7 +1388,8 @@ type Tuple []Value
 func (t Tuple) Len() int          { return len(t) }
 func (t Tuple) Index(i int) Value { return t[i] }
 func (t Tuple) SafeIndex(thread *Thread, i int) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	const safety = MemSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
 	return t[i], nil
@@ -2256,7 +2261,8 @@ func (b Bytes) Hash() (uint32, error) { return String(b).Hash() }
 func (b Bytes) Len() int              { return len(b) }
 func (b Bytes) Index(i int) Value     { return b[i : i+1] }
 func (b Bytes) SafeIndex(thread *Thread, i int) (Value, error) {
-	if err := CheckSafety(thread, MemSafe); err != nil {
+	const safety = MemSafe | CPUSafe
+	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
 	if thread != nil {

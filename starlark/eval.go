@@ -1670,7 +1670,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		}
 
 	case syntax.NOT_IN:
-		z, err := Binary(syntax.IN, x, y)
+		z, err := safeBinary(thread, syntax.IN, x, y)
 		if err != nil {
 			return nil, err
 		}

@@ -94,7 +94,7 @@ func TestJsonEncodeSteps(t *testing.T) {
 	}, {
 		name:  "Int (big)",
 		input: starlark.MakeInt64(0xdeadbeef << 10),
-		steps: uint64(len(fmt.Sprintf("%d", 0xdeadbeef<<10))),
+		steps: uint64(len(fmt.Sprintf("%d", int64(0xdeadbeef<<10)))),
 	}, {
 		name:  "Float",
 		input: starlark.Float(1.4218e-1),
