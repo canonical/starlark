@@ -1366,7 +1366,8 @@ func (sbt *safeBinaryTest) Run(t *testing.T) {
 			`, sbt.op))
 			st.RunString(fmt.Sprintf(`
 				for _ in st.ntimes():
-					left %s= right
+					result = left
+					result %s= right
 					st.keep_alive(result)
 			`, sbt.op))
 		})
