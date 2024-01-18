@@ -1955,15 +1955,24 @@ func TestSafeBinary(t *testing.T) {
 		testSafetyRespected(t, syntax.CIRCUMFLEX)
 
 		tests := []safeBinaryTest{{
-			name:  "int ^ int",
-			op:    syntax.CIRCUMFLEX,
-			left:  makeSmallInt,
-			right: makeBigInt,
+			name:              "int ^ int",
+			op:                syntax.CIRCUMFLEX,
+			left:              makeBigInt,
+			right:             makeBigInt,
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 1,
 		}, {
-			name:  "set ^ set",
-			op:    syntax.CIRCUMFLEX,
-			left:  makeSet,
-			right: makeAlternatingSet,
+			name:    "set ^ set",
+			op:      syntax.CIRCUMFLEX,
+			left:    makeSet,
+			right:   makeAlternatingSet,
+			cpuSafe: true,
+			// The step cost per N is:
+			// - For cloning, 2
+			// - For deletion/insertion, just above 2
+			minExecutionSteps: 4,
+			maxExecutionSteps: 5,
 		}}
 		for _, test := range tests {
 			test.Run(t)
