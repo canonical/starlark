@@ -1885,9 +1885,10 @@ func TestSafeBinary(t *testing.T) {
 			name: "dict | dict",
 			op:   syntax.PIPE,
 			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				ret := starlark.NewDict(3 * n / 4)
-				for i := -n / 4; i < n/2; i++ {
-					ret.SetKey(starlark.MakeInt(i), starlark.None)
+				ret := starlark.NewDict(n)
+				for i := 0; i < n; i++ {
+					v := starlark.Value(starlark.MakeInt(i))
+					ret.SetKey(v, v)
 				}
 				if thread != nil {
 					if err := thread.AddAllocs(starlark.EstimateSize(ret)); err != nil {
@@ -1897,9 +1898,15 @@ func TestSafeBinary(t *testing.T) {
 				return ret, nil
 			},
 			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				ret := starlark.NewDict(3 * n / 4)
-				for i := -n / 2; i < n/4; i++ {
-					ret.SetKey(starlark.MakeInt(i), starlark.None)
+				ret := starlark.NewDict(n)
+				for i := 0; i < n; i++ {
+					var v starlark.Value
+					if i%2 == 0 {
+						v = starlark.MakeInt(i)
+					} else {
+						v = starlark.MakeInt(-i)
+					}
+					ret.SetKey(v, v)
 				}
 				if thread != nil {
 					if err := thread.AddAllocs(starlark.EstimateSize(ret)); err != nil {
