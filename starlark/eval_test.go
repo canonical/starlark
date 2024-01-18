@@ -1364,6 +1364,11 @@ func (sbt *safeBinaryTest) Run(t *testing.T) {
 				for _ in st.ntimes():
 					st.keep_alive(left %s right)
 			`, sbt.op))
+			st.RunString(fmt.Sprintf(`
+				for _ in st.ntimes():
+					left %s= right
+					st.keep_alive(result)
+			`, sbt.op))
 		})
 
 		t.Run("small", func(t *testing.T) {
