@@ -1936,15 +1936,25 @@ func TestSafeBinary(t *testing.T) {
 		testSafetyRespected(t, syntax.AMP)
 
 		tests := []safeBinaryTest{{
-			name:  "int & int",
-			op:    syntax.AMP,
-			left:  makeBigInt,
-			right: makeBigInt,
+			name:              "int & int",
+			op:                syntax.AMP,
+			left:              makeBigInt,
+			right:             makeBigInt,
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 1,
 		}, {
-			name:  "set & set",
-			op:    syntax.AMP,
-			left:  makeSet,
-			right: makeAlternatingSet,
+			name:    "set & set",
+			op:      syntax.AMP,
+			left:    makeSet,
+			right:   makeAlternatingSet,
+			cpuSafe: true,
+			// The step cost per N is:
+			// - For iteration, 1
+			// - For insertion, 1
+			// - For membership checking, on average just above 1
+			minExecutionSteps: 3,
+			maxExecutionSteps: 4,
 		}}
 		for _, test := range tests {
 			test.Run(t)
