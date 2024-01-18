@@ -1131,7 +1131,7 @@ func SafeUnary(thread *Thread, op syntax.Token, x Value) (Value, error) {
 		return !x.Truth(), nil
 	}
 
-	if x, ok := x.(SafeHasUnary); ok {
+	if x, ok := x.(HasSafeUnary); ok {
 		return x.SafeUnary(thread, op)
 	}
 
