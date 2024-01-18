@@ -1970,8 +1970,8 @@ func TestSafeBinary(t *testing.T) {
 			cpuSafe: true,
 			// The step cost per N is:
 			// For iterating over left, 1
-			// For cloning, on average just above 1
-			// For deletion, on average just above 1
+			// For cloning, on average, just above 1
+			// For deletion, on average, just above 1
 			// For insertion, on average, just above 1
 			minExecutionSteps: 4,
 			maxExecutionSteps: 5,
