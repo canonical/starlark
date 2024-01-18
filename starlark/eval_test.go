@@ -1885,20 +1885,20 @@ func TestSafeBinary(t *testing.T) {
 			name: "dict | dict",
 			op:   syntax.PIPE,
 			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				ret := starlark.NewDict(n)
+				result := starlark.NewDict(n)
 				for i := 0; i < n; i++ {
 					v := starlark.Value(starlark.MakeInt(i))
-					ret.SetKey(v, v)
+					result.SetKey(v, v)
 				}
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(ret)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
 						return nil, err
 					}
 				}
-				return ret, nil
+				return result, nil
 			},
 			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				ret := starlark.NewDict(n)
+				result := starlark.NewDict(n)
 				for i := 0; i < n; i++ {
 					var v starlark.Value
 					if i%2 == 0 {
@@ -1906,14 +1906,14 @@ func TestSafeBinary(t *testing.T) {
 					} else {
 						v = starlark.MakeInt(-i)
 					}
-					ret.SetKey(v, v)
+					result.SetKey(v, v)
 				}
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(ret)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
 						return nil, err
 					}
 				}
-				return ret, nil
+				return result, nil
 			},
 		}, {
 			name:  "set | set",
@@ -1970,22 +1970,22 @@ func TestSafeBinary(t *testing.T) {
 			name: "int >> int",
 			op:   syntax.GTGT,
 			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				ret := starlark.MakeInt(1).Lsh(uint(n * 2 * 32))
+				result := starlark.MakeInt(1).Lsh(uint(n * 2 * 32))
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(ret)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
 						return nil, err
 					}
 				}
-				return ret, nil
+				return result, nil
 			},
 			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				ret := starlark.MakeInt(n)
+				result := starlark.MakeInt(n)
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(ret)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
 						return nil, err
 					}
 				}
-				return ret, nil
+				return result, nil
 			},
 		}}
 		for _, test := range tests {
