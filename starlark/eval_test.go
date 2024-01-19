@@ -1652,7 +1652,7 @@ func TestSafeBinary(t *testing.T) {
 			left:    makeBigInt,
 			right:   makeBigInt,
 			cpuSafe: true,
-			// The growth is exponential here. However,
+			// The growth is non-linear here. However,
 			// the test code will go from 1 to 100_000
 			// iterations, giving us the range for the steps.
 			minExecutionSteps: 1,
