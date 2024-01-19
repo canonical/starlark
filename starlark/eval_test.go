@@ -1929,6 +1929,7 @@ func TestSafeBinary(t *testing.T) {
 			// - For creating a new dict, 1
 			// - For iterating over the right, 1
 			// - For insertion, on average, just above 1
+			// - For SafeIterator over-count, 1
 			minExecutionSteps: 3,
 			maxExecutionSteps: 4,
 		}, {
@@ -1941,6 +1942,7 @@ func TestSafeBinary(t *testing.T) {
 			// - For cloning the left, 1
 			// - For iterating over the right, 1
 			// - For insertion, on average, just above 1
+			// - For SafeIterator over-count, 1
 			minExecutionSteps: 3,
 			maxExecutionSteps: 4,
 		}}
