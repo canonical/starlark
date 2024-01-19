@@ -1105,6 +1105,11 @@ func NewDict(size int) *Dict {
 
 func SafeNewDict(thread *Thread, size int) (*Dict, error) {
 	if thread != nil {
+		if size > 0 {
+			if err := thread.AddExecutionSteps(int64(size)); err != nil {
+				return nil, err
+			}
+		}
 		if err := thread.AddAllocs(EstimateSize(&Dict{})); err != nil {
 			return nil, err
 		}
