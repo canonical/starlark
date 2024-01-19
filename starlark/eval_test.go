@@ -1356,7 +1356,6 @@ func (sbt *safeBinaryTest) Run(t *testing.T) {
 				t.Error(err)
 			}
 			st := sbt.st(t)
-			st.SetMinExecutionSteps(0)              // Relax test.
 			st.SetMaxExecutionSteps(math.MaxUint64) // Relax test.
 			st.AddValue("left", left)
 			st.AddValue("right", right)
