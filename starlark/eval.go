@@ -1688,7 +1688,13 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 	case syntax.IN:
 		switch y := y.(type) {
 		case *List:
-			for _, elem := range y.elems {
+			iter, err := SafeIterate(thread, y)
+			if err != nil {
+				return nil, err
+			}
+			defer iter.Done()
+			var elem Value
+			for iter.Next(&elem) {
 				if eq, err := Equal(elem, x); err != nil {
 					return nil, err
 				} else if eq {
@@ -1697,7 +1703,13 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			}
 			return False, nil
 		case Tuple:
-			for _, elem := range y {
+			iter, err := SafeIterate(thread, y)
+			if err != nil {
+				return nil, err
+			}
+			defer iter.Done()
+			var elem Value
+			for iter.Next(&elem) {
 				if eq, err := Equal(elem, x); err != nil {
 					return nil, err
 				} else if eq {
@@ -1706,27 +1718,57 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			}
 			return False, nil
 		case Mapping: // e.g. dict
-			// Ignore error from Get as we cannot distinguish true
-			// errors (value cycle, type error) from "key not found".
-			_, found, _ := y.Get(x)
+			if y, ok := y.(SafeMapping); ok {
+				_, found, err := y.SafeGet(thread, x)
+				if err != nil {
+					return nil, err
+				}
+				return Bool(found), nil
+			}
+
+			if err := thread.CheckPermits(NotSafe); err != nil {
+				return nil, err
+			}
+			_, found, err := y.Get(x)
+			if errors.Is(err, ErrSafety) {
+				return nil, err
+			}
 			return Bool(found), nil
 		case *Set:
-			ok, err := y.Has(x)
-			return Bool(ok), err
+			ok, err := y.SafeHas(thread, x)
+			if err != nil {
+				return nil, err
+			}
+			return Bool(ok), nil
 		case String:
 			needle, ok := x.(String)
 			if !ok {
 				return nil, fmt.Errorf("'in <string>' requires string as left operand, not %s", x.Type())
 			}
+			if thread != nil {
+				if err := thread.AddExecutionSteps(int64(len(y))); err != nil {
+					return nil, err
+				}
+			}
 			return Bool(strings.Contains(string(y), string(needle))), nil
 		case Bytes:
 			switch needle := x.(type) {
 			case Bytes:
+				if thread != nil {
+					if err := thread.AddExecutionSteps(int64(len(y))); err != nil {
+						return nil, err
+					}
+				}
 				return Bool(strings.Contains(string(y), string(needle))), nil
 			case Int:
 				var b byte
 				if err := AsInt(needle, &b); err != nil {
 					return nil, fmt.Errorf("int in bytes: %s", err)
+				}
+				if thread != nil {
+					if err := thread.AddExecutionSteps(int64(len(y))); err != nil {
+						return nil, err
+					}
 				}
 				return Bool(strings.IndexByte(string(y), b) >= 0), nil
 			default:
