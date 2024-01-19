@@ -1818,7 +1818,7 @@ func TestSafeBinary(t *testing.T) {
 			name: "int % int",
 			op:   syntax.PERCENT,
 			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				result := starlark.MakeInt(1).Lsh(uint(n * 32))
+				result := starlark.MakeInt(1).Lsh(uint(math.Ceil(math.Sqrt(float64(n)))) * 32)
 				if thread != nil {
 					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
 						return nil, err
@@ -1827,7 +1827,7 @@ func TestSafeBinary(t *testing.T) {
 				return result, nil
 			},
 			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				result := starlark.MakeInt(3).Lsh(uint(n * 32))
+				result := starlark.MakeInt(3).Lsh(uint(math.Ceil(math.Sqrt(float64(n)))) * 32)
 				if thread != nil {
 					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
 						return nil, err
@@ -1837,7 +1837,7 @@ func TestSafeBinary(t *testing.T) {
 			},
 			cpuSafe:           true,
 			minExecutionSteps: 1,
-			maxExecutionSteps: 91000,
+			maxExecutionSteps: 1,
 		}, {
 			name:    "int % float",
 			op:      syntax.PERCENT,
