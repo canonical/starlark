@@ -1630,6 +1630,13 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					return nil, fmt.Errorf("integer modulo by zero")
 				}
 				if thread != nil {
+					// Modulo is the same as division in terms of complexity.
+					// See syntax.SLASHSLASH (case Int Int) for a rationale.
+					resultSteps := max(intLenSteps(x), intLenSteps(y))
+					resultSteps *= resultSteps
+					if err := thread.AddExecutionSteps(resultSteps); err != nil {
+						return nil, err
+					}
 					if err := thread.CheckAllocs(EstimateSize(y)); err != nil {
 						return nil, err
 					}
