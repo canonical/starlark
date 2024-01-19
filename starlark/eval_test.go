@@ -1751,21 +1751,30 @@ func TestSafeBinary(t *testing.T) {
 			op:    syntax.SLASHSLASH,
 			left:  makeBigInt,
 			right: constant(starlark.MakeInt(10)),
+			// The growth is quadratic here. However,
+			// the test code will go from 1 to 100_000
+			// iterations, giving us the range for the steps.
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 91000,
 		}, {
-			name:  "int // float",
-			op:    syntax.SLASHSLASH,
-			left:  constant(starlark.MakeInt(100)),
-			right: makeFloat,
+			name:    "int // float",
+			op:      syntax.SLASHSLASH,
+			left:    constant(starlark.MakeInt(100)),
+			right:   makeFloat,
+			cpuSafe: true,
 		}, {
-			name:  "float // int",
-			op:    syntax.SLASHSLASH,
-			left:  constant(starlark.MakeInt(100)),
-			right: makeFloat,
+			name:    "float // int",
+			op:      syntax.SLASHSLASH,
+			left:    constant(starlark.MakeInt(100)),
+			right:   makeFloat,
+			cpuSafe: true,
 		}, {
-			name:  "float // float",
-			op:    syntax.SLASHSLASH,
-			left:  makeSmallInt,
-			right: makeFloat,
+			name:    "float // float",
+			op:      syntax.SLASHSLASH,
+			left:    makeSmallInt,
+			right:   makeFloat,
+			cpuSafe: true,
 		}}
 		for _, test := range tests {
 			test.Run(t)
