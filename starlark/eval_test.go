@@ -1952,6 +1952,21 @@ func TestSafeBinary(t *testing.T) {
 
 	t.Run("^", func(t *testing.T) {
 		testSafetyRespected(t, syntax.CIRCUMFLEX)
+
+		tests := []safeBinaryTest{{
+			name:  "int ^ int",
+			op:    syntax.CIRCUMFLEX,
+			left:  makeSmallInt,
+			right: makeBigInt,
+		}, {
+			name:  "set ^ set",
+			op:    syntax.CIRCUMFLEX,
+			left:  makeSet,
+			right: makeAlternatingSet,
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
 	})
 
 	t.Run("<<", func(t *testing.T) {
