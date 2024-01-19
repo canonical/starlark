@@ -1647,16 +1647,22 @@ func TestSafeBinary(t *testing.T) {
 		testSafetyRespected(t, syntax.STAR)
 
 		tests := []safeBinaryTest{{
-			name:    "int * int",
-			op:      syntax.STAR,
-			left:    makeBigInt,
-			right:   makeBigInt,
-			cpuSafe: true,
-			// The growth is non-linear here. However,
-			// the test code will go from 1 to 100_000
-			// iterations, giving us the range for the steps.
+			name: "int * int",
+			op:   syntax.STAR,
+			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+				bits := uint(math.Ceil(math.Pow(float64(n), 1/1.58) * 32))
+				num := starlark.MakeInt(1).Lsh(bits)
+				if thread != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(num)); err != nil {
+						return nil, err
+					}
+				}
+				return num, nil
+			},
+			right:             constant(starlark.MakeInt(10)),
+			cpuSafe:           true,
 			minExecutionSteps: 1,
-			maxExecutionSteps: 735,
+			maxExecutionSteps: 1,
 		}, {
 			name:    "int * float",
 			op:      syntax.STAR,

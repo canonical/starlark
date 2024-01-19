@@ -1358,8 +1358,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			switch y := y.(type) {
 			case Int:
 				if thread != nil {
-					// Using Karatsuba algorithm as a benchmark for the multiplication
-					// since all other algorithms have lower complexity.
+					// In the worse case, Karatsuba's algorithm is used.
 					resultSteps := int64(math.Pow(float64(max(intLenSteps(x), intLenSteps(y))), 1.58))
 					if err := thread.AddExecutionSteps(resultSteps); err != nil {
 						return nil, err
