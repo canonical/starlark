@@ -237,8 +237,7 @@ loop:
 				}
 			}
 			if z == nil {
-				// TODO: use SafeIterate (SafeBinary?)
-				z, err = Binary(syntax.PLUS, x, y)
+				z, err = SafeBinary(thread, syntax.PLUS, x, y)
 				if err != nil {
 					break loop
 				}
@@ -266,7 +265,7 @@ loop:
 				}
 			}
 			if z == nil {
-				z, err = Binary(syntax.PIPE, x, y)
+				z, err = SafeBinary(thread, syntax.PIPE, x, y)
 				if err != nil {
 					break loop
 				}

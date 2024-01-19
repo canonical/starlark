@@ -228,7 +228,7 @@ func TestKeepAlive(t *testing.T) {
 func TestStepBounding(t *testing.T) {
 	t.Run("steps=safe-min", func(t *testing.T) {
 		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe)
+		st.RequireSafety(starlark.CPUSafe)
 		st.SetMinExecutionSteps(1)
 		st.RunString(`
 			i = 0
@@ -240,7 +240,7 @@ func TestStepBounding(t *testing.T) {
 
 	t.Run("steps=safe-max", func(t *testing.T) {
 		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe)
+		st.RequireSafety(starlark.CPUSafe)
 		st.SetMaxExecutionSteps(10)
 		st.RunString(`
 			for _ in st.ntimes():
@@ -253,6 +253,7 @@ func TestStepBounding(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
+		st.RequireSafety(starlark.CPUSafe)
 		st.SetMinExecutionSteps(100)
 		st.RunString(`
 			for _ in st.ntimes():
@@ -271,6 +272,7 @@ func TestStepBounding(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
+		st.RequireSafety(starlark.CPUSafe)
 		st.SetMaxExecutionSteps(1)
 		st.RunString(`
 			i = 0
