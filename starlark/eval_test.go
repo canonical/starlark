@@ -1951,7 +1951,7 @@ func TestSafeBinary(t *testing.T) {
 			cpuSafe: true,
 			// The step cost per N is:
 			// - For iteration over left, 1
-			// - For checking membership of right, on average, just above 1
+			// - For checking membership of right, on average 1.5
 			// - For insertion into the result, on average, just above 1
 			minExecutionSteps: 3,
 			maxExecutionSteps: 4,
