@@ -1688,13 +1688,12 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 	case syntax.IN:
 		switch y := y.(type) {
 		case *List:
-			iter, err := SafeIterate(thread, y)
-			if err != nil {
-				return nil, err
-			}
-			defer iter.Done()
-			var elem Value
-			for iter.Next(&elem) {
+			for _, elem := range y.elems {
+				if thread != nil {
+					if err := thread.AddExecutionSteps(1); err != nil {
+						return nil, err
+					}
+				}
 				if eq, err := Equal(elem, x); err != nil {
 					return nil, err
 				} else if eq {
@@ -1703,13 +1702,12 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			}
 			return False, nil
 		case Tuple:
-			iter, err := SafeIterate(thread, y)
-			if err != nil {
-				return nil, err
-			}
-			defer iter.Done()
-			var elem Value
-			for iter.Next(&elem) {
+			for _, elem := range y {
+				if thread != nil {
+					if err := thread.AddExecutionSteps(1); err != nil {
+						return nil, err
+					}
+				}
 				if eq, err := Equal(elem, x); err != nil {
 					return nil, err
 				} else if eq {
