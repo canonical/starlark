@@ -369,6 +369,115 @@ func TestAttrAccessAllocs(t *testing.T) {
 	}
 }
 
+type unsafeTestSetField struct{}
+
+var _ starlark.HasSetField = &unsafeTestSetField{}
+
+func (utsf *unsafeTestSetField) Freeze()              {}
+func (utsf *unsafeTestSetField) String() string       { return "unsafeTestSetField" }
+func (utsf *unsafeTestSetField) Truth() starlark.Bool { return starlark.False }
+func (utsf *unsafeTestSetField) Type() string         { return "<unsafeTestSetField>" }
+func (utsf *unsafeTestSetField) AttrNames() []string  { return nil }
+
+func (utsf *unsafeTestSetField) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", utsf.Type())
+}
+
+func (utsf *unsafeTestSetField) Attr(name string) (starlark.Value, error) {
+	return nil, starlark.ErrNoSuchAttr
+}
+
+func (utsf *unsafeTestSetField) SetField(name string, val starlark.Value) error {
+	return fmt.Errorf("SetField called")
+}
+
+type testSetField struct {
+	safety        starlark.SafetyFlags
+	steps, allocs int64
+}
+
+var _ starlark.HasSafeSetField = &testSetField{}
+
+func (tsf *testSetField) Freeze()              {}
+func (tsf *testSetField) String() string       { return "testSetField" }
+func (tsf *testSetField) Truth() starlark.Bool { return starlark.False }
+func (tsf *testSetField) Type() string         { return "<testSetField>" }
+func (tsf *testSetField) AttrNames() []string  { return nil }
+
+func (tsf *testSetField) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", tsf.Type())
+}
+
+func (tsf *testSetField) Attr(name string) (starlark.Value, error) {
+	return nil, starlark.ErrNoSuchAttr
+
+}
+func (tsf *testSetField) SetField(name string, val starlark.Value) error {
+	return tsf.SafeSetField(nil, name, val)
+}
+
+func (tsf *testSetField) SafeSetField(thread *starlark.Thread, name string, val starlark.Value) error {
+	if err := starlark.CheckSafety(thread, tsf.safety); err != nil {
+		return err
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(tsf.allocs); err != nil {
+			return err
+		}
+		if err := thread.AddExecutionSteps(tsf.steps); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func TestSetField(t *testing.T) {
+	t.Run("safety-respected", func(t *testing.T) {
+		dummy := &testing.T{}
+		st := startest.From(dummy)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.AddValue("input", &unsafeTestSetField{})
+		ok := st.RunString(`
+			input.field = 1
+		`)
+		if ok {
+			st.Error("expected error")
+		}
+	})
+
+	t.Run("not-safe", func(t *testing.T) {
+		dummy := &testing.T{}
+		st := startest.From(dummy)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.AddValue("input", &testSetField{})
+		ok := st.RunString(`
+			for _ in st.ntimes():
+				input.field = 1
+		`)
+		if ok {
+			st.Error("expected error")
+		}
+	})
+
+	t.Run("safe", func(t *testing.T) {
+		const safety = starlark.MemSafe | starlark.CPUSafe
+
+		st := startest.From(t)
+		st.RequireSafety(safety)
+		st.AddValue("input", &testSetField{
+			safety: safety,
+			steps:  100,
+			allocs: 100,
+		})
+		st.SetMaxAllocs(100)
+		st.SetMinExecutionSteps(100)
+		st.RunString(`
+			for _ in st.ntimes():
+				input.field = 1
+		`)
+	})
+}
+
 type unsafeTestIndexable struct{}
 
 var _ starlark.Indexable = &unsafeTestIndexable{}

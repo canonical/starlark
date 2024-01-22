@@ -63,7 +63,7 @@ var (
 	oneBig    = big.NewInt(1)
 
 	_ HasUnary     = Int{}
-	_ SafeHasUnary = Int{}
+	_ HasSafeUnary = Int{}
 )
 
 // Unary implements the operations +int, -int, and ~int.

@@ -391,8 +391,8 @@ type HasUnary interface {
 	Unary(op syntax.Token) (Value, error)
 }
 
-type SafeHasUnary interface {
-	Value
+type HasSafeUnary interface {
+	HasUnary
 	SafeUnary(thread *Thread, op syntax.Token) (Value, error)
 }
 
@@ -436,6 +436,11 @@ var (
 type HasSetField interface {
 	HasAttrs
 	SetField(name string, val Value) error
+}
+
+type HasSafeSetField interface {
+	HasSetField
+	SafeSetField(thread *Thread, name string, val Value) error
 }
 
 // A NoSuchAttrError may be returned by an implementation of
@@ -1105,6 +1110,11 @@ func NewDict(size int) *Dict {
 
 func SafeNewDict(thread *Thread, size int) (*Dict, error) {
 	if thread != nil {
+		if size > 0 {
+			if err := thread.AddExecutionSteps(int64(size)); err != nil {
+				return nil, err
+			}
+		}
 		if err := thread.AddAllocs(EstimateSize(&Dict{})); err != nil {
 			return nil, err
 		}
@@ -1499,6 +1509,11 @@ func (s *Set) SafeString(thread *Thread, sb StringBuilder) error {
 		return err
 	}
 	return writeValue(thread, sb, s, nil)
+}
+
+func (s *Set) safeHas(thread *Thread, k Value) (found bool, err error) {
+	_, found, err = s.ht.lookup(thread, k)
+	return found, err
 }
 
 func (s *Set) Attr(name string) (Value, error) { return builtinAttr(s, name, setMethods) }
