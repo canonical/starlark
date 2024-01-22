@@ -1718,7 +1718,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Mapping: // e.g. dict
 			if y, ok := y.(SafeMapping); ok {
 				_, found, err := y.SafeGet(thread, x)
-				if err != nil {
+				if errors.Is(err, ErrSafety) {
 					return nil, err
 				}
 				return Bool(found), nil
@@ -1727,10 +1727,9 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			if err := CheckSafety(thread, NotSafe); err != nil {
 				return nil, err
 			}
-			_, found, err := y.Get(x)
-			if errors.Is(err, ErrSafety) {
-				return nil, err
-			}
+			// Ignore error from Get as we cannot distinguish true
+			// errors (value cycle, type error) from "key not found".
+			_, found, _ := y.Get(x)
 			return Bool(found), nil
 		case *Set:
 			ok, err := y.safeHas(thread, x)
