@@ -1730,25 +1730,29 @@ func TestSafeBinary(t *testing.T) {
 		testSafetyRespected(t, syntax.SLASH)
 
 		tests := []safeBinaryTest{{
-			name:  "int / int",
-			op:    syntax.SLASH,
-			left:  makeSmallInt,
-			right: constant(starlark.MakeInt(10)),
+			name:    "int / int",
+			op:      syntax.SLASH,
+			left:    makeSmallInt,
+			right:   constant(starlark.MakeInt(10)),
+			cpuSafe: true,
 		}, {
-			name:  "int / float",
-			op:    syntax.SLASH,
-			left:  makeSmallInt,
-			right: makeFloat,
+			name:    "int / float",
+			op:      syntax.SLASH,
+			left:    makeSmallInt,
+			right:   makeFloat,
+			cpuSafe: true,
 		}, {
-			name:  "float / int",
-			op:    syntax.SLASH,
-			left:  makeFloat,
-			right: makeSmallInt,
+			name:    "float / int",
+			op:      syntax.SLASH,
+			left:    makeFloat,
+			right:   makeSmallInt,
+			cpuSafe: true,
 		}, {
-			name:  "float / float",
-			op:    syntax.SLASH,
-			left:  makeFloat,
-			right: makeFloat,
+			name:    "float / float",
+			op:      syntax.SLASH,
+			left:    makeFloat,
+			right:   makeFloat,
+			cpuSafe: true,
 		}}
 		for _, test := range tests {
 			test.Run(t)
