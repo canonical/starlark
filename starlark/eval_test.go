@@ -1750,13 +1750,13 @@ func TestSafeBinary(t *testing.T) {
 			name: "int // int",
 			op:   syntax.SLASHSLASH,
 			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				num := starlark.MakeInt(1).Lsh(uint(math.Ceil(math.Sqrt(float64(n)))) * 32)
+				result := starlark.MakeInt(1).Lsh(uint(math.Ceil(math.Sqrt(float64(n)))) * 32)
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(num)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
 						return nil, err
 					}
 				}
-				return num, nil
+				return result, nil
 			},
 			right:             constant(starlark.MakeInt(10)),
 			cpuSafe:           true,
@@ -1771,8 +1771,8 @@ func TestSafeBinary(t *testing.T) {
 		}, {
 			name:    "float // int",
 			op:      syntax.SLASHSLASH,
-			left:    constant(starlark.MakeInt(100)),
-			right:   makeFloat,
+			left:    makeFloat,
+			right:   constant(starlark.MakeInt(100)),
 			cpuSafe: true,
 		}, {
 			name:    "float // float",
