@@ -2183,7 +2183,7 @@ func TestSafeBinary(t *testing.T) {
 			// For deletion, on average, just above 1
 			// For insertion, on average, just above 1
 			minExecutionSteps: 4,
-			maxExecutionSteps: 5,
+			maxExecutionSteps: 4,
 		}}
 		for _, test := range tests {
 			test.Run(t)
