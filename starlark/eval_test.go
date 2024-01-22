@@ -1763,25 +1763,39 @@ func TestSafeBinary(t *testing.T) {
 		testSafetyRespected(t, syntax.SLASHSLASH)
 
 		tests := []safeBinaryTest{{
-			name:  "int // int",
-			op:    syntax.SLASHSLASH,
-			left:  makeBigInt,
-			right: constant(starlark.MakeInt(10)),
+			name: "int // int",
+			op:   syntax.SLASHSLASH,
+			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+				result := starlark.MakeInt(1).Lsh(uint(math.Ceil(math.Sqrt(float64(n)))) * 32)
+				if thread != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+						return nil, err
+					}
+				}
+				return result, nil
+			},
+			right:             constant(starlark.MakeInt(10)),
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 1,
 		}, {
-			name:  "int // float",
-			op:    syntax.SLASHSLASH,
-			left:  constant(starlark.MakeInt(100)),
-			right: makeFloat,
+			name:    "int // float",
+			op:      syntax.SLASHSLASH,
+			left:    constant(starlark.MakeInt(100)),
+			right:   makeFloat,
+			cpuSafe: true,
 		}, {
-			name:  "float // int",
-			op:    syntax.SLASHSLASH,
-			left:  constant(starlark.MakeInt(100)),
-			right: makeFloat,
+			name:    "float // int",
+			op:      syntax.SLASHSLASH,
+			left:    makeFloat,
+			right:   constant(starlark.MakeInt(100)),
+			cpuSafe: true,
 		}, {
-			name:  "float // float",
-			op:    syntax.SLASHSLASH,
-			left:  makeSmallInt,
-			right: makeFloat,
+			name:    "float // float",
+			op:      syntax.SLASHSLASH,
+			left:    makeSmallInt,
+			right:   makeFloat,
+			cpuSafe: true,
 		}}
 		for _, test := range tests {
 			test.Run(t)
