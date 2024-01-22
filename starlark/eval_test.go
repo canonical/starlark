@@ -1671,67 +1671,105 @@ func TestSafeBinary(t *testing.T) {
 		testSafetyRespected(t, syntax.STAR)
 
 		tests := []safeBinaryTest{{
-			name:  "int * int",
-			op:    syntax.STAR,
-			left:  makeBigInt,
-			right: makeBigInt,
-		}, {
-			name:  "int * float",
-			op:    syntax.STAR,
-			left:  makeSmallInt,
-			right: makeFloat,
-		}, {
-			name:  "float * int",
-			op:    syntax.STAR,
-			left:  makeFloat,
-			right: makeSmallInt,
-		}, {
-			name:  "float * float",
-			op:    syntax.STAR,
-			left:  makeFloat,
-			right: makeFloat,
-		}, {
-			name:  "bytes * int",
-			op:    syntax.STAR,
-			left:  makeBytes,
-			right: constant(starlark.MakeInt(10)),
-		}, {
-			name:  "int * bytes",
-			op:    syntax.STAR,
-			left:  constant(starlark.MakeInt(10)),
-			right: makeBytes,
-		}, {
-			name:  "string * int",
-			op:    syntax.STAR,
-			left:  makeString,
-			right: constant(starlark.MakeInt(10)),
-		}, {
-			name:  "int * string",
-			op:    syntax.STAR,
-			left:  constant(starlark.MakeInt(10)),
-			right: makeString,
-		}, {
-			name:  "list * int",
-			op:    syntax.STAR,
-			left:  makeList,
-			right: constant(starlark.MakeInt(10)),
-		}, {
-			name:  "int * list",
-			op:    syntax.STAR,
-			left:  constant(starlark.MakeInt(10)),
-			right: makeList,
-		}, {
-			name: "tuple * int",
+			name: "int * int",
 			op:   syntax.STAR,
-
-			left:  makeTuple,
-			right: constant(starlark.MakeInt(10)),
+			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+				// The 1.58 here comes from the Karatsuba-based bound.
+				numBits := uint(math.Ceil(math.Pow(float64(n), 1/1.58) * 32))
+				result := starlark.MakeInt(1).Lsh(numBits)
+				if thread != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+						return nil, err
+					}
+				}
+				return result, nil
+			},
+			right:             constant(starlark.MakeInt(10)),
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 1,
 		}, {
-			name: "int * tuple",
-			op:   syntax.STAR,
-
-			left:  constant(starlark.MakeInt(10)),
-			right: makeTuple,
+			name:    "int * float",
+			op:      syntax.STAR,
+			left:    makeSmallInt,
+			right:   makeFloat,
+			cpuSafe: true,
+		}, {
+			name:    "float * int",
+			op:      syntax.STAR,
+			left:    makeFloat,
+			right:   makeSmallInt,
+			cpuSafe: true,
+		}, {
+			name:    "float * float",
+			op:      syntax.STAR,
+			left:    makeFloat,
+			right:   makeFloat,
+			cpuSafe: true,
+		}, {
+			name:              "bytes * int",
+			op:                syntax.STAR,
+			left:              makeBytes,
+			right:             constant(starlark.MakeInt(10)),
+			cpuSafe:           true,
+			minExecutionSteps: 10,
+			maxExecutionSteps: 10,
+		}, {
+			name:              "int * bytes",
+			op:                syntax.STAR,
+			left:              constant(starlark.MakeInt(10)),
+			right:             makeBytes,
+			cpuSafe:           true,
+			minExecutionSteps: 10,
+			maxExecutionSteps: 10,
+		}, {
+			name:              "string * int",
+			op:                syntax.STAR,
+			left:              makeString,
+			right:             constant(starlark.MakeInt(10)),
+			cpuSafe:           true,
+			minExecutionSteps: 10,
+			maxExecutionSteps: 10,
+		}, {
+			name:              "int * string",
+			op:                syntax.STAR,
+			left:              constant(starlark.MakeInt(10)),
+			right:             makeString,
+			cpuSafe:           true,
+			minExecutionSteps: 10,
+			maxExecutionSteps: 10,
+		}, {
+			name:              "list * int",
+			op:                syntax.STAR,
+			left:              makeList,
+			right:             constant(starlark.MakeInt(10)),
+			cpuSafe:           true,
+			minExecutionSteps: 10,
+			maxExecutionSteps: 10,
+		}, {
+			name:              "int * list",
+			op:                syntax.STAR,
+			left:              constant(starlark.MakeInt(10)),
+			right:             makeList,
+			cpuSafe:           true,
+			minExecutionSteps: 10,
+			maxExecutionSteps: 10,
+		}, {
+			name:              "tuple * int",
+			op:                syntax.STAR,
+			left:              makeTuple,
+			right:             constant(starlark.MakeInt(10)),
+			cpuSafe:           true,
+			minExecutionSteps: 10,
+			maxExecutionSteps: 10,
+		}, {
+			name:              "int * tuple",
+			op:                syntax.STAR,
+			left:              constant(starlark.MakeInt(10)),
+			right:             makeTuple,
+			cpuSafe:           true,
+			minExecutionSteps: 10,
+			maxExecutionSteps: 10,
 		}}
 		for _, test := range tests {
 			test.Run(t)
