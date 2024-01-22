@@ -11,7 +11,6 @@ import (
 	"log"
 	"math"
 	"math/big"
-	"math/bits"
 	"os"
 	"sort"
 	"strings"
@@ -1925,8 +1924,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					return nil, fmt.Errorf("shift count too large: %v", y)
 				}
 				if thread != nil {
-					ySteps := int64(1 + (y+1)/bits.UintSize)
-					if err := thread.AddExecutionSteps(intLenSteps(x) + ySteps); err != nil {
+					if err := thread.AddExecutionSteps(intLenSteps(x) + int64(y/32)); err != nil {
 						return nil, err
 					}
 					if err := thread.CheckAllocs(EstimateSize(x)); err != nil {
@@ -1942,8 +1940,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				return z, nil
 			} else {
 				if thread != nil {
-					ySteps := int64(1 + (y+1)/bits.UintSize)
-					if err := thread.AddExecutionSteps(max(intLenSteps(x)-ySteps, 0)); err != nil {
+					if err := thread.AddExecutionSteps(max(intLenSteps(x)-int64(y/32), 0)); err != nil {
 						return nil, err
 					}
 					if err := thread.CheckAllocs(EstimateSize(x)); err != nil {

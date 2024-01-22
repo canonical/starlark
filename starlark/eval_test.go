@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/bits"
 	"os/exec"
 	"path/filepath"
 	"reflect"
@@ -2187,20 +2186,7 @@ func TestSafeBinary(t *testing.T) {
 		tests := []safeBinaryTest{{
 			name: "int << int",
 			op:   syntax.LTLT,
-			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				var result starlark.Value
-				if n > maxShift {
-					result = starlark.MakeInt(1).Lsh(uint(n*bits.UintSize - maxShift))
-				} else {
-					result = starlark.MakeInt(n)
-				}
-				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
-						return nil, err
-					}
-				}
-				return result, nil
-			},
+			left: makeBigInt,
 			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 				var result starlark.Value
 				if n > maxShift {
@@ -2231,7 +2217,7 @@ func TestSafeBinary(t *testing.T) {
 			name: "int >> int",
 			op:   syntax.GTGT,
 			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				result := starlark.MakeInt(1).Lsh(uint(n * 2 * bits.UintSize))
+				result := starlark.MakeInt(1).Lsh(uint(n * 2 * 32))
 				if thread != nil {
 					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
 						return nil, err
@@ -2240,7 +2226,7 @@ func TestSafeBinary(t *testing.T) {
 				return result, nil
 			},
 			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				result := starlark.MakeInt(n * bits.UintSize)
+				result := starlark.MakeInt(n * 32)
 				if thread != nil {
 					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
 						return nil, err
