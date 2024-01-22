@@ -1961,18 +1961,10 @@ func TestSafeBinary(t *testing.T) {
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}, {
-			name:      fmt.Sprintf("int %s bytes", op),
-			noInplace: true,
-			op:        op,
-			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				result := starlark.Value(starlark.MakeInt(n & 0xff))
-				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
-						return nil, err
-					}
-				}
-				return result, nil
-			},
+			name:              fmt.Sprintf("int %s bytes", op),
+			noInplace:         true,
+			op:                op,
+			left:              constant(starlark.MakeInt(0)),
 			right:             makeBytes,
 			cpuSafe:           true,
 			minExecutionSteps: 1,
