@@ -1650,14 +1650,15 @@ func TestSafeBinary(t *testing.T) {
 			name: "int * int",
 			op:   syntax.STAR,
 			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				bits := uint(math.Ceil(math.Pow(float64(n), 1/1.58) * 32))
-				num := starlark.MakeInt(1).Lsh(bits)
+				// The 1.58 here comes from the Karatsuba-based bound.
+				numBits := uint(math.Ceil(math.Pow(float64(n), 1/1.58) * 32))
+				result := starlark.MakeInt(1).Lsh(numBits)
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(num)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
 						return nil, err
 					}
 				}
-				return num, nil
+				return result, nil
 			},
 			right:             constant(starlark.MakeInt(10)),
 			cpuSafe:           true,
