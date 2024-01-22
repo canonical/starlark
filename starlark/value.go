@@ -1511,6 +1511,11 @@ func (s *Set) SafeString(thread *Thread, sb StringBuilder) error {
 	return writeValue(thread, sb, s, nil)
 }
 
+func (s *Set) safeHas(thread *Thread, k Value) (found bool, err error) {
+	_, found, err = s.ht.lookup(thread, k)
+	return found, err
+}
+
 func (s *Set) Attr(name string) (Value, error) { return builtinAttr(s, name, setMethods) }
 func (s *Set) AttrNames() []string             { return builtinAttrNames(setMethods) }
 
