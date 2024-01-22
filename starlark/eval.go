@@ -1733,7 +1733,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			}
 			return Bool(found), nil
 		case *Set:
-			ok, err := y.SafeHas(thread, x)
+			ok, err := y.safeHas(thread, x)
 			if err != nil {
 				return nil, err
 			}

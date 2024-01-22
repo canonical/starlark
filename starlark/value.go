@@ -1511,7 +1511,7 @@ func (s *Set) SafeString(thread *Thread, sb StringBuilder) error {
 	return writeValue(thread, sb, s, nil)
 }
 
-func (s *Set) SafeHas(thread *Thread, k Value) (found bool, err error) {
+func (s *Set) safeHas(thread *Thread, k Value) (found bool, err error) {
 	_, found, err = s.ht.lookup(thread, k)
 	return found, err
 }
