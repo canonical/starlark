@@ -1302,7 +1302,7 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 type safeBinaryTest struct {
 	name              string
 	op                syntax.Token
-	no_inplace        bool
+	noInplace         bool
 	left, right       func(*starlark.Thread, int) (starlark.Value, error)
 	cpuSafe           bool // TODO(kcza): remove this once all binary tests are CPUSafe.
 	minExecutionSteps uint64
@@ -1343,32 +1343,32 @@ func (sbt *safeBinaryTest) Run(t *testing.T) {
 			}
 		})
 
-		if !sbt.no_inplace {
-			t.Run("in-starlark", func(t *testing.T) {
-				left, err := sbt.left(nil, 1)
-				if err != nil {
-					t.Error(err)
-				}
-				right, err := sbt.right(nil, 1)
-				if err != nil {
-					t.Error(err)
-				}
-				st := sbt.st(t)
-				st.SetMaxExecutionSteps(math.MaxUint64) // Relax test.
-				st.AddValue("left", left)
-				st.AddValue("right", right)
-				st.RunString(fmt.Sprintf(`
-					for _ in st.ntimes():
-						st.keep_alive(left %s right)
-				`, sbt.op))
+		t.Run("in-starlark", func(t *testing.T) {
+			left, err := sbt.left(nil, 1)
+			if err != nil {
+				t.Error(err)
+			}
+			right, err := sbt.right(nil, 1)
+			if err != nil {
+				t.Error(err)
+			}
+			st := sbt.st(t)
+			st.SetMaxExecutionSteps(math.MaxUint64) // Relax test.
+			st.AddValue("left", left)
+			st.AddValue("right", right)
+			st.RunString(fmt.Sprintf(`
+				for _ in st.ntimes():
+					st.keep_alive(left %s right)
+			`, sbt.op))
+			if !sbt.noInplace {
 				st.RunString(fmt.Sprintf(`
 					for _ in st.ntimes():
 						result = left
 						result %s= right
 						st.keep_alive(result)
 				`, sbt.op))
-			})
-		}
+			}
+		})
 
 		t.Run("small", func(t *testing.T) {
 			st := sbt.st(t)
@@ -1901,50 +1901,50 @@ func TestSafeBinary(t *testing.T) {
 
 	testContainmentOp := func(t *testing.T, op syntax.Token) {
 		tests := []safeBinaryTest{{
-			name:       fmt.Sprintf("bool %s list", op),
-			no_inplace: true,
-			op:         op,
-			left:       constant(starlark.False),
-			right:      makeList,
-			cpuSafe:    true,
+			name:      fmt.Sprintf("bool %s list", op),
+			noInplace: true,
+			op:        op,
+			left:      constant(starlark.False),
+			right:     makeList,
+			cpuSafe:   true,
 			// The step cost per N is:
 			// - For iteration over right, 1
 			// - For the SafeIterate over-count, 1
 			minExecutionSteps: 1,
 			maxExecutionSteps: 2,
 		}, {
-			name:       fmt.Sprintf("int %s tuple", op),
-			no_inplace: true,
-			op:         op,
-			left:       makeSmallInt,
-			right:      makeTuple,
-			cpuSafe:    true,
+			name:      fmt.Sprintf("int %s tuple", op),
+			noInplace: true,
+			op:        op,
+			left:      makeSmallInt,
+			right:     makeTuple,
+			cpuSafe:   true,
 			// The step cost per N is:
 			// - For iteration over right, 1
 			// - For the SafeIterate over-count, 1
 			minExecutionSteps: 1,
 			maxExecutionSteps: 2,
 		}, {
-			name:       fmt.Sprintf("int %s mapping", op),
-			no_inplace: true,
-			op:         op,
-			left:       makeSmallInt,
-			right:      makeDict,
-			cpuSafe:    true,
+			name:      fmt.Sprintf("int %s mapping", op),
+			noInplace: true,
+			op:        op,
+			left:      makeSmallInt,
+			right:     makeDict,
+			cpuSafe:   true,
 			// The access cost is constant 1 step, which is approximately 0 per N for large N.
 			maxExecutionSteps: 1,
 		}, {
-			name:       fmt.Sprintf("int %s set", op),
-			no_inplace: true,
-			op:         op,
-			left:       makeSmallInt,
-			right:      makeSet,
-			cpuSafe:    true,
+			name:      fmt.Sprintf("int %s set", op),
+			noInplace: true,
+			op:        op,
+			left:      makeSmallInt,
+			right:     makeSet,
+			cpuSafe:   true,
 			// The access cost is constant 1 step, which is approximately 0 per N for large N.
 			maxExecutionSteps: 1,
 		}, {
 			name:              fmt.Sprintf("string %s string", op),
-			no_inplace:        true,
+			noInplace:         true,
 			op:                op,
 			left:              makeString,
 			right:             makeString,
@@ -1953,7 +1953,7 @@ func TestSafeBinary(t *testing.T) {
 			maxExecutionSteps: 1,
 		}, {
 			name:              fmt.Sprintf("bytes %s bytes", op),
-			no_inplace:        true,
+			noInplace:         true,
 			op:                op,
 			left:              makeBytes,
 			right:             makeBytes,
@@ -1961,9 +1961,9 @@ func TestSafeBinary(t *testing.T) {
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}, {
-			name:       fmt.Sprintf("int %s bytes", op),
-			no_inplace: true,
-			op:         op,
+			name:      fmt.Sprintf("int %s bytes", op),
+			noInplace: true,
+			op:        op,
 			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 				result := starlark.Value(starlark.MakeInt(n & 0xff))
 				if thread != nil {
@@ -1978,10 +1978,10 @@ func TestSafeBinary(t *testing.T) {
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}, {
-			name:       fmt.Sprintf("int %s range", op),
-			no_inplace: true,
-			op:         op,
-			left:       makeSmallInt,
+			name:      fmt.Sprintf("int %s range", op),
+			noInplace: true,
+			op:        op,
+			left:      makeSmallInt,
 			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 				result := starlark.Range(0, n, 1)
 				if thread != nil {
