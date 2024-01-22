@@ -1818,7 +1818,7 @@ func TestSafeBinary(t *testing.T) {
 			name: "int % int",
 			op:   syntax.PERCENT,
 			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				result := starlark.MakeInt(1).Lsh(uint(n * 32))
+				result := starlark.MakeInt(1).Lsh(uint(math.Ceil(math.Sqrt(float64(n)))) * 32)
 				if thread != nil {
 					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
 						return nil, err
@@ -1827,7 +1827,7 @@ func TestSafeBinary(t *testing.T) {
 				return result, nil
 			},
 			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				result := starlark.MakeInt(3).Lsh(uint(n * 32))
+				result := starlark.MakeInt(3).Lsh(uint(math.Ceil(math.Sqrt(float64(n)))) * 32)
 				if thread != nil {
 					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
 						return nil, err
@@ -1835,31 +1835,43 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return result, nil
 			},
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 1,
 		}, {
-			name:  "int % float",
-			op:    syntax.PERCENT,
-			left:  makeSmallInt,
-			right: makeFloat,
+			name:    "int % float",
+			op:      syntax.PERCENT,
+			left:    makeSmallInt,
+			right:   makeFloat,
+			cpuSafe: true,
 		}, {
-			name:  "float % int",
-			op:    syntax.PERCENT,
-			left:  constant(starlark.Float(1e32)),
-			right: constant(starlark.MakeInt(1).Lsh(1023)),
+			name:    "float % int",
+			op:      syntax.PERCENT,
+			left:    constant(starlark.Float(1e32)),
+			right:   constant(starlark.MakeInt(1).Lsh(1023)),
+			cpuSafe: true,
 		}, {
-			name:  "float % float",
-			op:    syntax.PERCENT,
-			left:  makeFloat,
-			right: makeFloat,
+			name:    "float % float",
+			op:      syntax.PERCENT,
+			left:    makeFloat,
+			right:   makeFloat,
+			cpuSafe: true,
 		}, {
-			name:  "string % string",
-			op:    syntax.PERCENT,
-			left:  constant(starlark.String("[%r]")),
-			right: makeString,
+			name:              "string % string",
+			op:                syntax.PERCENT,
+			left:              constant(starlark.String("[%r]")),
+			right:             makeString,
+			cpuSafe:           true,
+			minExecutionSteps: uint64(len(`x`)),
+			maxExecutionSteps: uint64(len(`["x"]`)),
 		}, {
-			name:  "string % list",
-			op:    syntax.PERCENT,
-			left:  constant(starlark.String("[%r]")),
-			right: makeList,
+			name:              "string % list",
+			op:                syntax.PERCENT,
+			left:              constant(starlark.String("[%r]")),
+			right:             makeList,
+			cpuSafe:           true,
+			minExecutionSteps: uint64(len(`None, `)) + 1,
+			maxExecutionSteps: uint64(len(`[[None]]`)) + 1,
 		}, {
 			name: "string % mapping",
 			op:   syntax.PERCENT,
@@ -1879,12 +1891,15 @@ func TestSafeBinary(t *testing.T) {
 				result.SetKey(starlark.String("k"), starlark.True)
 				return result
 			}()),
+			cpuSafe:           true,
+			minExecutionSteps: uint64(len(`True`)) + 1,
+			maxExecutionSteps: uint64(len(`True`)) + 1,
 		}, {
 			name: "string % tuple",
 			op:   syntax.PERCENT,
 			left: constant(starlark.String("[%r, %r]")),
 			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				s, err := makeString(thread, n/2)
+				s, err := makeString(thread, n)
 				if err != nil {
 					return nil, err
 				}
@@ -1895,6 +1910,9 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return starlark.Tuple{s, s}, nil
 			},
+			cpuSafe:           true,
+			minExecutionSteps: 2 * uint64(len(`x`)),
+			maxExecutionSteps: uint64(len(`["x", "x"]`)),
 		}}
 		for _, test := range tests {
 			test.Run(t)

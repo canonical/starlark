@@ -1630,6 +1630,16 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					return nil, fmt.Errorf("integer modulo by zero")
 				}
 				if thread != nil {
+					// Modulo is the same as division in terms of complexity.
+					// Integer division is hard - most implementations are O(n^2).
+					// Although implementations exist which turn division into
+					// multiplication, making this cost same as `STAR` operator,
+					// Go does not yet do this.
+					resultSteps := max(intLenSteps(x), intLenSteps(y))
+					resultSteps *= resultSteps
+					if err := thread.AddExecutionSteps(resultSteps); err != nil {
+						return nil, err
+					}
 					if err := thread.CheckAllocs(EstimateSize(y)); err != nil {
 						return nil, err
 					}
