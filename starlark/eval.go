@@ -1547,10 +1547,10 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					return nil, fmt.Errorf("floored division by zero")
 				}
 				if thread != nil {
-					// Integer division is hard. Most of implementations
-					// are O(n^2). It is possible however to have implementations
-					// turning division into multiplication, making this cost
-					// same as STAR operator. Go does not do this yet.
+					// Integer division is hard - most implementations are O(n^2).
+					// Although implementations exist which turn division into
+					// multiplication, making this cost same as `STAR` operator,
+					// Go does not yet do this.
 					resultSteps := max(intLenSteps(x), intLenSteps(y))
 					resultSteps *= resultSteps
 					if err := thread.AddExecutionSteps(resultSteps); err != nil {
