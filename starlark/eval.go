@@ -1726,7 +1726,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				return Bool(found), nil
 			}
 
-			if err := thread.CheckPermits(NotSafe); err != nil {
+			if err := CheckSafety(thread, NotSafe); err != nil {
 				return nil, err
 			}
 			_, found, err := y.Get(x)
