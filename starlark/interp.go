@@ -513,7 +513,7 @@ loop:
 			x := stack[sp-2]
 			sp -= 2
 			name := f.Prog.Names[arg]
-			if err2 := setField(x, name, y); err2 != nil {
+			if err2 := setField(thread, x, name, y); err2 != nil {
 				err = err2
 				break loop
 			}

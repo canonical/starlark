@@ -438,6 +438,11 @@ type HasSetField interface {
 	SetField(name string, val Value) error
 }
 
+type HasSafeSetField interface {
+	HasSetField
+	SafeSetField(thread *Thread, name string, val Value) error
+}
+
 // A NoSuchAttrError may be returned by an implementation of
 // HasAttrs.Attr or HasSetField.SetField to indicate that no such field
 // exists. In that case the runtime may augment the error message to

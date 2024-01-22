@@ -996,9 +996,15 @@ func getAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
 }
 
 // setField implements x.name = y.
-func setField(x Value, name string, y Value) error {
+func setField(thread *Thread, x Value, name string, y Value) error {
 	if x, ok := x.(HasSetField); ok {
-		err := x.SetField(name, y)
+		var err error
+		if x2, ok := x.(HasSafeSetField); ok {
+			err = x2.SafeSetField(thread, name, y)
+		} else if err = CheckSafety(thread, NotSafe); err == nil {
+			err = x.SetField(name, y)
+		}
+
 		if _, ok := err.(NoSuchAttrError); ok {
 			// No such field: check spelling.
 			if n := spell.Nearest(name, x.AttrNames()); n != "" {
