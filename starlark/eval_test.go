@@ -1612,30 +1612,43 @@ func TestSafeBinary(t *testing.T) {
 		testSafetyRespected(t, syntax.MINUS)
 
 		tests := []safeBinaryTest{{
-			name:  "int - int",
-			op:    syntax.MINUS,
-			left:  makeBigInt,
-			right: makeSmallInt,
+			name:              "int - int",
+			op:                syntax.MINUS,
+			left:              makeBigInt,
+			right:             makeSmallInt,
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 1,
 		}, {
-			name:  "int - float",
-			op:    syntax.MINUS,
-			left:  constant(starlark.MakeInt(1).Lsh(308)),
-			right: makeFloat,
+			name:    "int - float",
+			op:      syntax.MINUS,
+			left:    constant(starlark.MakeInt(1).Lsh(308)),
+			right:   makeFloat,
+			cpuSafe: true,
 		}, {
-			name:  "float - int",
-			op:    syntax.MINUS,
-			left:  makeFloat,
-			right: constant(starlark.MakeInt(1).Lsh(308)),
+			name:    "float - int",
+			op:      syntax.MINUS,
+			left:    makeFloat,
+			right:   constant(starlark.MakeInt(1).Lsh(308)),
+			cpuSafe: true,
 		}, {
-			name:  "float - float",
-			op:    syntax.MINUS,
-			left:  makeFloat,
-			right: constant(starlark.Float(1)),
+			name:    "float - float",
+			op:      syntax.MINUS,
+			left:    makeFloat,
+			right:   constant(starlark.Float(1)),
+			cpuSafe: true,
 		}, {
-			name:  "set - set",
-			op:    syntax.MINUS,
-			left:  makeSet,
-			right: makeAlternatingSet,
+			name:    "set - set",
+			op:      syntax.MINUS,
+			left:    makeSet,
+			right:   makeAlternatingSet,
+			cpuSafe: true,
+			// The step cost per N is:
+			// - For cloning the set, on average 1
+			// - For iteration, 1
+			// - For removal, on average 1
+			minExecutionSteps: 3,
+			maxExecutionSteps: 4, // TODO(marco6): remove the +1 as it's related to the guardedIterator overcount.
 		}}
 		for _, test := range tests {
 			test.Run(t)
