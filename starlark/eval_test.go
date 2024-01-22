@@ -1895,10 +1895,13 @@ func TestSafeBinary(t *testing.T) {
 		testSafetyRespected(t, syntax.PIPE)
 
 		tests := []safeBinaryTest{{
-			name:  "int | int",
-			op:    syntax.PIPE,
-			left:  makeBigInt,
-			right: makeBigInt,
+			name:              "int | int",
+			op:                syntax.PIPE,
+			left:              makeBigInt,
+			right:             makeBigInt,
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 1,
 		}, {
 			name: "dict | dict",
 			op:   syntax.PIPE,
@@ -1933,11 +1936,27 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return result, nil
 			},
+			cpuSafe: true,
+			// The step cost per N is:
+			// - For creating a new dict, 1
+			// - For iterating over the right, 1
+			// - For insertion, on average, just above 1
+			// - For SafeIterator over-count, 1
+			minExecutionSteps: 3,
+			maxExecutionSteps: 4,
 		}, {
-			name:  "set | set",
-			op:    syntax.PIPE,
-			left:  makeSet,
-			right: makeAlternatingSet,
+			name:    "set | set",
+			op:      syntax.PIPE,
+			left:    makeSet,
+			right:   makeAlternatingSet,
+			cpuSafe: true,
+			// The step cost per N is:
+			// - For cloning the left, 1
+			// - For iterating over the right, 1
+			// - For insertion, on average, just above 1
+			// - For SafeIterator over-count, 1
+			minExecutionSteps: 3,
+			maxExecutionSteps: 4,
 		}}
 		for _, test := range tests {
 			test.Run(t)
