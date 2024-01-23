@@ -2059,9 +2059,8 @@ func TestSafeBinary(t *testing.T) {
 			// - For cloning the left, 1
 			// - For iterating over the right, 1
 			// - For insertion, on average, just above 1
-			// - For SafeIterator over-count, 1
 			minSteps: 3,
-			maxSteps: 3,
+			maxSteps: 4,
 		}}
 		for _, test := range tests {
 			test.Run(t)
