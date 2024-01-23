@@ -2193,11 +2193,28 @@ func TestSafeBinary(t *testing.T) {
 	t.Run("<<", func(t *testing.T) {
 		testSafetyRespected(t, syntax.LTLT)
 
+		const maxShift = 511
 		tests := []safeBinaryTest{{
-			name:  "int << int",
-			op:    syntax.LTLT,
-			left:  makeBigInt,
-			right: constant(starlark.MakeInt(511)),
+			name: "int << int",
+			op:   syntax.LTLT,
+			left: makeBigInt,
+			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+				var result starlark.Value
+				if n > maxShift {
+					result = starlark.MakeInt(maxShift)
+				} else {
+					result = starlark.MakeInt(n)
+				}
+				if thread != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+						return nil, err
+					}
+				}
+				return result, nil
+			},
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 1,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -2220,7 +2237,7 @@ func TestSafeBinary(t *testing.T) {
 				return result, nil
 			},
 			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-				result := starlark.MakeInt(n)
+				result := starlark.MakeInt(n * 32)
 				if thread != nil {
 					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
 						return nil, err
@@ -2228,6 +2245,9 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return result, nil
 			},
+			cpuSafe:           true,
+			minExecutionSteps: 1,
+			maxExecutionSteps: 1,
 		}}
 		for _, test := range tests {
 			test.Run(t)
