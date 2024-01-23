@@ -526,9 +526,11 @@ func TestTimeTimeSteps(t *testing.T) {
 				kwargs := []starlark.Tuple{
 					{starlark.String(test.kwarg), test.value},
 				}
-				_, err := starlark.Call(thread, time_, nil, kwargs)
-				if err != nil {
-					st.Error(err)
+				for i := 0; i < st.N; i++ {
+					_, err := starlark.Call(thread, time_, nil, kwargs)
+					if err != nil {
+						st.Error(err)
+					}
 				}
 			})
 		})
@@ -542,44 +544,60 @@ func TestTimeTimeAllocs(t *testing.T) {
 	}
 
 	tests := []struct {
-		kwarg string
-		value starlark.Value
+		name, kwarg string
+		value       starlark.Value
 	}{{
+		name:  "year",
 		kwarg: "year",
 		value: starlark.MakeInt(2011),
 	}, {
+		name:  "month",
 		kwarg: "month",
 		value: starlark.MakeInt(11),
 	}, {
+		name:  "day",
 		kwarg: "day",
 		value: starlark.MakeInt(11),
 	}, {
+		name:  "minute",
 		kwarg: "minute",
 		value: starlark.MakeInt(11),
 	}, {
+		name:  "second",
 		kwarg: "second",
 		value: starlark.MakeInt(11),
 	}, {
+		name:  "nanosecond",
 		kwarg: "nanosecond",
 		value: starlark.MakeInt(11),
 	}, {
+		name:  "location (UTC)",
+		kwarg: "location",
+		value: starlark.String("UTC"),
+	}, {
+		name:  "location (Local)",
+		kwarg: "location",
+		value: starlark.String("Local"),
+	}, {
+		name:  "location (Other)",
 		kwarg: "location",
 		value: starlark.String("Europe/Riga"),
 	}}
 	for _, test := range tests {
-		t.Run(test.kwarg, func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.MemSafe)
-			st.SetMaxAllocs(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				kwargs := []starlark.Tuple{
 					{starlark.String(test.kwarg), test.value},
 				}
-				result, err := starlark.Call(thread, time_, nil, kwargs)
-				if err != nil {
-					st.Error(err)
+				for i := 0; i < st.N; i++ {
+					result, err := starlark.Call(thread, time_, nil, kwargs)
+					if err != nil {
+						st.Error(err)
+					}
+					st.KeepAlive(result)
 				}
-				st.KeepAlive(result)
 			})
 		})
 	}

@@ -426,10 +426,15 @@ func newTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, 
 	if err != nil {
 		return nil, err
 	}
-	res := starlark.Value(Time(time.Date(year, time.Month(month), day, hour, min, sec, nsec, location)))
-	if thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+	if location != time.UTC && location != time.Local {
+		if err := thread.AddAllocs(starlark.EstimateSize(location)); err != nil {
+			return nil, err
+		}
+	}
+	if err := thread.AddAllocs(starlark.EstimateSize(time.Time{})); err != nil {
 		return nil, err
 	}
+	res := starlark.Value(Time(time.Date(year, time.Month(month), day, hour, min, sec, nsec, location)))
 	return res, nil
 }
 
