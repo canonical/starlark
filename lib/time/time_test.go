@@ -708,7 +708,7 @@ func TestSafeAttr(t *testing.T) {
 
 				t.Run("resources", func(t *testing.T) {
 					st := startest.From(t)
-					st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
+					st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
 					st.SetMaxExecutionSteps(0)
 					st.RunThread(func(thread *starlark.Thread) {
 						for i := 0; i < st.N; i++ {
