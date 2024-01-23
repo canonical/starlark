@@ -603,6 +603,80 @@ func TestTimeTimeAllocs(t *testing.T) {
 	}
 }
 
+func TestTimeInLocationSteps(t *testing.T) {
+	time := time.Time(gotime.Now())
+	time_in_location, _ := time.Attr("in_location")
+	if time_in_location == nil {
+		t.Fatal("no such method: time.in_location")
+	}
+
+	tests := []struct {
+		name, input string
+	}{{
+		name:  "UTC",
+		input: "UTC",
+	}, {
+		name:  "Local",
+		input: "Local",
+	}, {
+		name:  "Other",
+		input: "Europe/Riga",
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.CPUSafe)
+			st.SetMaxExecutionSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				args := starlark.Tuple{starlark.String(test.input)}
+				for i := 0; i < st.N; i++ {
+					_, err := starlark.Call(thread, time_in_location, args, nil)
+					if err != nil {
+						st.Error(err)
+					}
+				}
+			})
+		})
+	}
+}
+
+func TestTimeInLocationAllocs(t *testing.T) {
+	time_ := time.Time(gotime.Now())
+	time_in_location, _ := time_.Attr("in_location")
+	if time_in_location == nil {
+		t.Fatal("no such method: time.in_location")
+	}
+
+	tests := []struct {
+		name, input string
+	}{{
+		name:  "UTC",
+		input: "UTC",
+	}, {
+		name:  "Local",
+		input: "Local",
+	}, {
+		name:  "Other",
+		input: "Europe/Riga",
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.MemSafe)
+			st.RunThread(func(thread *starlark.Thread) {
+				args := starlark.Tuple{starlark.String(test.input)}
+				for i := 0; i < st.N; i++ {
+					result, err := starlark.Call(thread, time_in_location, args, nil)
+					if err != nil {
+						st.Error(err)
+					}
+					st.KeepAlive(result)
+				}
+			})
+		})
+	}
+}
+
 func TestTimeFormatSteps(t *testing.T) {
 	format := fmt.Sprintf("(%s)", gotime.Layout)
 	time_ := time.Time(gotime.Unix(0, 0))
