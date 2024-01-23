@@ -694,3 +694,41 @@ func TestSafeString(t *testing.T) {
 		})
 	}
 }
+
+func TestSafeAttr(t *testing.T) {
+	runTest := func(t *testing.T, input starlark.HasSafeAttrs) {
+		for _, attr := range input.AttrNames() {
+			t.Run(attr, func(t *testing.T) {
+				t.Run("nil-thread", func(t *testing.T) {
+					_, err := input.SafeAttr(nil, attr)
+					if err != nil {
+						t.Errorf("unexpected error: %v", err)
+					}
+				})
+
+				t.Run("resources", func(t *testing.T) {
+					st := startest.From(t)
+					st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
+					st.SetMaxExecutionSteps(0)
+					st.RunThread(func(thread *starlark.Thread) {
+						for i := 0; i < st.N; i++ {
+							result, err := input.SafeAttr(thread, attr)
+							if err != nil {
+								st.Error(err)
+							}
+							st.KeepAlive(result)
+						}
+					})
+				})
+			})
+		}
+	}
+
+	t.Run("Duration", func(t *testing.T) {
+		runTest(t, time.Duration(gotime.Second))
+	})
+
+	t.Run("Time", func(t *testing.T) {
+		runTest(t, time.Time(gotime.Now()))
+	})
+}

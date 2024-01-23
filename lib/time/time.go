@@ -239,24 +239,36 @@ func (d Duration) Hash() (uint32, error) {
 // Truth reports whether the duration is non-zero.
 func (d Duration) Truth() starlark.Bool { return d != 0 }
 
+func (d Duration) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	var result starlark.Value
+	switch name {
+	case "hours":
+		result = starlark.Float(time.Duration(d).Hours())
+	case "minutes":
+		result = starlark.Float(time.Duration(d).Minutes())
+	case "seconds":
+		result = starlark.Float(time.Duration(d).Seconds())
+	case "milliseconds":
+		result = starlark.MakeInt64(time.Duration(d).Milliseconds())
+	case "microseconds":
+		result = starlark.MakeInt64(time.Duration(d).Microseconds())
+	case "nanoseconds":
+		result = starlark.MakeInt64(time.Duration(d).Nanoseconds())
+	default:
+		return nil, fmt.Errorf("unrecognized %s attribute %q", d.Type(), name)
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // Attr gets a value for a string attribute, implementing dot expression support
 // in starklark. required by starlark.HasAttrs interface.
 func (d Duration) Attr(name string) (starlark.Value, error) {
-	switch name {
-	case "hours":
-		return starlark.Float(time.Duration(d).Hours()), nil
-	case "minutes":
-		return starlark.Float(time.Duration(d).Minutes()), nil
-	case "seconds":
-		return starlark.Float(time.Duration(d).Seconds()), nil
-	case "milliseconds":
-		return starlark.MakeInt64(time.Duration(d).Milliseconds()), nil
-	case "microseconds":
-		return starlark.MakeInt64(time.Duration(d).Microseconds()), nil
-	case "nanoseconds":
-		return starlark.MakeInt64(time.Duration(d).Nanoseconds()), nil
-	}
-	return nil, fmt.Errorf("unrecognized %s attribute %q", d.Type(), name)
+	return d.SafeAttr(nil, name)
 }
 
 // AttrNames lists available dot expression strings. required by
@@ -470,30 +482,51 @@ func (t Time) Hash() (uint32, error) {
 // interface.
 func (t Time) Truth() starlark.Bool { return !starlark.Bool(time.Time(t).IsZero()) }
 
+func (t Time) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
+		return nil, err
+	}
+	var result starlark.Value
+	switch name {
+	case "year":
+		result = starlark.MakeInt(time.Time(t).Year())
+	case "month":
+		result = starlark.MakeInt(int(time.Time(t).Month()))
+	case "day":
+		result = starlark.MakeInt(time.Time(t).Day())
+	case "hour":
+		result = starlark.MakeInt(time.Time(t).Hour())
+	case "minute":
+		result = starlark.MakeInt(time.Time(t).Minute())
+	case "second":
+		result = starlark.MakeInt(time.Time(t).Second())
+	case "nanosecond":
+		result = starlark.MakeInt(time.Time(t).Nanosecond())
+	case "unix":
+		result = starlark.MakeInt64(time.Time(t).Unix())
+	case "unix_nano":
+		result = starlark.MakeInt64(time.Time(t).UnixNano())
+	default:
+		if thread != nil {
+			if err := thread.AddAllocs(starlark.EstimateSize(&time.Time{})); err != nil {
+				return nil, err
+			}
+		}
+		return safeBuiltinAttr(thread, t, name, timeMethods)
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // Attr gets a value for a string attribute, implementing dot expression support
 // in starklark. required by starlark.HasAttrs interface.
 func (t Time) Attr(name string) (starlark.Value, error) {
-	switch name {
-	case "year":
-		return starlark.MakeInt(time.Time(t).Year()), nil
-	case "month":
-		return starlark.MakeInt(int(time.Time(t).Month())), nil
-	case "day":
-		return starlark.MakeInt(time.Time(t).Day()), nil
-	case "hour":
-		return starlark.MakeInt(time.Time(t).Hour()), nil
-	case "minute":
-		return starlark.MakeInt(time.Time(t).Minute()), nil
-	case "second":
-		return starlark.MakeInt(time.Time(t).Second()), nil
-	case "nanosecond":
-		return starlark.MakeInt(time.Time(t).Nanosecond()), nil
-	case "unix":
-		return starlark.MakeInt64(time.Time(t).Unix()), nil
-	case "unix_nano":
-		return starlark.MakeInt64(time.Time(t).UnixNano()), nil
-	}
-	return builtinAttr(t, name, timeMethods)
+	return t.SafeAttr(nil, name)
 }
 
 // AttrNames lists available dot expression strings for time. required by
@@ -587,10 +620,15 @@ func timeIn(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 
 type builtinMethod func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error)
 
-func builtinAttr(recv starlark.Value, name string, methods map[string]builtinMethod) (starlark.Value, error) {
+func safeBuiltinAttr(thread *starlark.Thread, recv starlark.Value, name string, methods map[string]builtinMethod) (starlark.Value, error) {
 	method := methods[name]
 	if method == nil {
-		return nil, nil // no such method
+		return nil, starlark.ErrNoSuchAttr
+	}
+	if thread != nil {
+		if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
+			return nil, err
+		}
 	}
 	b := starlark.NewBuiltin(name, method).BindReceiver(recv)
 	b.DeclareSafety(timeMethodSafeties[name])
