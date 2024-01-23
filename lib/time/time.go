@@ -240,6 +240,11 @@ func (d Duration) Hash() (uint32, error) {
 func (d Duration) Truth() starlark.Bool { return d != 0 }
 
 func (d Duration) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
+		return nil, err
+	}
+
 	var result starlark.Value
 	switch name {
 	case "hours":
@@ -487,6 +492,7 @@ func (t Time) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, er
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
+
 	var result starlark.Value
 	switch name {
 	case "year":
