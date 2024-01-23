@@ -558,7 +558,7 @@ var timeMethods = map[string]builtinMethod{
 }
 
 var timeMethodSafeties = map[string]starlark.SafetyFlags{
-	"in_location": starlark.NotSafe,
+	"in_location": starlark.CPUSafe | starlark.MemSafe,
 	"format":      starlark.IOSafe,
 }
 
@@ -579,6 +579,14 @@ func timeIn(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	}
 	loc, err := time.LoadLocation(x)
 	if err != nil {
+		return nil, err
+	}
+	if loc != time.UTC && loc != time.Local {
+		if err := thread.AddAllocs(starlark.EstimateSize(loc)); err != nil {
+			return nil, err
+		}
+	}
+	if err := thread.AddAllocs(starlark.EstimateSize(time.Time{})); err != nil {
 		return nil, err
 	}
 	recv := time.Time(b.Receiver().(Time))
