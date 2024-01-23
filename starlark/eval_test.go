@@ -2047,10 +2047,9 @@ func TestSafeBinary(t *testing.T) {
 			},
 			// The step cost per N is:
 			// - For creating a new dict, 1
-			// - For iterating over the right, 1
-			// - For insertion, on average, just above 1
+			// - For insertion of left and right, on average, just above 2
 			minSteps: 3,
-			maxSteps: 3,
+			maxSteps: 4,
 		}, {
 			name:  "set | set",
 			op:    syntax.PIPE,
