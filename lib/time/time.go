@@ -558,7 +558,7 @@ var timeMethods = map[string]builtinMethod{
 }
 
 var timeMethodSafeties = map[string]starlark.SafetyFlags{
-	"in_location": starlark.CPUSafe | starlark.MemSafe,
+	"in_location": starlark.MemSafe | starlark.CPUSafe,
 	"format":      starlark.IOSafe,
 }
 

@@ -605,9 +605,9 @@ func TestTimeTimeAllocs(t *testing.T) {
 
 func TestTimeInLocationSteps(t *testing.T) {
 	time := time.Time(gotime.Now())
-	time_inLocation, _ := time.Attr("in_location")
-	if time_inLocation == nil {
-		t.Fatal("no such method: set.clear")
+	time_in_location, _ := time.Attr("in_location")
+	if time_in_location == nil {
+		t.Fatal("no such method: time.in_location")
 	}
 
 	tests := []struct {
@@ -630,7 +630,7 @@ func TestTimeInLocationSteps(t *testing.T) {
 			st.RunThread(func(thread *starlark.Thread) {
 				args := starlark.Tuple{starlark.String(test.input)}
 				for i := 0; i < st.N; i++ {
-					_, err := starlark.Call(thread, time_inLocation, args, nil)
+					_, err := starlark.Call(thread, time_in_location, args, nil)
 					if err != nil {
 						st.Error(err)
 					}
@@ -642,8 +642,8 @@ func TestTimeInLocationSteps(t *testing.T) {
 
 func TestTimeInLocationAllocs(t *testing.T) {
 	time_ := time.Time(gotime.Now())
-	time_inLocation, _ := time_.Attr("in_location")
-	if time_inLocation == nil {
+	time_in_location, _ := time_.Attr("in_location")
+	if time_in_location == nil {
 		t.Fatal("no such method: time.in_location")
 	}
 
@@ -666,7 +666,7 @@ func TestTimeInLocationAllocs(t *testing.T) {
 			st.RunThread(func(thread *starlark.Thread) {
 				args := starlark.Tuple{starlark.String(test.input)}
 				for i := 0; i < st.N; i++ {
-					result, err := starlark.Call(thread, time_inLocation, args, nil)
+					result, err := starlark.Call(thread, time_in_location, args, nil)
 					if err != nil {
 						st.Error(err)
 					}
