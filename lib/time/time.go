@@ -557,17 +557,17 @@ var timeMethodSafeties = map[string]starlark.SafetyFlags{
 	"format":      starlark.IOSafe,
 }
 
-func timeFormat(fnname string, recV starlark.Value, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func timeFormat(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var x string
 	if err := starlark.UnpackPositionalArgs("format", args, kwargs, 1, &x); err != nil {
 		return nil, err
 	}
 
-	recv := time.Time(recV.(Time))
+	recv := time.Time(b.Receiver().(Time))
 	return starlark.String(recv.Format(x)), nil
 }
 
-func timeIn(fnname string, recV starlark.Value, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func timeIn(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var x string
 	if err := starlark.UnpackPositionalArgs("in_location", args, kwargs, 1, &x); err != nil {
 		return nil, err
@@ -576,24 +576,18 @@ func timeIn(fnname string, recV starlark.Value, args starlark.Tuple, kwargs []st
 	if err != nil {
 		return nil, err
 	}
-
-	recv := time.Time(recV.(Time))
+	recv := time.Time(b.Receiver().(Time))
 	return Time(recv.In(loc)), nil
 }
 
-type builtinMethod func(fnname string, recv starlark.Value, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error)
+type builtinMethod func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error)
 
 func builtinAttr(recv starlark.Value, name string, methods map[string]builtinMethod) (starlark.Value, error) {
 	method := methods[name]
 	if method == nil {
 		return nil, nil // no such method
 	}
-
-	// Allocate a closure over 'method'.
-	impl := func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-		return method(b.Name(), b.Receiver(), args, kwargs)
-	}
-	b := starlark.NewBuiltin(name, impl).BindReceiver(recv)
+	b := starlark.NewBuiltin(name, method).BindReceiver(recv)
 	b.DeclareSafety(timeMethodSafeties[name])
 	return b, nil
 }
