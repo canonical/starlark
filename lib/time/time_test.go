@@ -677,6 +677,82 @@ func TestTimeInLocationAllocs(t *testing.T) {
 	}
 }
 
+func TestTimeFormatSteps(t *testing.T) {
+	format := fmt.Sprintf("(%s)", gotime.Layout)
+	time_ := time.Time(gotime.Unix(0, 0))
+	time_format, _ := time_.Attr("format")
+	if time_format == nil {
+		t.Fatal("no such method: time.format")
+	}
+
+	t.Run("small", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(format)))
+		st.SetMaxExecutionSteps(uint64(len(format)))
+		st.RunThread(func(thread *starlark.Thread) {
+			args := starlark.Tuple{starlark.String(format)}
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, time_format, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+
+	t.Run("big", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.CPUSafe)
+		st.SetMinExecutionSteps(uint64(len(format)))
+		st.SetMaxExecutionSteps(uint64(len(format)))
+		st.RunThread(func(thread *starlark.Thread) {
+			args := starlark.Tuple{starlark.String(strings.Repeat(format, st.N))}
+			_, err := starlark.Call(thread, time_format, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+		})
+	})
+}
+
+func TestTimeFormatAllocs(t *testing.T) {
+	format := fmt.Sprintf("(%s)", gotime.Layout)
+	time_ := time.Time(gotime.Unix(0, 0))
+	time_format, _ := time_.Attr("format")
+	if time_format == nil {
+		t.Fatal("no such method: time.format")
+	}
+
+	t.Run("small", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			args := starlark.Tuple{starlark.String(format)}
+			for i := 0; i < st.N; i++ {
+				result, err := starlark.Call(thread, time_format, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("big", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			args := starlark.Tuple{starlark.String(strings.Repeat(gotime.Layout, st.N))}
+			result, err := starlark.Call(thread, time_format, args, nil)
+			if err != nil {
+				st.Error(err)
+			}
+			st.KeepAlive(result)
+		})
+	})
+}
+
 func TestSafeDurationUnpacker(t *testing.T) {
 	t.Run("duration", func(t *testing.T) {
 		st := startest.From(t)
