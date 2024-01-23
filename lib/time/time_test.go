@@ -115,7 +115,7 @@ func TestTimeFromTimestampSteps(t *testing.T) {
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
-	st.SetMaxExecutionSteps(0)
+	st.SetMaxSteps(0)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			_, err := starlark.Call(thread, from_timestamp, starlark.Tuple{starlark.MakeInt(10000)}, nil)
@@ -154,7 +154,7 @@ func TestTimeIsValidTimezoneSteps(t *testing.T) {
 	t.Run("timezone=valid", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, is_valid_timezone, starlark.Tuple{starlark.String("Europe/Prague")}, nil)
@@ -168,7 +168,7 @@ func TestTimeIsValidTimezoneSteps(t *testing.T) {
 	t.Run("timezone=invalid", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, is_valid_timezone, starlark.Tuple{starlark.String("Middle_Earth/Minas_Tirith")}, nil)
@@ -263,7 +263,7 @@ func TestTimeParseDurationSteps(t *testing.T) {
 	t.Run("arg=duration", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, parse_duration, starlark.Tuple{time.Duration(10)}, nil)
@@ -279,8 +279,8 @@ func TestTimeParseDurationSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-		st.SetMinExecutionSteps(uint64(len(timestamp)))
-		st.SetMaxExecutionSteps(uint64(len(timestamp)))
+		st.SetMinSteps(uint64(len(timestamp)))
+		st.SetMaxSteps(uint64(len(timestamp)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, parse_duration, starlark.Tuple{starlark.String(timestamp)}, nil)
@@ -339,8 +339,8 @@ func TestTimeParseTimeSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(date)))
-		st.SetMinExecutionSteps(uint64(len(date)))
+		st.SetMinSteps(uint64(len(date)))
+		st.SetMinSteps(uint64(len(date)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date}, nil)
@@ -357,8 +357,8 @@ func TestTimeParseTimeSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(date)))
-		st.SetMinExecutionSteps(uint64(len(date)))
+		st.SetMinSteps(uint64(len(date)))
+		st.SetMinSteps(uint64(len(date)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date, format}, nil)
@@ -376,8 +376,8 @@ func TestTimeParseTimeSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(date)))
-		st.SetMinExecutionSteps(uint64(len(date)))
+		st.SetMinSteps(uint64(len(date)))
+		st.SetMinSteps(uint64(len(date)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date, format, location}, nil)
@@ -394,8 +394,8 @@ func TestTimeParseTimeSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(format)))
-		st.SetMaxExecutionSteps(uint64(len(format)))
+		st.SetMinSteps(uint64(len(format)))
+		st.SetMaxSteps(uint64(len(format)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date, format}, nil)
@@ -414,8 +414,8 @@ func TestTimeParseTimeSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(date)))
-		st.SetMaxExecutionSteps(uint64(len(date)))
+		st.SetMinSteps(uint64(len(date)))
+		st.SetMaxSteps(uint64(len(date)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, parse_time, starlark.Tuple{date, format}, nil)
@@ -521,7 +521,7 @@ func TestTimeTimeSteps(t *testing.T) {
 		t.Run(test.kwarg, func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMaxExecutionSteps(0)
+			st.SetMaxSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				kwargs := []starlark.Tuple{
 					{starlark.String(test.kwarg), test.value},
@@ -626,7 +626,7 @@ func TestTimeInLocationSteps(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMaxExecutionSteps(0)
+			st.SetMaxSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				args := starlark.Tuple{starlark.String(test.input)}
 				for i := 0; i < st.N; i++ {
@@ -688,8 +688,8 @@ func TestTimeFormatSteps(t *testing.T) {
 	t.Run("small", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(format)))
-		st.SetMaxExecutionSteps(uint64(len(format)))
+		st.SetMinSteps(uint64(len(format)))
+		st.SetMaxSteps(uint64(len(format)))
 		st.RunThread(func(thread *starlark.Thread) {
 			args := starlark.Tuple{starlark.String(format)}
 			for i := 0; i < st.N; i++ {
@@ -704,8 +704,8 @@ func TestTimeFormatSteps(t *testing.T) {
 	t.Run("big", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(format)))
-		st.SetMaxExecutionSteps(uint64(len(format)))
+		st.SetMinSteps(uint64(len(format)))
+		st.SetMaxSteps(uint64(len(format)))
 		st.RunThread(func(thread *starlark.Thread) {
 			args := starlark.Tuple{starlark.String(strings.Repeat(format, st.N))}
 			_, err := starlark.Call(thread, time_format, args, nil)
@@ -758,7 +758,7 @@ func TestSafeDurationUnpacker(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
 		st.SetMaxAllocs(0)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				d := time.Duration(10)
@@ -782,8 +782,8 @@ func TestSafeDurationUnpacker(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
 		st.SetMaxAllocs(0)
-		st.SetMinExecutionSteps(uint64(len("1h")))
-		st.SetMaxExecutionSteps(uint64(len("1h")))
+		st.SetMinSteps(uint64(len("1h")))
+		st.SetMaxSteps(uint64(len("1h")))
 		st.RunThread(func(thread *starlark.Thread) {
 			expected, err := gotime.ParseDuration(fmt.Sprintf("%dh", st.N))
 			if err != nil {
@@ -859,7 +859,7 @@ func TestSafeAttr(t *testing.T) {
 				t.Run("resources", func(t *testing.T) {
 					st := startest.From(t)
 					st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-					st.SetMaxExecutionSteps(0)
+					st.SetMaxSteps(0)
 					st.RunThread(func(thread *starlark.Thread) {
 						for i := 0; i < st.N; i++ {
 							result, err := input.SafeAttr(thread, attr)

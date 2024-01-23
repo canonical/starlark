@@ -166,8 +166,8 @@ func TestFromKeywords(t *testing.T) {
 	t.Run("resources", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			pairs := make([][2]starlark.Value, st.N)
 			kwargs := make([]starlark.Tuple, st.N)
@@ -208,8 +208,8 @@ func TestFromStringDict(t *testing.T) {
 	t.Run("resources", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			d := make(starlark.StringDict, st.N)
 			for i := 0; i < st.N; i++ {
@@ -231,8 +231,8 @@ func TestFromStringDict(t *testing.T) {
 func TestStructResources(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-	st.SetMinExecutionSteps(1)
-	st.SetMaxExecutionSteps(1)
+	st.SetMinSteps(1)
+	st.SetMaxSteps(1)
 	st.RunThread(func(thread *starlark.Thread) {
 		pairs := make([][2]starlark.Value, st.N)
 		kwargs := make([]starlark.Tuple, st.N)

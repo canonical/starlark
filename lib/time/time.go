@@ -18,37 +18,37 @@ import (
 // Module time is a Starlark module of time-related functions and constants.
 // The module defines the following functions:
 //
-//     from_timestamp(sec, nsec) - Converts the given Unix time corresponding to the number of seconds
-//                                 and (optionally) nanoseconds since January 1, 1970 UTC into an object
-//                                 of type Time. For more details, refer to https://pkg.go.dev/time#Unix.
+//	    from_timestamp(sec, nsec) - Converts the given Unix time corresponding to the number of seconds
+//	                                and (optionally) nanoseconds since January 1, 1970 UTC into an object
+//	                                of type Time. For more details, refer to https://pkg.go.dev/time#Unix.
 //
-//     is_valid_timezone(loc) - Reports whether loc is a valid time zone name.
+//	    is_valid_timezone(loc) - Reports whether loc is a valid time zone name.
 //
-//     now() - Returns the current local time. Applications may replace this function by a deterministic one.
+//	    now() - Returns the current local time. Applications may replace this function by a deterministic one.
 //
-//     parse_duration(d) - Parses the given duration string. For more details, refer to
-//                         https://pkg.go.dev/time#ParseDuration.
+//	    parse_duration(d) - Parses the given duration string. For more details, refer to
+//	                        https://pkg.go.dev/time#ParseDuration.
 //
-//     parse_time(x, format, location) - Parses the given time string using a specific time format and location.
-//                                      The expected arguments are a time string (mandatory), a time format
-//                                      (optional, set to RFC3339 by default, e.g. "2021-03-22T23:20:50.52Z")
-//                                      and a name of location (optional, set to UTC by default). For more details,
-//                                      refer to https://pkg.go.dev/time#Parse and https://pkg.go.dev/time#ParseInLocation.
+//	    parse_time(x, format, location) - Parses the given time string using a specific time format and location.
+//	                                     The expected arguments are a time string (mandatory), a time format
+//	                                     (optional, set to RFC3339 by default, e.g. "2021-03-22T23:20:50.52Z")
+//	                                     and a name of location (optional, set to UTC by default). For more details,
+//	                                     refer to https://pkg.go.dev/time#Parse and https://pkg.go.dev/time#ParseInLocation.
 //
-//     time(year, month, day, hour, minute, second, nanosecond, location) - Returns the Time corresponding to
-//	                                                                        yyyy-mm-dd hh:mm:ss + nsec nanoseconds
-//                                                                          in the appropriate zone for that time
-//                                                                          in the given location. All the parameters
-//                                                                          are optional.
+//	    time(year, month, day, hour, minute, second, nanosecond, location) - Returns the Time corresponding to
+//		                                                                        yyyy-mm-dd hh:mm:ss + nsec nanoseconds
+//	                                                                         in the appropriate zone for that time
+//	                                                                         in the given location. All the parameters
+//	                                                                         are optional.
+//
 // The module also defines the following constants:
 //
-//     nanosecond - A duration representing one nanosecond.
-//     microsecond - A duration representing one microsecond.
-//     millisecond - A duration representing one millisecond.
-//     second - A duration representing one second.
-//     minute - A duration representing one minute.
-//     hour - A duration representing one hour.
-//
+//	nanosecond - A duration representing one nanosecond.
+//	microsecond - A duration representing one microsecond.
+//	millisecond - A duration representing one millisecond.
+//	second - A duration representing one second.
+//	minute - A duration representing one minute.
+//	hour - A duration representing one hour.
 var Module = &starlarkstruct.Module{
 	Name: "time",
 	Members: starlark.StringDict{
@@ -128,7 +128,7 @@ func parseTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple
 	if formatLen := len(format); formatLen < stepDelta {
 		stepDelta = formatLen
 	}
-	if err := thread.AddExecutionSteps(int64(stepDelta)); err != nil {
+	if err := thread.AddSteps(int64(stepDelta)); err != nil {
 		return nil, err
 	}
 
@@ -302,14 +302,15 @@ func (d Duration) Cmp(v starlark.Value, depth int) (int, error) {
 
 // Binary implements binary operators, which satisfies the starlark.HasBinary
 // interface. operators:
-//    duration + duration = duration
-//    duration + time = time
-//    duration - duration = duration
-//    duration / duration = float
-//    duration / int = duration
-//    duration / float = duration
-//    duration // duration = int
-//    duration * int = duration
+//
+//	duration + duration = duration
+//	duration + time = time
+//	duration - duration = duration
+//	duration / duration = float
+//	duration / int = duration
+//	duration / float = duration
+//	duration // duration = int
+//	duration * int = duration
 func (d Duration) Binary(op syntax.Token, y starlark.Value, side starlark.Side) (starlark.Value, error) {
 	x := time.Duration(d)
 
@@ -390,7 +391,7 @@ func (sdu *SafeDurationUnpacker) Unpack(v starlark.Value) error {
 		return nil
 	case starlark.String:
 		if sdu.thread != nil {
-			if err := sdu.thread.AddExecutionSteps(int64(len(string(x)))); err != nil {
+			if err := sdu.thread.AddSteps(int64(len(string(x)))); err != nil {
 				return err
 			}
 		}
@@ -467,6 +468,7 @@ func (t Time) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) err
 }
 
 // String returns the time formatted using the format string
+//
 //	"2006-01-02 15:04:05.999999999 -0700 MST".
 func (t Time) String() string { return time.Time(t).Format("2006-01-02 15:04:05.999999999 -0700 MST") }
 
@@ -566,9 +568,10 @@ func (t Time) Cmp(yV starlark.Value, depth int) (int, error) {
 
 // Binary implements binary operators, which satisfies the starlark.HasBinary
 // interface
-//    time + duration = time
-//    time - duration = time
-//    time - time = duration
+//
+//	time + duration = time
+//	time - duration = time
+//	time - time = duration
 func (t Time) Binary(op syntax.Token, y starlark.Value, side starlark.Side) (starlark.Value, error) {
 	x := time.Time(t)
 
@@ -607,7 +610,7 @@ func timeFormat(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tupl
 		return nil, err
 	}
 
-	if err := thread.AddExecutionSteps(int64(len(x))); err != nil {
+	if err := thread.AddSteps(int64(len(x))); err != nil {
 		return nil, err
 	}
 	if err := thread.CheckAllocs(int64(len(x))); err != nil {

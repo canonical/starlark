@@ -57,15 +57,15 @@ type TestBase interface {
 }
 
 type ST struct {
-	maxAllocs         uint64
-	maxExecutionSteps uint64
-	minExecutionSteps uint64
-	alive             []interface{}
-	N                 int
-	requiredSafety    starlark.SafetyFlags
-	safetyGiven       bool
-	predecls          starlark.StringDict
-	locals            map[string]interface{}
+	maxAllocs      uint64
+	maxSteps       uint64
+	minSteps       uint64
+	alive          []interface{}
+	N              int
+	requiredSafety starlark.SafetyFlags
+	safetyGiven    bool
+	predecls       starlark.StringDict
+	locals         map[string]interface{}
 	TestBase
 }
 
@@ -81,9 +81,9 @@ var _ TestBase = &check.C{}
 // From returns a new starTest instance with a given test base.
 func From(base TestBase) *ST {
 	return &ST{
-		TestBase:          base,
-		maxAllocs:         math.MaxUint64,
-		maxExecutionSteps: math.MaxUint64,
+		TestBase:  base,
+		maxAllocs: math.MaxUint64,
+		maxSteps:  math.MaxUint64,
 	}
 }
 
@@ -92,16 +92,16 @@ func (st *ST) SetMaxAllocs(maxAllocs uint64) {
 	st.maxAllocs = maxAllocs
 }
 
-// SetMaxExecutionSteps optionally sets the max execution steps allowed per unit
+// SetMaxSteps optionally sets the max steps allowed per unit
 // of st.N.
-func (st *ST) SetMaxExecutionSteps(maxExecutionSteps uint64) {
-	st.maxExecutionSteps = maxExecutionSteps
+func (st *ST) SetMaxSteps(maxSteps uint64) {
+	st.maxSteps = maxSteps
 }
 
-// SetMinExecutionSteps optionally sets the min execution steps allowed per unit
+// SetMinSteps optionally sets the min steps allowed per unit
 // of st.N.
-func (st *ST) SetMinExecutionSteps(minExecutionSteps uint64) {
-	st.minExecutionSteps = minExecutionSteps
+func (st *ST) SetMinSteps(minSteps uint64) {
+	st.minSteps = minSteps
 }
 
 // RequireSafety optionally sets the required safety of tested code.
@@ -231,7 +231,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	mean := func(x uint64) uint64 { return (x + stats.nSum/2) / stats.nSum }
 	meanMeasuredAllocs := mean(stats.allocSum)
 	meanDeclaredAllocs := mean(thread.Allocs())
-	meanExecutionSteps := mean(thread.ExecutionSteps())
+	meanSteps := mean(thread.Steps())
 
 	if st.maxAllocs != math.MaxUint64 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
@@ -247,14 +247,14 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		}
 	}
 
-	if st.maxExecutionSteps != math.MaxUint64 && meanExecutionSteps > st.maxExecutionSteps {
-		st.Errorf("execution steps are above maximum (%d > %d)", meanExecutionSteps, st.maxExecutionSteps)
+	if st.maxSteps != math.MaxUint64 && meanSteps > st.maxSteps {
+		st.Errorf("steps are above maximum (%d > %d)", meanSteps, st.maxSteps)
 	}
-	if meanExecutionSteps < st.minExecutionSteps {
-		st.Errorf("execution steps are below minimum (%d < %d)", meanExecutionSteps, st.minExecutionSteps)
+	if meanSteps < st.minSteps {
+		st.Errorf("steps are below minimum (%d < %d)", meanSteps, st.minSteps)
 	}
 	if st.requiredSafety.Contains(starlark.CPUSafe) {
-		if stats.executionStepsRequired && meanExecutionSteps == 0 {
+		if stats.stepsRequired && meanSteps == 0 {
 			st.Errorf("execution uses CPU time which is not accounted for")
 		}
 	}
@@ -266,8 +266,8 @@ func (st *ST) KeepAlive(values ...interface{}) {
 }
 
 type runStats struct {
-	nSum, allocSum         uint64
-	executionStepsRequired bool
+	nSum, allocSum uint64
+	stepsRequired  bool
 }
 
 func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) runStats {
@@ -349,11 +349,11 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	}
 
 	timePerN := elapsed / time.Duration(nSum)
-	executionStepsRequired := timePerN > time.Millisecond
+	stepsRequired := timePerN > time.Millisecond
 	return runStats{
-		nSum:                   nSum,
-		allocSum:               allocSum,
-		executionStepsRequired: executionStepsRequired,
+		nSum:          nSum,
+		allocSum:      allocSum,
+		stepsRequired: stepsRequired,
 	}
 }
 
@@ -412,7 +412,7 @@ func (st *ST) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, er
 		// The steps counted to call this function is:
 		// - 1 for loading st;
 		// - 1 for getting the attr.
-		if err := thread.AddExecutionSteps(-2); err != nil {
+		if err := thread.AddSteps(-2); err != nil {
 			return nil, err
 		}
 	}
@@ -473,7 +473,7 @@ func st_keep_alive(thread *starlark.Thread, b *starlark.Builtin, args starlark.T
 	}
 
 	// Remove the cost of the CALL for this function.
-	if err := thread.AddExecutionSteps(-1); err != nil {
+	if err := thread.AddSteps(-1); err != nil {
 		return nil, err
 	}
 
@@ -501,7 +501,7 @@ func st_ntimes(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple
 	}
 
 	// Remove the cost of the CALL for this function.
-	if err := thread.AddExecutionSteps(-1); err != nil {
+	if err := thread.AddSteps(-1); err != nil {
 		return nil, err
 	}
 
@@ -546,7 +546,7 @@ func (it *ntimes_iterator) Next(p *starlark.Value) bool {
 			// - 1 for guardedIterator's Next;
 			// - 1 for the SET{LOCAL,GLOBAL} to record the result;
 			// - 1 for the JMP back to the loop's ITERJMP.
-			if err := it.thread.AddExecutionSteps(-4); err != nil {
+			if err := it.thread.AddSteps(-4); err != nil {
 				it.err = err
 				return false
 			}

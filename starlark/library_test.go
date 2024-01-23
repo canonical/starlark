@@ -252,7 +252,7 @@ func TestAbsSteps(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
-				st.SetMaxExecutionSteps(0)
+				st.SetMaxSteps(0)
 				st.RunThread(func(thread *starlark.Thread) {
 					for i := 0; i < st.N; i++ {
 						_, err := starlark.Call(thread, abs, starlark.Tuple{test.input}, nil)
@@ -269,7 +269,7 @@ func TestAbsSteps(t *testing.T) {
 		t.Run("Int (Positive)", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMaxExecutionSteps(0)
+			st.SetMaxSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				num := starlark.Value(starlark.MakeInt(1).Lsh(uint(st.N)))
 				_, err := starlark.Call(thread, abs, starlark.Tuple{num}, nil)
@@ -282,7 +282,7 @@ func TestAbsSteps(t *testing.T) {
 		t.Run("Int (Negative)", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMaxExecutionSteps(1)
+			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
 				n := starlark.MakeInt(-1).Lsh(uint(st.N))
 				_, err := starlark.Call(thread, abs, starlark.Tuple{n}, nil)
@@ -413,8 +413,8 @@ func TestAnySteps(t *testing.T) {
 	t.Run("early-termination", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				maxN: 100,
@@ -434,8 +434,8 @@ func TestAnySteps(t *testing.T) {
 	t.Run("complete-iteration", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				maxN: st.N,
@@ -538,8 +538,8 @@ func TestAllSteps(t *testing.T) {
 	t.Run("early-termination", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				maxN: 100,
@@ -559,8 +559,8 @@ func TestAllSteps(t *testing.T) {
 	t.Run("complete-iteration", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				maxN: st.N,
@@ -669,7 +669,7 @@ func TestBoolSteps(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
-				st.SetMaxExecutionSteps(0)
+				st.SetMaxSteps(0)
 				st.RunThread(func(thread *starlark.Thread) {
 					_, err := starlark.Call(thread, bool_, starlark.Tuple{test.input}, nil)
 					if err != nil {
@@ -726,7 +726,7 @@ func TestBoolSteps(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
-				st.SetMaxExecutionSteps(0)
+				st.SetMaxSteps(0)
 				st.RunThread(func(thread *starlark.Thread) {
 					value := test.input(st.N)
 					_, err := starlark.Call(thread, bool_, starlark.Tuple{value}, nil)
@@ -795,7 +795,7 @@ func TestBytesSteps(t *testing.T) {
 	t.Run("bytes", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.Bytes("foobar")}
@@ -811,8 +811,8 @@ func TestBytesSteps(t *testing.T) {
 		t.Run("valid", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(uint64(len("a🍖")))
-			st.SetMaxExecutionSteps(uint64(len("a🍖")))
+			st.SetMinSteps(uint64(len("a🍖")))
+			st.SetMaxSteps(uint64(len("a🍖")))
 			st.RunThread(func(thread *starlark.Thread) {
 				str := starlark.String(strings.Repeat("a🍖", st.N))
 				_, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
@@ -826,8 +826,8 @@ func TestBytesSteps(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
 			// 1 for the check, 3 for the transcoding (U+FFFD rune)
-			st.SetMinExecutionSteps(1 + 3)
-			st.SetMaxExecutionSteps(1 + 3)
+			st.SetMinSteps(1 + 3)
+			st.SetMaxSteps(1 + 3)
 			st.RunThread(func(thread *starlark.Thread) {
 				str := starlark.String(strings.Repeat(string([]byte{0x80}), st.N))
 				_, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
@@ -842,8 +842,8 @@ func TestBytesSteps(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
 		// 1 for iteration, 1 for append
-		st.SetMinExecutionSteps(1 + 1)
-		st.SetMaxExecutionSteps(1 + 1)
+		st.SetMinSteps(1 + 1)
+		st.SetMaxSteps(1 + 1)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
@@ -990,7 +990,7 @@ func TestChrSteps(t *testing.T) {
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
-	st.SetMaxExecutionSteps(0)
+	st.SetMaxSteps(0)
 	st.RunThread(func(thread *starlark.Thread) {
 		_, err := starlark.Call(thread, chr, starlark.Tuple{starlark.MakeInt(st.N)}, nil)
 		if err != nil {
@@ -1044,8 +1044,8 @@ func TestDictSteps(t *testing.T) {
 		st.RequireSafety(starlark.CPUSafe)
 		// Iteration over items of a dict is 1 step per N,
 		// insertion cost averages to ~2.5.
-		st.SetMinExecutionSteps(1 + 2)
-		st.SetMaxExecutionSteps(1 + 3)
+		st.SetMinSteps(1 + 2)
+		st.SetMaxSteps(1 + 3)
 		st.RunThread(func(thread *starlark.Thread) {
 			mapIter := starlark.NewDict(st.N)
 			for i := 0; i < st.N; i++ {
@@ -1063,8 +1063,8 @@ func TestDictSteps(t *testing.T) {
 		st.RequireSafety(starlark.CPUSafe)
 		// Iteration of each tuple costs 3 steps per N,
 		// insertion cost averages to ~ 2.5.
-		st.SetMinExecutionSteps(3 + 2)
-		st.SetMaxExecutionSteps(3 + 3)
+		st.SetMinSteps(3 + 2)
+		st.SetMaxSteps(3 + 3)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
@@ -1156,8 +1156,8 @@ func TestDirSteps(t *testing.T) {
 		for _, input := range inputs {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(uint64(len(input.AttrNames())))
-			st.SetMinExecutionSteps(uint64(len(input.AttrNames())))
+			st.SetMinSteps(uint64(len(input.AttrNames())))
+			st.SetMinSteps(uint64(len(input.AttrNames())))
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					_, err := starlark.Call(thread, dir, starlark.Tuple{input}, nil)
@@ -1180,8 +1180,8 @@ func TestDirSteps(t *testing.T) {
 		for _, input := range inputs {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(0)
-			st.SetMinExecutionSteps(0)
+			st.SetMinSteps(0)
+			st.SetMinSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					_, err := starlark.Call(thread, dir, starlark.Tuple{input}, nil)
@@ -1246,8 +1246,8 @@ func TestEnumerateSteps(t *testing.T) {
 	t.Run("sequence", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testSequence{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
@@ -1265,8 +1265,8 @@ func TestEnumerateSteps(t *testing.T) {
 	t.Run("iterable", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
@@ -1530,7 +1530,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 			dict.SetKey(starlark.MakeInt(2), &testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddExecutionSteps(100)
+					return thread.AddSteps(100)
 				},
 			})
 			return dict
@@ -1567,7 +1567,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 			&testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddExecutionSteps(100)
+					return thread.AddSteps(100)
 				},
 			},
 		}),
@@ -1584,7 +1584,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 			set.Insert(&testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddExecutionSteps(100)
+					return thread.AddSteps(100)
 				},
 			})
 			return set
@@ -1597,7 +1597,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 			&testSafeStringer{
 				safeString: func(thread *starlark.Thread, _ starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddExecutionSteps(100)
+					return thread.AddSteps(100)
 				},
 			},
 		},
@@ -1631,8 +1631,8 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 		t.Run(test.name, func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(overhead + test.steps)
-			st.SetMaxExecutionSteps(overhead + test.steps)
+			st.SetMinSteps(overhead + test.steps)
+			st.SetMaxSteps(overhead + test.steps)
 			st.RunThread(func(thread *starlark.Thread) {
 				thread.Print = func(thread *starlark.Thread, msg string) {
 					// Do nothing.
@@ -1723,7 +1723,7 @@ func TestFloatSteps(t *testing.T) {
 		for _, input := range inputs {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMaxExecutionSteps(0)
+			st.SetMaxSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					_, err := starlark.Call(thread, float, starlark.Tuple{input}, nil)
@@ -1739,7 +1739,7 @@ func TestFloatSteps(t *testing.T) {
 		t.Run("int", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMaxExecutionSteps(0)
+			st.SetMaxSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				input := starlark.Value(starlark.MakeInt(1).Lsh(uint(st.N)))
 				_, err := starlark.Call(thread, float, starlark.Tuple{input}, nil)
@@ -1753,8 +1753,8 @@ func TestFloatSteps(t *testing.T) {
 		t.Run("string-number", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
 				number := starlark.Value(starlark.String(strings.Repeat("0", st.N)))
 				_, err := starlark.Call(thread, float, starlark.Tuple{number}, nil)
@@ -1779,8 +1779,8 @@ func TestFloatSteps(t *testing.T) {
 			for _, input := range inputs {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
-				st.SetMinExecutionSteps(uint64(len(input)))
-				st.SetMaxExecutionSteps(uint64(len(input)))
+				st.SetMinSteps(uint64(len(input)))
+				st.SetMaxSteps(uint64(len(input)))
 				st.RunThread(func(thread *starlark.Thread) {
 					input := starlark.Value(starlark.String(input))
 					for i := 0; i < st.N; i++ {
@@ -1920,7 +1920,7 @@ func TestGetattrSteps(t *testing.T) {
 		value := &testSafeAttr{
 			safety: starlark.Safe,
 			attr: func(thread *starlark.Thread, attr string) (starlark.Value, error) {
-				if err := thread.AddExecutionSteps(int64(len(attr))); err != nil {
+				if err := thread.AddSteps(int64(len(attr))); err != nil {
 					return nil, err
 				}
 				return starlark.MakeInt(utf8.RuneCountInString(attr)), nil
@@ -1928,8 +1928,8 @@ func TestGetattrSteps(t *testing.T) {
 		}
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(attrName)))
-		st.SetMaxExecutionSteps(uint64(len(attrName)))
+		st.SetMinSteps(uint64(len(attrName)))
+		st.SetMaxSteps(uint64(len(attrName)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, getattr, starlark.Tuple{value, starlark.String(attrName)}, nil)
@@ -2066,7 +2066,7 @@ func TestHasattrSteps(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
-				st.SetMaxExecutionSteps(0)
+				st.SetMaxSteps(0)
 				st.RunThread(func(thread *starlark.Thread) {
 					for i := 0; i < st.N; i++ {
 						args := starlark.Tuple{test.input, missing}
@@ -2114,7 +2114,7 @@ func TestHasattrSteps(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
-				st.SetMaxExecutionSteps(0)
+				st.SetMaxSteps(0)
 				st.RunThread(func(thread *starlark.Thread) {
 					for i := 0; i < st.N; i++ {
 						args := starlark.Tuple{test.input, starlark.String(test.attr)}
@@ -2240,8 +2240,8 @@ func TestHashSteps(t *testing.T) {
 	t.Run("input=string", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			input := starlark.String(strings.Repeat("a", st.N))
 			_, err := starlark.Call(thread, hash, starlark.Tuple{input}, nil)
@@ -2254,8 +2254,8 @@ func TestHashSteps(t *testing.T) {
 	t.Run("input=bytes", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			input := starlark.Bytes(strings.Repeat("a", st.N))
 			_, err := starlark.Call(thread, hash, starlark.Tuple{input}, nil)
@@ -2314,7 +2314,7 @@ func TestIntSteps(t *testing.T) {
 	t.Run("bool", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, int_, starlark.Tuple{starlark.False}, nil)
@@ -2332,7 +2332,7 @@ func TestIntSteps(t *testing.T) {
 	t.Run("float", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				f := starlark.Float(float64(st.N))
@@ -2347,7 +2347,7 @@ func TestIntSteps(t *testing.T) {
 	t.Run("int", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			n := starlark.MakeInt(1).Lsh(uint(st.N))
 			_, err := starlark.Call(thread, int_, starlark.Tuple{n}, nil)
@@ -2360,8 +2360,8 @@ func TestIntSteps(t *testing.T) {
 	t.Run("string", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			n := starlark.String(strings.Repeat("0", st.N))
 			_, err := starlark.Call(thread, int_, starlark.Tuple{n}, nil)
@@ -2466,7 +2466,7 @@ func TestLenSteps(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMaxExecutionSteps(0)
+			st.SetMaxSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				input := test.input(st.N)
 				_, err := starlark.Call(thread, len_, starlark.Tuple{input}, nil)
@@ -2518,8 +2518,8 @@ func TestListSteps(t *testing.T) {
 	t.Run("iterable", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
@@ -2537,8 +2537,8 @@ func TestListSteps(t *testing.T) {
 	t.Run("sequence", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testSequence{
 				nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
@@ -2691,8 +2691,8 @@ func testMinMaxSteps(t *testing.T, name string) {
 	t.Run("result", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			iterable := &testIterable{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
@@ -2778,7 +2778,7 @@ func TestOrdSteps(t *testing.T) {
 		t.Run("valid", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMaxExecutionSteps(0)
+			st.SetMaxSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				input := starlark.String("a")
 				for i := 0; i < st.N; i++ {
@@ -2795,8 +2795,8 @@ func TestOrdSteps(t *testing.T) {
 
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
 				input := starlark.String("b" + strings.Repeat("a", st.N))
 				_, err := starlark.Call(thread, ord, starlark.Tuple{input}, nil)
@@ -2813,7 +2813,7 @@ func TestOrdSteps(t *testing.T) {
 		t.Run("valid", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMaxExecutionSteps(0)
+			st.SetMaxSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				input := starlark.Bytes("a")
 				for i := 0; i < st.N; i++ {
@@ -2830,7 +2830,7 @@ func TestOrdSteps(t *testing.T) {
 
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMaxExecutionSteps(0)
+			st.SetMaxSteps(0)
 			st.RunThread(func(thread *starlark.Thread) {
 				input := starlark.Bytes("b" + strings.Repeat("a", st.N))
 				_, err := starlark.Call(thread, ord, starlark.Tuple{input}, nil)
@@ -2950,8 +2950,8 @@ func TestRangeSteps(t *testing.T) {
 	t.Run("non-enumerating", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(0)
-		st.SetMaxExecutionSteps(0)
+		st.SetMinSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(10000), starlark.MakeInt(1)}
@@ -2966,8 +2966,8 @@ func TestRangeSteps(t *testing.T) {
 	t.Run("enumerating", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			args := starlark.Tuple{starlark.MakeInt(0), starlark.MakeInt(st.N * 2), starlark.MakeInt(2)}
 			iterable, err := starlark.Call(thread, range_, args, nil)
@@ -3123,8 +3123,8 @@ func TestReversedSteps(t *testing.T) {
 	t.Run("iterable", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
@@ -3143,8 +3143,8 @@ func TestReversedSteps(t *testing.T) {
 	t.Run("sequence", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testSequence{
 				nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
@@ -3353,8 +3353,8 @@ func TestSetSteps(t *testing.T) {
 		st.RequireSafety(starlark.CPUSafe)
 		// Iteration over items of a dict is 1 step per N,
 		// insertion cost averages to ~2.5.
-		st.SetMinExecutionSteps(1 + 2)
-		st.SetMaxExecutionSteps(1 + 3)
+		st.SetMinSteps(1 + 2)
+		st.SetMaxSteps(1 + 3)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
@@ -3434,8 +3434,8 @@ func TestSortedSteps(t *testing.T) {
 	t.Run("sorted", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(3)
-		st.SetMaxExecutionSteps(3)
+		st.SetMinSteps(3)
+		st.SetMaxSteps(3)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
@@ -3462,8 +3462,8 @@ func TestSortedSteps(t *testing.T) {
 		const listConstructionSteps = 2 * iterSize
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(listConstructionSteps + iterSize)          // All elements will change position.
-		st.SetMaxExecutionSteps(listConstructionSteps + iterSize*iterSize) // Should be at least better than quadratic.
+		st.SetMinSteps(listConstructionSteps + iterSize)          // All elements will change position.
+		st.SetMaxSteps(listConstructionSteps + iterSize*iterSize) // Should be at least better than quadratic.
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, sorted, starlark.Tuple{iter}, nil)
@@ -3730,8 +3730,8 @@ func TestTupleSteps(t *testing.T) {
 	t.Run("iterable", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
@@ -3749,8 +3749,8 @@ func TestTupleSteps(t *testing.T) {
 	t.Run("sequence", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testSequence{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
@@ -3964,7 +3964,7 @@ func TestTypeSteps(t *testing.T) {
 	for _, input := range inputs {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, type_, starlark.Tuple{input}, nil)
@@ -4030,8 +4030,8 @@ func TestZipSteps(t *testing.T) {
 		t.Run("iterable", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(3)
-			st.SetMaxExecutionSteps(3)
+			st.SetMinSteps(3)
+			st.SetMaxSteps(3)
 			st.RunThread(func(thread *starlark.Thread) {
 				iter := &testIterable{
 					nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
@@ -4049,8 +4049,8 @@ func TestZipSteps(t *testing.T) {
 		t.Run("sequence", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(3)
-			st.SetMaxExecutionSteps(3)
+			st.SetMinSteps(3)
+			st.SetMaxSteps(3)
 			st.RunThread(func(thread *starlark.Thread) {
 				iter := &testSequence{
 					nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
@@ -4070,8 +4070,8 @@ func TestZipSteps(t *testing.T) {
 		t.Run("iterable", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
 				sqrtN := int(math.Sqrt(float64(st.N)))
 				iter := &testIterable{
@@ -4094,8 +4094,8 @@ func TestZipSteps(t *testing.T) {
 		t.Run("sequence", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
 				sqrtN := int(math.Sqrt(float64(st.N)))
 				iter := &testSequence{
@@ -4204,8 +4204,8 @@ func TestBytesElemsSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(0)
-		st.SetMaxExecutionSteps(0)
+		st.SetMinSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, bytes_elems, nil, nil)
@@ -4219,8 +4219,8 @@ func TestBytesElemsSteps(t *testing.T) {
 	t.Run("iterator-usage", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			bytes := starlark.Bytes(strings.Repeat("a", st.N))
 			bytes_elems, _ := bytes.Attr("elems")
@@ -4315,7 +4315,7 @@ func TestDictClearSteps(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, dict_clear, nil, nil)
@@ -4330,8 +4330,8 @@ func TestDictClearSteps(t *testing.T) {
 		t.Run("small", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(dictSize / 8)
-			st.SetMaxExecutionSteps(2 * dictSize / 8)
+			st.SetMinSteps(dictSize / 8)
+			st.SetMaxSteps(2 * dictSize / 8)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					dict.SetKey(starlark.None, starlark.None)
@@ -4346,8 +4346,8 @@ func TestDictClearSteps(t *testing.T) {
 		t.Run("big", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(2)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(2)
 			st.RunThread(func(thread *starlark.Thread) {
 				dict := starlark.NewDict(st.N * 8)
 				dict_clear, _ := dict.Attr("clear")
@@ -4408,8 +4408,8 @@ func TestDictGetSteps(t *testing.T) {
 
 		t.Run("present", func(t *testing.T) {
 			st := startest.From(t)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(1)
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
@@ -4424,8 +4424,8 @@ func TestDictGetSteps(t *testing.T) {
 
 		t.Run("missing", func(t *testing.T) {
 			st := startest.From(t)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(1)
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
@@ -4454,8 +4454,8 @@ func TestDictGetSteps(t *testing.T) {
 
 		t.Run("present", func(t *testing.T) {
 			st := startest.From(t)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(dictSize / 8)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(dictSize / 8)
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
@@ -4471,8 +4471,8 @@ func TestDictGetSteps(t *testing.T) {
 		t.Run("missing", func(t *testing.T) {
 			st := startest.From(t)
 			// Each bucket can contain 8 elements tops
-			st.SetMinExecutionSteps((dictSize / 8))
-			st.SetMaxExecutionSteps((dictSize / 8) + 1)
+			st.SetMinSteps((dictSize / 8))
+			st.SetMaxSteps((dictSize / 8) + 1)
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
@@ -4548,8 +4548,8 @@ func TestDictItemsSteps(t *testing.T) {
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(1)
-	st.SetMaxExecutionSteps(1)
+	st.SetMinSteps(1)
+	st.SetMaxSteps(1)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := dict.Len(); i < st.N; i++ {
 			dict.SetKey(starlark.MakeInt(i), starlark.None)
@@ -4623,8 +4623,8 @@ func TestDictKeysSteps(t *testing.T) {
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(1)
-	st.SetMaxExecutionSteps(1)
+	st.SetMinSteps(1)
+	st.SetMaxSteps(1)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := dict.Len(); i < st.N; i++ {
 			dict.SetKey(starlark.MakeInt(i), starlark.None)
@@ -4705,8 +4705,8 @@ func TestDictPopSteps(t *testing.T) {
 		t.Run("present", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					input := starlark.Value(starlark.MakeInt(i % dictSize))
@@ -4722,8 +4722,8 @@ func TestDictPopSteps(t *testing.T) {
 		t.Run("missing", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					input := starlark.Value(starlark.MakeInt(dictSize))
@@ -4752,8 +4752,8 @@ func TestDictPopSteps(t *testing.T) {
 		t.Run("present", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps((dictSize / 8) + 1)
+			st.SetMinSteps(1)
+			st.SetMaxSteps((dictSize / 8) + 1)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					input := starlark.Value(starlark.MakeInt64(int64(i%dictSize) << 32))
@@ -4770,8 +4770,8 @@ func TestDictPopSteps(t *testing.T) {
 			st := startest.From(t)
 			// Each bucket can contain 8 elements tops
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(dictSize / 8)
-			st.SetMaxExecutionSteps((dictSize / 8) + 1)
+			st.SetMinSteps(dictSize / 8)
+			st.SetMaxSteps((dictSize / 8) + 1)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					input := starlark.Value(starlark.MakeInt64(dictSize << 32))
@@ -4826,8 +4826,8 @@ func TestDictPopitemSteps(t *testing.T) {
 		}
 
 		st := startest.From(t)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -4855,8 +4855,8 @@ func TestDictPopitemSteps(t *testing.T) {
 		}
 
 		st := startest.From(t)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps((dictSize / 8) + 1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps((dictSize / 8) + 1)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -4914,8 +4914,8 @@ func TestDictSetdefaultSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				key := starlark.MakeInt(i)
@@ -4941,8 +4941,8 @@ func TestDictSetdefaultSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps((dictSize / 8) * 2)
-		st.SetMaxExecutionSteps((dictSize / 8) * 2)
+		st.SetMinSteps((dictSize / 8) * 2)
+		st.SetMaxSteps((dictSize / 8) * 2)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				key := starlark.MakeInt64(int64(-i) << 32)
@@ -5007,8 +5007,8 @@ func TestDictUpdateSteps(t *testing.T) {
 		st.RequireSafety(starlark.CPUSafe)
 		// Iteration of each tuple costs 3 steps per N,
 		// insertion cost averages to ~ 2.5.
-		st.SetMinExecutionSteps(3 + 2)
-		st.SetMaxExecutionSteps(3 + 3)
+		st.SetMinSteps(3 + 2)
+		st.SetMaxSteps(3 + 3)
 		st.RunThread(func(thread *starlark.Thread) {
 			dict := starlark.NewDict(0)
 			dict_update, _ := dict.Attr("update")
@@ -5034,8 +5034,8 @@ func TestDictUpdateSteps(t *testing.T) {
 		st.RequireSafety(starlark.CPUSafe)
 		// Iteration over items of a dict is 1 step per N,
 		// insertion cost averages to ~2.5.
-		st.SetMinExecutionSteps(1 + 2)
-		st.SetMaxExecutionSteps(1 + 3)
+		st.SetMinSteps(1 + 2)
+		st.SetMaxSteps(1 + 3)
 		st.RunThread(func(thread *starlark.Thread) {
 			dict := starlark.NewDict(0)
 			dict_update, _ := dict.Attr("update")
@@ -5106,8 +5106,8 @@ func TestDictValuesSteps(t *testing.T) {
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(1)
-	st.SetMaxExecutionSteps(1)
+	st.SetMinSteps(1)
+	st.SetMaxSteps(1)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := dict.Len(); i < st.N; i++ {
 			dict.SetKey(starlark.MakeInt(i), starlark.None)
@@ -5175,8 +5175,8 @@ func TestDictValuesAllocs(t *testing.T) {
 func TestListAppendSteps(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(1)
-	st.SetMaxExecutionSteps(1)
+	st.SetMinSteps(1)
+	st.SetMaxSteps(1)
 	st.RunThread(func(thread *starlark.Thread) {
 		list := starlark.NewList([]starlark.Value{})
 		list_append, _ := list.Attr("append")
@@ -5217,8 +5217,8 @@ func TestListAppendAllocs(t *testing.T) {
 func TestListClearSteps(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(1)
-	st.SetMaxExecutionSteps(1)
+	st.SetMinSteps(1)
+	st.SetMaxSteps(1)
 	st.RunThread(func(thread *starlark.Thread) {
 		elems := make([]starlark.Value, st.N)
 		list := starlark.NewList(elems)
@@ -5287,8 +5287,8 @@ func TestListExtendSteps(t *testing.T) {
 	t.Run("list", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			list := starlark.NewList([]starlark.Value{})
 			list_extend, _ := list.Attr("extend")
@@ -5311,8 +5311,8 @@ func TestListExtendSteps(t *testing.T) {
 	t.Run("iterable", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			list := starlark.NewList([]starlark.Value{})
 			list_extend, _ := list.Attr("extend")
@@ -5482,8 +5482,8 @@ func TestListIndexSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := len(listElems); i < st.N; i++ {
 				listElems = append(listElems, starlark.MakeInt(i))
@@ -5505,8 +5505,8 @@ func TestListIndexSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := len(listElems); i < st.N; i++ {
 				listElems = append(listElems, starlark.MakeInt(i))
@@ -5528,8 +5528,8 @@ func TestListIndexSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := len(listElems); i < st.N; i++ {
 				listElems = append(listElems, starlark.MakeInt(i))
@@ -5586,8 +5586,8 @@ func TestListInsertSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(listSize)
-		st.SetMaxExecutionSteps(listSize)
+		st.SetMinSteps(listSize)
+		st.SetMaxSteps(listSize)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				index := starlark.Value(starlark.MakeInt(0))
@@ -5607,8 +5607,8 @@ func TestListInsertSteps(t *testing.T) {
 	t.Run("trailing", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			list := starlark.NewList([]starlark.Value{})
 			list_insert, _ := list.Attr("insert")
@@ -5661,8 +5661,8 @@ func TestListPopSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(listSize)
-		st.SetMaxExecutionSteps(listSize)
+		st.SetMinSteps(listSize)
+		st.SetMaxSteps(listSize)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, list_pop, starlark.Tuple{starlark.MakeInt(0)}, nil)
@@ -5686,8 +5686,8 @@ func TestListPopSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, list_pop, starlark.Tuple{starlark.MakeInt(listSize - 1)}, nil)
@@ -5743,8 +5743,8 @@ func TestListRemoveSteps(t *testing.T) {
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(listSize)
-	st.SetMaxExecutionSteps(listSize)
+	st.SetMinSteps(listSize)
+	st.SetMaxSteps(listSize)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			input := list.Index(i % listSize)
@@ -5817,8 +5817,8 @@ func TestStringCapitalizeSteps(t *testing.T) {
 			st.RequireSafety(starlark.CPUSafe)
 			// Steps are counted on the result only as input and output
 			// are closely tied and it's not worth being exactly precise.
-			st.SetMinExecutionSteps(uint64(len(test.output)))
-			st.SetMaxExecutionSteps(uint64(len(test.output)))
+			st.SetMinSteps(uint64(len(test.output)))
+			st.SetMaxSteps(uint64(len(test.output)))
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					_, err := starlark.Call(thread, string_capitalize, nil, nil)
@@ -5853,8 +5853,8 @@ func TestStringCapitalizeAllocs(t *testing.T) {
 func testStringIterableSteps(t *testing.T, methodName string) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(1)
-	st.SetMaxExecutionSteps(1)
+	st.SetMinSteps(1)
+	st.SetMaxSteps(1)
 	st.RunThread(func(thread *starlark.Thread) {
 		str := starlark.String(strings.Repeat("s", st.N))
 		method, _ := str.Attr(methodName)
@@ -5929,8 +5929,8 @@ func TestStringCodepointsAllocs(t *testing.T) {
 func TestStringCountSteps(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(uint64(len("a🍖")))
-	st.SetMaxExecutionSteps(uint64(len("a🍖")))
+	st.SetMinSteps(uint64(len("a🍖")))
+	st.SetMaxSteps(uint64(len("a🍖")))
 	st.RunThread(func(thread *starlark.Thread) {
 		str := starlark.String(strings.Repeat("a🍖", st.N))
 		string_count, _ := str.Attr("count")
@@ -5995,8 +5995,8 @@ func testStringFixSteps(t *testing.T, method_name string) {
 	t.Run("string", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(3)
-		st.SetMaxExecutionSteps(3)
+		st.SetMinSteps(3)
+		st.SetMaxSteps(3)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.String("foo")}
@@ -6011,8 +6011,8 @@ func testStringFixSteps(t *testing.T, method_name string) {
 	t.Run("tuple", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(9)
-		st.SetMaxExecutionSteps(9)
+		st.SetMinSteps(9)
+		st.SetMaxSteps(9)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				needles := starlark.Tuple{
@@ -6091,8 +6091,8 @@ func testStringFindMethodSteps(t *testing.T, name string) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(15)
-		st.SetMaxExecutionSteps(15)
+		st.SetMinSteps(15)
+		st.SetMaxSteps(15)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, method, starlark.Tuple{needle}, nil)
@@ -6106,8 +6106,8 @@ func testStringFindMethodSteps(t *testing.T, name string) {
 	t.Run("big", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			haystack := starlark.String("a" + strings.Repeat(" ", st.N) + "b")
 			method, _ := haystack.Attr(name)
@@ -6241,8 +6241,8 @@ func TestStringFormatSteps(t *testing.T) {
 			t.Run("positional", func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
-				st.SetMinExecutionSteps(test.steps)
-				st.SetMaxExecutionSteps(test.steps)
+				st.SetMinSteps(test.steps)
+				st.SetMaxSteps(test.steps)
 				st.RunThread(func(thread *starlark.Thread) {
 					format := starlark.String("{{{0!s}}}")
 					string_format, _ := format.Attr("format")
@@ -6261,8 +6261,8 @@ func TestStringFormatSteps(t *testing.T) {
 			t.Run("named", func(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
-				st.SetMinExecutionSteps(test.steps)
-				st.SetMaxExecutionSteps(test.steps)
+				st.SetMinSteps(test.steps)
+				st.SetMaxSteps(test.steps)
 				st.RunThread(func(thread *starlark.Thread) {
 					kwargs := []starlark.Tuple{{starlark.String("toInsert"), test.toFormat}}
 					format := starlark.String("{{{toInsert!s}}}")
@@ -6286,8 +6286,8 @@ func TestStringFormatSteps(t *testing.T) {
 		const steps = uint64(len(`{"\"test\""}`))
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(steps)
-		st.SetMaxExecutionSteps(steps)
+		st.SetMinSteps(steps)
+		st.SetMaxSteps(steps)
 		st.RunThread(func(thread *starlark.Thread) {
 			format := starlark.String("{{{0!r}}}")
 			string_format, _ := format.Attr("format")
@@ -6382,8 +6382,8 @@ func testStringIsSteps(t *testing.T, methodName, trueExample string, trueSteps i
 	t.Run("true return", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(trueSteps))
-		st.SetMaxExecutionSteps(uint64(trueSteps))
+		st.SetMinSteps(uint64(trueSteps))
+		st.SetMaxSteps(uint64(trueSteps))
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat(trueExample, st.N))
 			method, _ := str.Attr(methodName)
@@ -6405,8 +6405,8 @@ func testStringIsSteps(t *testing.T, methodName, trueExample string, trueSteps i
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(falseSteps))
-		st.SetMaxExecutionSteps(uint64(falseSteps))
+		st.SetMinSteps(uint64(falseSteps))
+		st.SetMaxSteps(uint64(falseSteps))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, method, nil, nil)
@@ -6611,8 +6611,8 @@ func TestStringJoinSteps(t *testing.T) {
 		// The step cost per N is:
 		// - For iterating over the receiver, 1
 		// - For writing the output, 1 for each byte
-		st.SetMinExecutionSteps(uint64(len("aab") + 1))
-		st.SetMaxExecutionSteps(uint64(len("aab") + 1))
+		st.SetMinSteps(uint64(len("aab") + 1))
+		st.SetMaxSteps(uint64(len("aab") + 1))
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				maxN: st.N,
@@ -6697,7 +6697,7 @@ func TestStringLowerSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(16)
+		st.SetMaxSteps(16)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, string_lower, nil, nil)
@@ -6711,7 +6711,7 @@ func TestStringLowerSteps(t *testing.T) {
 	t.Run("long", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
+		st.SetMinSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("δηαδβηηφ", st.N))
 			string_lower, _ := str.Attr("lower")
@@ -6833,8 +6833,8 @@ func testStringStripSteps(t *testing.T, method_name string, fromBothSides bool) 
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(expectedSteps)
-		st.SetMaxExecutionSteps(expectedSteps)
+		st.SetMinSteps(expectedSteps)
+		st.SetMaxSteps(expectedSteps)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, method, nil, nil)
@@ -6853,8 +6853,8 @@ func testStringStripSteps(t *testing.T, method_name string, fromBothSides bool) 
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(expectedSteps)
-		st.SetMaxExecutionSteps(expectedSteps)
+		st.SetMinSteps(expectedSteps)
+		st.SetMaxSteps(expectedSteps)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.String("ab ")}
@@ -6921,8 +6921,8 @@ func testStringPartitionMethodSteps(t *testing.T, name string, fromLeft bool) {
 	t.Run("not-present", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(recv)))
-		st.SetMaxExecutionSteps(uint64(len(recv)))
+		st.SetMinSteps(uint64(len(recv)))
+		st.SetMaxSteps(uint64(len(recv)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, string_partition, starlark.Tuple{starlark.String("channel")}, nil)
@@ -6943,8 +6943,8 @@ func testStringPartitionMethodSteps(t *testing.T, name string, fromLeft bool) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(expectedSteps))
-		st.SetMaxExecutionSteps(uint64(expectedSteps))
+		st.SetMinSteps(uint64(expectedSteps))
+		st.SetMaxSteps(uint64(expectedSteps))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, string_partition, starlark.Tuple{starlark.String("memory")}, nil)
@@ -7058,8 +7058,8 @@ func TestStringRemovesuffixAllocs(t *testing.T) {
 func TestStringReplaceSteps(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
-	st.SetMinExecutionSteps(uint64(len("dead🍖🍖")))
-	st.SetMaxExecutionSteps(uint64(len("dead🍖🍖")))
+	st.SetMinSteps(uint64(len("dead🍖🍖")))
+	st.SetMaxSteps(uint64(len("dead🍖🍖")))
 	st.RunThread(func(thread *starlark.Thread) {
 		str := starlark.String(strings.Repeat("deadbeef", st.N))
 		string_replace, _ := str.Attr("replace")
@@ -7125,8 +7125,8 @@ func testStringSplitSteps(t *testing.T, methodName string) {
 	t.Run("with-delimiter", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(8)
-		st.SetMaxExecutionSteps(8)
+		st.SetMinSteps(8)
+		st.SetMaxSteps(8)
 		st.RunThread(func(thread *starlark.Thread) {
 			delimiter := starlark.String("beef")
 			str := starlark.String(strings.Repeat("deadbeef", st.N))
@@ -7145,8 +7145,8 @@ func testStringSplitSteps(t *testing.T, methodName string) {
 	t.Run("with-limit", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(fmt.Sprintf("go%sgo", strings.Repeat(" ", st.N)))
 			method, _ := str.Attr(methodName)
@@ -7166,8 +7166,8 @@ func testStringSplitSteps(t *testing.T, methodName string) {
 	t.Run("defaults", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(fmt.Sprintf("go%sgo", strings.Repeat(" ", st.N)))
 			method, _ := str.Attr(methodName)
@@ -7185,8 +7185,8 @@ func testStringSplitSteps(t *testing.T, methodName string) {
 	t.Run("small", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(5)
-		st.SetMaxExecutionSteps(5)
+		st.SetMinSteps(5)
+		st.SetMaxSteps(5)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("g g g")
 			method, _ := str.Attr(methodName)
@@ -7348,8 +7348,8 @@ func TestStringSplitlinesSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(uint64(len(str)))
-		st.SetMaxExecutionSteps(uint64(len(str)))
+		st.SetMinSteps(uint64(len(str)))
+		st.SetMaxSteps(uint64(len(str)))
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, string_splitlines, nil, nil)
@@ -7363,8 +7363,8 @@ func TestStringSplitlinesSteps(t *testing.T) {
 	t.Run("large", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("a\n", st.N))
 			string_splitlines, _ := str.Attr("splitlines")
@@ -7586,7 +7586,7 @@ func TestStringUpperSteps(t *testing.T) {
 	t.Run("short", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(16)
+		st.SetMaxSteps(16)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("δηαδβηηφ")
 			string_upper, _ := str.Attr("upper")
@@ -7606,7 +7606,7 @@ func TestStringUpperSteps(t *testing.T) {
 	t.Run("long", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(1)
+		st.SetMinSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("δηαδβηηφ", st.N))
 			string_upper, _ := str.Attr("upper")
@@ -7734,8 +7734,8 @@ func TestSetAddSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				key := starlark.MakeInt(i)
@@ -7760,8 +7760,8 @@ func TestSetAddSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(setSize / 8)
-		st.SetMaxExecutionSteps((setSize / 8) * 2)
+		st.SetMinSteps(setSize / 8)
+		st.SetMaxSteps((setSize / 8) * 2)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				key := starlark.MakeInt64(int64(i) << 32)
@@ -7814,7 +7814,7 @@ func TestSetClearSteps(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMaxExecutionSteps(0)
+		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, set_clear, nil, nil)
@@ -7835,8 +7835,8 @@ func TestSetClearSteps(t *testing.T) {
 
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(smallSetSize / 8)
-			st.SetMaxExecutionSteps(2 * smallSetSize / 8)
+			st.SetMinSteps(smallSetSize / 8)
+			st.SetMaxSteps(2 * smallSetSize / 8)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					set.Insert(starlark.None)
@@ -7851,8 +7851,8 @@ func TestSetClearSteps(t *testing.T) {
 		t.Run("big", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(2)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(2)
 			st.RunThread(func(thread *starlark.Thread) {
 				set := starlark.NewSet(st.N * 8)
 				set_clear, _ := set.Attr("clear")
@@ -7940,8 +7940,8 @@ func TestSetDifferenceSteps(t *testing.T) {
 		// - For cloning the set, on average elems
 		// - For iteration, elems
 		// - For removal, on average elems
-		st.SetMinExecutionSteps(3*elems + 1)
-		st.SetMaxExecutionSteps(3*elems + 1)
+		st.SetMinSteps(3*elems + 1)
+		st.SetMaxSteps(3*elems + 1)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, set_difference, starlark.Tuple{iter}, nil)
@@ -8020,8 +8020,8 @@ func TestSetDiscardSteps(t *testing.T) {
 		t.Run("present", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					input := starlark.MakeInt(i % setSize)
@@ -8037,8 +8037,8 @@ func TestSetDiscardSteps(t *testing.T) {
 		t.Run("missing", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					input := starlark.MakeInt(setSize)
@@ -8067,8 +8067,8 @@ func TestSetDiscardSteps(t *testing.T) {
 		t.Run("present", func(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps((setSize / 8) + 1)
+			st.SetMinSteps(1)
+			st.SetMaxSteps((setSize / 8) + 1)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					input := starlark.MakeInt64(int64(i%setSize) << 32)
@@ -8085,8 +8085,8 @@ func TestSetDiscardSteps(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe)
 			// Each bucket can contain 8 elements tops
-			st.SetMinExecutionSteps(setSize / 8)
-			st.SetMaxExecutionSteps((setSize / 8) + 1)
+			st.SetMinSteps(setSize / 8)
+			st.SetMaxSteps((setSize / 8) + 1)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					input := starlark.MakeInt64(setSize << 32)
@@ -8202,8 +8202,8 @@ func TestSetIntersectionSteps(t *testing.T) {
 		// - For iterating over list, elems
 		// - For lookups, on average elems
 		// - For insertion, on average 2.5 * half of elems (1.25 * elems)
-		st.SetMinExecutionSteps(3 * elems)
-		st.SetMaxExecutionSteps(4 * elems)
+		st.SetMinSteps(3 * elems)
+		st.SetMaxSteps(4 * elems)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, set_intersection, starlark.Tuple{iter}, nil)
@@ -8292,8 +8292,8 @@ func TestSetIsSubsetSteps(t *testing.T) {
 	t.Run("execution", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
@@ -8378,8 +8378,8 @@ func TestSetIsSupersetSteps(t *testing.T) {
 	t.Run("early-termination", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(t *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
@@ -8399,8 +8399,8 @@ func TestSetIsSupersetSteps(t *testing.T) {
 	t.Run("complete-iteration", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(2)
-		st.SetMaxExecutionSteps(2)
+		st.SetMinSteps(2)
+		st.SetMaxSteps(2)
 		st.RunThread(func(t *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
@@ -8473,8 +8473,8 @@ func TestSetPopSteps(t *testing.T) {
 		}
 
 		st := startest.From(t)
-		st.SetMinExecutionSteps(1)
-		st.SetMaxExecutionSteps(1)
+		st.SetMinSteps(1)
+		st.SetMaxSteps(1)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -8501,9 +8501,9 @@ func TestSetPopSteps(t *testing.T) {
 		}
 
 		st := startest.From(t)
-		st.SetMinExecutionSteps(1)
+		st.SetMinSteps(1)
 		// Each bucket can contain at most 8 elements.
-		st.SetMaxExecutionSteps(setSize / 8)
+		st.SetMaxSteps(setSize / 8)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
@@ -8558,8 +8558,8 @@ func TestSetRemoveSteps(t *testing.T) {
 
 		t.Run("present", func(t *testing.T) {
 			st := startest.From(t)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(1)
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
@@ -8575,8 +8575,8 @@ func TestSetRemoveSteps(t *testing.T) {
 
 		t.Run("missing", func(t *testing.T) {
 			st := startest.From(t)
-			st.SetMinExecutionSteps(1)
-			st.SetMaxExecutionSteps(1)
+			st.SetMinSteps(1)
+			st.SetMaxSteps(1)
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
@@ -8605,9 +8605,9 @@ func TestSetRemoveSteps(t *testing.T) {
 
 		t.Run("present", func(t *testing.T) {
 			st := startest.From(t)
-			st.SetMinExecutionSteps(1)
+			st.SetMinSteps(1)
 			// Each bucket can contain at most 8 elements.
-			st.SetMaxExecutionSteps((setSize + 7) / 8)
+			st.SetMaxSteps((setSize + 7) / 8)
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
@@ -8623,8 +8623,8 @@ func TestSetRemoveSteps(t *testing.T) {
 
 		t.Run("missing", func(t *testing.T) {
 			st := startest.From(t)
-			st.SetMinExecutionSteps((setSize + 7) / 8)
-			st.SetMaxExecutionSteps((setSize + 7) / 8)
+			st.SetMinSteps((setSize + 7) / 8)
+			st.SetMaxSteps((setSize + 7) / 8)
 			st.RequireSafety(starlark.CPUSafe)
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
@@ -8698,8 +8698,8 @@ func TestSetSymmetricDifferenceSteps(t *testing.T) {
 		// The step cost per N is:
 		// - For cloning, 2 * elems
 		// - For deletion/insertion, just above 2 per element
-		st.SetMinExecutionSteps(elems * 4)
-		st.SetMaxExecutionSteps(elems * 5)
+		st.SetMinSteps(elems * 4)
+		st.SetMaxSteps(elems * 5)
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				maxN: elems,
@@ -8791,8 +8791,8 @@ func TestSetUnionSteps(t *testing.T) {
 		// - For iterating over the dict, 1
 		// - For cloning the dict, 1
 		// - For insertion, on average 2.5
-		st.SetMinExecutionSteps(4)
-		st.SetMaxExecutionSteps(5)
+		st.SetMinSteps(4)
+		st.SetMaxSteps(5)
 		st.RunThread(func(thread *starlark.Thread) {
 			set := starlark.NewSet(st.N)
 			for i := 0; i < st.N; i++ {
@@ -8884,8 +8884,8 @@ func TestSafeIterateSteps(t *testing.T) {
 
 	t.Run("step-counting", func(t *testing.T) {
 		st := startest.From(t)
-		st.SetMaxExecutionSteps(1)
-		st.SetMinExecutionSteps(1)
+		st.SetMaxSteps(1)
+		st.SetMinSteps(1)
 		st.RequireSafety(starlark.CPUSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			iterable := &testSequence{
@@ -8971,8 +8971,8 @@ func TestSafeIterateAllocs(t *testing.T) {
 func TestTupleIterationSteps(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
-	st.SetMaxExecutionSteps(1)
-	st.SetMinExecutionSteps(1)
+	st.SetMaxSteps(1)
+	st.SetMinSteps(1)
 	st.RunThread(func(thread *starlark.Thread) {
 		tuple := make(starlark.Tuple, st.N)
 		for i := 0; i < st.N; i++ {
@@ -9034,8 +9034,8 @@ func TestTupleIterationAllocs(t *testing.T) {
 func testDictlikeIterationResources(t *testing.T, value starlark.Value) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-	st.SetMinExecutionSteps(uint64(1 + starlark.Len(value)))
-	st.SetMaxExecutionSteps(uint64(1 + starlark.Len(value)))
+	st.SetMinSteps(uint64(1 + starlark.Len(value)))
+	st.SetMaxSteps(uint64(1 + starlark.Len(value)))
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			iter, err := starlark.SafeIterate(thread, value)
@@ -9081,8 +9081,8 @@ func TestListIteration(t *testing.T) {
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-	st.SetMinExecutionSteps(listSize + 1)
-	st.SetMaxExecutionSteps(listSize + 1)
+	st.SetMinSteps(listSize + 1)
+	st.SetMaxSteps(listSize + 1)
 	st.SetMaxAllocs(0)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {

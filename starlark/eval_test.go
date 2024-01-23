@@ -954,14 +954,14 @@ func TestCancel(t *testing.T) {
 	}
 }
 
-func TestExecutionSteps(t *testing.T) {
+func TestSteps(t *testing.T) {
 	// A Thread records the number of computation steps.
 	thread := new(starlark.Thread)
 	countSteps := func(n int) (uint64, error) {
 		predeclared := starlark.StringDict{"n": starlark.MakeInt(n)}
-		steps0 := thread.ExecutionSteps()
+		steps0 := thread.Steps()
 		_, err := starlark.ExecFile(thread, "steps.star", `squares = [x*x for x in range(n)]`, predeclared)
-		return thread.ExecutionSteps() - steps0, err
+		return thread.Steps() - steps0, err
 	}
 	steps100, err := countSteps(1000)
 	if err != nil {
@@ -976,14 +976,14 @@ func TestExecutionSteps(t *testing.T) {
 	}
 
 	// Exceeding the step limit causes cancellation.
-	thread.SetMaxExecutionSteps(1000)
+	thread.SetMaxSteps(1000)
 	_, err = countSteps(1000)
-	expected := &starlark.ExecutionStepsSafetyError{}
+	expected := &starlark.StepsSafetyError{}
 	if !errors.As(err, &expected) {
 		t.Errorf("execution returned error %q, want too many steps", err)
 	}
 
-	thread.SetMaxExecutionSteps(thread.ExecutionSteps() + 100)
+	thread.SetMaxSteps(thread.Steps() + 100)
 	thread.Uncancel()
 	_, err = countSteps(1)
 	if err != nil {
@@ -1062,31 +1062,31 @@ main()
 	}
 }
 
-func TestCheckExecutionSteps(t *testing.T) {
+func TestCheckSteps(t *testing.T) {
 	const maxSteps = 10000
 
 	thread := new(starlark.Thread)
-	thread.SetMaxExecutionSteps(maxSteps)
+	thread.SetMaxSteps(maxSteps)
 
-	if err := thread.CheckExecutionSteps(maxSteps / 2); err != nil {
+	if err := thread.CheckSteps(maxSteps / 2); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	if err := thread.CheckExecutionSteps(2 * maxSteps); err == nil {
+	if err := thread.CheckSteps(2 * maxSteps); err == nil {
 		t.Errorf("expected error")
 	} else if err.Error() != "too many steps" {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
 
-func TestConcurrentCheckExecutionStepsUsage(t *testing.T) {
+func TestConcurrentCheckStepsUsage(t *testing.T) {
 	const stepPeak = math.MaxInt64 ^ (math.MaxInt64 >> 1)
 	const maxSteps = stepPeak + 1
 	const repetitions = 1_000_000
 
 	thread := &starlark.Thread{}
-	thread.SetMaxExecutionSteps(maxSteps)
-	thread.AddExecutionSteps(stepPeak - 1)
+	thread.SetMaxSteps(maxSteps)
+	thread.AddSteps(stepPeak - 1)
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
@@ -1094,15 +1094,15 @@ func TestConcurrentCheckExecutionStepsUsage(t *testing.T) {
 	go func() {
 		// Flip between 1000...00 and 0111...11 allocations
 		for i := 0; i < repetitions; i++ {
-			thread.AddExecutionSteps(1)
-			thread.AddExecutionSteps(-1)
+			thread.AddSteps(1)
+			thread.AddSteps(-1)
 		}
 		wg.Done()
 	}()
 	go func() {
 		for i := 0; i < repetitions; i++ {
 			// Check 1000...01 not exceeded
-			if err := thread.CheckExecutionSteps(1); err != nil {
+			if err := thread.CheckSteps(1); err != nil {
 				t.Errorf("unexpected error: %v", err)
 				break
 			}
@@ -1113,65 +1113,65 @@ func TestConcurrentCheckExecutionStepsUsage(t *testing.T) {
 	wg.Wait()
 }
 
-func TestAddExecutionStepsOk(t *testing.T) {
+func TestAddStepsOk(t *testing.T) {
 	const expectedDelta = 10000
 
 	thread := new(starlark.Thread)
-	thread.SetMaxExecutionSteps(2 * expectedDelta)
+	thread.SetMaxSteps(2 * expectedDelta)
 
-	if err := thread.AddExecutionSteps(expectedDelta); err != nil {
+	if err := thread.AddSteps(expectedDelta); err != nil {
 		t.Errorf("unexpected error: %v", err)
-	} else if actualDelta := thread.ExecutionSteps(); actualDelta != expectedDelta {
+	} else if actualDelta := thread.Steps(); actualDelta != expectedDelta {
 		t.Errorf("incorrect number of steps added: expected %d but got %d", expectedDelta, actualDelta)
 	}
 
-	if _, err := starlark.ExecFile(thread, "add_execution_steps", "", nil); err != nil {
+	if _, err := starlark.ExecFile(thread, "add_steps", "", nil); err != nil {
 		t.Errorf("unexpected cancellation: %v", err)
 	}
 }
 
-func TestAddExecutionStepsFail(t *testing.T) {
+func TestAddStepsFail(t *testing.T) {
 	const maxSteps = 10000
 	const stepsToAdd = 2 * maxSteps
 
 	thread := new(starlark.Thread)
-	thread.SetMaxExecutionSteps(maxSteps)
+	thread.SetMaxSteps(maxSteps)
 
-	if err := thread.AddExecutionSteps(stepsToAdd); err == nil {
+	if err := thread.AddSteps(stepsToAdd); err == nil {
 		t.Errorf("expected error")
 	} else if err.Error() != "too many steps" {
 		t.Errorf("unexpected error: %v", err)
-	} else if steps := thread.ExecutionSteps(); steps != stepsToAdd {
+	} else if steps := thread.Steps(); steps != stepsToAdd {
 		t.Errorf("incorrect number of steps recorded: expected %v but got %v", stepsToAdd, steps)
 	}
 
-	if _, err := starlark.ExecFile(thread, "add_execution_steps", "", nil); err == nil {
+	if _, err := starlark.ExecFile(thread, "add_steps", "", nil); err == nil {
 		t.Errorf("expected cancellation")
 	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	if err := thread.AddExecutionSteps(maxSteps / 2); err == nil {
+	if err := thread.AddSteps(maxSteps / 2); err == nil {
 		t.Errorf("expected error")
 	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
-	} else if steps := thread.ExecutionSteps(); steps != stepsToAdd {
+	} else if steps := thread.Steps(); steps != stepsToAdd {
 		t.Errorf("incorrect number of steps recorded: expected %v but got %v", stepsToAdd, steps)
 	}
 }
 
-func TestConcurrentAddExecutionStepsUsage(t *testing.T) {
+func TestConcurrentAddStepsUsage(t *testing.T) {
 	const expectedSteps = 1_000_000
 
 	thread := &starlark.Thread{}
-	thread.SetMaxExecutionSteps(expectedSteps)
+	thread.SetMaxSteps(expectedSteps)
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 
-	callAddExecutionSteps := func(n uint) {
+	callAddSteps := func(n uint) {
 		for i := uint(0); i < n; i++ {
-			if err := thread.AddExecutionSteps(1); err != nil {
+			if err := thread.AddSteps(1); err != nil {
 				t.Errorf("unexpected error %v", err)
 				break
 			}
@@ -1179,13 +1179,13 @@ func TestConcurrentAddExecutionStepsUsage(t *testing.T) {
 		wg.Done()
 	}
 
-	go callAddExecutionSteps(expectedSteps / 2)
-	go callAddExecutionSteps(expectedSteps / 2)
+	go callAddSteps(expectedSteps / 2)
+	go callAddSteps(expectedSteps / 2)
 
 	wg.Wait()
 
-	if steps := thread.ExecutionSteps(); steps != expectedSteps {
-		t.Errorf("concurrent thread.AddExecutionSteps contains a race, expected %d steps recorded but got %d", expectedSteps, steps)
+	if steps := thread.Steps(); steps != expectedSteps {
+		t.Errorf("concurrent thread.AddSteps contains a race, expected %d steps recorded but got %d", expectedSteps, steps)
 	}
 }
 
@@ -1300,19 +1300,19 @@ func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 }
 
 type safeBinaryTest struct {
-	name              string
-	op                syntax.Token
-	noInplace         bool
-	left, right       func(*starlark.Thread, int) (starlark.Value, error)
-	minExecutionSteps uint64
-	maxExecutionSteps uint64
+	name        string
+	op          syntax.Token
+	noInplace   bool
+	left, right func(*starlark.Thread, int) (starlark.Value, error)
+	minSteps    uint64
+	maxSteps    uint64
 }
 
 func (sbt *safeBinaryTest) st(t *testing.T) *startest.ST {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-	st.SetMinExecutionSteps(sbt.minExecutionSteps)
-	st.SetMaxExecutionSteps(sbt.maxExecutionSteps)
+	st.SetMinSteps(sbt.minSteps)
+	st.SetMaxSteps(sbt.maxSteps)
 	return st
 }
 
@@ -1349,7 +1349,7 @@ func (sbt *safeBinaryTest) Run(t *testing.T) {
 				t.Error(err)
 			}
 			st := sbt.st(t)
-			st.SetMaxExecutionSteps(math.MaxUint64) // Relax test.
+			st.SetMaxSteps(math.MaxUint64) // Relax test.
 			st.AddValue("left", left)
 			st.AddValue("right", right)
 			st.RunString(fmt.Sprintf(`
@@ -1561,19 +1561,19 @@ func TestSafeBinary(t *testing.T) {
 		testSafetyRespected(t, syntax.PLUS)
 
 		tests := []safeBinaryTest{{
-			name:              "string + string",
-			op:                syntax.PLUS,
-			left:              makeString,
-			right:             makeString,
-			minExecutionSteps: 2,
-			maxExecutionSteps: 2,
+			name:     "string + string",
+			op:       syntax.PLUS,
+			left:     makeString,
+			right:    makeString,
+			minSteps: 2,
+			maxSteps: 2,
 		}, {
-			name:              "int + int",
-			op:                syntax.PLUS,
-			left:              makeBigInt,
-			right:             makeBigInt,
-			minExecutionSteps: 1,
-			maxExecutionSteps: 1,
+			name:     "int + int",
+			op:       syntax.PLUS,
+			left:     makeBigInt,
+			right:    makeBigInt,
+			minSteps: 1,
+			maxSteps: 1,
 		}, {
 			name:  "int + float",
 			op:    syntax.PLUS,
@@ -1590,19 +1590,19 @@ func TestSafeBinary(t *testing.T) {
 			left:  makeFloat,
 			right: makeFloat,
 		}, {
-			name:              "list + list",
-			op:                syntax.PLUS,
-			left:              makeList,
-			right:             makeList,
-			minExecutionSteps: 2,
-			maxExecutionSteps: 2,
+			name:     "list + list",
+			op:       syntax.PLUS,
+			left:     makeList,
+			right:    makeList,
+			minSteps: 2,
+			maxSteps: 2,
 		}, {
-			name:              "tuple + tuple",
-			op:                syntax.PLUS,
-			left:              makeTuple,
-			right:             makeTuple,
-			minExecutionSteps: 2,
-			maxExecutionSteps: 2,
+			name:     "tuple + tuple",
+			op:       syntax.PLUS,
+			left:     makeTuple,
+			right:    makeTuple,
+			minSteps: 2,
+			maxSteps: 2,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -1613,12 +1613,12 @@ func TestSafeBinary(t *testing.T) {
 		testSafetyRespected(t, syntax.MINUS)
 
 		tests := []safeBinaryTest{{
-			name:              "int - int",
-			op:                syntax.MINUS,
-			left:              makeBigInt,
-			right:             makeSmallInt,
-			minExecutionSteps: 1,
-			maxExecutionSteps: 1,
+			name:     "int - int",
+			op:       syntax.MINUS,
+			left:     makeBigInt,
+			right:    makeSmallInt,
+			minSteps: 1,
+			maxSteps: 1,
 		}, {
 			name:  "int - float",
 			op:    syntax.MINUS,
@@ -1643,8 +1643,8 @@ func TestSafeBinary(t *testing.T) {
 			// - For cloning the set, on average 1
 			// - For iteration, 1
 			// - For removal, on average 1
-			minExecutionSteps: 3,
-			maxExecutionSteps: 4, // TODO(marco6): remove the +1 as it's related to the guardedIterator overcount.
+			minSteps: 3,
+			maxSteps: 4, // TODO(marco6): remove the +1 as it's related to the guardedIterator overcount.
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -1668,9 +1668,9 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return result, nil
 			},
-			right:             constant(starlark.MakeInt(10)),
-			minExecutionSteps: 1,
-			maxExecutionSteps: 1,
+			right:    constant(starlark.MakeInt(10)),
+			minSteps: 1,
+			maxSteps: 1,
 		}, {
 			name:  "int * float",
 			op:    syntax.STAR,
@@ -1687,61 +1687,61 @@ func TestSafeBinary(t *testing.T) {
 			left:  makeFloat,
 			right: makeFloat,
 		}, {
-			name:              "bytes * int",
-			op:                syntax.STAR,
-			left:              makeBytes,
-			right:             constant(starlark.MakeInt(10)),
-			minExecutionSteps: 10,
-			maxExecutionSteps: 10,
+			name:     "bytes * int",
+			op:       syntax.STAR,
+			left:     makeBytes,
+			right:    constant(starlark.MakeInt(10)),
+			minSteps: 10,
+			maxSteps: 10,
 		}, {
-			name:              "int * bytes",
-			op:                syntax.STAR,
-			left:              constant(starlark.MakeInt(10)),
-			right:             makeBytes,
-			minExecutionSteps: 10,
-			maxExecutionSteps: 10,
+			name:     "int * bytes",
+			op:       syntax.STAR,
+			left:     constant(starlark.MakeInt(10)),
+			right:    makeBytes,
+			minSteps: 10,
+			maxSteps: 10,
 		}, {
-			name:              "string * int",
-			op:                syntax.STAR,
-			left:              makeString,
-			right:             constant(starlark.MakeInt(10)),
-			minExecutionSteps: 10,
-			maxExecutionSteps: 10,
+			name:     "string * int",
+			op:       syntax.STAR,
+			left:     makeString,
+			right:    constant(starlark.MakeInt(10)),
+			minSteps: 10,
+			maxSteps: 10,
 		}, {
-			name:              "int * string",
-			op:                syntax.STAR,
-			left:              constant(starlark.MakeInt(10)),
-			right:             makeString,
-			minExecutionSteps: 10,
-			maxExecutionSteps: 10,
+			name:     "int * string",
+			op:       syntax.STAR,
+			left:     constant(starlark.MakeInt(10)),
+			right:    makeString,
+			minSteps: 10,
+			maxSteps: 10,
 		}, {
-			name:              "list * int",
-			op:                syntax.STAR,
-			left:              makeList,
-			right:             constant(starlark.MakeInt(10)),
-			minExecutionSteps: 10,
-			maxExecutionSteps: 10,
+			name:     "list * int",
+			op:       syntax.STAR,
+			left:     makeList,
+			right:    constant(starlark.MakeInt(10)),
+			minSteps: 10,
+			maxSteps: 10,
 		}, {
-			name:              "int * list",
-			op:                syntax.STAR,
-			left:              constant(starlark.MakeInt(10)),
-			right:             makeList,
-			minExecutionSteps: 10,
-			maxExecutionSteps: 10,
+			name:     "int * list",
+			op:       syntax.STAR,
+			left:     constant(starlark.MakeInt(10)),
+			right:    makeList,
+			minSteps: 10,
+			maxSteps: 10,
 		}, {
-			name:              "tuple * int",
-			op:                syntax.STAR,
-			left:              makeTuple,
-			right:             constant(starlark.MakeInt(10)),
-			minExecutionSteps: 10,
-			maxExecutionSteps: 10,
+			name:     "tuple * int",
+			op:       syntax.STAR,
+			left:     makeTuple,
+			right:    constant(starlark.MakeInt(10)),
+			minSteps: 10,
+			maxSteps: 10,
 		}, {
-			name:              "int * tuple",
-			op:                syntax.STAR,
-			left:              constant(starlark.MakeInt(10)),
-			right:             makeTuple,
-			minExecutionSteps: 10,
-			maxExecutionSteps: 10,
+			name:     "int * tuple",
+			op:       syntax.STAR,
+			left:     constant(starlark.MakeInt(10)),
+			right:    makeTuple,
+			minSteps: 10,
+			maxSteps: 10,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -1792,9 +1792,9 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return result, nil
 			},
-			right:             constant(starlark.MakeInt(10)),
-			minExecutionSteps: 1,
-			maxExecutionSteps: 1,
+			right:    constant(starlark.MakeInt(10)),
+			minSteps: 1,
+			maxSteps: 1,
 		}, {
 			name:  "int // float",
 			op:    syntax.SLASHSLASH,
@@ -1849,8 +1849,8 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return result, nil
 			},
-			minExecutionSteps: 1,
-			maxExecutionSteps: 1,
+			minSteps: 1,
+			maxSteps: 1,
 		}, {
 			name:  "int % float",
 			op:    syntax.PERCENT,
@@ -1867,19 +1867,19 @@ func TestSafeBinary(t *testing.T) {
 			left:  makeFloat,
 			right: makeFloat,
 		}, {
-			name:              "string % string",
-			op:                syntax.PERCENT,
-			left:              constant(starlark.String("[%r]")),
-			right:             makeString,
-			minExecutionSteps: uint64(len(`x`)),
-			maxExecutionSteps: uint64(len(`["x"]`)),
+			name:     "string % string",
+			op:       syntax.PERCENT,
+			left:     constant(starlark.String("[%r]")),
+			right:    makeString,
+			minSteps: uint64(len(`x`)),
+			maxSteps: uint64(len(`["x"]`)),
 		}, {
-			name:              "string % list",
-			op:                syntax.PERCENT,
-			left:              constant(starlark.String("[%r]")),
-			right:             makeList,
-			minExecutionSteps: uint64(len(`None, `)) + 1,
-			maxExecutionSteps: uint64(len(`[[None]]`)) + 1,
+			name:     "string % list",
+			op:       syntax.PERCENT,
+			left:     constant(starlark.String("[%r]")),
+			right:    makeList,
+			minSteps: uint64(len(`None, `)) + 1,
+			maxSteps: uint64(len(`[[None]]`)) + 1,
 		}, {
 			name: "string % mapping",
 			op:   syntax.PERCENT,
@@ -1899,8 +1899,8 @@ func TestSafeBinary(t *testing.T) {
 				result.SetKey(starlark.String("k"), starlark.True)
 				return result
 			}()),
-			minExecutionSteps: uint64(len(`True`)) + 1,
-			maxExecutionSteps: uint64(len(`True`)) + 1,
+			minSteps: uint64(len(`True`)) + 1,
+			maxSteps: uint64(len(`True`)) + 1,
 		}, {
 			name: "string % tuple",
 			op:   syntax.PERCENT,
@@ -1917,8 +1917,8 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return starlark.Tuple{s, s}, nil
 			},
-			minExecutionSteps: 2 * uint64(len(`x`)),
-			maxExecutionSteps: uint64(len(`["x", "x"]`)),
+			minSteps: 2 * uint64(len(`x`)),
+			maxSteps: uint64(len(`["x", "x"]`)),
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -1935,8 +1935,8 @@ func TestSafeBinary(t *testing.T) {
 			// The step cost per N is:
 			// - For iteration over right, 1
 			// - For the SafeIterate over-count, 1
-			minExecutionSteps: 1,
-			maxExecutionSteps: 2,
+			minSteps: 1,
+			maxSteps: 2,
 		}, {
 			name:      fmt.Sprintf("int %s tuple", op),
 			noInplace: true,
@@ -1946,8 +1946,8 @@ func TestSafeBinary(t *testing.T) {
 			// The step cost per N is:
 			// - For iteration over right, 1
 			// - For the SafeIterate over-count, 1
-			minExecutionSteps: 1,
-			maxExecutionSteps: 2,
+			minSteps: 1,
+			maxSteps: 2,
 		}, {
 			name:      fmt.Sprintf("int %s mapping", op),
 			noInplace: true,
@@ -1955,7 +1955,7 @@ func TestSafeBinary(t *testing.T) {
 			left:      makeSmallInt,
 			right:     makeDict,
 			// The access cost is constant 1 step, which is approximately 0 per N for large N.
-			maxExecutionSteps: 1,
+			maxSteps: 1,
 		}, {
 			name:      fmt.Sprintf("int %s set", op),
 			noInplace: true,
@@ -1963,31 +1963,31 @@ func TestSafeBinary(t *testing.T) {
 			left:      makeSmallInt,
 			right:     makeSet,
 			// The access cost is constant 1 step, which is approximately 0 per N for large N.
-			maxExecutionSteps: 1,
+			maxSteps: 1,
 		}, {
-			name:              fmt.Sprintf("string %s string", op),
-			noInplace:         true,
-			op:                op,
-			left:              makeString,
-			right:             makeString,
-			minExecutionSteps: 1,
-			maxExecutionSteps: 1,
+			name:      fmt.Sprintf("string %s string", op),
+			noInplace: true,
+			op:        op,
+			left:      makeString,
+			right:     makeString,
+			minSteps:  1,
+			maxSteps:  1,
 		}, {
-			name:              fmt.Sprintf("bytes %s bytes", op),
-			noInplace:         true,
-			op:                op,
-			left:              makeBytes,
-			right:             makeBytes,
-			minExecutionSteps: 1,
-			maxExecutionSteps: 1,
+			name:      fmt.Sprintf("bytes %s bytes", op),
+			noInplace: true,
+			op:        op,
+			left:      makeBytes,
+			right:     makeBytes,
+			minSteps:  1,
+			maxSteps:  1,
 		}, {
-			name:              fmt.Sprintf("int %s bytes", op),
-			noInplace:         true,
-			op:                op,
-			left:              constant(starlark.MakeInt(0)),
-			right:             makeBytes,
-			minExecutionSteps: 1,
-			maxExecutionSteps: 1,
+			name:      fmt.Sprintf("int %s bytes", op),
+			noInplace: true,
+			op:        op,
+			left:      constant(starlark.MakeInt(0)),
+			right:     makeBytes,
+			minSteps:  1,
+			maxSteps:  1,
 		}, {
 			name:      fmt.Sprintf("int %s range", op),
 			noInplace: true,
@@ -2002,7 +2002,7 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return result, nil
 			},
-			maxExecutionSteps: 0,
+			maxSteps: 0,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -2023,12 +2023,12 @@ func TestSafeBinary(t *testing.T) {
 		testSafetyRespected(t, syntax.PIPE)
 
 		tests := []safeBinaryTest{{
-			name:              "int | int",
-			op:                syntax.PIPE,
-			left:              makeBigInt,
-			right:             makeBigInt,
-			minExecutionSteps: 1,
-			maxExecutionSteps: 1,
+			name:     "int | int",
+			op:       syntax.PIPE,
+			left:     makeBigInt,
+			right:    makeBigInt,
+			minSteps: 1,
+			maxSteps: 1,
 		}, {
 			name: "dict | dict",
 			op:   syntax.PIPE,
@@ -2056,8 +2056,8 @@ func TestSafeBinary(t *testing.T) {
 			// - For iterating over the right, 1
 			// - For insertion, on average, just above 1
 			// - For SafeIterator over-count, 1
-			minExecutionSteps: 3,
-			maxExecutionSteps: 4,
+			minSteps: 3,
+			maxSteps: 4,
 		}, {
 			name:  "set | set",
 			op:    syntax.PIPE,
@@ -2068,8 +2068,8 @@ func TestSafeBinary(t *testing.T) {
 			// - For iterating over the right, 1
 			// - For insertion, on average, just above 1
 			// - For SafeIterator over-count, 1
-			minExecutionSteps: 3,
-			maxExecutionSteps: 4,
+			minSteps: 3,
+			maxSteps: 4,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -2080,12 +2080,12 @@ func TestSafeBinary(t *testing.T) {
 		testSafetyRespected(t, syntax.AMP)
 
 		tests := []safeBinaryTest{{
-			name:              "int & int",
-			op:                syntax.AMP,
-			left:              makeBigInt,
-			right:             makeBigInt,
-			minExecutionSteps: 1,
-			maxExecutionSteps: 1,
+			name:     "int & int",
+			op:       syntax.AMP,
+			left:     makeBigInt,
+			right:    makeBigInt,
+			minSteps: 1,
+			maxSteps: 1,
 		}, {
 			name:  "set & set",
 			op:    syntax.AMP,
@@ -2095,8 +2095,8 @@ func TestSafeBinary(t *testing.T) {
 			// - For iteration over left, 1
 			// - For checking membership of right, on average 1.5
 			// - For insertion into the result, on average, just above 1
-			minExecutionSteps: 3,
-			maxExecutionSteps: 4,
+			minSteps: 3,
+			maxSteps: 4,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -2107,12 +2107,12 @@ func TestSafeBinary(t *testing.T) {
 		testSafetyRespected(t, syntax.CIRCUMFLEX)
 
 		tests := []safeBinaryTest{{
-			name:              "int ^ int",
-			op:                syntax.CIRCUMFLEX,
-			left:              makeBigInt,
-			right:             makeBigInt,
-			minExecutionSteps: 1,
-			maxExecutionSteps: 1,
+			name:     "int ^ int",
+			op:       syntax.CIRCUMFLEX,
+			left:     makeBigInt,
+			right:    makeBigInt,
+			minSteps: 1,
+			maxSteps: 1,
 		}, {
 			name:  "set ^ set",
 			op:    syntax.CIRCUMFLEX,
@@ -2123,8 +2123,8 @@ func TestSafeBinary(t *testing.T) {
 			// For cloning, on average, just above 1
 			// For deletion, on average, just above 1
 			// For insertion, on average, just above 1
-			minExecutionSteps: 4,
-			maxExecutionSteps: 4,
+			minSteps: 4,
+			maxSteps: 4,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -2153,8 +2153,8 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return result, nil
 			},
-			minExecutionSteps: 1,
-			maxExecutionSteps: 1,
+			minSteps: 1,
+			maxSteps: 1,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -2185,8 +2185,8 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return result, nil
 			},
-			minExecutionSteps: 1,
-			maxExecutionSteps: 1,
+			minSteps: 1,
+			maxSteps: 1,
 		}}
 		for _, test := range tests {
 			test.Run(t)

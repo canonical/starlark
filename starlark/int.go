@@ -81,7 +81,7 @@ func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
 	case syntax.MINUS:
 		if thread != nil {
 			if _, iBig := i.get(); iBig != nil {
-				if err := thread.AddExecutionSteps(int64(len(iBig.Bits()))); err != nil {
+				if err := thread.AddSteps(int64(len(iBig.Bits()))); err != nil {
 					return nil, err
 				}
 			}
@@ -101,7 +101,7 @@ func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
 	case syntax.TILDE:
 		if thread != nil {
 			if _, iBig := i.get(); iBig != nil {
-				if err := thread.AddExecutionSteps(int64(len(iBig.Bits()))); err != nil {
+				if err := thread.AddSteps(int64(len(iBig.Bits()))); err != nil {
 					return nil, err
 				}
 			}
@@ -218,7 +218,7 @@ func (i Int) SafeString(thread *Thread, sb StringBuilder) error {
 			// log2(10) > 3
 			// log10(x) = log2(x) / log2(10) < log2(x) / 3
 			maxDigits := int64(iBig.BitLen() / 3)
-			if err := thread.CheckExecutionSteps(maxDigits); err != nil {
+			if err := thread.CheckSteps(maxDigits); err != nil {
 				return err
 			}
 			if err := thread.CheckAllocs(int64(maxDigits)); err != nil {
