@@ -1304,19 +1304,15 @@ type safeBinaryTest struct {
 	op                syntax.Token
 	noInplace         bool
 	left, right       func(*starlark.Thread, int) (starlark.Value, error)
-	cpuSafe           bool // TODO(kcza): remove this once all binary tests are CPUSafe.
 	minExecutionSteps uint64
 	maxExecutionSteps uint64
 }
 
 func (sbt *safeBinaryTest) st(t *testing.T) *startest.ST {
 	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	if sbt.cpuSafe {
-		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinExecutionSteps(sbt.minExecutionSteps)
-		st.SetMaxExecutionSteps(sbt.maxExecutionSteps)
-	}
+	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+	st.SetMinExecutionSteps(sbt.minExecutionSteps)
+	st.SetMaxExecutionSteps(sbt.maxExecutionSteps)
 	return st
 }
 
@@ -1569,7 +1565,6 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.PLUS,
 			left:              makeString,
 			right:             makeString,
-			cpuSafe:           true,
 			minExecutionSteps: 2,
 			maxExecutionSteps: 2,
 		}, {
@@ -1577,33 +1572,28 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.PLUS,
 			left:              makeBigInt,
 			right:             makeBigInt,
-			cpuSafe:           true,
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}, {
-			name:    "int + float",
-			op:      syntax.PLUS,
-			left:    constant(starlark.MakeInt(1).Lsh(308)),
-			right:   makeFloat,
-			cpuSafe: true,
+			name:  "int + float",
+			op:    syntax.PLUS,
+			left:  constant(starlark.MakeInt(1).Lsh(308)),
+			right: makeFloat,
 		}, {
-			name:    "float + int",
-			op:      syntax.PLUS,
-			left:    makeFloat,
-			right:   constant(starlark.MakeInt(1).Lsh(308)),
-			cpuSafe: true,
+			name:  "float + int",
+			op:    syntax.PLUS,
+			left:  makeFloat,
+			right: constant(starlark.MakeInt(1).Lsh(308)),
 		}, {
-			name:    "float + float",
-			op:      syntax.PLUS,
-			left:    makeFloat,
-			right:   makeFloat,
-			cpuSafe: true,
+			name:  "float + float",
+			op:    syntax.PLUS,
+			left:  makeFloat,
+			right: makeFloat,
 		}, {
 			name:              "list + list",
 			op:                syntax.PLUS,
 			left:              makeList,
 			right:             makeList,
-			cpuSafe:           true,
 			minExecutionSteps: 2,
 			maxExecutionSteps: 2,
 		}, {
@@ -1611,7 +1601,6 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.PLUS,
 			left:              makeTuple,
 			right:             makeTuple,
-			cpuSafe:           true,
 			minExecutionSteps: 2,
 			maxExecutionSteps: 2,
 		}}
@@ -1628,33 +1617,28 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.MINUS,
 			left:              makeBigInt,
 			right:             makeSmallInt,
-			cpuSafe:           true,
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}, {
-			name:    "int - float",
-			op:      syntax.MINUS,
-			left:    constant(starlark.MakeInt(1).Lsh(308)),
-			right:   makeFloat,
-			cpuSafe: true,
+			name:  "int - float",
+			op:    syntax.MINUS,
+			left:  constant(starlark.MakeInt(1).Lsh(308)),
+			right: makeFloat,
 		}, {
-			name:    "float - int",
-			op:      syntax.MINUS,
-			left:    makeFloat,
-			right:   constant(starlark.MakeInt(1).Lsh(308)),
-			cpuSafe: true,
+			name:  "float - int",
+			op:    syntax.MINUS,
+			left:  makeFloat,
+			right: constant(starlark.MakeInt(1).Lsh(308)),
 		}, {
-			name:    "float - float",
-			op:      syntax.MINUS,
-			left:    makeFloat,
-			right:   constant(starlark.Float(1)),
-			cpuSafe: true,
+			name:  "float - float",
+			op:    syntax.MINUS,
+			left:  makeFloat,
+			right: constant(starlark.Float(1)),
 		}, {
-			name:    "set - set",
-			op:      syntax.MINUS,
-			left:    makeSet,
-			right:   makeAlternatingSet,
-			cpuSafe: true,
+			name:  "set - set",
+			op:    syntax.MINUS,
+			left:  makeSet,
+			right: makeAlternatingSet,
 			// The step cost per N is:
 			// - For cloning the set, on average 1
 			// - For iteration, 1
@@ -1685,33 +1669,28 @@ func TestSafeBinary(t *testing.T) {
 				return result, nil
 			},
 			right:             constant(starlark.MakeInt(10)),
-			cpuSafe:           true,
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}, {
-			name:    "int * float",
-			op:      syntax.STAR,
-			left:    makeSmallInt,
-			right:   makeFloat,
-			cpuSafe: true,
+			name:  "int * float",
+			op:    syntax.STAR,
+			left:  makeSmallInt,
+			right: makeFloat,
 		}, {
-			name:    "float * int",
-			op:      syntax.STAR,
-			left:    makeFloat,
-			right:   makeSmallInt,
-			cpuSafe: true,
+			name:  "float * int",
+			op:    syntax.STAR,
+			left:  makeFloat,
+			right: makeSmallInt,
 		}, {
-			name:    "float * float",
-			op:      syntax.STAR,
-			left:    makeFloat,
-			right:   makeFloat,
-			cpuSafe: true,
+			name:  "float * float",
+			op:    syntax.STAR,
+			left:  makeFloat,
+			right: makeFloat,
 		}, {
 			name:              "bytes * int",
 			op:                syntax.STAR,
 			left:              makeBytes,
 			right:             constant(starlark.MakeInt(10)),
-			cpuSafe:           true,
 			minExecutionSteps: 10,
 			maxExecutionSteps: 10,
 		}, {
@@ -1719,7 +1698,6 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.STAR,
 			left:              constant(starlark.MakeInt(10)),
 			right:             makeBytes,
-			cpuSafe:           true,
 			minExecutionSteps: 10,
 			maxExecutionSteps: 10,
 		}, {
@@ -1727,7 +1705,6 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.STAR,
 			left:              makeString,
 			right:             constant(starlark.MakeInt(10)),
-			cpuSafe:           true,
 			minExecutionSteps: 10,
 			maxExecutionSteps: 10,
 		}, {
@@ -1735,7 +1712,6 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.STAR,
 			left:              constant(starlark.MakeInt(10)),
 			right:             makeString,
-			cpuSafe:           true,
 			minExecutionSteps: 10,
 			maxExecutionSteps: 10,
 		}, {
@@ -1743,7 +1719,6 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.STAR,
 			left:              makeList,
 			right:             constant(starlark.MakeInt(10)),
-			cpuSafe:           true,
 			minExecutionSteps: 10,
 			maxExecutionSteps: 10,
 		}, {
@@ -1751,7 +1726,6 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.STAR,
 			left:              constant(starlark.MakeInt(10)),
 			right:             makeList,
-			cpuSafe:           true,
 			minExecutionSteps: 10,
 			maxExecutionSteps: 10,
 		}, {
@@ -1759,7 +1733,6 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.STAR,
 			left:              makeTuple,
 			right:             constant(starlark.MakeInt(10)),
-			cpuSafe:           true,
 			minExecutionSteps: 10,
 			maxExecutionSteps: 10,
 		}, {
@@ -1767,7 +1740,6 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.STAR,
 			left:              constant(starlark.MakeInt(10)),
 			right:             makeTuple,
-			cpuSafe:           true,
 			minExecutionSteps: 10,
 			maxExecutionSteps: 10,
 		}}
@@ -1780,29 +1752,25 @@ func TestSafeBinary(t *testing.T) {
 		testSafetyRespected(t, syntax.SLASH)
 
 		tests := []safeBinaryTest{{
-			name:    "int / int",
-			op:      syntax.SLASH,
-			left:    makeSmallInt,
-			right:   constant(starlark.MakeInt(10)),
-			cpuSafe: true,
+			name:  "int / int",
+			op:    syntax.SLASH,
+			left:  makeSmallInt,
+			right: constant(starlark.MakeInt(10)),
 		}, {
-			name:    "int / float",
-			op:      syntax.SLASH,
-			left:    makeSmallInt,
-			right:   makeFloat,
-			cpuSafe: true,
+			name:  "int / float",
+			op:    syntax.SLASH,
+			left:  makeSmallInt,
+			right: makeFloat,
 		}, {
-			name:    "float / int",
-			op:      syntax.SLASH,
-			left:    makeFloat,
-			right:   makeSmallInt,
-			cpuSafe: true,
+			name:  "float / int",
+			op:    syntax.SLASH,
+			left:  makeFloat,
+			right: makeSmallInt,
 		}, {
-			name:    "float / float",
-			op:      syntax.SLASH,
-			left:    makeFloat,
-			right:   makeFloat,
-			cpuSafe: true,
+			name:  "float / float",
+			op:    syntax.SLASH,
+			left:  makeFloat,
+			right: makeFloat,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -1825,27 +1793,23 @@ func TestSafeBinary(t *testing.T) {
 				return result, nil
 			},
 			right:             constant(starlark.MakeInt(10)),
-			cpuSafe:           true,
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}, {
-			name:    "int // float",
-			op:      syntax.SLASHSLASH,
-			left:    constant(starlark.MakeInt(100)),
-			right:   makeFloat,
-			cpuSafe: true,
+			name:  "int // float",
+			op:    syntax.SLASHSLASH,
+			left:  constant(starlark.MakeInt(100)),
+			right: makeFloat,
 		}, {
-			name:    "float // int",
-			op:      syntax.SLASHSLASH,
-			left:    makeFloat,
-			right:   constant(starlark.MakeInt(100)),
-			cpuSafe: true,
+			name:  "float // int",
+			op:    syntax.SLASHSLASH,
+			left:  makeFloat,
+			right: constant(starlark.MakeInt(100)),
 		}, {
-			name:    "float // float",
-			op:      syntax.SLASHSLASH,
-			left:    makeSmallInt,
-			right:   makeFloat,
-			cpuSafe: true,
+			name:  "float // float",
+			op:    syntax.SLASHSLASH,
+			left:  makeSmallInt,
+			right: makeFloat,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -1885,33 +1849,28 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return result, nil
 			},
-			cpuSafe:           true,
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}, {
-			name:    "int % float",
-			op:      syntax.PERCENT,
-			left:    makeSmallInt,
-			right:   makeFloat,
-			cpuSafe: true,
+			name:  "int % float",
+			op:    syntax.PERCENT,
+			left:  makeSmallInt,
+			right: makeFloat,
 		}, {
-			name:    "float % int",
-			op:      syntax.PERCENT,
-			left:    constant(starlark.Float(1e32)),
-			right:   constant(starlark.MakeInt(1).Lsh(1023)),
-			cpuSafe: true,
+			name:  "float % int",
+			op:    syntax.PERCENT,
+			left:  constant(starlark.Float(1e32)),
+			right: constant(starlark.MakeInt(1).Lsh(1023)),
 		}, {
-			name:    "float % float",
-			op:      syntax.PERCENT,
-			left:    makeFloat,
-			right:   makeFloat,
-			cpuSafe: true,
+			name:  "float % float",
+			op:    syntax.PERCENT,
+			left:  makeFloat,
+			right: makeFloat,
 		}, {
 			name:              "string % string",
 			op:                syntax.PERCENT,
 			left:              constant(starlark.String("[%r]")),
 			right:             makeString,
-			cpuSafe:           true,
 			minExecutionSteps: uint64(len(`x`)),
 			maxExecutionSteps: uint64(len(`["x"]`)),
 		}, {
@@ -1919,7 +1878,6 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.PERCENT,
 			left:              constant(starlark.String("[%r]")),
 			right:             makeList,
-			cpuSafe:           true,
 			minExecutionSteps: uint64(len(`None, `)) + 1,
 			maxExecutionSteps: uint64(len(`[[None]]`)) + 1,
 		}, {
@@ -1941,7 +1899,6 @@ func TestSafeBinary(t *testing.T) {
 				result.SetKey(starlark.String("k"), starlark.True)
 				return result
 			}()),
-			cpuSafe:           true,
 			minExecutionSteps: uint64(len(`True`)) + 1,
 			maxExecutionSteps: uint64(len(`True`)) + 1,
 		}, {
@@ -1960,7 +1917,6 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return starlark.Tuple{s, s}, nil
 			},
-			cpuSafe:           true,
 			minExecutionSteps: 2 * uint64(len(`x`)),
 			maxExecutionSteps: uint64(len(`["x", "x"]`)),
 		}}
@@ -1976,7 +1932,6 @@ func TestSafeBinary(t *testing.T) {
 			op:        op,
 			left:      constant(starlark.False),
 			right:     makeList,
-			cpuSafe:   true,
 			// The step cost per N is:
 			// - For iteration over right, 1
 			// - For the SafeIterate over-count, 1
@@ -1988,7 +1943,6 @@ func TestSafeBinary(t *testing.T) {
 			op:        op,
 			left:      makeSmallInt,
 			right:     makeTuple,
-			cpuSafe:   true,
 			// The step cost per N is:
 			// - For iteration over right, 1
 			// - For the SafeIterate over-count, 1
@@ -2000,7 +1954,6 @@ func TestSafeBinary(t *testing.T) {
 			op:        op,
 			left:      makeSmallInt,
 			right:     makeDict,
-			cpuSafe:   true,
 			// The access cost is constant 1 step, which is approximately 0 per N for large N.
 			maxExecutionSteps: 1,
 		}, {
@@ -2009,7 +1962,6 @@ func TestSafeBinary(t *testing.T) {
 			op:        op,
 			left:      makeSmallInt,
 			right:     makeSet,
-			cpuSafe:   true,
 			// The access cost is constant 1 step, which is approximately 0 per N for large N.
 			maxExecutionSteps: 1,
 		}, {
@@ -2018,7 +1970,6 @@ func TestSafeBinary(t *testing.T) {
 			op:                op,
 			left:              makeString,
 			right:             makeString,
-			cpuSafe:           true,
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}, {
@@ -2027,7 +1978,6 @@ func TestSafeBinary(t *testing.T) {
 			op:                op,
 			left:              makeBytes,
 			right:             makeBytes,
-			cpuSafe:           true,
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}, {
@@ -2036,7 +1986,6 @@ func TestSafeBinary(t *testing.T) {
 			op:                op,
 			left:              constant(starlark.MakeInt(0)),
 			right:             makeBytes,
-			cpuSafe:           true,
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}, {
@@ -2053,7 +2002,6 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return result, nil
 			},
-			cpuSafe:           true,
 			maxExecutionSteps: 0,
 		}}
 		for _, test := range tests {
@@ -2079,7 +2027,6 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.PIPE,
 			left:              makeBigInt,
 			right:             makeBigInt,
-			cpuSafe:           true,
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}, {
@@ -2104,7 +2051,6 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return result, nil
 			},
-			cpuSafe: true,
 			// The step cost per N is:
 			// - For creating a new dict, 1
 			// - For iterating over the right, 1
@@ -2113,11 +2059,10 @@ func TestSafeBinary(t *testing.T) {
 			minExecutionSteps: 3,
 			maxExecutionSteps: 4,
 		}, {
-			name:    "set | set",
-			op:      syntax.PIPE,
-			left:    makeSet,
-			right:   makeAlternatingSet,
-			cpuSafe: true,
+			name:  "set | set",
+			op:    syntax.PIPE,
+			left:  makeSet,
+			right: makeAlternatingSet,
 			// The step cost per N is:
 			// - For cloning the left, 1
 			// - For iterating over the right, 1
@@ -2139,15 +2084,13 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.AMP,
 			left:              makeBigInt,
 			right:             makeBigInt,
-			cpuSafe:           true,
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}, {
-			name:    "set & set",
-			op:      syntax.AMP,
-			left:    makeSet,
-			right:   makeAlternatingSet,
-			cpuSafe: true,
+			name:  "set & set",
+			op:    syntax.AMP,
+			left:  makeSet,
+			right: makeAlternatingSet,
 			// The step cost per N is:
 			// - For iteration over left, 1
 			// - For checking membership of right, on average 1.5
@@ -2168,15 +2111,13 @@ func TestSafeBinary(t *testing.T) {
 			op:                syntax.CIRCUMFLEX,
 			left:              makeBigInt,
 			right:             makeBigInt,
-			cpuSafe:           true,
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}, {
-			name:    "set ^ set",
-			op:      syntax.CIRCUMFLEX,
-			left:    makeSet,
-			right:   makeAlternatingSet,
-			cpuSafe: true,
+			name:  "set ^ set",
+			op:    syntax.CIRCUMFLEX,
+			left:  makeSet,
+			right: makeAlternatingSet,
 			// The step cost per N is:
 			// For iterating over left, 1
 			// For cloning, on average, just above 1
@@ -2212,7 +2153,6 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return result, nil
 			},
-			cpuSafe:           true,
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}}
@@ -2245,7 +2185,6 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return result, nil
 			},
-			cpuSafe:           true,
 			minExecutionSteps: 1,
 			maxExecutionSteps: 1,
 		}}
