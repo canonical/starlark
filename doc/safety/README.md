@@ -2,39 +2,32 @@
 
 Resource management is a crucial aspect in every modern industry, and the IT sector is no exception. The types of resources typically considered include:
 
- - Time [^1]
+ - Time[^1]
  - Memory
- - CPU cycles
+ - CPU usage
  - I/O (Network, Disk, etc.)
 
-While it is often acceptable to allow their usage to grow without bounds, especially when resources are abundant, there are instances where more stringent control becomes necessary.
-
-The only entity with complete control over most of these resources is the operating system (OS). However, the OS typically lacks the context to apply fine-grained policies when an application reaches its imposed limits. Exceeding a limit usually results in the termination of the entire application [^2]. Additionally, implementing solutions at the OS level often requires platform-specific implementations, making it challenging to abstract in higher-level and cross-platform languages.
-
-Some languages enable control over memory allocation, either through custom allocators [^3] or facilities like *Arenas* [^4]. In the former, a custom allocator fetches memory from the environment, allowing for usage limitations. In the latter, the maximum amount of memory is acquired upfront, and all allocations come from that predefined region.
-
-Given the limitations of these solutions, a language-independent and cross-platform approach is preferable.
+While it is often acceptable to allow resource usage to grow without bounds, there are situations where more stringent control is necessary.
 
 ## Best-Effort Cooperation
 
-While it may be challenging to guarantee safety in resource management generally, purposefully crafted software can achieve a similar effect through *cooperation*.
+The only thing with complete control over most of these resources is the operating system. However, the OS typically lacks the context to apply fine-grained policies when an application reaches its imposed limits. Exceeding a limit usually results in the termination of the entire application[^2]. Additionally, implementing solutions at the OS level often requires platform-specific implementations, impeding high-level, cross-platform abstractions.
 
-This parallel is akin to the relationship between *fibers*/*coroutines* and *threads*:
+The next best thing would be to use language-specific features to control resources. Although it's possible in some languages to control memory allocation, either through custom allocators[^3] or facilities like *Arenas*[^4], it's typically impossible to finely control other resources such as time or CPU usage.
 
-- *Threads* are a general-purpose facility requiring an OS (and hardware support!) to preempt a running routine and share resources.
-- *Fibers*/*coroutines* necessitate the running fiber to explicitly return control to the caller.
+However, often precise control is not necessary and some slight resource overuse is acceptable. For instance, it is usually ok to stop a routine within a small amount of time after the deadline or to consume few more bytes from memory. This makes the limit approximate, but nevertheless useful. In this document, solutions enforcing limits in this way will be referred to as *best-effort.*
 
-Certainly, *fibers* (or *coroutines*) are not immune to malicious software, which can create fairness issues and prevent other routines from running. Nevertheless, their execution is fast, and crucially, their implementation does not rely on any platform-specific features, making them a valuable abstraction for any language [^5].
+Higher level abstractions cannot rely on lower level tools such as the OS or the hardware, hence code must be added to explicitly account for them. This means that if a routine does not add the necessary logic, the system will misbehave. On the countrary, if all (or at least most) routines *cooperate* together, the system will be able to limit resources without any external aid.
 
-The manual control *fibers* have over when to switch is crucial: it is not realistic to give control back at every instruction as it would be too expensive to achieve this granularity. In this case, the trade-off is up to the implementer/designer who, most likely, has a higher level view of the goals of the system. This trade-off between granularity and simplicity/speed is what makes this cooperation a *best-effort* one as it doesn't give too many guarantees (as opposed to a preemptive scheduler). Both the *cooperation* and the *best-effort* concepts behind *fibers* (or *coroutines*) can be extended to virtually any resource.
+A well known example of these two concepts are *fibers*, which are an implementation of *cooperative multitasking*. Whilst *threads* are a general-purpose facility which requires an OS and hardware support to preempt a running routine, fibers must explicitly return control to the scheduler. In line with the usual cooperative bounding perils, fibers are not immune to maliciously or poorly written software, which can create fairness issues and prevent other routines from running. Nevertheless, many systems are built using them as their execution is fast and crucially their implementation does not rely on any platform-specific features, making them a valuable abstraction for many languages[^5]. Moreover, the explicit control fibers have over when to switch is crucial - it is not efficient to allow control to be yielded at every instruction. In this case, the trade-off is up to the implementer/designer who has an overview of the goals of the system. This trade-off between precision and simplicity/speed is what makes this cooperative scheme also *best-effort*.
 
-### Cancellation (Time)
+This idea of best-effort cooperation can be extended to manage all resource types mentioned at the beginning of this document. An overview of how it may be achieved them follows.
 
-Cooperation over a *cancellation*[^6] aspect has been explored by many languages such as [C++](https://en.cppreference.com/w/cpp/header/stop_token), [Rust](https://docs.rs/stop-token/latest/stop_token/), [C#](https://learn.microsoft.com/en-us/dotnet/standard/threading/cancellation-in-managed-threads), [Go](https://pkg.go.dev/context) and [JavaScript](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal) (and probably more).
+### Time
 
-In this case, each routine is responsible for managing the cancellation event or waiting for cancellation to occur.
+Cooperation over a *cancellation token*[^6] aspect is used by many languages including [C++](https://en.cppreference.com/w/cpp/header/stop_token), [Rust](https://docs.rs/stop-token/latest/stop_token/), [C#](https://learn.microsoft.com/en-us/dotnet/standard/threading/cancellation-in-managed-threads), [Go](https://pkg.go.dev/context) and [JavaScript](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal).
 
-While nothing prevents a malicious (or poorly written) routine from ignoring the token altogether and there is no firm guarantee that an execution thread will actually stop once the token is canceled (the *cooperation* aspect) or meet any time deadline for the cancellation (the *best-effort* aspect), in practice, this works well in most cases.
+In this case, each routine is responsible for checking for and reacting to a cancellation event. Of course, nothing stops a routine from neglecting the token (*cooperative*) and there is no firm guarantee that an execution thread will actually stop once the token is canceled or meet any time deadline for the cancellation (*best-effort*), in practice, this works well in most cases.
 
 ### Memory
 
@@ -90,15 +83,17 @@ While constraining I/O in a manner similar to Memory and CPU is certainly possib
 
 It is likely that the dualism of *best-effort*/*cooperative* can be successfully applied in I/O management as well.
 
-[^1]: While time is typically a derivative resource (i.e. a function of memory, I/O and CPU cycles), it primarily influences the user's perception, making it important in its own right.
 
-[^2]: Although it is possible to react before termination (e.g. cgroups) or isolate the execution of each part of the application in a different process for finer granularity, this approach is more resource-intensive and necessitates inter-process communication (IPC) and/or per-platform solutions.
 
-[^3]: [C++](https://en.cppreference.com/w/cpp/named_req/Allocator) and [Rust](https://doc.rust-lang.org/std/alloc/trait.Allocator.html), for example, support custom allocators throughout the standard library.
+[^1]: Whilst time is a derived resource (i.e. a function of memory, I/O and CPU cycles), it primarily influences the user's perception, making it important in its own right.
 
-[^4]: [Java](https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/foreign/Arena.html) is developing arenas. C has been using arenas for performance in various projects (e.g., [Apache Httpd](https://apr.apache.org/docs/apr/1.5/group__apr__allocator.html)). Go doesn't have them, but there is [some discussion](https://github.com/golang/go/issues/51317) about them.
+[^2]: Although it is possible to react before termination (e.g. using *cgroups*) or to isolate the execution of each part of the application in a different process for finer granularity, these approaches are more resource-intensive and necessitate IPC and/or per-platform solutions.
 
-[^5]: While it is true that fibers or coroutines *in general* do not depend on the platform, some implementations still rely on details to ease the job of the compiler or overcome certain compiler limitations (like the lack of coroutines).
+[^3]: [C++](https://en.cppreference.com/w/cpp/named_req/Allocator) for example, support custom allocators throughout the standard library.
+
+[^4]: C has been using arenas for performance in various projects for decades (e.g., [Apache Httpd](https://apr.apache.org/docs/apr/1.5/group__apr__allocator.html)). [Rust](https://crates.io/crates/bumpalo) has many crates for arenas. [Java](https://docs.oracle.com/en/java/javase/20/docs/api/java.base/java/lang/foreign/Arena.html) is developing arenas. Go doesn't have them, but there is [some discussion](https://github.com/golang/go/issues/51317) about them.
+
+[^5]: While it is true that fibers *in general* do not depend on the platform, some implementations still rely on details to ease the job of the compiler or to overcome certain limitations, such as a lack of coroutines.
 
 [^6]: Since a cancellation token (or abort signal) can be given a timeout, cooperative (or best-effort) cancellation manages *time* as well as some other sources of cancellation.
 
