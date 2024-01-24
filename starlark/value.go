@@ -2185,12 +2185,14 @@ func (gi *guardedIterator) Next(p *Value) bool {
 		return false
 	}
 
-	if err := gi.thread.AddSteps(1); err != nil {
-		gi.err = err
-		return false
+	ok := gi.iter.Next(p)
+	if ok {
+		if err := gi.thread.AddSteps(1); err != nil {
+			gi.err = err
+			return false
+		}
 	}
-
-	return gi.iter.Next(p)
+	return ok
 }
 func (gi *guardedIterator) Done() { gi.iter.Done() }
 func (gi *guardedIterator) Err() error {

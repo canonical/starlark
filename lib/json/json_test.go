@@ -114,7 +114,7 @@ func TestJsonEncodeSteps(t *testing.T) {
 	}, {
 		name:  "Tuple",
 		input: starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(2)},
-		steps: uint64(len("[1,2]")) + 3,
+		steps: uint64(len("[1,2]")) + 2,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

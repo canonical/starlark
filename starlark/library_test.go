@@ -7940,8 +7940,8 @@ func TestSetDifferenceSteps(t *testing.T) {
 		// - For cloning the set, on average elems
 		// - For iteration, elems
 		// - For removal, on average elems
-		st.SetMinSteps(3*elems + 1)
-		st.SetMaxSteps(3*elems + 1)
+		st.SetMinSteps(3 * elems)
+		st.SetMaxSteps(3 * elems)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, set_difference, starlark.Tuple{iter}, nil)
@@ -9034,8 +9034,8 @@ func TestTupleIterationAllocs(t *testing.T) {
 func testDictlikeIterationResources(t *testing.T, value starlark.Value) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-	st.SetMinSteps(uint64(1 + starlark.Len(value)))
-	st.SetMaxSteps(uint64(1 + starlark.Len(value)))
+	st.SetMinSteps(uint64(starlark.Len(value)))
+	st.SetMaxSteps(uint64(starlark.Len(value)))
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			iter, err := starlark.SafeIterate(thread, value)
@@ -9081,8 +9081,8 @@ func TestListIteration(t *testing.T) {
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
-	st.SetMinSteps(listSize + 1)
-	st.SetMaxSteps(listSize + 1)
+	st.SetMinSteps(listSize)
+	st.SetMaxSteps(listSize)
 	st.SetMaxAllocs(0)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
