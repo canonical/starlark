@@ -45,7 +45,7 @@ func Make(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwa
 	return SafeFromKeywords(thread, Default, kwargs)
 }
 
-const MakeSafety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe
+const MakeSafety = starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe
 
 // SafeFromKeywords returns a new struct instance whose fields are specified by the
 // key/value pairs in kwargs (each kwargs[i][0] must be a starlark.String.), taking
@@ -172,7 +172,7 @@ func (s *Struct) ToStringDict(d starlark.StringDict) {
 }
 
 func (s *Struct) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
-	const safety = starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe
+	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -270,7 +270,7 @@ func (x *Struct) Binary(op syntax.Token, y starlark.Value, side starlark.Side) (
 }
 
 func (s *Struct) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
-	const safety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe
+	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}

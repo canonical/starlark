@@ -1286,7 +1286,7 @@ func TestThreadCheckPermits(t *testing.T) {
 
 func TestThreadRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 	const initialSafety = starlark.CPUSafe | starlark.MemSafe
-	const newSafety = starlark.IOSafe | starlark.TimeSafe
+	const newSafety = starlark.TimeSafe | starlark.IOSafe
 	const expectedSafety = initialSafety | newSafety
 
 	thread := &starlark.Thread{}
@@ -1310,7 +1310,7 @@ type safeBinaryTest struct {
 
 func (sbt *safeBinaryTest) st(t *testing.T) *startest.ST {
 	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+	st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 	st.SetMinSteps(sbt.minSteps)
 	st.SetMaxSteps(sbt.maxSteps)
 	return st

@@ -390,7 +390,7 @@ func TestRequireSafety(t *testing.T) {
 
 			dummy := &dummyBase{}
 			st := startest.From(dummy)
-			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
+			st.RequireSafety(starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe)
 			st.AddBuiltin(fn)
 
 			if ok := st.RunString(`fn()`); ok {
@@ -535,7 +535,7 @@ func TestStringFail(t *testing.T) {
 }
 
 func TestRequireSafetyDefault(t *testing.T) {
-	const safe = starlark.CPUSafe | starlark.IOSafe | starlark.MemSafe | starlark.TimeSafe
+	const safe = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
 
 	t.Run("safety=safe", func(t *testing.T) {
 		t.Run("method=RunThread", func(t *testing.T) {
@@ -602,7 +602,7 @@ func TestRequireSafetyDefault(t *testing.T) {
 
 func TestRequireSafetyDoesNotUnsetFlags(t *testing.T) {
 	const initialSafety = starlark.CPUSafe
-	const newSafety = starlark.IOSafe | starlark.TimeSafe
+	const newSafety = starlark.TimeSafe | starlark.IOSafe
 	const expectedSafety = initialSafety | newSafety
 
 	st := startest.From(t)

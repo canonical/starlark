@@ -9033,7 +9033,7 @@ func TestTupleIterationAllocs(t *testing.T) {
 
 func testDictlikeIterationResources(t *testing.T, value starlark.Value) {
 	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+	st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 	st.SetMinSteps(uint64(starlark.Len(value)))
 	st.SetMaxSteps(uint64(starlark.Len(value)))
 	st.RunThread(func(thread *starlark.Thread) {
@@ -9080,7 +9080,7 @@ func TestListIteration(t *testing.T) {
 	}
 
 	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+	st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 	st.SetMinSteps(listSize)
 	st.SetMaxSteps(listSize)
 	st.SetMaxAllocs(0)

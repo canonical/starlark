@@ -25,7 +25,7 @@ func TestSafety(t *testing.T) {
 
 	// Disjoint non-empty safety sets are rejected
 	const disjointA = starlark.TimeSafe | starlark.IOSafe
-	const disjointB = starlark.MemSafe | starlark.CPUSafe
+	const disjointB = starlark.CPUSafe | starlark.MemSafe
 	testSafety(t, disjointA, disjointB, false)
 	testSafety(t, disjointB, disjointA, false)
 
@@ -118,7 +118,7 @@ func TestBuiltinClosuresInteractSafely(t *testing.T) {
 		}
 	}
 
-	const expectedClosure1Safety = starlark.MemSafe | starlark.CPUSafe
+	const expectedClosure1Safety = starlark.CPUSafe | starlark.MemSafe
 	const expectedClosure2Safety = starlark.MemSafe | starlark.IOSafe
 
 	builtinClosure1 := starlark.NewBuiltinWithSafety("foo", expectedClosure1Safety, base("foo"))
@@ -276,7 +276,7 @@ func TestNewBuiltinWithSafety(t *testing.T) {
 		return starlark.None, nil
 	}
 
-	const validSafety = starlark.IOSafe | starlark.MemSafe
+	const validSafety = starlark.MemSafe | starlark.IOSafe
 	if safety := starlark.NewBuiltinWithSafety("fn", validSafety, fn).Safety(); safety != validSafety {
 		t.Errorf("incorrect stored safety: expected %v but got %v", validSafety, safety)
 	}
@@ -316,7 +316,7 @@ func TestCheckSafety(t *testing.T) {
 	safeThread.RequireSafety(starlark.Safe)
 
 	partiallySafeThread := &starlark.Thread{}
-	partiallySafeThread.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+	partiallySafeThread.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 
 	tests := []struct {
 		name        string

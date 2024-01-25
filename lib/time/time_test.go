@@ -756,7 +756,7 @@ func TestTimeFormatAllocs(t *testing.T) {
 func TestSafeDurationUnpacker(t *testing.T) {
 	t.Run("duration", func(t *testing.T) {
 		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 		st.SetMaxAllocs(0)
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
@@ -780,7 +780,7 @@ func TestSafeDurationUnpacker(t *testing.T) {
 
 	t.Run("string", func(t *testing.T) {
 		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 		st.SetMaxAllocs(0)
 		st.SetMinSteps(uint64(len("1h")))
 		st.SetMaxSteps(uint64(len("1h")))
@@ -858,7 +858,7 @@ func TestSafeAttr(t *testing.T) {
 
 				t.Run("resources", func(t *testing.T) {
 					st := startest.From(t)
-					st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+					st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 					st.SetMaxSteps(0)
 					st.RunThread(func(thread *starlark.Thread) {
 						for i := 0; i < st.N; i++ {

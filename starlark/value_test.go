@@ -316,7 +316,7 @@ func TestSafeUnary(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			st := startest.From(t)
-			st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+			st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 			st.SetMaxSteps(test.steps)
 			st.RunThread(func(thread *starlark.Thread) {
 				input, err := test.input(thread, st.N)
