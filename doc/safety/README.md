@@ -27,25 +27,26 @@ This idea of best-effort cooperation can be extended to manage all resource type
 
 Cooperation over a *cancellation token*[^6] aspect is used by many languages including [C++](https://en.cppreference.com/w/cpp/header/stop_token), [Rust](https://docs.rs/stop-token/latest/stop_token/), [C#](https://learn.microsoft.com/en-us/dotnet/standard/threading/cancellation-in-managed-threads), [Go](https://pkg.go.dev/context) and [JavaScript](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal).
 
-In this case, each routine is responsible for checking for and reacting to a cancellation event. Of course, nothing stops a routine from neglecting the token (*cooperative*) and there is no firm guarantee that an execution thread will actually stop once the token is canceled or meet any time deadline for the cancellation (*best-effort*), in practice, this works well in most cases.
+In this case, each routine is responsible for checking for and reacting to a cancellation event. Of course, 
+only routines that respect the token (*cooperative*) will stop and, even so, there is no guarantee that a routine will actually stop or meet any deadline once the token is canceled (*best-effort*). In spite of this, in most cases, the method works well in practice.
 
 ### Memory
 
-Memory management consists of two primitive operations: allocating and releasing. The primary objective of memory management is to ensure that $M_{used} \leq M_{limit}$.
+Memory management consists of two primitive operations: allocation and release. The ideal objective of memory management is to ensure that the memory used is below a given limit.
 
-This implies that it is possible to cooperatively limit the amount of memory used by an execution thread[^7] by monitoring the memory amount before performing an allocation and comparing the total to a limit. If there is insufficient memory available, the routine should abstain from the allocation. This can be referred to as the *cooperation* aspect for memory.
+It is possible to limit the amount of memory used by a routine by monitoring the memory amount before performing an allocation and comparing the total to a limit. If there is insufficient memory available, the routine should abstain from the allocation. Clearly, cooperation among routines is required for this to be effective.
 
-This simple concept can be enhanced by considering memory release as well. Memory is one of the few resources that can both *grow* and *shrink*.
+This simple concept can be enhanced by considering memory release as well. Memory is one of the few resources which can both *grow* and *shrink*. Whilst in languages like C, C++, and Rust, where memory management is (semi-)manual, it is clear when and how to remove an allocation from the tally it still poses questions around *ownership*. Specifically, it is unclear who should account for:
 
-While in (semi-)manually managed memory languages like C, C++, and Rust, it is clear when and how to remove the allocation from the amount used, as both the lifetime and the size of objects are explicit[^8], it still poses questions around *ownership*. Specifically:
+ - objects shared among two or more separate constrained routines.
+ - objects which outlive a constrained routine.
+ - objects allocated used inside a constrained routine but allocated outside.
 
- - How to constrain memory for objects shared among two or more separate constrained execution contexts.
- - How to account for memory of objects that should outlive a constrained region of code.
- - How to account for memory allocated outside but used inside a constrained region.
+The other approach, Garbage Collection makes it almost impossible to reliably account for memory release. 
 
-On the other hand, automatic memory management (like Garbage Collection) makes it almost impossible to reliably account for memory release. Moreover, higher-level languages sometimes make it difficult to precisely measure the size of an object tree.
+Higher-level languages sometimes make it difficult to precisely measure the size of an object tree.
 
-In all these cases, a conservative approach can be followed by *estimating the amount of memory used* such that: $M_{estimated} \geq M_{used}$. Consequently, if $M_{estimated} \leq M_{limit}$, then $M_{used} \leq M_{limit}$ holds. This can be referred to as the *best-effort* aspect for memory.
+In all these cases, a best-effort approach can be followed by *estimating the amount of memory used* such that: $M_{estimated} \geq M_{used}$. Consequently, if $M_{estimated} \leq M_{limit}$, then $M_{used} \leq M_{limit}$ holds. 
 
 This simplification can be beneficial when it is challenging to know the size of an object and when understanding the lifetime of an object is difficult (or impossible). In the former case, it is usually possible to *overestimate*. In the latter case, it is sufficient to never release memory[^9].
 
@@ -96,10 +97,6 @@ It is likely that the dualism of *best-effort*/*cooperative* can be successfully
 [^5]: While it is true that fibers *in general* do not depend on the platform, some implementations still rely on details to ease the job of the compiler or to overcome certain limitations, such as a lack of coroutines.
 
 [^6]: Since a cancellation token (or abort signal) can be given a timeout, cooperative (or best-effort) cancellation manages *time* as well as some other sources of cancellation.
-
-[^7]: In this case, the term *execution thread* refers to the logical execution of a group of routines, not the OS thread facility.
-
-[^8]: the determinism of the release of memory can be lost if ref-counted resources are used and is shared among more than one concurrent execution thread. This makes it difficult even for those language to properly limit memory without occuring in non-deterministic behaviors.
 
 [^9]: While never counting memory releases may seem problematic, in practice, it is significant primarily for long-running routines. Usually, Arenas follow the same approach, never releasing memory during their lifetime but doing so in a single operation when the Arena itself is discarded.
 
