@@ -38,17 +38,19 @@ It is possible to limit the amount of memory used by a routine by monitoring the
 
 This simple concept can be enhanced by considering memory release as well. Memory is one of the few resources which can both *grow* and *shrink*. Whilst in languages like C, C++, and Rust, where memory management is (semi-)manual, it is clear when and how to remove an allocation from the tally it still poses questions around *ownership*. Specifically, it is unclear who should account for:
 
- - objects shared among two or more separate constrained routines.
- - objects which outlive a constrained routine.
+ - objects shared among two or more separate constrained routines,
+ - objects which outlive a constrained routine,
  - objects allocated used inside a constrained routine but allocated outside.
 
-The other approach, Garbage Collection makes it almost impossible to reliably account for memory release. 
+Garbage Collected languages face even more challenges as:
 
-Higher-level languages sometimes make it difficult to precisely measure the size of an object tree.
+ - it is almost impossible to reliably account for memory release. 
+ - it is sometimes difficult to precisely measure the size of an object tree
+ 
+A best-effort approach can help simplify these problems. In fact, it is possible to *estimate the amount of memory used* such that: $M_{estimated} \geq M_{used}$. Consequently, if $M_{estimated} \leq M_{limit}$, then $M_{used} \leq M_{limit}$ holds. The estimation can go in more than one direction:
 
-In all these cases, a best-effort approach can be followed by *estimating the amount of memory used* such that: $M_{estimated} \geq M_{used}$. Consequently, if $M_{estimated} \leq M_{limit}$, then $M_{used} \leq M_{limit}$ holds. 
-
-This simplification can be beneficial when it is challenging to know the size of an object and when understanding the lifetime of an object is difficult (or impossible). In the former case, it is usually possible to *overestimate*. In the latter case, it is sufficient to never release memory[^9].
+ - the size of each allocation can be *overestimated*;
+ - release of memory can be ignored[^9] whenever the lifetime of an object is difficult (or impossible).
 
 ### CPU Cycles
 
