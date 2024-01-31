@@ -27,7 +27,7 @@ func (m *Module) Truth() starlark.Bool                     { return true }
 func (m *Module) Type() string                             { return "module" }
 
 func (m *Module) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
-	const safety = starlark.MemSafe | starlark.IOSafe | starlark.CPUSafe
+	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func (m *Module) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) 
 }
 
 func (m *Module) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
-	const safety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}

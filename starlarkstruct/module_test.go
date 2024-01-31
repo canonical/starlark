@@ -88,7 +88,7 @@ func TestModuleSafeAttr(t *testing.T) {
 
 func TestMakeModuleResources(t *testing.T) {
 	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+	st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 	st.SetMinSteps(1)
 	st.SetMaxSteps(1)
 	st.RunThread(func(thread *starlark.Thread) {

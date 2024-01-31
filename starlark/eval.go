@@ -455,7 +455,7 @@ func (d StringDict) Keys() []string {
 }
 
 func (d StringDict) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = MemSafe | IOSafe | CPUSafe
+	const safety = CPUSafe | MemSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -1171,7 +1171,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 var floatSize = EstimateSize(Float(0))
 
 func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
-	const safety = MemSafe | CPUSafe
+	const safety = CPUSafe | MemSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}

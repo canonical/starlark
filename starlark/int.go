@@ -72,7 +72,7 @@ func (i Int) Unary(op syntax.Token) (Value, error) {
 }
 
 func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
-	const safety = MemSafe | IOSafe | CPUSafe
+	const safety = CPUSafe | MemSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (i Int) Format(s fmt.State, ch rune) {
 }
 
 func (i Int) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = MemSafe | IOSafe | CPUSafe
+	const safety = CPUSafe | MemSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}

@@ -165,7 +165,7 @@ func TestFromKeywords(t *testing.T) {
 
 	t.Run("resources", func(t *testing.T) {
 		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 		st.SetMinSteps(1)
 		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
@@ -207,7 +207,7 @@ func TestFromStringDict(t *testing.T) {
 
 	t.Run("resources", func(t *testing.T) {
 		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+		st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 		st.SetMinSteps(1)
 		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
@@ -230,7 +230,7 @@ func TestFromStringDict(t *testing.T) {
 
 func TestStructResources(t *testing.T) {
 	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe | starlark.CPUSafe)
+	st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 	st.SetMinSteps(1)
 	st.SetMaxSteps(1)
 	st.RunThread(func(thread *starlark.Thread) {
