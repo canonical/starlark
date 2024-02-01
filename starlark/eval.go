@@ -72,7 +72,7 @@ type Thread struct {
 	allocs, maxAllocs uint64
 	allocsLock        sync.Mutex
 
-	// cancelReason records the reason from the first call to Cancel.eval.go
+	// cancelReason records the reason from the first call to Cancel.
 	cancelReason *error
 
 	// locals holds arbitrary "thread-local" Go values belonging to the client.
