@@ -37,7 +37,7 @@ type Thread struct {
 
 	// context holds the execution context used by this thread.
 	context       context.Context
-	cancelContext context.CancelCauseFunc
+	cancelContext context.CancelFunc
 
 	// stack is the stack of (internal) call frames.
 	stack []*frame
@@ -125,23 +125,9 @@ func (thread *Thread) Context() context.Context {
 // SetContext sets the context for this thread. If not called,
 // context.Background() is used.
 func (thread *Thread) SetContext(ctx context.Context) {
-	ctx, cancel := context.WithCancelCause(ctx)
+	ctx, cancel := context.WithCancel(ctx)
 	thread.context = ctx
 	thread.cancelContext = cancel
-}
-
-func (thread *Thread) cancelled() error {
-	if thread.context != nil {
-		select {
-		case <-thread.context.Done():
-			return context.Cause(thread.context)
-		default:
-		}
-	}
-	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
-		return *(*error)(cancelReason)
-	}
-	return nil
 }
 
 // Steps returns the current value of Steps.
@@ -201,7 +187,7 @@ func (thread *Thread) AddSteps(delta int64) error {
 // new total step-count and any error this would entail. No change is
 // recorded.
 func (thread *Thread) simulateSteps(delta int64) (uint64, error) {
-	if cancelReason := thread.cancelled(); cancelReason != nil {
+	if cancelReason := thread.cancellation(); cancelReason != nil {
 		return thread.steps, fmt.Errorf("Starlark computation cancelled: %w", cancelReason)
 	}
 
@@ -301,9 +287,23 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 // cancel atomically sets cancelReason, preserving earlier reason if any.
 func (thread *Thread) cancel(err error) {
 	if thread.cancelContext != nil {
-		thread.cancelContext(fmt.Errorf("Starlark computation cancelled: %w", err))
+		thread.cancelContext()
 	}
 	atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason)), nil, unsafe.Pointer(&err))
+}
+
+func (thread *Thread) cancellation() error {
+	if thread.context != nil {
+		select {
+		case <-thread.context.Done():
+			return thread.context.Err()
+		default:
+		}
+	}
+	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
+		return *(*error)(cancelReason)
+	}
+	return nil
 }
 
 // SetLocal sets the thread-local value associated with the specified key.
@@ -2704,7 +2704,7 @@ func (thread *Thread) AddAllocs(delta int64) error {
 // allocations associated with this thread and any error this would entail. No
 // change is recorded.
 func (thread *Thread) simulateAllocs(delta int64) (uint64, error) {
-	if cancelReason := thread.cancelled(); cancelReason != nil {
+	if cancelReason := thread.cancellation(); cancelReason != nil {
 		return thread.allocs, fmt.Errorf("Starlark computation cancelled: %w", cancelReason)
 	}
 

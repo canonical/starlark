@@ -1064,13 +1064,13 @@ main()
 }
 
 func TestCancellationConsistency(t *testing.T) {
-	const expected = "Starlark computation cancelled: oh no!"
-
 	{
-		ctx, cancel := context.WithCancelCause(context.Background())
+		const expected = "Starlark computation cancelled: context canceled"
+
+		ctx, cancel := context.WithCancel(context.Background())
 		thread := &starlark.Thread{}
 		thread.SetContext(ctx)
-		cancel(errors.New("oh no!"))
+		cancel()
 
 		_, err := starlark.ExecFile(thread, "precancel.star", `x = 1//0`, nil)
 		if err.Error() != expected {
@@ -1079,6 +1079,8 @@ func TestCancellationConsistency(t *testing.T) {
 	}
 
 	{
+		const expected = "context canceled"
+
 		ctx := context.Background()
 		thread := &starlark.Thread{}
 		thread.SetContext(ctx)
