@@ -1063,34 +1063,50 @@ main()
 	}
 }
 
-func TestDefaultContext(t *testing.T) {
-	expected := context.Background()
+func TestCancellationConsistency(t *testing.T) {
+	const expected = "Starlark computation cancelled: oh no!"
 
-	thread := &starlark.Thread{}
-	predecls := starlark.StringDict{
-		"fn": starlark.NewBuiltin("fn", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-			if ctx := thread.Context(); ctx != expected {
-				t.Errorf("got incorrect thread context: expected %v but got %v", expected, ctx)
-			}
-			return starlark.None, nil
-		}),
+	{
+		ctx, cancel := context.WithCancelCause(context.Background())
+		thread := &starlark.Thread{}
+		thread.SetContext(ctx)
+		cancel(errors.New("oh no!"))
+
+		_, err := starlark.ExecFile(thread, "precancel.star", `x = 1//0`, nil)
+		if err.Error() != expected {
+			t.Errorf("expected error %q but got %q", expected, err)
+		}
 	}
-	_, err := starlark.ExecFile(thread, "context", "fn()", predecls)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+
+	{
+		ctx := context.Background()
+		thread := &starlark.Thread{}
+		thread.SetContext(ctx)
+		thread.Cancel("oh no!")
+
+		select {
+		case <-thread.Context().Done():
+			if err := context.Cause(thread.Context()); err.Error() != expected {
+				t.Errorf("unexpected error: expected %q but got %q", expected, err)
+			}
+		default:
+			t.Error("expected context to be cancelled")
+		}
 	}
 }
 
 func TestSpecifiedContext(t *testing.T) {
-	expected, _ := context.WithCancel(context.Background())
+	const key = "foo"
+	const value = "bar"
+	ctx := context.WithValue(context.Background(), key, value)
 
 	thread := &starlark.Thread{}
-	thread.SetContext(expected)
+	thread.SetContext(ctx)
 
 	predecls := starlark.StringDict{
 		"fn": starlark.NewBuiltin("fn", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-			if ctx := thread.Context(); ctx != expected {
-				t.Errorf("got incorrect thread context: expected %v but got %v", expected, ctx)
+			if v := thread.Context().Value(key); v != value {
+				t.Errorf("could not find %q in thread context, expected value %q but got %#v", key, value, v)
 			}
 			return starlark.None, nil
 		}),
