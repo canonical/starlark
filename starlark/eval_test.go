@@ -1076,6 +1076,15 @@ func TestCancellationConsistency(t *testing.T) {
 		if err.Error() != expected {
 			t.Errorf("expected error %q but got %q", expected, err)
 		}
+
+		thread.Uncancel()
+		_, err = starlark.ExecFile(thread, "precancel.star", `x = 1`, nil)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if ctx := thread.Context(); ctx != context.Background() {
+			t.Errorf("cancelled thread did not have ")
+		}
 	}
 
 	{
@@ -1094,6 +1103,22 @@ func TestCancellationConsistency(t *testing.T) {
 		default:
 			t.Error("expected context to be cancelled")
 		}
+
+		thread.Uncancel()
+		_, err := starlark.ExecFile(thread, "precancel.star", `x = 1`, nil)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if ctx := thread.Context(); ctx != context.Background() {
+			t.Errorf("cancelled thread did not have ")
+		}
+	}
+}
+
+func TestUnspecifiedContext(t *testing.T) {
+	thread := &starlark.Thread{}
+	if ctx := thread.Context(); ctx != context.Background() {
+		t.Errorf("unset context did not return background")
 	}
 }
 
