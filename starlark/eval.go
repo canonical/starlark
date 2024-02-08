@@ -89,20 +89,21 @@ type Thread struct {
 
 type threadContext struct {
 	thread *Thread
+	parent context.Context
 }
 
 var _ context.Context = &threadContext{}
 
 func (tc *threadContext) Deadline() (deadline time.Time, ok bool) {
-	return tc.thread.context.Deadline()
+	return tc.parent.Deadline()
 }
 
 func (tc *threadContext) Done() <-chan struct{} {
-	return tc.thread.context.Done()
+	return tc.parent.Done()
 }
 
 func (tc *threadContext) Err() error {
-	if err := tc.thread.context.Err(); err != nil {
+	if err := tc.parent.Err(); err != nil {
 		return err
 	}
 	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&tc.thread.cancelReason))); cancelReason != nil {
@@ -112,20 +113,24 @@ func (tc *threadContext) Err() error {
 }
 
 func (tc *threadContext) Value(key interface{}) interface{} {
-	return tc.thread.context.Value(key)
+	return tc.parent.Value(key)
 }
 
 // Context returns the context for this thread.
 func (thread *Thread) Context() context.Context {
-	return &threadContext{
-		thread: thread,
+	if thread.context == nil {
+		thread.context = context.Background()
 	}
+	return thread.context
 }
 
 // SetContext sets the context for this thread. If not called,
 // context.Background() is used.
 func (thread *Thread) SetContext(ctx context.Context) {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(&threadContext{
+		thread: thread,
+		parent: ctx,
+	})
 	thread.context = ctx
 	thread.cancelContext = cancel
 }
