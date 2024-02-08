@@ -268,6 +268,8 @@ func (thread *Thread) CheckPermits(value SafetyAware) error {
 // goroutine, even if the thread is actively executing.
 func (thread *Thread) Uncancel() {
 	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason)), nil)
+	thread.context = context.Background()
+	thread.cancelContext = nil
 }
 
 // Cancel causes execution of Starlark code in the specified thread to
@@ -298,13 +300,13 @@ func (thread *Thread) cancel(err error) {
 }
 
 func (thread *Thread) cancellation() error {
-	if thread.context != nil {
-		select {
-		case <-thread.context.Done():
-			return thread.context.Err()
-		default:
-		}
+	ctx := thread.Context()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
 	}
+
 	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); cancelReason != nil {
 		return *(*error)(cancelReason)
 	}
@@ -2170,10 +2172,6 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	// one-time initialization of thread
 	if thread.maxSteps == 0 {
 		thread.maxSteps-- // (MaxUint64)
-	}
-
-	if thread.context == nil {
-		thread.context = context.Background()
 	}
 
 	stackAppender := NewSafeAppender(thread, &thread.stack)
