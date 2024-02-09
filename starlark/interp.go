@@ -5,8 +5,6 @@ package starlark
 import (
 	"fmt"
 	"os"
-	"sync/atomic"
-	"unsafe"
 
 	"github.com/canonical/starlark/internal/compile"
 	"github.com/canonical/starlark/internal/spell"
@@ -109,8 +107,7 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (_ 
 	code := f.Code
 loop:
 	for {
-		if reason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.cancelReason))); reason != nil {
-			err = fmt.Errorf("Starlark computation cancelled: %w", *(*error)(reason))
+		if err = thread.cancelled(); err != nil {
 			break loop
 		}
 

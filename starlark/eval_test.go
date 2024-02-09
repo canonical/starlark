@@ -1065,7 +1065,7 @@ main()
 
 func TestCancellationConsistency(t *testing.T) {
 	{
-		const expected = "Starlark computation cancelled: context canceled"
+		const expected = "Starlark computation cancelled"
 
 		ctx, cancel := context.WithCancel(context.Background())
 		thread := &starlark.Thread{}
@@ -1076,49 +1076,64 @@ func TestCancellationConsistency(t *testing.T) {
 		if err.Error() != expected {
 			t.Errorf("expected error %q but got %q", expected, err)
 		}
+		thread.Cancel("second-cancellation")
+		if err2 := thread.Context().Err(); err2.Error() != err.Error() {
+			t.Errorf("Err() return value changed: initially got %q but now got %q", err, err2)
+		}
 
+		firstCtx := thread.Context()
 		thread.Uncancel()
 		_, err = starlark.ExecFile(thread, "precancel.star", `x = 1`, nil)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		if ctx := thread.Context(); ctx != context.Background() {
-			t.Errorf("cancelled thread did not have ")
+		if ctx := thread.Context(); ctx == firstCtx {
+			t.Errorf("uncancelled thread did not discard context")
 		}
 	}
 
 	{
-		const expected = "context canceled"
+		const expected = "oh no!"
 
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
 		thread := &starlark.Thread{}
 		thread.SetContext(ctx)
 		thread.Cancel("oh no!")
 
+		var err error
 		select {
 		case <-thread.Context().Done():
-			if err := context.Cause(thread.Context()); err.Error() != expected {
+			if err = thread.Context().Err(); err.Error() != expected {
 				t.Errorf("unexpected error: expected %q but got %q", expected, err)
 			}
 		default:
 			t.Error("expected context to be cancelled")
 		}
+		cancel()
+		if err2 := thread.Context().Err(); err2.Error() != err.Error() {
+			t.Errorf("Err() return value changed: initially got %q but now got %q", err, err2)
+		}
 
+		firstCtx := thread.Context()
 		thread.Uncancel()
-		_, err := starlark.ExecFile(thread, "precancel.star", `x = 1`, nil)
+		_, err = starlark.ExecFile(thread, "precancel.star", `x = 1`, nil)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		if ctx := thread.Context(); ctx != context.Background() {
-			t.Errorf("cancelled thread did not have ")
+		if ctx := thread.Context(); ctx == firstCtx {
+			t.Errorf("uncancelled thread did not discard context")
 		}
 	}
 }
 
 func TestUnspecifiedContext(t *testing.T) {
 	thread := &starlark.Thread{}
-	if ctx := thread.Context(); ctx != context.Background() {
-		t.Errorf("unset context did not return background")
+	ctx := thread.Context()
+	if ctx == nil {
+		t.Errorf("thread has no default context")
+	}
+	if ctx2 := thread.Context(); ctx != ctx2 {
+		t.Errorf("thread context changed unexpectedly")
 	}
 }
 
