@@ -1098,7 +1098,7 @@ func TestCancellationConsistency(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		thread := &starlark.Thread{}
 		thread.SetContext(ctx)
-		thread.Cancel("oh no!")
+		thread.Cancel(expected)
 
 		var err error
 		select {

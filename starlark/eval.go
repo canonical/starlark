@@ -100,7 +100,19 @@ func (tc *threadContext) Done() <-chan struct{} {
 }
 
 func (tc *threadContext) Err() error {
-	return tc.parent.Err()
+	err := tc.parent.Err()
+	if err != nil {
+		if err == context.Canceled {
+			err = errors.New("Starlark computation cancelled")
+		} else {
+			err = fmt.Errorf("Starlark computation cancelled: %w", err)
+		}
+		atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&tc.cancelReason)), nil, unsafe.Pointer(&err))
+	}
+	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&tc.cancelReason))); cancelReason != nil {
+		return *(*error)(cancelReason)
+	}
+	return nil
 }
 
 func (tc *threadContext) Value(key interface{}) interface{} {
@@ -111,14 +123,6 @@ func (tc *threadContext) cancel(err error) {
 	if atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&tc.cancelReason)), nil, unsafe.Pointer(&err)) {
 		tc.cancelFunc()
 	}
-}
-
-// cause returns the cancellation reason.
-func (tc *threadContext) cause() error {
-	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&tc.cancelReason))); cancelReason != nil {
-		return *(*error)(cancelReason)
-	}
-	return nil
 }
 
 // Context returns the context for this thread.
@@ -299,18 +303,7 @@ func (thread *Thread) cancel(err error) {
 }
 
 func (thread *Thread) cancelled() error {
-	ctx := thread.Context().(*threadContext)
-	if err := ctx.cause(); err != nil {
-		return err
-	}
-
-	if err := ctx.Err(); err != nil {
-		if err == context.Canceled {
-			return errors.New("Starlark computation cancelled")
-		}
-		return fmt.Errorf("Starlark computation cancelled: %w", err)
-	}
-	return nil
+	return thread.Context().Err()
 }
 
 // SetLocal sets the thread-local value associated with the specified key.
