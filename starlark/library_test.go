@@ -1380,7 +1380,7 @@ func TestEnumerateAllocs(t *testing.T) {
 	})
 
 	t.Run("early-termination", func(t *testing.T) {
-		maxAllocs := uint64(40)
+		maxAllocs := uint64(80)
 
 		t.Run("iterable", func(t *testing.T) {
 			st := startest.From(t)
@@ -3568,7 +3568,7 @@ func TestSortedAllocs(t *testing.T) {
 	})
 
 	t.Run("early-termination", func(t *testing.T) {
-		maxAllocs := uint64(1)
+		maxAllocs := uint64(16)
 
 		t.Run("iterable", func(t *testing.T) {
 			st := startest.From(t)

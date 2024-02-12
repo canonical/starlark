@@ -100,23 +100,18 @@ func (tc *threadContext) Done() <-chan struct{} {
 }
 
 func (tc *threadContext) Err() error {
-	err := tc.parent.Err()
-	if err != nil {
-		if err == context.Canceled {
-			err = errors.New("Starlark computation cancelled")
-		} else {
-			err = fmt.Errorf("Starlark computation cancelled: %w", err)
-		}
-		atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&tc.cancelReason)), nil, unsafe.Pointer(&err))
-	}
-	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&tc.cancelReason))); cancelReason != nil {
-		return *(*error)(cancelReason)
-	}
-	return nil
+	return tc.parent.Err()
 }
 
 func (tc *threadContext) Value(key interface{}) interface{} {
 	return tc.parent.Value(key)
+}
+
+func (tc *threadContext) cause() error {
+	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&tc.cancelReason))); cancelReason != nil {
+		return *(*error)(cancelReason)
+	}
+	return nil
 }
 
 func (tc *threadContext) cancel(err error) {
@@ -136,6 +131,7 @@ func (thread *Thread) Context() context.Context {
 // SetContext sets the context for this thread.
 func (thread *Thread) SetContext(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
+	// TODO(kcza): Replace this with context.WithCancelCause once min Go version is sufficient.
 	tc := &threadContext{
 		parent:     ctx,
 		cancelFunc: cancel,
@@ -200,10 +196,6 @@ func (thread *Thread) AddSteps(delta int64) error {
 // new total step-count and any error this would entail. No change is
 // recorded.
 func (thread *Thread) simulateSteps(delta int64) (uint64, error) {
-	if cancelReason := thread.cancelled(); cancelReason != nil {
-		return thread.steps, cancelReason
-	}
-
 	var nextSteps uint64
 	if delta < 0 {
 		udelta := uint64(-delta)
@@ -299,10 +291,14 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 
 // cancel atomically sets cancelReason, preserving earlier reason if any.
 func (thread *Thread) cancel(err error) {
-	thread.context.cancel(err)
+	thread.Context().(*threadContext).cancel(err)
 }
 
 func (thread *Thread) cancelled() error {
+	ctx := thread.Context().(*threadContext)
+	if err := ctx.cause(); err != nil {
+		return err
+	}
 	return thread.Context().Err()
 }
 
@@ -2700,10 +2696,6 @@ func (thread *Thread) AddAllocs(delta int64) error {
 // allocations associated with this thread and any error this would entail. No
 // change is recorded.
 func (thread *Thread) simulateAllocs(delta int64) (uint64, error) {
-	if cancelReason := thread.cancelled(); cancelReason != nil {
-		return thread.allocs, cancelReason
-	}
-
 	var nextAllocs uint64
 
 	if delta < 0 {

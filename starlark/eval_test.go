@@ -1072,18 +1072,23 @@ func TestCancellationConsistency(t *testing.T) {
 		thread.SetContext(ctx)
 		cancel()
 
-		_, err := starlark.ExecFile(thread, "precancel.star", `x = 1//0`, nil)
+		_, err := starlark.ExecFile(thread, "cancelled.star", `x = 1//0`, nil)
 		if err.Error() != expected {
 			t.Errorf("expected error %q but got %q", expected, err)
 		}
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("unexpected inner error: expected %q but got %q", context.Canceled, err)
+		}
+
+		firstCtxErr := thread.Context().Err()
 		thread.Cancel("second-cancellation")
-		if err2 := thread.Context().Err(); err2.Error() != err.Error() {
-			t.Errorf("Err() return value changed: initially got %q but now got %q", err, err2)
+		if err = thread.Context().Err(); err.Error() != firstCtxErr.Error() {
+			t.Errorf("Err() return value changed: initially got %q but now got %q", firstCtxErr, err)
 		}
 
 		firstCtx := thread.Context()
 		thread.Uncancel()
-		_, err = starlark.ExecFile(thread, "precancel.star", `x = 1`, nil)
+		_, err = starlark.ExecFile(thread, "uncancelled.star", `x = 1`, nil)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -1093,17 +1098,23 @@ func TestCancellationConsistency(t *testing.T) {
 	}
 
 	{
-		const expected = "oh no!"
+		const innerError = "oh no!"
 
 		ctx, cancel := context.WithCancel(context.Background())
 		thread := &starlark.Thread{}
 		thread.SetContext(ctx)
-		thread.Cancel(expected)
+		thread.Cancel(innerError)
 
-		var err error
+		const expectedExecFileError = "Starlark computation cancelled: oh no!"
+		_, err := starlark.ExecFile(thread, "cancelled.star", `x = 1//0`, nil)
+		if err.Error() != expectedExecFileError {
+			t.Errorf("expected error %q but got %q", expectedExecFileError, err)
+		}
+
 		select {
 		case <-thread.Context().Done():
-			if err = thread.Context().Err(); err.Error() != expected {
+			expected := context.Canceled
+			if err = thread.Context().Err(); err != expected {
 				t.Errorf("unexpected error: expected %q but got %q", expected, err)
 			}
 		default:
@@ -1116,7 +1127,7 @@ func TestCancellationConsistency(t *testing.T) {
 
 		firstCtx := thread.Context()
 		thread.Uncancel()
-		_, err = starlark.ExecFile(thread, "precancel.star", `x = 1`, nil)
+		_, err = starlark.ExecFile(thread, "uncancelled.star", `x = 1`, nil)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -1228,32 +1239,35 @@ func TestAddStepsOk(t *testing.T) {
 }
 
 func TestAddStepsFail(t *testing.T) {
-	const maxSteps = 10000
-	const stepsToAdd = 2 * maxSteps
+	const maxValidSteps = 10000
+	expectedSteps := uint64(0)
 
 	thread := new(starlark.Thread)
-	thread.SetMaxSteps(maxSteps)
+	thread.SetMaxSteps(maxValidSteps)
 
-	if err := thread.AddSteps(stepsToAdd); err == nil {
+	expectedSteps += 2 * maxValidSteps
+	if err := thread.AddSteps(2 * maxValidSteps); err == nil {
 		t.Errorf("expected error")
 	} else if err.Error() != "too many steps" {
 		t.Errorf("unexpected error: %v", err)
-	} else if steps := thread.Steps(); steps != stepsToAdd {
-		t.Errorf("incorrect number of steps recorded: expected %v but got %v", stepsToAdd, steps)
+	} else if steps := thread.Steps(); steps != expectedSteps {
+		t.Errorf("incorrect number of steps recorded: expected %v but got %v", expectedSteps, steps)
 	}
 
+	expectedSteps++ // +1 step for the stack frame push.
 	if _, err := starlark.ExecFile(thread, "add_steps", "", nil); err == nil {
 		t.Errorf("expected cancellation")
 	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	if err := thread.AddSteps(maxSteps / 2); err == nil {
+	expectedSteps += maxValidSteps / 2
+	if err := thread.AddSteps(maxValidSteps / 2); err == nil {
 		t.Errorf("expected error")
 	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
-	} else if steps := thread.Steps(); steps != stepsToAdd {
-		t.Errorf("incorrect number of steps recorded: expected %v but got %v", stepsToAdd, steps)
+	} else if steps := thread.Steps(); steps != expectedSteps {
+		t.Errorf("incorrect number of steps recorded: expected %v but got %v", expectedSteps, steps)
 	}
 }
 
