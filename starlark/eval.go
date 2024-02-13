@@ -299,7 +299,7 @@ func (thread *Thread) cancelled() error {
 	if err := ctx.cause(); err != nil {
 		return err
 	}
-	return thread.Context().Err()
+	return ctx.Err()
 }
 
 // SetLocal sets the thread-local value associated with the specified key.
