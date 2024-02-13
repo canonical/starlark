@@ -992,6 +992,28 @@ func TestSteps(t *testing.T) {
 	}
 }
 
+func TestUncancelContextCancellation(t *testing.T) {
+	previousContextCancelled := false
+
+	thread := &starlark.Thread{}
+	thread.Cancel("oh no!")
+	ctx := thread.Context()
+	thread.Uncancel()
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		<-ctx.Done()
+		previousContextCancelled = true
+		wg.Done()
+	}()
+
+	wg.Wait()
+	if !previousContextCancelled {
+		t.Error("previous context not cancelled")
+	}
+}
+
 // TestDeps fails if the interpreter proper (not the REPL, etc) sprouts new external dependencies.
 // We may expand the list of permitted dependencies, but should do so deliberately, not casually.
 func TestDeps(t *testing.T) {

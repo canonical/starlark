@@ -267,7 +267,10 @@ func (thread *Thread) CheckPermits(value SafetyAware) error {
 // Unlike most methods of Thread, it is safe to call Uncancel from any
 // goroutine, even if the thread is actively executing.
 func (thread *Thread) Uncancel() {
-	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&thread.context)), nil)
+	ctx := atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.context)), unsafe.Pointer(nil))
+	if ctx != nil {
+		(*threadContext)(ctx).cancelFunc()
+	}
 }
 
 // Cancel causes execution of Starlark code in the specified thread to
