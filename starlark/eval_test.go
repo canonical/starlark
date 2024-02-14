@@ -6,6 +6,7 @@ package starlark_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -991,6 +992,28 @@ func TestSteps(t *testing.T) {
 	}
 }
 
+func TestUncancelContextCancellation(t *testing.T) {
+	previousContextCancelled := false
+
+	thread := &starlark.Thread{}
+	thread.Cancel("oh no!")
+	ctx := thread.Context()
+	thread.Uncancel()
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		<-ctx.Done()
+		previousContextCancelled = true
+		wg.Done()
+	}()
+
+	wg.Wait()
+	if !previousContextCancelled {
+		t.Error("previous context not cancelled")
+	}
+}
+
 // TestDeps fails if the interpreter proper (not the REPL, etc) sprouts new external dependencies.
 // We may expand the list of permitted dependencies, but should do so deliberately, not casually.
 func TestDeps(t *testing.T) {
@@ -1059,6 +1082,111 @@ main()
 				t.Fatalf("ExecFile returned %v, expected panic", v)
 			}
 		}()
+	}
+}
+
+func TestThreadCancelConsistency(t *testing.T) {
+	const expected = "Starlark computation cancelled"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	thread := &starlark.Thread{}
+	thread.SetContext(ctx)
+	cancel()
+
+	_, err := starlark.ExecFile(thread, "cancelled.star", `x = 1//0`, nil)
+	if err.Error() != expected {
+		t.Errorf("expected error %q but got %q", expected, err)
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("unexpected inner error: expected %q but got %q", context.Canceled, err)
+	}
+
+	firstCtxErr := thread.Context().Err()
+	thread.Cancel("second-cancellation")
+	if err = thread.Context().Err(); err.Error() != firstCtxErr.Error() {
+		t.Errorf("Err() return value changed: initially got %q but now got %q", firstCtxErr, err)
+	}
+
+	firstCtx := thread.Context()
+	thread.Uncancel()
+	_, err = starlark.ExecFile(thread, "uncancelled.star", `x = 1`, nil)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if ctx := thread.Context(); ctx == firstCtx {
+		t.Errorf("uncancelled thread did not discard context")
+	}
+}
+
+func TestContextCancelConsistency(t *testing.T) {
+	const innerError = "oh no!"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	thread := &starlark.Thread{}
+	thread.SetContext(ctx)
+	thread.Cancel(innerError)
+
+	const expectedExecFileError = "Starlark computation cancelled: oh no!"
+	_, err := starlark.ExecFile(thread, "cancelled.star", `x = 1//0`, nil)
+	if err.Error() != expectedExecFileError {
+		t.Errorf("expected error %q but got %q", expectedExecFileError, err)
+	}
+
+	select {
+	case <-thread.Context().Done():
+		expected := context.Canceled
+		if err = thread.Context().Err(); err != expected {
+			t.Errorf("unexpected error: expected %q but got %q", expected, err)
+		}
+	default:
+		t.Error("expected context to be cancelled")
+	}
+	cancel()
+	if err2 := thread.Context().Err(); err2.Error() != err.Error() {
+		t.Errorf("Err() return value changed: initially got %q but now got %q", err, err2)
+	}
+
+	firstCtx := thread.Context()
+	thread.Uncancel()
+	_, err = starlark.ExecFile(thread, "uncancelled.star", `x = 1`, nil)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if ctx := thread.Context(); ctx == firstCtx {
+		t.Errorf("uncancelled thread did not discard context")
+	}
+}
+
+func TestUnspecifiedContext(t *testing.T) {
+	thread := &starlark.Thread{}
+	ctx := thread.Context()
+	if ctx == nil {
+		t.Errorf("thread has no default context")
+	}
+	if ctx2 := thread.Context(); ctx != ctx2 {
+		t.Errorf("thread context changed unexpectedly")
+	}
+}
+
+func TestSpecifiedContext(t *testing.T) {
+	const key = "foo"
+	const value = "bar"
+	ctx := context.WithValue(context.Background(), key, value)
+
+	thread := &starlark.Thread{}
+	thread.SetContext(ctx)
+
+	predecls := starlark.StringDict{
+		"fn": starlark.NewBuiltin("fn", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+			if v := thread.Context().Value(key); v != value {
+				t.Errorf("could not find %q in thread context, expected value %q but got %#v", key, value, v)
+			}
+			return starlark.None, nil
+		}),
+	}
+	_, err := starlark.ExecFile(thread, "context", "fn()", predecls)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
@@ -1131,32 +1259,35 @@ func TestAddStepsOk(t *testing.T) {
 }
 
 func TestAddStepsFail(t *testing.T) {
-	const maxSteps = 10000
-	const stepsToAdd = 2 * maxSteps
+	const maxValidSteps = 10000
+	expectedSteps := uint64(0)
 
 	thread := new(starlark.Thread)
-	thread.SetMaxSteps(maxSteps)
+	thread.SetMaxSteps(maxValidSteps)
 
-	if err := thread.AddSteps(stepsToAdd); err == nil {
+	expectedSteps += 2 * maxValidSteps
+	if err := thread.AddSteps(2 * maxValidSteps); err == nil {
 		t.Errorf("expected error")
 	} else if err.Error() != "too many steps" {
 		t.Errorf("unexpected error: %v", err)
-	} else if steps := thread.Steps(); steps != stepsToAdd {
-		t.Errorf("incorrect number of steps recorded: expected %v but got %v", stepsToAdd, steps)
+	} else if steps := thread.Steps(); steps != expectedSteps {
+		t.Errorf("incorrect number of steps recorded: expected %v but got %v", expectedSteps, steps)
 	}
 
+	expectedSteps++ // +1 step for the stack frame push.
 	if _, err := starlark.ExecFile(thread, "add_steps", "", nil); err == nil {
 		t.Errorf("expected cancellation")
 	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	if err := thread.AddSteps(maxSteps / 2); err == nil {
+	expectedSteps += maxValidSteps / 2
+	if err := thread.AddSteps(maxValidSteps / 2); err == nil {
 		t.Errorf("expected error")
 	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
-	} else if steps := thread.Steps(); steps != stepsToAdd {
-		t.Errorf("incorrect number of steps recorded: expected %v but got %v", stepsToAdd, steps)
+	} else if steps := thread.Steps(); steps != expectedSteps {
+		t.Errorf("incorrect number of steps recorded: expected %v but got %v", expectedSteps, steps)
 	}
 }
 

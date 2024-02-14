@@ -252,38 +252,6 @@ func TestConcurrentAddAllocsUsage(t *testing.T) {
 	}
 }
 
-func TestCheckAllocsCancelledRejection(t *testing.T) {
-	const cancellationReason = "arbitrary cancellation reason"
-	const maxAllocs = 1000
-
-	thread := &starlark.Thread{}
-	thread.Cancel(cancellationReason)
-	thread.SetMaxAllocs(maxAllocs)
-
-	if err := thread.CheckAllocs(2 * maxAllocs); err == nil {
-		t.Errorf("expected cancellation")
-	} else if errors.Unwrap(err).Error() != cancellationReason {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
-func TestAddAllocsCancelledRejection(t *testing.T) {
-	const cancellationReason = "arbitrary cancellation reason"
-	const maxAllocs = 1000
-
-	thread := &starlark.Thread{}
-	thread.Cancel(cancellationReason)
-	thread.SetMaxAllocs(maxAllocs)
-
-	if err := thread.AddAllocs(2 * maxAllocs); err == nil {
-		t.Errorf("expected cancellation")
-	} else if errors.Unwrap(err).Error() != cancellationReason {
-		t.Errorf("unexpected error: %v", err)
-	} else if allocs := thread.Allocs(); allocs != 0 {
-		t.Errorf("changes were recorded against cancelled thread: expected 0 allocations, got %v", allocs)
-	}
-}
-
 func TestSafeStringBuilder(t *testing.T) {
 	t.Run("over-allocation", func(t *testing.T) {
 		t.Run("Grow", func(t *testing.T) {
