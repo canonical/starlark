@@ -7,7 +7,6 @@ package starlark
 import (
 	"fmt"
 	"math/big"
-	_ "unsafe" // for go:linkname hack
 )
 
 // hashtable is used to represent Starlark dict and set values.
@@ -510,9 +509,6 @@ func hashString(s string) uint32 {
 	}
 	return softHashString(s)
 }
-
-//go:linkname goStringHash runtime.stringHash
-func goStringHash(s string, seed uintptr) uintptr
 
 // softHashString computes the 32-bit FNV-1a hash of s in software.
 func softHashString(s string) uint32 {
