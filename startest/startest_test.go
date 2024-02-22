@@ -1,6 +1,7 @@
 package startest_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -402,19 +403,9 @@ func TestRequireSafety(t *testing.T) {
 		})
 
 		t.Run("safety=undeclared", func(t *testing.T) {
-			const expected = "cannot call builtin 'fn': feature disabled by safety constraints"
-			fn := starlark.NewBuiltin("fn", func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-				return starlark.None, nil
-			})
-
-			dummy := &dummyBase{}
-			st := startest.From(dummy)
-			st.AddBuiltin(fn)
-			if ok := st.RunString(`fn()`); ok {
-				t.Error("RunString returned true")
-			}
-			if errLog := dummy.Errors(); errLog != expected {
-				t.Errorf("unexpected error(s): %#v", errLog)
+			st := startest.From(t)
+			if ok := st.RunString(""); !ok {
+				t.Error("RunString returned false")
 			}
 		})
 	})
@@ -580,6 +571,13 @@ func TestRequireSafetyDefault(t *testing.T) {
 
 		t.Run("method=RunString", func(t *testing.T) {
 			safetyTest(t, func(safety starlark.SafetyFlags) {
+				if safety.Contains(starlark.TimeSafe) {
+					return // Exclude TimeSafe due to interp loop early termination.
+				}
+				if (startest.STSafe &^ starlark.TimeSafe).Contains(safety) {
+					return // Exclude sufficient.
+				}
+
 				const expected = "cannot call builtin 'fn': feature disabled by safety constraints"
 
 				fn := starlark.NewBuiltinWithSafety("fn", safety, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
@@ -588,6 +586,7 @@ func TestRequireSafetyDefault(t *testing.T) {
 
 				dummy := &dummyBase{}
 				st := startest.From(dummy)
+				st.RequireSafety(safety)
 				st.AddBuiltin(fn)
 				if ok := st.RunString(`fn()`); ok {
 					t.Errorf("RunString returned true testing %v", safety)
@@ -651,6 +650,7 @@ func TestRunStringError(t *testing.T) {
 	for _, test := range tests {
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
+		st.RequireSafety(startest.STSafe &^ starlark.TimeSafe) // Exclude TimeSafe due to interp loop early termination.
 		ok := st.RunString(fmt.Sprintf("st.error(%s)", test.src))
 		if !ok {
 			t.Errorf("%s: RunString returned false", test.name)
@@ -849,6 +849,19 @@ func TestLocals(t *testing.T) {
 	})
 }
 
+func TestContext(t *testing.T) {
+	ctx := context.WithValue(startest.CancelledContext, "answer-to-ultimate-question", 42)
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.TimeSafe)
+	st.SetContext(ctx)
+	st.RunThread(func(thread *starlark.Thread) {
+		if thread.Context().Value("answer-to-ultimate-question") != 42 {
+			st.Error("got wrong context")
+		}
+	})
+}
+
 type dummyRange struct{ max int }
 type dummyRangeIterator struct {
 	current int
@@ -913,6 +926,7 @@ func TestRunStringMemSafety(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
+		st.RequireSafety(starlark.MemSafe)
 		st.SetMaxAllocs(uint64(overallocateResultSize * 2)) // test correct error when within max
 		st.AddBuiltin(overallocate)
 		ok := st.RunString(`
@@ -1188,4 +1202,61 @@ func TestStartestSteps(t *testing.T) {
 				st.n
 		`)
 	})
+}
+
+func TestCancelledContext(t *testing.T) {
+	err := startest.CancelledContext.Err()
+	if !(errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) {
+		t.Error("context not cancelled")
+	}
+}
+
+func TestNoOpTimeSafety(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.TimeSafe)
+	st.RunThread(func(thread *starlark.Thread) {})
+	st.RunString("")
+}
+
+func TestTrivialTimeSafety(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.TimeSafe)
+
+	st.RunThread(func(thread *starlark.Thread) {
+		ctx := thread.Context()
+		for i := 0; i < st.N; i++ {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}
+	})
+
+	st.AddBuiltin(starlark.NewBuiltinWithSafety("rest", starlark.TimeSafe, func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+		time.Sleep(100 * time.Millisecond)
+		return starlark.None, nil
+	}))
+	st.RunString(`
+		for _ in st.ntimes():
+			rest()
+	`)
+}
+
+func TestTimeUnsafe(t *testing.T) {
+	const expected = "execution continues too long after cancellation"
+
+	dummy := &dummyBase{}
+	st := startest.From(dummy)
+	st.RequireSafety(starlark.TimeSafe)
+	st.RunThread(func(thread *starlark.Thread) {
+		for i := 0; i < st.N; i++ {
+			time.Sleep(100 * time.Millisecond)
+		}
+	})
+	if errLog := dummy.Errors(); errLog != expected {
+		t.Errorf("unexpected error(s): %s", errLog)
+	}
 }

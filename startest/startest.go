@@ -31,6 +31,7 @@
 package startest
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -64,6 +65,7 @@ type ST struct {
 	N              int
 	requiredSafety starlark.SafetyFlags
 	safetyGiven    bool
+	context        context.Context
 	predecls       starlark.StringDict
 	locals         map[string]interface{}
 	TestBase
@@ -140,6 +142,19 @@ func (st *ST) addValueUnchecked(name string, value starlark.Value) {
 	st.predecls[name] = value
 }
 
+var CancelledContext context.Context
+
+func init() {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	CancelledContext = ctx
+}
+
+// SetContext makes the passed context available to spawned threads.
+func (st *ST) SetContext(ctx context.Context) {
+	st.context = ctx
+}
+
 // AddLocal adds the given object into the local values available to spawned
 // threads.
 func (st *ST) AddLocal(name string, value interface{}) {
@@ -200,6 +215,12 @@ func (st *ST) RunString(code string) (ok bool) {
 			return
 		}
 		_, codeErr = mod.Init(thread, st.predecls)
+		if st.requiredSafety.Contains(starlark.TimeSafe) {
+			contextErr := st.context.Err()
+			if contextErr != nil && errors.Is(codeErr, contextErr) {
+				codeErr = nil // Ignore cancellation.
+			}
+		}
 	})
 	if codeErr != nil {
 		st.Error(codeErr)
@@ -212,8 +233,16 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	if !st.safetyGiven {
 		st.requiredSafety = stSafe
 	}
+	if st.context == nil {
+		if st.requiredSafety.Contains(starlark.TimeSafe) {
+			st.context = CancelledContext
+		} else {
+			st.context = context.Background()
+		}
+	}
 
 	thread := &starlark.Thread{}
+	thread.SetContext(st.context)
 	thread.EnsureStack(100)
 	thread.RequireSafety(st.requiredSafety)
 	thread.Print = func(_ *starlark.Thread, msg string) {
@@ -254,8 +283,16 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		st.Errorf("steps are below minimum (%d < %d)", meanSteps, st.minSteps)
 	}
 	if st.requiredSafety.Contains(starlark.CPUSafe) {
-		if stats.stepsRequired && meanSteps == 0 {
+		if stats.longTimePerN && meanSteps == 0 {
 			st.Errorf("execution uses CPU time which is not accounted for")
+		}
+	}
+
+	if st.requiredSafety.Contains(starlark.TimeSafe) {
+		if thread.Context().Err() == nil {
+			st.Error("thread context must be cancelled by the end of the test")
+		} else if stats.longTimePerN {
+			st.Errorf("execution continues too long after cancellation")
 		}
 	}
 }
@@ -267,7 +304,7 @@ func (st *ST) KeepAlive(values ...interface{}) {
 
 type runStats struct {
 	nSum, allocSum uint64
-	stepsRequired  bool
+	longTimePerN   bool
 }
 
 func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) runStats {
@@ -322,6 +359,12 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 
 		runtime.KeepAlive(alive)
 
+		if st.requiredSafety.Contains(starlark.TimeSafe) {
+			if thread.Context().Err() == nil {
+				st.Error("context not cancelled in TimeSafe test run")
+			}
+		}
+
 		if st.Failed() {
 			return runStats{}
 		}
@@ -349,11 +392,11 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	}
 
 	timePerN := elapsed / time.Duration(nSum)
-	stepsRequired := timePerN > time.Millisecond
+	longTimePerN := timePerN > time.Millisecond
 	return runStats{
-		nSum:          nSum,
-		allocSum:      allocSum,
-		stepsRequired: stepsRequired,
+		nSum:         nSum,
+		allocSum:     allocSum,
+		longTimePerN: longTimePerN,
 	}
 }
 
