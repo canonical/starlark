@@ -575,7 +575,7 @@ func TestRequireSafetyDefault(t *testing.T) {
 					return // Exclude TimeSafe due to interp loop early termination.
 				}
 				if (startest.STSafe &^ starlark.TimeSafe).Contains(safety) {
-					return // Exclude sufficient.
+					return // Exclude sufficient safeties.
 				}
 
 				const expected = "cannot call builtin 'fn': feature disabled by safety constraints"
