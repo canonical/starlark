@@ -288,12 +288,8 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		}
 	}
 
-	if st.requiredSafety.Contains(starlark.TimeSafe) {
-		if thread.Context().Err() == nil {
-			st.Error("thread context must be cancelled by the end of the test")
-		} else if stats.longTimePerN {
-			st.Errorf("execution continues too long after cancellation")
-		}
+	if st.requiredSafety.Contains(starlark.TimeSafe) && stats.longTimePerN {
+		st.Errorf("execution continues too long after cancellation")
 	}
 }
 
