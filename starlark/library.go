@@ -122,7 +122,7 @@ var (
 		"elems": NewBuiltin("elems", bytes_elems),
 	}
 	bytesMethodSafeties = map[string]SafetyFlags{
-		"elems": CPUSafe | MemSafe | IOSafe,
+		"elems": CPUSafe | MemSafe | TimeSafe | IOSafe,
 	}
 
 	dictMethods = map[string]*Builtin{
