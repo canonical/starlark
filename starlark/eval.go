@@ -299,10 +299,13 @@ func (thread *Thread) cancel(err error) {
 
 func (thread *Thread) cancelled() error {
 	ctx := thread.Context().(*threadContext)
-	if err := ctx.cause(); err != nil {
-		return err
+	err := ctx.Err()
+	if err != nil {
+		if cause := ctx.cause(); cause != nil {
+			return cause
+		}
 	}
-	return ctx.Err()
+	return err
 }
 
 // SetLocal sets the thread-local value associated with the specified key.
