@@ -294,15 +294,22 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 
 // cancel atomically sets cancelReason, preserving earlier reason if any.
 func (thread *Thread) cancel(err error) {
-	thread.Context().(*threadContext).cancel(err)
+	ctx := thread.Context().(*threadContext)
+	if ctx.Err() == nil {
+		ctx.cancel(err)
+	}
 }
 
 func (thread *Thread) cancelled() error {
+	// As the cause is set first, check it last to avoid race condition.
 	ctx := thread.Context().(*threadContext)
-	if err := ctx.cause(); err != nil {
-		return err
+	err := ctx.Err()
+	if err != nil {
+		if cause := ctx.cause(); cause != nil {
+			return cause
+		}
 	}
-	return ctx.Err()
+	return err
 }
 
 // SetLocal sets the thread-local value associated with the specified key.
