@@ -294,7 +294,10 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 
 // cancel atomically sets cancelReason, preserving earlier reason if any.
 func (thread *Thread) cancel(err error) {
-	thread.Context().(*threadContext).cancel(err)
+	ctx := thread.Context().(*threadContext)
+	if ctx.Err() == nil {
+		ctx.cancel(err)
+	}
 }
 
 func (thread *Thread) cancelled() error {
