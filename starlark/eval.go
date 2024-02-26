@@ -301,6 +301,7 @@ func (thread *Thread) cancel(err error) {
 }
 
 func (thread *Thread) cancelled() error {
+	// As the cause is set first, check it last to avoid race condition.
 	ctx := thread.Context().(*threadContext)
 	err := ctx.Err()
 	if err != nil {
