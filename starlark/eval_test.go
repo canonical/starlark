@@ -1119,15 +1119,20 @@ func TestThreadCancelConsistency(t *testing.T) {
 }
 
 func TestDoubleCancellation(t *testing.T) {
+	const errorToIgnore = "this shouldn't happen"
+
 	ctx, cancel := context.WithCancel(context.Background())
 	thread := &starlark.Thread{}
 	thread.SetContext(ctx)
 	cancel()
-	thread.Cancel("this shouldn't happen")
+	thread.Cancel(errorToIgnore)
 
 	_, err := starlark.ExecFile(thread, "cancelled.star", `x = 1`, nil)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected %v got %v", context.Canceled, err)
+	}
+	if strings.Contains(err.Error(), errorToIgnore) {
+		t.Errorf("unexpected error %v", err)
 	}
 }
 
