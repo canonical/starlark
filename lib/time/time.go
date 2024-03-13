@@ -69,11 +69,11 @@ var Module = &starlarkstruct.Module{
 }
 var safeties = map[string]starlark.SafetyFlags{
 	"from_timestamp":    starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe,
-	"is_valid_timezone": starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe,
+	"is_valid_timezone": starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
 	"now":               starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe,
-	"parse_duration":    starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe,
-	"parse_time":        starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe,
-	"time":              starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe,
+	"parse_duration":    starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
+	"parse_time":        starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
+	"time":              starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
 }
 
 func init() {
