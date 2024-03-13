@@ -196,6 +196,16 @@ func (thread *Thread) AddSteps(delta int64) error {
 // new total step-count and any error this would entail. No change is
 // recorded.
 func (thread *Thread) simulateSteps(delta int64) (uint64, error) {
+	if err := thread.cancelled(); err != nil {
+		if err == context.Canceled {
+			return thread.steps, wrappedError{
+				msg:   "Starlark computation cancelled",
+				cause: err,
+			}
+		}
+		return thread.steps, fmt.Errorf("Starlark computation cancelled: %w", err)
+	}
+
 	var nextSteps uint64
 	if delta < 0 {
 		udelta := uint64(-delta)
