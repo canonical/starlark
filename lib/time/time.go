@@ -600,8 +600,8 @@ var timeMethods = map[string]builtinMethod{
 }
 
 var timeMethodSafeties = map[string]starlark.SafetyFlags{
-	"in_location": starlark.CPUSafe | starlark.MemSafe,
-	"format":      starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe,
+	"in_location": starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe,
+	"format":      starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
 }
 
 func timeFormat(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
