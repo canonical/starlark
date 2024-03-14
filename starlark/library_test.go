@@ -219,6 +219,11 @@ func (ui *unsafeTestIterator) Next(p *starlark.Value) bool {
 func (ui *unsafeTestIterator) Done()      {}
 func (ui *unsafeTestIterator) Err() error { return fmt.Errorf("Err called") }
 
+func isStarlarkCancellation(err error) bool {
+	const cancellationPrefix = "Starlark computation cancelled:"
+	return strings.Contains(err.Error(), cancellationPrefix)
+}
+
 func TestAbsSteps(t *testing.T) {
 	abs, ok := starlark.Universe["abs"]
 	if !ok {
@@ -8961,6 +8966,35 @@ func TestSafeIterateAllocs(t *testing.T) {
 				st.KeepAlive(value)
 			}
 		})
+	})
+}
+
+func TestSafeIterateCancellation(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.TimeSafe)
+	st.SetMaxSteps(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		thread.Cancel("done")
+		iterable := &testSequence{
+			maxN: st.N,
+			nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+				return starlark.MakeInt(n), nil
+			},
+		}
+		iter, err := starlark.SafeIterate(thread, iterable)
+		if err != nil {
+			st.Fatal(err)
+		}
+		var v starlark.Value
+		for iter.Next(&v) {
+			// Do nothing.
+		}
+		err = iter.Err()
+		if err == nil {
+			st.Errorf("expected error")
+		} else if !isStarlarkCancellation(err) {
+			st.Errorf("unexpected error: %v", err)
+		}
 	})
 }
 
