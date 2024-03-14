@@ -207,13 +207,7 @@ func (thread *Thread) AddSteps(delta int64) error {
 // recorded.
 func (thread *Thread) simulateSteps(delta int64) (uint64, error) {
 	if err := thread.cancelled(); err != nil {
-		if err == context.Canceled {
-			return thread.steps, wrappedError{
-				msg:   "Starlark computation cancelled",
-				cause: err,
-			}
-		}
-		return thread.steps, fmt.Errorf("Starlark computation cancelled: %w", err)
+		return thread.steps, err
 	}
 
 	var nextSteps uint64
@@ -327,6 +321,17 @@ func (thread *Thread) cancel(err error) {
 	}
 }
 
+func (thread *Thread) cancelled() error {
+	err := thread.context.Err()
+	if err == nil {
+		return nil
+	}
+
+	if cause := thread.context.cause(); cause != nil {
+		return fmt.Errorf("Starlark computation cancelled: %w", cause)
+	}
+	return err
+}
 
 // SetLocal sets the thread-local value associated with the specified key.
 // It must not be called after execution begins.

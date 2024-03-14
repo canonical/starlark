@@ -107,12 +107,8 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (_ 
 	code := f.Code
 loop:
 	for {
-		if err2 := thread.context.Err(); err2 != nil {
-			if cause := thread.context.cause(); cause != nil {
-				err = fmt.Errorf("Starlark computation cancelled: %w", cause)
-			} else {
-				err = err2
-			}
+		if err2 := thread.cancelled(); err2 != nil {
+			err = err2
 			break loop
 		}
 
