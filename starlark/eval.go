@@ -34,7 +34,7 @@ type Thread struct {
 	Name string
 
 	// context holds the execution context used by this thread.
-	context *threadContext
+	context threadContext
 
 	// stack is the stack of (internal) call frames.
 	stack []*frame
@@ -90,18 +90,30 @@ type threadContext struct {
 var _ context.Context = &threadContext{}
 
 func (tc *threadContext) Deadline() (deadline time.Time, ok bool) {
+	if tc.parent == nil {
+		return time.Time{}, false
+	}
 	return tc.parent.Deadline()
 }
 
 func (tc *threadContext) Done() <-chan struct{} {
+	if tc.parent == nil {
+		return make(chan struct{}) // Awaiting this will cause leaks!
+	}
 	return tc.parent.Done()
 }
 
 func (tc *threadContext) Err() error {
+	if tc.parent == nil {
+		return nil
+	}
 	return tc.parent.Err()
 }
 
 func (tc *threadContext) Value(key interface{}) interface{} {
+	if tc.parent == nil {
+		return nil
+	}
 	return tc.parent.Value(key)
 }
 
@@ -113,23 +125,28 @@ func (tc *threadContext) cause() error {
 // When called, resourceLimitLock must be locked.
 func (tc *threadContext) cancel(err error) {
 	tc.cancelReason = err
-	tc.cancelFunc()
-}
-
-// Context returns the context for this thread.
-func (thread *Thread) Context() context.Context {
-	return thread.context
-}
-
-// setContext sets the context of the current thread to the given value.
-// When called, resourceLimitLock must be locked.
-func (thread *Thread) setContext(ctx context.Context) {
-	// TODO(kcza): Replace this with context.WithCancelCause once min Go version is sufficient.
-	ctx, cancel := context.WithCancel(ctx)
-	thread.context = &threadContext{
-		parent:     ctx,
-		cancelFunc: cancel,
+	if tc.cancelFunc != nil {
+		tc.cancelFunc()
 	}
+}
+
+// Context returns the execution context for this thread.
+func (thread *Thread) Context() context.Context {
+	return &thread.context
+}
+
+// setParentContext sets the context of the current thread to the given value.
+// When called, resourceLimitLock must be locked.
+func (thread *Thread) setParentContext(ctx context.Context) {
+	// TODO(kcza): Replace this with context.WithCancelCause once min Go version is sufficient.
+	ctx2, cancel := context.WithCancel(ctx)
+	if thread.context.cancelReason != nil {
+		cancel()
+		thread.context.cancelFunc = nil
+	} else {
+		thread.context.cancelFunc = cancel
+	}
+	thread.context.parent = ctx2
 }
 
 // Steps returns the current value of Steps.
@@ -273,7 +290,7 @@ func (thread *Thread) Uncancel() {
 	thread.resourceLimitLock.Lock()
 	defer thread.resourceLimitLock.Unlock()
 
-	thread.context = nil
+	thread.context.cancelReason = nil
 }
 
 // Cancel causes execution of Starlark code in the specified thread to
@@ -302,31 +319,14 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 // cancel sets cancelReason, preserving earlier reason if any.
 // When called, resourceLimitLock must be locked.
 func (thread *Thread) cancel(err error) {
-	if thread.context == nil {
-		thread.setContext(context.Background())
+	if thread.context.parent == nil {
+		thread.setParentContext(context.Background())
 	}
 	if thread.context.Err() == nil {
 		thread.context.cancel(err)
 	}
 }
 
-func (thread *Thread) cancelled() error {
-	if thread.context == nil {
-		thread.resourceLimitLock.Lock()
-		defer thread.resourceLimitLock.Unlock()
-
-		thread.setContext(context.Background())
-	}
-
-	// As the cause is set first, check it last to avoid race condition.
-	err := thread.context.Err()
-	if err != nil {
-		if cause := thread.context.cause(); cause != nil {
-			return cause
-		}
-	}
-	return err
-}
 
 // SetLocal sets the thread-local value associated with the specified key.
 // It must not be called after execution begins.
@@ -2165,13 +2165,13 @@ func CallWithContext(ctx context.Context, thread *Thread, fn Value, args Tuple, 
 	// Locking required due to potential asynchronous Cancel calls coinciding
 	// with the start of this function.
 	thread.resourceLimitLock.Lock()
-	thread.setContext(ctx)
+	thread.setParentContext(ctx)
 	thread.resourceLimitLock.Unlock()
 	defer func() {
 		thread.resourceLimitLock.Lock()
 		defer thread.resourceLimitLock.Unlock()
 
-		thread.setContext(context.Background())
+		thread.setParentContext(context.Background())
 	}()
 
 	c, ok := fn.(Callable)
