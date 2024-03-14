@@ -16,11 +16,9 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/canonical/starlark/internal/compile"
 	"github.com/canonical/starlark/internal/spell"
@@ -54,6 +52,8 @@ type Thread struct {
 	// See example_test.go for some example implementations of Load.
 	Load func(thread *Thread, module string) (StringDict, error)
 
+	resourceLimitLock sync.Mutex
+
 	// Steps a count of abstract computation steps executed
 	// by this thread. It is incremented by the interpreter. It may be used
 	// as a measure of the approximate cost of Starlark execution, by
@@ -61,7 +61,6 @@ type Thread struct {
 	//
 	// The precise meaning of "step" is not specified and may change.
 	steps, maxSteps uint64
-	stepsLock       sync.Mutex
 
 	// OnMaxSteps is called when the thread reaches the limit set by SetMaxSteps.
 	// The default behavior is to cancel the thread.
@@ -69,7 +68,6 @@ type Thread struct {
 
 	// allocs counts the abstract memory units claimed by this resource pool
 	allocs, maxAllocs uint64
-	allocsLock        sync.Mutex
 
 	// locals holds arbitrary "thread-local" Go values belonging to the client.
 	// They are accessible to the client but not to any Starlark program.
@@ -85,7 +83,7 @@ type Thread struct {
 
 type threadContext struct {
 	parent       context.Context
-	cancelReason *error
+	cancelReason error
 	cancelFunc   context.CancelFunc
 }
 
@@ -108,41 +106,36 @@ func (tc *threadContext) Value(key interface{}) interface{} {
 }
 
 func (tc *threadContext) cause() error {
-	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&tc.cancelReason))); cancelReason != nil {
-		return *(*error)(cancelReason)
-	}
-	return nil
+	return tc.cancelReason
 }
 
+// cancel cancels the context.
+// When called, resourceLimitLock must be locked.
 func (tc *threadContext) cancel(err error) {
-	if atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&tc.cancelReason)), nil, unsafe.Pointer(&err)) {
-		tc.cancelFunc()
-	}
+	tc.cancelReason = err
+	tc.cancelFunc()
 }
 
 // Context returns the context for this thread.
 func (thread *Thread) Context() context.Context {
-	if thread.context == nil {
-		thread.SetContext(context.Background())
-	}
-	return (*threadContext)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.context))))
+	return thread.context
 }
 
-// SetContext sets the context for this thread.
-func (thread *Thread) SetContext(ctx context.Context) {
-	ctx, cancel := context.WithCancel(ctx)
+// setContext sets the context of the current thread to the given value.
+// When called, resourceLimitLock must be locked.
+func (thread *Thread) setContext(ctx context.Context) {
 	// TODO(kcza): Replace this with context.WithCancelCause once min Go version is sufficient.
-	tc := &threadContext{
+	ctx, cancel := context.WithCancel(ctx)
+	thread.context = &threadContext{
 		parent:     ctx,
 		cancelFunc: cancel,
 	}
-	atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.context)), nil, unsafe.Pointer(tc))
 }
 
 // Steps returns the current value of Steps.
 func (thread *Thread) Steps() uint64 {
-	thread.stepsLock.Lock()
-	defer thread.stepsLock.Unlock()
+	thread.resourceLimitLock.Lock()
+	defer thread.resourceLimitLock.Unlock()
 
 	return thread.steps
 }
@@ -162,8 +155,8 @@ func (thread *Thread) SetMaxSteps(max uint64) {
 // It is safe to call CheckSteps from any goroutine, even if the thread
 // is actively executing.
 func (thread *Thread) CheckSteps(delta int64) error {
-	thread.stepsLock.Lock()
-	defer thread.stepsLock.Unlock()
+	thread.resourceLimitLock.Lock()
+	defer thread.resourceLimitLock.Unlock()
 
 	_, err := thread.simulateSteps(delta)
 	return err
@@ -176,8 +169,8 @@ func (thread *Thread) CheckSteps(delta int64) error {
 // It is safe to call AddSteps from any goroutine, even if the thread
 // is actively executing.
 func (thread *Thread) AddSteps(delta int64) error {
-	thread.stepsLock.Lock()
-	defer thread.stepsLock.Unlock()
+	thread.resourceLimitLock.Lock()
+	defer thread.resourceLimitLock.Unlock()
 
 	nextSteps, err := thread.simulateSteps(delta)
 	thread.steps = nextSteps
@@ -272,12 +265,15 @@ func (thread *Thread) CheckPermits(value SafetyAware) error {
 	return safety.CheckContains(thread.requiredSafety)
 }
 
-// Uncancel resets the cancellation state.
-//
-// Unlike most methods of Thread, it is safe to call Uncancel from any
-// goroutine, even if the thread is actively executing.
+// Uncancel resets the cancellation state. It is not safe to call this when the
+// thread is actively executing.
 func (thread *Thread) Uncancel() {
-	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&thread.context)), unsafe.Pointer(nil))
+	// TODO: Do we want to rename this to 'Reset' to make it clearer that this
+	// mustn't be used during a thread's execution?
+	thread.resourceLimitLock.Lock()
+	defer thread.resourceLimitLock.Unlock()
+
+	thread.context = nil
 }
 
 // Cancel causes execution of Starlark code in the specified thread to
@@ -296,23 +292,36 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 	} else {
 		err = fmt.Errorf(reason, args...)
 	}
+
+	thread.resourceLimitLock.Lock()
+	defer thread.resourceLimitLock.Unlock()
+
 	thread.cancel(err)
 }
 
-// cancel atomically sets cancelReason, preserving earlier reason if any.
+// cancel sets cancelReason, preserving earlier reason if any.
+// When called, resourceLimitLock must be locked.
 func (thread *Thread) cancel(err error) {
-	ctx := thread.Context().(*threadContext)
-	if ctx.Err() == nil {
-		ctx.cancel(err)
+	if thread.context == nil {
+		thread.setContext(context.Background())
+	}
+	if thread.context.Err() == nil {
+		thread.context.cancel(err)
 	}
 }
 
 func (thread *Thread) cancelled() error {
+	if thread.context == nil {
+		thread.resourceLimitLock.Lock()
+		defer thread.resourceLimitLock.Unlock()
+
+		thread.setContext(context.Background())
+	}
+
 	// As the cause is set first, check it last to avoid race condition.
-	ctx := thread.Context().(*threadContext)
-	err := ctx.Err()
+	err := thread.context.Err()
 	if err != nil {
-		if cause := ctx.cause(); cause != nil {
+		if cause := thread.context.cause(); cause != nil {
 			return cause
 		}
 	}
@@ -742,13 +751,17 @@ func ExecFile(thread *Thread, filename string, src interface{}, predeclared Stri
 // If ExecFileOptions fails during evaluation, it returns an *EvalError
 // containing a backtrace.
 func ExecFileOptions(opts *syntax.FileOptions, thread *Thread, filename string, src interface{}, predeclared StringDict) (StringDict, error) {
+	return ExecFileOptionsWithContext(context.Background(), opts, thread, filename, src, predeclared)
+}
+
+func ExecFileOptionsWithContext(ctx context.Context, opts *syntax.FileOptions, thread *Thread, filename string, src interface{}, predeclared StringDict) (StringDict, error) {
 	// Parse, resolve, and compile a Starlark source file.
 	_, mod, err := SourceProgramOptions(opts, filename, src, predeclared.Has)
 	if err != nil {
 		return nil, err
 	}
 
-	g, err := mod.Init(thread, predeclared)
+	g, err := mod.InitWithContext(ctx, thread, predeclared)
 	g.Freeze()
 	return g, err
 }
@@ -824,9 +837,13 @@ func CompiledProgram(in io.Reader) (*Program, error) {
 // executes the toplevel code of the specified program,
 // and returns a new, unfrozen dictionary of the globals.
 func (prog *Program) Init(thread *Thread, predeclared StringDict) (StringDict, error) {
+	return prog.InitWithContext(context.Background(), thread, predeclared)
+}
+
+func (prog *Program) InitWithContext(ctx context.Context, thread *Thread, predeclared StringDict) (StringDict, error) {
 	toplevel := makeToplevelFunction(prog.compiled, predeclared)
 
-	_, err := Call(thread, toplevel, nil, nil)
+	_, err := CallWithContext(ctx, thread, toplevel, nil, nil)
 
 	// Convert the global environment to a map.
 	// We return a (partial) map even in case of error.
@@ -2141,6 +2158,22 @@ func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 
 // Call calls the function fn with the specified positional and keyword arguments.
 func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
+	return CallWithContext(context.Background(), thread, fn, args, kwargs)
+}
+
+func CallWithContext(ctx context.Context, thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
+	// Locking required due to potential asynchronous Cancel calls coinciding
+	// with the start of this function.
+	thread.resourceLimitLock.Lock()
+	thread.setContext(ctx)
+	thread.resourceLimitLock.Unlock()
+	defer func() {
+		thread.resourceLimitLock.Lock()
+		defer thread.resourceLimitLock.Unlock()
+
+		thread.setContext(context.Background())
+	}()
+
 	c, ok := fn.(Callable)
 	if !ok {
 		return nil, fmt.Errorf("invalid call of non-function (%s)", fn.Type())
@@ -2683,8 +2716,8 @@ func (e *StepsSafetyError) Is(err error) bool {
 // It is safe to call CheckAllocs from any goroutine, even if the thread is
 // actively executing.
 func (thread *Thread) CheckAllocs(delta int64) error {
-	thread.allocsLock.Lock()
-	defer thread.allocsLock.Unlock()
+	thread.resourceLimitLock.Lock()
+	defer thread.resourceLimitLock.Unlock()
 
 	_, err := thread.simulateAllocs(delta)
 	return err
@@ -2697,8 +2730,8 @@ func (thread *Thread) CheckAllocs(delta int64) error {
 // It is safe to call AddAllocs from any goroutine, even if the thread is
 // actively executing.
 func (thread *Thread) AddAllocs(delta int64) error {
-	thread.allocsLock.Lock()
-	defer thread.allocsLock.Unlock()
+	thread.resourceLimitLock.Lock()
+	defer thread.resourceLimitLock.Unlock()
 
 	next, err := thread.simulateAllocs(delta)
 	thread.allocs = next
