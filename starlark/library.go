@@ -79,32 +79,32 @@ func init() {
 		"abs":       CPUSafe | MemSafe | IOSafe,
 		"any":       CPUSafe | MemSafe | IOSafe,
 		"all":       CPUSafe | MemSafe | IOSafe,
-		"bool":      CPUSafe | MemSafe | IOSafe,
+		"bool":      CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"bytes":     CPUSafe | MemSafe | IOSafe,
-		"chr":       CPUSafe | MemSafe | IOSafe,
+		"chr":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"dict":      CPUSafe | MemSafe | IOSafe,
-		"dir":       CPUSafe | MemSafe | IOSafe,
+		"dir":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"enumerate": CPUSafe | MemSafe | IOSafe,
 		"fail":      CPUSafe | MemSafe | IOSafe,
 		"float":     CPUSafe | MemSafe | IOSafe,
-		"getattr":   CPUSafe | MemSafe | IOSafe,
-		"hasattr":   CPUSafe | MemSafe | IOSafe,
-		"hash":      CPUSafe | MemSafe | IOSafe,
+		"getattr":   CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"hasattr":   CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"hash":      CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"int":       CPUSafe | MemSafe | IOSafe,
-		"len":       CPUSafe | MemSafe | IOSafe,
+		"len":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"list":      CPUSafe | MemSafe | IOSafe,
 		"max":       CPUSafe | MemSafe | IOSafe,
 		"min":       CPUSafe | MemSafe | IOSafe,
-		"ord":       CPUSafe | MemSafe | IOSafe,
+		"ord":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"print":     CPUSafe | MemSafe,
-		"range":     CPUSafe | MemSafe | IOSafe,
+		"range":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"repr":      CPUSafe | MemSafe | IOSafe,
 		"reversed":  CPUSafe | MemSafe | IOSafe,
 		"set":       CPUSafe | MemSafe | IOSafe,
 		"sorted":    CPUSafe | MemSafe | IOSafe,
 		"str":       CPUSafe | MemSafe | IOSafe,
 		"tuple":     CPUSafe | MemSafe | IOSafe,
-		"type":      CPUSafe | MemSafe | IOSafe,
+		"type":      CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"zip":       CPUSafe | MemSafe | IOSafe,
 	}
 
@@ -122,7 +122,7 @@ var (
 		"elems": NewBuiltin("elems", bytes_elems),
 	}
 	bytesMethodSafeties = map[string]SafetyFlags{
-		"elems": CPUSafe | MemSafe | IOSafe,
+		"elems": CPUSafe | MemSafe | TimeSafe | IOSafe,
 	}
 
 	dictMethods = map[string]*Builtin{
@@ -158,8 +158,8 @@ var (
 		"remove": NewBuiltin("remove", list_remove),
 	}
 	listMethodSafeties = map[string]SafetyFlags{
-		"append": CPUSafe | MemSafe | IOSafe,
-		"clear":  CPUSafe | MemSafe | IOSafe,
+		"append": CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"clear":  CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"extend": CPUSafe | MemSafe | IOSafe,
 		"index":  CPUSafe | MemSafe | IOSafe,
 		"insert": CPUSafe | MemSafe | IOSafe,
@@ -206,11 +206,11 @@ var (
 	}
 	stringMethodSafeties = map[string]SafetyFlags{
 		"capitalize":     CPUSafe | MemSafe | IOSafe,
-		"codepoint_ords": CPUSafe | MemSafe | IOSafe,
-		"codepoints":     CPUSafe | MemSafe | IOSafe,
+		"codepoint_ords": CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"codepoints":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"count":          CPUSafe | MemSafe | IOSafe,
-		"elem_ords":      CPUSafe | MemSafe | IOSafe,
-		"elems":          CPUSafe | MemSafe | IOSafe,
+		"elem_ords":      CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"elems":          CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"endswith":       CPUSafe | MemSafe | IOSafe,
 		"find":           CPUSafe | MemSafe | IOSafe,
 		"format":         CPUSafe | MemSafe | IOSafe,
