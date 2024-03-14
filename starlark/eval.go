@@ -196,6 +196,16 @@ func (thread *Thread) AddSteps(delta int64) error {
 // new total step-count and any error this would entail. No change is
 // recorded.
 func (thread *Thread) simulateSteps(delta int64) (uint64, error) {
+	if err := thread.cancelled(); err != nil {
+		if err == context.Canceled {
+			return thread.steps, wrappedError{
+				msg:   "Starlark computation cancelled",
+				cause: err,
+			}
+		}
+		return thread.steps, fmt.Errorf("Starlark computation cancelled: %w", err)
+	}
+
 	var nextSteps uint64
 	if delta < 0 {
 		udelta := uint64(-delta)
@@ -267,10 +277,7 @@ func (thread *Thread) CheckPermits(value SafetyAware) error {
 // Unlike most methods of Thread, it is safe to call Uncancel from any
 // goroutine, even if the thread is actively executing.
 func (thread *Thread) Uncancel() {
-	ctx := atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.context)), unsafe.Pointer(nil))
-	if ctx != nil {
-		(*threadContext)(ctx).cancelFunc()
-	}
+	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&thread.context)), unsafe.Pointer(nil))
 }
 
 // Cancel causes execution of Starlark code in the specified thread to

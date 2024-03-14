@@ -1292,14 +1292,12 @@ func TestAddStepsFail(t *testing.T) {
 		t.Errorf("incorrect number of steps recorded: expected %v but got %v", expectedSteps, steps)
 	}
 
-	expectedSteps++ // +1 step for the stack frame push.
 	if _, err := starlark.ExecFile(thread, "add_steps", "", nil); err == nil {
 		t.Errorf("expected cancellation")
 	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	expectedSteps += maxValidSteps / 2
 	if err := thread.AddSteps(maxValidSteps / 2); err == nil {
 		t.Errorf("expected error")
 	} else if !errors.Is(err, starlark.ErrSafety) {
