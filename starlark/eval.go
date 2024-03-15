@@ -98,7 +98,9 @@ func (tc *threadContext) Deadline() (deadline time.Time, ok bool) {
 
 func (tc *threadContext) Done() <-chan struct{} {
 	if tc.parent == nil {
-		return make(chan struct{}) // Awaiting this will cause leaks!
+		ch := make(chan struct{})
+		close(ch)
+		return ch
 	}
 	return tc.parent.Done()
 }
