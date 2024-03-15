@@ -313,9 +313,6 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 // cancel sets cancelReason, preserving earlier reason if any.
 // When called, resourceLimitLock must be locked.
 func (thread *Thread) cancel(err error) {
-	if thread.context.parent == nil {
-		thread.setParentContext(context.Background())
-	}
 	if thread.context.Err() == nil {
 		thread.context.cancel(err)
 	}
