@@ -2171,11 +2171,14 @@ func CallWithContext(ctx context.Context, thread *Thread, fn Value, args Tuple, 
 	thread.resourceLimitLock.Unlock()
 	defer func() {
 		thread.resourceLimitLock.Lock()
-		defer thread.resourceLimitLock.Unlock()
-
 		thread.setParentContext(context.Background())
+		thread.resourceLimitLock.Unlock()
 	}()
 
+	return callWithInheritedContext(thread, fn, args, kwargs)
+}
+
+func callWithInheritedContext(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	c, ok := fn.(Callable)
 	if !ok {
 		return nil, fmt.Errorf("invalid call of non-function (%s)", fn.Type())

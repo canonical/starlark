@@ -1105,7 +1105,12 @@ func TestContext(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 
-		if retreived := thread.Context().Value(key); retreived != nil {
+		var retreived interface{}
+		ctx := thread.Context()
+		if ctx != nil {
+			retreived = ctx.Value(key)
+		}
+		if retreived != nil {
 			t.Errorf("context assignment persisted after execution: got %v", retreived)
 		}
 	})
@@ -1127,7 +1132,12 @@ func TestContext(t *testing.T) {
 		}
 		_, err = prog.InitWithContext(ctx, thread, predeclared)
 
-		if retreived := thread.Context().Value(key); retreived != nil {
+		var retreived interface{}
+		ctx := thread.Context()
+		if ctx != nil {
+			retreived = ctx.Value(key)
+		}
+		if retreived != nil {
 			t.Errorf("context assignment persisted after execution: got %v", retreived)
 		}
 	})
@@ -1145,7 +1155,12 @@ func TestContext(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 
-		if retreived := thread.Context().Value(key); retreived != nil {
+		var retreived interface{}
+		ctx := thread.Context()
+		if ctx != nil {
+			retreived = ctx.Value(key)
+		}
+		if retreived != nil {
 			t.Errorf("context assignment persisted after execution: got %v", retreived)
 		}
 	})
