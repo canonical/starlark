@@ -3,7 +3,6 @@ package starlark
 // This file defines the bytecode interpreter.
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -108,18 +107,6 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (_ 
 	code := f.Code
 loop:
 	for {
-		if err2 := thread.cancelled(); err2 != nil {
-			if err2 == context.Canceled {
-				err = wrappedError{
-					msg:   "Starlark computation cancelled",
-					cause: err2,
-				}
-			} else {
-				err = fmt.Errorf("Starlark computation cancelled: %w", err2)
-			}
-			break loop
-		}
-
 		fr.pc = pc
 
 		op := compile.Opcode(code[pc])

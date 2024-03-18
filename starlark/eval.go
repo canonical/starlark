@@ -16,11 +16,9 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/canonical/starlark/internal/compile"
 	"github.com/canonical/starlark/internal/spell"
@@ -32,11 +30,15 @@ import (
 // such as its call stack and thread-local storage.
 // The Thread is threaded throughout the evaluator.
 type Thread struct {
+	resourceLock sync.Mutex
+
 	// Name is an optional name that describes the thread, for debugging.
 	Name string
 
 	// context holds the execution context used by this thread.
-	context *threadContext
+	parentContext, context context.Context
+	cancelFunc             context.CancelFunc
+	cancelReason           error
 
 	// stack is the stack of (internal) call frames.
 	stack []*frame
@@ -61,7 +63,6 @@ type Thread struct {
 	//
 	// The precise meaning of "step" is not specified and may change.
 	steps, maxSteps uint64
-	stepsLock       sync.Mutex
 
 	// OnMaxSteps is called when the thread reaches the limit set by SetMaxSteps.
 	// The default behavior is to cancel the thread.
@@ -69,7 +70,6 @@ type Thread struct {
 
 	// allocs counts the abstract memory units claimed by this resource pool
 	allocs, maxAllocs uint64
-	allocsLock        sync.Mutex
 
 	// locals holds arbitrary "thread-local" Go values belonging to the client.
 	// They are accessible to the client but not to any Starlark program.
@@ -83,66 +83,42 @@ type Thread struct {
 	requiredSafety SafetyFlags
 }
 
-type threadContext struct {
-	parent       context.Context
-	cancelReason *error
-	cancelFunc   context.CancelFunc
-}
-
-var _ context.Context = &threadContext{}
-
-func (tc *threadContext) Deadline() (deadline time.Time, ok bool) {
-	return tc.parent.Deadline()
-}
-
-func (tc *threadContext) Done() <-chan struct{} {
-	return tc.parent.Done()
-}
-
-func (tc *threadContext) Err() error {
-	return tc.parent.Err()
-}
-
-func (tc *threadContext) Value(key interface{}) interface{} {
-	return tc.parent.Value(key)
-}
-
-func (tc *threadContext) cause() error {
-	if cancelReason := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&tc.cancelReason))); cancelReason != nil {
-		return *(*error)(cancelReason)
+func NewThreadWithContext(parent context.Context) *Thread {
+	thread := &Thread{
+		parentContext: parent,
 	}
-	return nil
-}
-
-func (tc *threadContext) cancel(err error) {
-	if atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&tc.cancelReason)), nil, unsafe.Pointer(&err)) {
-		tc.cancelFunc()
-	}
+	// no need to hold locks here as there is only one reference alive
+	thread.initContext()
+	return thread
 }
 
 // Context returns the context for this thread.
 func (thread *Thread) Context() context.Context {
-	if thread.context == nil {
-		thread.SetContext(context.Background())
-	}
-	return (*threadContext)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.context))))
+	thread.resourceLock.Lock()
+	defer thread.resourceLock.Unlock()
+
+	thread.initContext()
+	return thread.context
 }
 
-// SetContext sets the context for this thread.
-func (thread *Thread) SetContext(ctx context.Context) {
-	ctx, cancel := context.WithCancel(ctx)
-	// TODO(kcza): Replace this with context.WithCancelCause once min Go version is sufficient.
-	tc := &threadContext{
-		parent:     ctx,
-		cancelFunc: cancel,
+func (thread *Thread) initContext() {
+	if thread.context == nil {
+		if thread.parentContext == nil {
+			thread.parentContext = context.Background()
+		}
+		context, cancelFunc := context.WithCancel(thread.parentContext)
+		if thread.cancelReason != nil {
+			cancelFunc()
+		}
+		thread.context = context
+		thread.cancelFunc = cancelFunc
 	}
-	atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&thread.context)), nil, unsafe.Pointer(tc))
 }
 
 // Steps returns the current value of Steps.
 func (thread *Thread) Steps() uint64 {
-	thread.stepsLock.Lock()
-	defer thread.stepsLock.Unlock()
+	thread.resourceLock.Lock()
+	defer thread.resourceLock.Unlock()
 
 	return thread.steps
 }
@@ -162,8 +138,8 @@ func (thread *Thread) SetMaxSteps(max uint64) {
 // It is safe to call CheckSteps from any goroutine, even if the thread
 // is actively executing.
 func (thread *Thread) CheckSteps(delta int64) error {
-	thread.stepsLock.Lock()
-	defer thread.stepsLock.Unlock()
+	thread.resourceLock.Lock()
+	defer thread.resourceLock.Unlock()
 
 	_, err := thread.simulateSteps(delta)
 	return err
@@ -176,8 +152,8 @@ func (thread *Thread) CheckSteps(delta int64) error {
 // It is safe to call AddSteps from any goroutine, even if the thread
 // is actively executing.
 func (thread *Thread) AddSteps(delta int64) error {
-	thread.stepsLock.Lock()
-	defer thread.stepsLock.Unlock()
+	thread.resourceLock.Lock()
+	defer thread.resourceLock.Unlock()
 
 	nextSteps, err := thread.simulateSteps(delta)
 	thread.steps = nextSteps
@@ -277,7 +253,13 @@ func (thread *Thread) CheckPermits(value SafetyAware) error {
 // Unlike most methods of Thread, it is safe to call Uncancel from any
 // goroutine, even if the thread is actively executing.
 func (thread *Thread) Uncancel() {
-	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&thread.context)), unsafe.Pointer(nil))
+	thread.resourceLock.Lock()
+	defer thread.resourceLock.Unlock()
+
+	thread.context = nil
+	thread.cancelFunc = nil
+	thread.cancelReason = nil
+	thread.initContext()
 }
 
 // Cancel causes execution of Starlark code in the specified thread to
@@ -296,23 +278,29 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 	} else {
 		err = fmt.Errorf(reason, args...)
 	}
+
+	thread.resourceLock.Lock()
+	defer thread.resourceLock.Unlock()
 	thread.cancel(err)
 }
 
-// cancel atomically sets cancelReason, preserving earlier reason if any.
+// cancel cancelReason and cancels the thread, preserving earlier reason if any.
+// resourceLock must be held when calling this function
 func (thread *Thread) cancel(err error) {
-	ctx := thread.Context().(*threadContext)
-	if ctx.Err() == nil {
-		ctx.cancel(err)
+	thread.initContext()
+	thread.cancelFunc()
+	if thread.cancelReason != nil {
+		thread.cancelReason = err
 	}
 }
 
+// resourceLock must be held when calling this function
 func (thread *Thread) cancelled() error {
+	thread.initContext()
 	// As the cause is set first, check it last to avoid race condition.
-	ctx := thread.Context().(*threadContext)
-	err := ctx.Err()
+	err := thread.context.Err()
 	if err != nil {
-		if cause := ctx.cause(); cause != nil {
+		if cause := thread.cancelReason; cause != nil {
 			return cause
 		}
 	}
@@ -2683,8 +2671,8 @@ func (e *StepsSafetyError) Is(err error) bool {
 // It is safe to call CheckAllocs from any goroutine, even if the thread is
 // actively executing.
 func (thread *Thread) CheckAllocs(delta int64) error {
-	thread.allocsLock.Lock()
-	defer thread.allocsLock.Unlock()
+	thread.resourceLock.Lock()
+	defer thread.resourceLock.Unlock()
 
 	_, err := thread.simulateAllocs(delta)
 	return err
@@ -2697,8 +2685,8 @@ func (thread *Thread) CheckAllocs(delta int64) error {
 // It is safe to call AddAllocs from any goroutine, even if the thread is
 // actively executing.
 func (thread *Thread) AddAllocs(delta int64) error {
-	thread.allocsLock.Lock()
-	defer thread.allocsLock.Unlock()
+	thread.resourceLock.Lock()
+	defer thread.resourceLock.Unlock()
 
 	next, err := thread.simulateAllocs(delta)
 	thread.allocs = next
