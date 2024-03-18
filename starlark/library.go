@@ -1078,7 +1078,7 @@ func minmax(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		extremeKey = extremum
 	} else {
 		keyargs = Tuple{extremum}
-		res, err := callWithInheritedContext(thread, keyFunc, keyargs, nil)
+		res, err := Call(thread, keyFunc, keyargs, nil)
 		if err != nil {
 			return nil, err // to preserve backtrace, don't modify error
 		}
@@ -1092,7 +1092,7 @@ func minmax(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 			key = x
 		} else {
 			keyargs[0] = x
-			res, err := callWithInheritedContext(thread, keyFunc, keyargs, nil)
+			res, err := Call(thread, keyFunc, keyargs, nil)
 			if err != nil {
 				return nil, err // to preserve backtrace, don't modify error
 			}
@@ -1515,7 +1515,7 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (l Value, er
 	if key != nil {
 		keys = make([]Value, len(values))
 		for i, v := range values {
-			k, err := callWithInheritedContext(thread, key, Tuple{v}, nil)
+			k, err := Call(thread, key, Tuple{v}, nil)
 			if err != nil {
 				return nil, err // to preserve backtrace, don't modify error
 			}

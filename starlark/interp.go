@@ -425,7 +425,7 @@ loop:
 			}
 
 			thread.endProfSpan()
-			z, err2 := callWithInheritedContext(thread, function, positional, kvpairs)
+			z, err2 := Call(thread, function, positional, kvpairs)
 			thread.beginProfSpan()
 			if err2 != nil {
 				err = err2

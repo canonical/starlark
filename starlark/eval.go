@@ -151,6 +151,11 @@ func (thread *Thread) setParentContext(ctx context.Context) {
 	thread.context.parent = ctx2
 }
 
+func (thread *Thread) resetParentContext() {
+	thread.context.cancelFunc = nil
+	thread.context.parent = nil
+}
+
 // Steps returns the current value of Steps.
 func (thread *Thread) Steps() uint64 {
 	thread.resourceLimitLock.Lock()
@@ -2162,6 +2167,9 @@ func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 
 // Call calls the function fn with the specified positional and keyword arguments.
 func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
+	if thread.context.parent != nil {
+		return call(thread, fn, args, kwargs)
+	}
 	return CallWithContext(context.Background(), thread, fn, args, kwargs)
 }
 
@@ -2173,14 +2181,14 @@ func CallWithContext(ctx context.Context, thread *Thread, fn Value, args Tuple, 
 	thread.resourceLimitLock.Unlock()
 	defer func() {
 		thread.resourceLimitLock.Lock()
-		thread.setParentContext(context.Background())
+		thread.resetParentContext()
 		thread.resourceLimitLock.Unlock()
 	}()
 
-	return callWithInheritedContext(thread, fn, args, kwargs)
+	return call(thread, fn, args, kwargs)
 }
 
-func callWithInheritedContext(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
+func call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	c, ok := fn.(Callable)
 	if !ok {
 		return nil, fmt.Errorf("invalid call of non-function (%s)", fn.Type())
