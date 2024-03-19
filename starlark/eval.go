@@ -289,7 +289,7 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 func (thread *Thread) cancel(err error) {
 	thread.initContext()
 	thread.cancelFunc()
-	if thread.cancelReason != nil {
+	if thread.parentContext.Err() == nil && thread.cancelReason == nil {
 		thread.cancelReason = err
 	}
 }
