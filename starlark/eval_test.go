@@ -992,27 +992,27 @@ func TestSteps(t *testing.T) {
 	}
 }
 
-func TestUncancelContextCancellation(t *testing.T) {
-	previousContextCancelled := false
-
-	thread := &starlark.Thread{}
-	thread.Cancel("oh no!")
-	ctx := thread.Context()
-	thread.Uncancel()
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		<-ctx.Done()
-		previousContextCancelled = true
-		wg.Done()
-	}()
-
-	wg.Wait()
-	if !previousContextCancelled {
-		t.Error("previous context not cancelled")
-	}
-}
+// func TestUncancelContextCancellation(t *testing.T) {
+// 	previousContextCancelled := false
+//
+// 	thread := &starlark.Thread{}
+// 	thread.Cancel("oh no!")
+// 	ctx := thread.Context()
+// 	thread.Uncancel()
+//
+// 	wg := sync.WaitGroup{}
+// 	wg.Add(1)
+// 	go func() {
+// 		<-ctx.Done()
+// 		previousContextCancelled = true
+// 		wg.Done()
+// 	}()
+//
+// 	wg.Wait()
+// 	if !previousContextCancelled {
+// 		t.Error("previous context not cancelled")
+// 	}
+// }
 
 // TestDeps fails if the interpreter proper (not the REPL, etc) sprouts new external dependencies.
 // We may expand the list of permitted dependencies, but should do so deliberately, not casually.
@@ -1096,23 +1096,29 @@ func TestContext(t *testing.T) {
 		}
 		return starlark.None, nil
 	})
+	testContextUnavailable := func(t *testing.T, thread *starlark.Thread) {
+		defer func() {
+			const expected = "cannot call Thread.Context outside of an execution"
+			if err := recover(); err == nil {
+				t.Error("expected panic")
+			} else if err != expected {
+				t.Error(err)
+			}
+		}()
+		thread.Context()
+	}
 
 	t.Run("CallWithContext", func(t *testing.T) {
 		thread := &starlark.Thread{}
+		testContextUnavailable(t, thread)
+
 		thread.SetLocal("t", t)
 		_, err := starlark.CallWithContext(ctx, thread, testValueRetreival, nil, nil)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 
-		var retreived interface{}
-		ctx := thread.Context()
-		if ctx != nil {
-			retreived = ctx.Value(key)
-		}
-		if retreived != nil {
-			t.Errorf("context assignment persisted after execution: got %v", retreived)
-		}
+		testContextUnavailable(t, thread)
 	})
 
 	t.Run("InitWithContext", func(t *testing.T) {
@@ -1126,26 +1132,22 @@ func TestContext(t *testing.T) {
 		}
 
 		thread := &starlark.Thread{}
+		testContextUnavailable(t, thread)
+
 		thread.SetLocal("t", t)
 		predeclared := starlark.StringDict{
 			"testValueRetreival": testValueRetreival,
 		}
 		_, err = prog.InitWithContext(ctx, thread, predeclared)
 
-		var retreived interface{}
-		ctx := thread.Context()
-		if ctx != nil {
-			retreived = ctx.Value(key)
-		}
-		if retreived != nil {
-			t.Errorf("context assignment persisted after execution: got %v", retreived)
-		}
+		testContextUnavailable(t, thread)
 	})
 
 	t.Run("ExecFileOptionsWithContext", func(t *testing.T) {
 		thread := &starlark.Thread{}
-		thread.SetLocal("t", t)
+		testContextUnavailable(t, thread)
 
+		thread.SetLocal("t", t)
 		opts := &syntax.FileOptions{}
 		predeclared := starlark.StringDict{
 			"testValueRetreival": testValueRetreival,
@@ -1155,14 +1157,7 @@ func TestContext(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 
-		var retreived interface{}
-		ctx := thread.Context()
-		if ctx != nil {
-			retreived = ctx.Value(key)
-		}
-		if retreived != nil {
-			t.Errorf("context assignment persisted after execution: got %v", retreived)
-		}
+		testContextUnavailable(t, thread)
 	})
 }
 
@@ -1222,7 +1217,9 @@ func TestThreadCancelConsistency(t *testing.T) {
 			t.Errorf("before execution: unexpected error: expected %q but got %q", expectedMsg, err)
 		}
 
+		run := false
 		fn := starlark.NewBuiltin("fn", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+			run = true
 			expectedErr := context.Canceled
 			if err := thread.Context().Err(); err == nil {
 				t.Error("during execution: expected context to be cancelled")
@@ -1235,6 +1232,9 @@ func TestThreadCancelConsistency(t *testing.T) {
 		_, err = starlark.CallWithContext(ctx, thread, fn, nil, nil)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
+		}
+		if !run {
+			t.Fatalf("test function not run")
 		}
 	})
 }

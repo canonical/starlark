@@ -34,7 +34,7 @@ type Thread struct {
 	Name string
 
 	// context holds the execution context used by this thread.
-	context threadContext
+	context *threadContext
 
 	// stack is the stack of (internal) call frames.
 	stack []*frame
@@ -82,78 +82,93 @@ type Thread struct {
 }
 
 type threadContext struct {
-	parent       context.Context
-	cancelReason error
-	cancelFunc   context.CancelFunc
+	context.Context
+	cancelReason     error
+	cancelReasonLock sync.Mutex
+	done             chan struct{}
 }
 
 var _ context.Context = &threadContext{}
 
-func (tc *threadContext) Deadline() (deadline time.Time, ok bool) {
-	if tc.parent == nil {
-		return time.Time{}, false
-	}
-	return tc.parent.Deadline()
-}
-
 func (tc *threadContext) Done() <-chan struct{} {
-	if tc.parent == nil {
-		ch := make(chan struct{})
-		close(ch)
-		return ch
-	}
-	return tc.parent.Done()
+	return tc.done
 }
 
 func (tc *threadContext) Err() error {
-	if tc.parent == nil {
-		return nil
-	}
-	return tc.parent.Err()
-}
+	tc.cancelReasonLock.Lock()
+	defer tc.cancelReasonLock.Unlock()
 
-func (tc *threadContext) Value(key interface{}) interface{} {
-	if tc.parent == nil {
-		return nil
+	if tc.cancelReason != nil {
+		return context.Canceled
 	}
-	return tc.parent.Value(key)
+	return tc.Context.Err()
 }
 
 func (tc *threadContext) cause() error {
+	tc.cancelReasonLock.Lock()
+	defer tc.cancelReasonLock.Unlock()
+
 	return tc.cancelReason
 }
 
 // cancel cancels the context.
 // When called, resourceLimitLock must be locked.
 func (tc *threadContext) cancel(err error) {
-	tc.cancelReason = err
-	if tc.cancelFunc != nil {
-		tc.cancelFunc()
+	tc.cancelReasonLock.Lock()
+	defer tc.cancelReasonLock.Unlock()
+
+	if tc.cancelReason != nil {
+		return
+	}
+
+	select {
+	case <-tc.done:
+		// Parent already cancelled.
+	default:
+		tc.cancelReason = err
+		close(tc.done)
 	}
 }
 
 // Context returns the execution context for this thread.
 func (thread *Thread) Context() context.Context {
-	return &thread.context
-}
-
-// setParentContext sets the context of the current thread to the given value.
-// When called, resourceLimitLock must be locked.
-func (thread *Thread) setParentContext(ctx context.Context) {
-	// TODO(kcza): Replace this with context.WithCancelCause once min Go version is sufficient.
-	ctx2, cancel := context.WithCancel(ctx)
-	if thread.context.cancelReason != nil {
-		cancel()
-		thread.context.cancelFunc = nil
-	} else {
-		thread.context.cancelFunc = cancel
+	if thread.context == nil {
+		thread.SetParentContext(context.Background())
 	}
-	thread.context.parent = ctx2
+	return thread.context
 }
 
-func (thread *Thread) resetParentContext() {
-	thread.context.cancelFunc = nil
-	thread.context.parent = nil
+// SetParentContext sets the context of the current thread to the given value.
+func (thread *Thread) SetParentContext(ctx context.Context) {
+	thread.resourceLimitLock.Lock()
+	defer thread.resourceLimitLock.Unlock()
+
+	thread.setParentContextUnsynchronised(ctx)
+}
+
+func (thread *Thread) setParentContextUnsynchronised(ctx context.Context) {
+	var cancelReason error
+	if thread.context != nil {
+		cancelReason = thread.context.cancelReason
+	} else if err := ctx.Err(); err != nil {
+		cancelReason = err
+	}
+	tc := &threadContext{
+		Context:      ctx,
+		cancelReason: cancelReason,
+		done:         make(chan struct{}),
+	}
+	thread.context = tc
+
+	// Synchronise parent context cancellation
+	if done := ctx.Done(); done != nil {
+		go func() {
+			select {
+			case <-done:
+				close(tc.done)
+			}
+		}()
+	}
 }
 
 // Steps returns the current value of Steps.
@@ -283,23 +298,10 @@ func (thread *Thread) CheckPermits(value SafetyAware) error {
 	return safety.CheckContains(thread.requiredSafety)
 }
 
-// Uncancel resets the cancellation state. It is not safe to call this when the
-// thread is actively executing.
-func (thread *Thread) Uncancel() {
-	// TODO: Do we want to rename this to 'Reset' to make it clearer that this
-	// mustn't be used during a thread's execution?
-	thread.resourceLimitLock.Lock()
-	defer thread.resourceLimitLock.Unlock()
-
-	thread.context.cancelReason = nil
-}
-
 // Cancel causes execution of Starlark code in the specified thread to
 // promptly fail with an EvalError that includes the specified reason.
 // There may be a delay before the interpreter observes the cancellation
 // if the thread is currently in a call to a built-in function.
-//
-// Call [Uncancel] to reset the cancellation state.
 //
 // Unlike most methods of Thread, it is safe to call Cancel from any
 // goroutine, even if the thread is actively executing.
@@ -320,21 +322,21 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 // cancel sets cancelReason, preserving earlier reason if any.
 // When called, resourceLimitLock must be locked.
 func (thread *Thread) cancel(err error) {
-	if thread.context.Err() == nil {
-		thread.context.cancel(err)
+	if thread.context == nil {
+		thread.setParentContextUnsynchronised(context.Background())
 	}
+	thread.context.cancel(err)
 }
 
 func (thread *Thread) cancelled() error {
-	err := thread.context.Err()
-	if err == nil {
+	if thread.context == nil {
 		return nil
 	}
 
 	if cause := thread.context.cause(); cause != nil {
 		return fmt.Errorf("Starlark computation cancelled: %w", cause)
 	}
-	return err
+	return thread.context.Err()
 }
 
 // SetLocal sets the thread-local value associated with the specified key.
@@ -760,17 +762,13 @@ func ExecFile(thread *Thread, filename string, src interface{}, predeclared Stri
 // If ExecFileOptions fails during evaluation, it returns an *EvalError
 // containing a backtrace.
 func ExecFileOptions(opts *syntax.FileOptions, thread *Thread, filename string, src interface{}, predeclared StringDict) (StringDict, error) {
-	return ExecFileOptionsWithContext(context.Background(), opts, thread, filename, src, predeclared)
-}
-
-func ExecFileOptionsWithContext(ctx context.Context, opts *syntax.FileOptions, thread *Thread, filename string, src interface{}, predeclared StringDict) (StringDict, error) {
 	// Parse, resolve, and compile a Starlark source file.
 	_, mod, err := SourceProgramOptions(opts, filename, src, predeclared.Has)
 	if err != nil {
 		return nil, err
 	}
 
-	g, err := mod.InitWithContext(ctx, thread, predeclared)
+	g, err := mod.Init(thread, predeclared)
 	g.Freeze()
 	return g, err
 }
@@ -846,13 +844,9 @@ func CompiledProgram(in io.Reader) (*Program, error) {
 // executes the toplevel code of the specified program,
 // and returns a new, unfrozen dictionary of the globals.
 func (prog *Program) Init(thread *Thread, predeclared StringDict) (StringDict, error) {
-	return prog.InitWithContext(context.Background(), thread, predeclared)
-}
-
-func (prog *Program) InitWithContext(ctx context.Context, thread *Thread, predeclared StringDict) (StringDict, error) {
 	toplevel := makeToplevelFunction(prog.compiled, predeclared)
 
-	_, err := CallWithContext(ctx, thread, toplevel, nil, nil)
+	_, err := Call(thread, toplevel, nil, nil)
 
 	// Convert the global environment to a map.
 	// We return a (partial) map even in case of error.
@@ -2167,28 +2161,6 @@ func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 
 // Call calls the function fn with the specified positional and keyword arguments.
 func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
-	if thread.context.parent != nil {
-		return call(thread, fn, args, kwargs)
-	}
-	return CallWithContext(context.Background(), thread, fn, args, kwargs)
-}
-
-func CallWithContext(ctx context.Context, thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
-	// Locking required due to potential asynchronous Cancel calls coinciding
-	// with the start of this function.
-	thread.resourceLimitLock.Lock()
-	thread.setParentContext(ctx)
-	thread.resourceLimitLock.Unlock()
-	defer func() {
-		thread.resourceLimitLock.Lock()
-		thread.resetParentContext()
-		thread.resourceLimitLock.Unlock()
-	}()
-
-	return call(thread, fn, args, kwargs)
-}
-
-func call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	c, ok := fn.(Callable)
 	if !ok {
 		return nil, fmt.Errorf("invalid call of non-function (%s)", fn.Type())
