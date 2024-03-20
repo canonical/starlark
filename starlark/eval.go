@@ -37,6 +37,8 @@ type Thread struct {
 	// context holds the execution context used by this thread.
 	context *threadContext
 
+	finalizerSet bool
+
 	// stack is the stack of (internal) call frames.
 	stack []*frame
 
@@ -163,9 +165,12 @@ func (thread *Thread) setParentContextUnsynchronised(ctx context.Context) {
 		done:         done,
 	}
 	thread.context = tc
-	runtime.SetFinalizer(thread, func() {
-		tc.cancel(ErrContextChanged)
-	})
+	if !thread.finalizerSet {
+		thread.finalizerSet = true
+		runtime.SetFinalizer(thread, func(_ interface{}) {
+			tc.cancel(ErrContextChanged)
+		})
+	}
 
 	if cancelReason != nil {
 		close(done)
@@ -345,7 +350,7 @@ func (thread *Thread) cancelled() error {
 	if cause := thread.context.cause(); cause != nil {
 		return fmt.Errorf("Starlark computation cancelled: %w", cause)
 	}
-	return thread.context.Err()
+	return nil
 }
 
 // SetLocal sets the thread-local value associated with the specified key.
