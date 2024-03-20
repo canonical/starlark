@@ -13,6 +13,7 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -147,24 +148,29 @@ func (thread *Thread) SetParentContext(ctx context.Context) {
 	thread.setParentContextUnsynchronised(ctx)
 }
 
+var ErrContextChanged = errors.New("context changed")
+
 func (thread *Thread) setParentContextUnsynchronised(ctx context.Context) {
 	var cancelReason error
 	if thread.context != nil {
 		cancelReason = thread.context.cancelReason
+		thread.context.cancel(ErrContextChanged)
 	}
 	done := make(chan struct{})
-	if cancelReason != nil {
-		close(done)
-	}
 	tc := &threadContext{
 		Context:      ctx,
 		cancelReason: cancelReason,
 		done:         done,
 	}
 	thread.context = tc
+	runtime.SetFinalizer(thread, func() {
+		tc.cancel(ErrContextChanged)
+	})
 
-	// Synchronise parent context cancellation
-	if ctxDone := ctx.Done(); ctxDone != nil {
+	if cancelReason != nil {
+		close(done)
+	} else if ctxDone := ctx.Done(); ctxDone != nil {
+		// Synchronise parent context cancellation
 		go func() {
 			select {
 			case <-ctxDone:
