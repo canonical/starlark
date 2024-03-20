@@ -83,8 +83,8 @@ type Thread struct {
 
 type threadContext struct {
 	context.Context
-	cancelReason     error
 	cancelReasonLock sync.Mutex
+	cancelReason     error
 	done             chan struct{}
 }
 
@@ -111,9 +111,7 @@ func (tc *threadContext) cause() error {
 	return tc.cancelReason
 }
 
-// cancel cancels the context.
-// When called, resourceLimitLock must be locked.
-func (tc *threadContext) cancel(err error) {
+func (tc *threadContext) cancel(cancelReason error) {
 	tc.cancelReasonLock.Lock()
 	defer tc.cancelReasonLock.Unlock()
 
@@ -125,15 +123,18 @@ func (tc *threadContext) cancel(err error) {
 	case <-tc.done:
 		// Parent already cancelled.
 	default:
-		tc.cancelReason = err
+		tc.cancelReason = cancelReason
 		close(tc.done)
 	}
 }
 
-// Context returns the execution context for this thread.
+// Context returns the context currently in use by this thread.
 func (thread *Thread) Context() context.Context {
+	thread.resourceLimitLock.Lock()
+	defer thread.resourceLimitLock.Unlock()
+
 	if thread.context == nil {
-		thread.SetParentContext(context.Background())
+		thread.setParentContextUnsynchronised(context.Background())
 	}
 	return thread.context
 }
@@ -150,22 +151,24 @@ func (thread *Thread) setParentContextUnsynchronised(ctx context.Context) {
 	var cancelReason error
 	if thread.context != nil {
 		cancelReason = thread.context.cancelReason
-	} else if err := ctx.Err(); err != nil {
-		cancelReason = err
+	}
+	done := make(chan struct{})
+	if cancelReason != nil {
+		close(done)
 	}
 	tc := &threadContext{
 		Context:      ctx,
 		cancelReason: cancelReason,
-		done:         make(chan struct{}),
+		done:         done,
 	}
 	thread.context = tc
 
 	// Synchronise parent context cancellation
-	if done := ctx.Done(); done != nil {
+	if ctxDone := ctx.Done(); ctxDone != nil {
 		go func() {
 			select {
-			case <-done:
-				close(tc.done)
+			case <-ctxDone:
+				tc.cancel(ctx.Err())
 			}
 		}()
 	}
