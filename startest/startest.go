@@ -234,11 +234,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		st.requiredSafety = stSafe
 	}
 	if st.context == nil {
-		if st.requiredSafety.Contains(starlark.TimeSafe) {
-			st.context = CancelledContext
-		} else {
-			st.context = context.Background()
-		}
+		st.context = context.Background()
 	}
 
 	thread := &starlark.Thread{}
