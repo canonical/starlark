@@ -11216,6 +11216,36 @@ func TestSetUnionSteps(t *testing.T) {
 	})
 }
 
+func TestSetUnionTime(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.TimeSafe)
+	st.SetMaxSteps(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		thread.Cancel("done")
+		set := starlark.NewSet(st.N)
+		for i := 0; i < st.N; i++ {
+			set.Insert(starlark.MakeInt(i))
+		}
+		set_union, _ := set.Attr("union")
+		if set_union == nil {
+			t.Fatal("no such method: set.union")
+		}
+
+		iter := testIterable{
+			maxN: st.N,
+			nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+				return starlark.MakeInt(-n), nil
+			},
+		}
+		_, err := starlark.Call(thread, set_union, starlark.Tuple{&iter}, nil)
+		if err == nil {
+			st.Error("expected cancellation")
+		} else if !isStarlarkCancellation(err) {
+			st.Errorf("expected cancellation, got: %v", err)
+		}
+	})
+}
+
 func TestSetUnionAllocs(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)

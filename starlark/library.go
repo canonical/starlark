@@ -266,7 +266,7 @@ var (
 		"pop":                  CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"remove":               CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"symmetric_difference": CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"union":                CPUSafe | MemSafe | IOSafe,
+		"union":                CPUSafe | MemSafe | TimeSafe | IOSafe,
 	}
 )
 
