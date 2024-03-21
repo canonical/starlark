@@ -216,8 +216,8 @@ func (st *ST) RunString(code string) (ok bool) {
 		}
 		_, codeErr = mod.Init(thread, st.predecls)
 		if st.requiredSafety.Contains(starlark.TimeSafe) {
-			contextErr := st.context.Err()
-			if contextErr != nil && errors.Is(codeErr, contextErr) {
+			isCancellationError := errors.Is(codeErr, context.Canceled) || errors.Is(codeErr, context.DeadlineExceeded)
+			if codeErr != nil && isCancellationError {
 				codeErr = nil // Ignore cancellation.
 			}
 		}
