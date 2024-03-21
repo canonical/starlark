@@ -864,7 +864,7 @@ func TestContext(t *testing.T) {
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.TimeSafe)
-	st.SetContext(ctx)
+	st.SetParentContext(ctx)
 	st.RunThread(func(thread *starlark.Thread) {
 		if thread.Context().Value("answer-to-ultimate-question") != 42 {
 			st.Error("got wrong context")

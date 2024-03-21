@@ -150,8 +150,8 @@ func init() {
 	CancelledContext = ctx
 }
 
-// SetContext makes the passed context available to spawned threads.
-func (st *ST) SetContext(ctx context.Context) {
+// SetParentContext makes the passed context available to spawned threads.
+func (st *ST) SetParentContext(ctx context.Context) {
 	st.context = ctx
 }
 
