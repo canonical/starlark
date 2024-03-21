@@ -121,14 +121,8 @@ func (tc *threadContext) cancel(cancelReason error) {
 	if tc.cancelReason != nil {
 		return
 	}
-
-	select {
-	case <-tc.done:
-		// Parent already cancelled.
-	default:
-		tc.cancelReason = cancelReason
-		close(tc.done)
-	}
+	tc.cancelReason = cancelReason
+	close(tc.done)
 }
 
 // Context returns the context currently in use by this thread.
@@ -165,17 +159,18 @@ func (thread *Thread) setParentContextUnsynchronised(ctx context.Context) {
 		done:         done,
 	}
 	thread.context = tc
+
 	if !thread.finalizerSet {
 		thread.finalizerSet = true
 		runtime.SetFinalizer(thread, func(_ interface{}) {
-			tc.cancel(ErrContextChanged)
+			thread.context.cancel(ErrContextChanged)
 		})
 	}
 
 	if cancelReason != nil {
 		close(done)
 	} else if ctxDone := ctx.Done(); ctxDone != nil {
-		// Synchronise parent context cancellation
+		// Synchronise parent context cancellation.
 		go func() {
 			select {
 			case <-ctxDone:

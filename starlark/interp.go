@@ -107,11 +107,6 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (_ 
 	code := f.Code
 loop:
 	for {
-		if err2 := thread.cancelled(); err2 != nil {
-			err = err2
-			break loop
-		}
-
 		fr.pc = pc
 
 		op := compile.Opcode(code[pc])
