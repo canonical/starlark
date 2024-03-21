@@ -125,7 +125,9 @@ func (tc *threadContext) cancel(cancelReason error) {
 	close(tc.done)
 }
 
-// Context returns the context currently in use by this thread.
+// Context returns the context currently in use by this thread. Unless already
+// cancelled, the next call to thread.SetParentContext will cancel this context
+// and its Err method will start to return ErrContextChanged.
 func (thread *Thread) Context() context.Context {
 	thread.resourceLimitLock.Lock()
 	defer thread.resourceLimitLock.Unlock()
@@ -136,7 +138,9 @@ func (thread *Thread) Context() context.Context {
 	return thread.context
 }
 
-// SetParentContext sets the context of the current thread to the given value.
+// SetParentContext sets the parent context of the current thread to the given
+// value. It should only be called from the goroutine used when creating this
+// thread.
 func (thread *Thread) SetParentContext(ctx context.Context) {
 	thread.resourceLimitLock.Lock()
 	defer thread.resourceLimitLock.Unlock()
