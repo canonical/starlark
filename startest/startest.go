@@ -233,12 +233,13 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	if !st.safetyGiven {
 		st.requiredSafety = stSafe
 	}
-	if st.context == nil {
-		st.context = context.Background()
+	ctx := st.context
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	thread := &starlark.Thread{}
-	thread.SetParentContext(st.context)
+	thread.SetParentContext(ctx)
 	thread.EnsureStack(100)
 	thread.RequireSafety(st.requiredSafety)
 	thread.Print = func(_ *starlark.Thread, msg string) {
@@ -284,8 +285,13 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		}
 	}
 
-	if st.requiredSafety.Contains(starlark.TimeSafe) && stats.longTimePerN {
-		st.Errorf("execution continues too long after cancellation")
+	if st.requiredSafety.Contains(starlark.TimeSafe) {
+		if stats.longTimePerN {
+			st.Errorf("execution continues too long after cancellation")
+		}
+		if st.context != nil && !stats.cancelled {
+			st.Error("context not cancelled in TimeSafe test run")
+		}
 	}
 }
 
@@ -297,6 +303,7 @@ func (st *ST) KeepAlive(values ...interface{}) {
 type runStats struct {
 	nSum, allocSum uint64
 	longTimePerN   bool
+	cancelled      bool
 }
 
 func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread)) runStats {
@@ -351,12 +358,6 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 
 		runtime.KeepAlive(alive)
 
-		if st.requiredSafety.Contains(starlark.TimeSafe) {
-			if thread.Context().Err() == nil {
-				st.Error("context not cancelled in TimeSafe test run")
-			}
-		}
-
 		if st.Failed() {
 			return runStats{}
 		}
@@ -385,10 +386,12 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 
 	timePerN := elapsed / time.Duration(nSum)
 	longTimePerN := timePerN > time.Millisecond
+	cancelled := thread.Context().Err() != nil
 	return runStats{
 		nSum:         nSum,
 		allocSum:     allocSum,
 		longTimePerN: longTimePerN,
+		cancelled:    cancelled,
 	}
 }
 

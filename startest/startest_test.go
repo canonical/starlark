@@ -1231,6 +1231,7 @@ func TestNoOpTimeSafety(t *testing.T) {
 func TestTrivialTimeSafety(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.TimeSafe)
+	st.SetParentContext(startest.CancelledContext)
 
 	st.RunThread(func(thread *starlark.Thread) {
 		ctx := thread.Context()
