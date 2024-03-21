@@ -403,9 +403,19 @@ func TestRequireSafety(t *testing.T) {
 		})
 
 		t.Run("safety=undeclared", func(t *testing.T) {
-			st := startest.From(t)
-			if ok := st.RunString(""); !ok {
-				t.Error("RunString returned false")
+			const expected = "cannot call builtin 'fn': feature disabled by safety constraints"
+			fn := starlark.NewBuiltin("fn", func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+				return starlark.None, nil
+			})
+
+			dummy := &dummyBase{}
+			st := startest.From(dummy)
+			st.AddBuiltin(fn)
+			if ok := st.RunString(`fn()`); ok {
+				t.Error("RunString returned true")
+			}
+			if errLog := dummy.Errors(); errLog != expected {
+				t.Errorf("unexpected error(s): %#v", errLog)
 			}
 		})
 	})
