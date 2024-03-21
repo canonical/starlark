@@ -1118,6 +1118,24 @@ func TestThreadCancelConsistency(t *testing.T) {
 	}
 }
 
+func TestDoubleCancellation(t *testing.T) {
+	const errorToIgnore = "this shouldn't happen"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	thread := &starlark.Thread{}
+	thread.SetContext(ctx)
+	cancel()
+	thread.Cancel(errorToIgnore)
+
+	_, err := starlark.ExecFile(thread, "cancelled.star", `x = 1`, nil)
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("expected %v got %v", context.Canceled, err)
+	}
+	if strings.Contains(err.Error(), errorToIgnore) {
+		t.Errorf("unexpected error %v", err)
+	}
+}
+
 func TestContextCancelConsistency(t *testing.T) {
 	const innerError = "oh no!"
 
@@ -1274,14 +1292,12 @@ func TestAddStepsFail(t *testing.T) {
 		t.Errorf("incorrect number of steps recorded: expected %v but got %v", expectedSteps, steps)
 	}
 
-	expectedSteps++ // +1 step for the stack frame push.
 	if _, err := starlark.ExecFile(thread, "add_steps", "", nil); err == nil {
 		t.Errorf("expected cancellation")
 	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	expectedSteps += maxValidSteps / 2
 	if err := thread.AddSteps(maxValidSteps / 2); err == nil {
 		t.Errorf("expected error")
 	} else if !errors.Is(err, starlark.ErrSafety) {
