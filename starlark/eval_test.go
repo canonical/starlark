@@ -13,10 +13,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
 	"testing"
+	gotime "time"
 
 	"github.com/canonical/starlark/internal/chunkedfile"
 	"github.com/canonical/starlark/lib/json"
@@ -983,35 +985,6 @@ func TestSteps(t *testing.T) {
 	if !errors.As(err, &expected) {
 		t.Errorf("execution returned error %q, want too many steps", err)
 	}
-
-	thread.SetMaxSteps(thread.Steps() + 100)
-	thread.Uncancel()
-	_, err = countSteps(1)
-	if err != nil {
-		t.Errorf("execution returned error %q, want nil", err)
-	}
-}
-
-func TestUncancelContextCancellation(t *testing.T) {
-	previousContextCancelled := false
-
-	thread := &starlark.Thread{}
-	thread.Cancel("oh no!")
-	ctx := thread.Context()
-	thread.Uncancel()
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		<-ctx.Done()
-		previousContextCancelled = true
-		wg.Done()
-	}()
-
-	wg.Wait()
-	if !previousContextCancelled {
-		t.Error("previous context not cancelled")
-	}
 }
 
 // TestDeps fails if the interpreter proper (not the REPL, etc) sprouts new external dependencies.
@@ -1085,127 +1058,123 @@ main()
 	}
 }
 
-func TestThreadCancelConsistency(t *testing.T) {
-	const expected = "Starlark computation cancelled"
-
-	ctx, cancel := context.WithCancel(context.Background())
-	thread := &starlark.Thread{}
-	thread.SetContext(ctx)
-	cancel()
-
-	_, err := starlark.ExecFile(thread, "cancelled.star", `x = 1//0`, nil)
-	if err.Error() != expected {
-		t.Errorf("expected error %q but got %q", expected, err)
-	}
-	if !errors.Is(err, context.Canceled) {
-		t.Errorf("unexpected inner error: expected %q but got %q", context.Canceled, err)
-	}
-
-	firstCtxErr := thread.Context().Err()
-	thread.Cancel("second-cancellation")
-	if err = thread.Context().Err(); err.Error() != firstCtxErr.Error() {
-		t.Errorf("Err() return value changed: initially got %q but now got %q", firstCtxErr, err)
-	}
-
-	firstCtx := thread.Context()
-	thread.Uncancel()
-	_, err = starlark.ExecFile(thread, "uncancelled.star", `x = 1`, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if ctx := thread.Context(); ctx == firstCtx {
-		t.Errorf("uncancelled thread did not discard context")
-	}
-}
-
-func TestDoubleCancellation(t *testing.T) {
-	const errorToIgnore = "this shouldn't happen"
-
-	ctx, cancel := context.WithCancel(context.Background())
-	thread := &starlark.Thread{}
-	thread.SetContext(ctx)
-	cancel()
-	thread.Cancel(errorToIgnore)
-
-	_, err := starlark.ExecFile(thread, "cancelled.star", `x = 1`, nil)
-	if !errors.Is(err, context.Canceled) {
-		t.Errorf("expected %v got %v", context.Canceled, err)
-	}
-	if strings.Contains(err.Error(), errorToIgnore) {
-		t.Errorf("unexpected error %v", err)
-	}
-}
-
-func TestContextCancelConsistency(t *testing.T) {
-	const innerError = "oh no!"
-
-	ctx, cancel := context.WithCancel(context.Background())
-	thread := &starlark.Thread{}
-	thread.SetContext(ctx)
-	thread.Cancel(innerError)
-
-	const expectedExecFileError = "Starlark computation cancelled: oh no!"
-	_, err := starlark.ExecFile(thread, "cancelled.star", `x = 1//0`, nil)
-	if err.Error() != expectedExecFileError {
-		t.Errorf("expected error %q but got %q", expectedExecFileError, err)
-	}
-
-	select {
-	case <-thread.Context().Done():
-		expected := context.Canceled
-		if err = thread.Context().Err(); err != expected {
-			t.Errorf("unexpected error: expected %q but got %q", expected, err)
+func TestContext(t *testing.T) {
+	channelClosed := func(ch <-chan struct{}) bool {
+		select {
+		case <-ch:
+			return true
+		default:
+			return false
 		}
-	default:
-		t.Error("expected context to be cancelled")
 	}
+
+	thread := &starlark.Thread{}
+	if ctx := thread.Context(); ctx == nil {
+		t.Error("expected initial context to be non-nil")
+	} else if channelClosed(ctx.Done()) {
+		t.Error("initial context done")
+	}
+
+	const key = "E major"
+	const value = "The Four Seasons, Spring"
+	ctx1 := context.WithValue(context.Background(), key, value)
+	thread.SetParentContext(ctx1)
+	tc0 := thread.Context()
+	if tc0 == nil {
+		t.Fatal("thread context nil")
+	} else if retreived := tc0.Value(key); retreived != value {
+		t.Errorf("retrieved value incorrect: expected %v got %v", value, retreived)
+	}
+
+	ctx2, cancel := context.WithCancel(context.Background())
+	thread.SetParentContext(ctx2)
 	cancel()
-	if err2 := thread.Context().Err(); err2.Error() != err.Error() {
-		t.Errorf("Err() return value changed: initially got %q but now got %q", err, err2)
+	tc1 := thread.Context()
+	if !channelClosed(tc0.Done()) {
+		t.Error("initial context not done")
+	}
+	if channelClosed(tc1.Done()) {
+		t.Error("context unexpectedly done")
+	}
+	if retreived := tc1.Value(key); retreived != nil {
+		t.Errorf("unexpectedly retreived value from thread context: got %v", retreived)
 	}
 
-	firstCtx := thread.Context()
-	thread.Uncancel()
-	_, err = starlark.ExecFile(thread, "uncancelled.star", `x = 1`, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if ctx := thread.Context(); ctx == firstCtx {
-		t.Errorf("uncancelled thread did not discard context")
+	runtime.KeepAlive(thread) // Do not use thread after this point!
+	runtime.GC()
+	runtime.GC()
+	if !channelClosed(tc1.Done()) {
+		t.Error("held context not cancelled once ")
 	}
 }
 
-func TestUnspecifiedContext(t *testing.T) {
-	thread := &starlark.Thread{}
-	ctx := thread.Context()
-	if ctx == nil {
-		t.Errorf("thread has no default context")
-	}
-	if ctx2 := thread.Context(); ctx != ctx2 {
-		t.Errorf("thread context changed unexpectedly")
-	}
-}
+func TestCancelConsistency(t *testing.T) {
+	t.Run("context-cancelled-before-setparent", func(t *testing.T) {
+		const expected = "Starlark computation cancelled: context canceled"
 
-func TestSpecifiedContext(t *testing.T) {
-	const key = "foo"
-	const value = "bar"
-	ctx := context.WithValue(context.Background(), key, value)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
 
-	thread := &starlark.Thread{}
-	thread.SetContext(ctx)
+		thread := &starlark.Thread{}
+		thread.SetParentContext(ctx)
 
-	predecls := starlark.StringDict{
-		"fn": starlark.NewBuiltin("fn", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-			if v := thread.Context().Value(key); v != value {
-				t.Errorf("could not find %q in thread context, expected value %q but got %#v", key, value, v)
-			}
-			return starlark.None, nil
-		}),
-	}
-	_, err := starlark.ExecFile(thread, "context", "fn()", predecls)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+		syncDeadline := gotime.After(500 * gotime.Millisecond)
+		select {
+		case <-thread.Context().Done():
+			// Await synchronisation.
+		case <-syncDeadline:
+			t.Fatal("synchronisation deadline exceeded")
+		}
+
+		opts := &syntax.FileOptions{}
+		_, err := starlark.ExecFileOptions(opts, thread, "cancelled.star", `x = 1//0`, nil)
+		if !errors.Is(err, context.Canceled) || err.Error() != expected {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("context-cancelled-after-setparent", func(t *testing.T) {
+		const expected = "Starlark computation cancelled: context canceled"
+
+		ctx, cancel := context.WithCancel(context.Background())
+		thread := &starlark.Thread{}
+		thread.SetParentContext(ctx)
+		cancel()
+
+		syncDeadline := gotime.After(500 * gotime.Millisecond)
+		select {
+		case <-thread.Context().Done():
+			// Await synchronisation.
+		case <-syncDeadline:
+			t.Fatal("synchronisation deadline exceeded")
+			t.Error("thread context not done")
+		}
+
+		opts := &syntax.FileOptions{}
+		_, err := starlark.ExecFileOptions(opts, thread, "cancelled.star", `x = 1//0`, nil)
+		if !errors.Is(err, context.Canceled) || err.Error() != expected {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("thread-cancelled", func(t *testing.T) {
+		const expected = "Starlark computation cancelled: oh no!"
+
+		thread := &starlark.Thread{}
+		thread.Cancel("oh no!")
+
+		select {
+		case <-thread.Context().Done():
+		default:
+			t.Error("thread cancel did not trigger done")
+		}
+
+		opts := &syntax.FileOptions{}
+		_, err := starlark.ExecFileOptions(opts, thread, "cancelled.star", `x = 1//0`, nil)
+		if err.Error() != expected {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
 }
 
 func TestCheckSteps(t *testing.T) {
