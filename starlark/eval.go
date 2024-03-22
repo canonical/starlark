@@ -2180,13 +2180,18 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		thread.maxSteps-- // (MaxUint64)
 	}
 
-	stackAppender := NewSafeAppender(thread, &thread.stack)
-	if err := stackAppender.Append(fr); err != nil { // push
-		return nil, err
+	// Count only for stack memory as other resources are already
+	// accounted for.
+	prevStackCap := cap(thread.stack)
+	thread.stack = append(thread.stack, fr)
+	if newStackCap := cap(thread.stack); prevStackCap != newStackCap {
+		prevStackSize := EstimateMakeSize([]*frame{}, prevStackCap)
+		newStackSize := EstimateMakeSize([]*frame{}, newStackCap)
+		delta := newStackSize - prevStackSize
+		if err := thread.AddAllocs(delta); err != nil {
+			return nil, err
+		}
 	}
-	// Remove extra steps counted from stackAppender as the
-	// call site is expected to count 1.
-	thread.AddSteps(-int64(stackAppender.Steps()))
 
 	fr.callable = c
 
