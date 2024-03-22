@@ -35,7 +35,8 @@ type Thread struct {
 	Name string
 
 	// context holds the execution context used by this thread.
-	context *threadContext
+	context     *threadContext
+	contextLock sync.Mutex
 
 	finalizerSet bool
 
@@ -55,8 +56,6 @@ type Thread struct {
 	// See example_test.go for some example implementations of Load.
 	Load func(thread *Thread, module string) (StringDict, error)
 
-	resourceLimitLock sync.Mutex
-
 	// Steps a count of abstract computation steps executed
 	// by this thread. It is incremented by the interpreter. It may be used
 	// as a measure of the approximate cost of Starlark execution, by
@@ -64,6 +63,7 @@ type Thread struct {
 	//
 	// The precise meaning of "step" is not specified and may change.
 	steps, maxSteps uint64
+	stepsLock       sync.Mutex
 
 	// OnMaxSteps is called when the thread reaches the limit set by SetMaxSteps.
 	// The default behavior is to cancel the thread.
@@ -71,6 +71,7 @@ type Thread struct {
 
 	// allocs counts the abstract memory units claimed by this resource pool
 	allocs, maxAllocs uint64
+	allocsLock        sync.Mutex
 
 	// locals holds arbitrary "thread-local" Go values belonging to the client.
 	// They are accessible to the client but not to any Starlark program.
@@ -129,8 +130,8 @@ func (tc *threadContext) cancel(cancelReason error) {
 // cancelled, the next call to thread.SetParentContext will cancel this context
 // and its Err method will start to return ErrContextChanged.
 func (thread *Thread) Context() context.Context {
-	thread.resourceLimitLock.Lock()
-	defer thread.resourceLimitLock.Unlock()
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
 
 	if thread.context == nil {
 		thread.setParentContextUnsynchronised(context.Background())
@@ -142,8 +143,8 @@ func (thread *Thread) Context() context.Context {
 // value. It should only be called from the goroutine used when creating this
 // thread.
 func (thread *Thread) SetParentContext(ctx context.Context) {
-	thread.resourceLimitLock.Lock()
-	defer thread.resourceLimitLock.Unlock()
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
 
 	thread.setParentContextUnsynchronised(ctx)
 }
@@ -191,8 +192,8 @@ func (thread *Thread) setParentContextUnsynchronised(ctx context.Context) {
 
 // Steps returns the current value of Steps.
 func (thread *Thread) Steps() uint64 {
-	thread.resourceLimitLock.Lock()
-	defer thread.resourceLimitLock.Unlock()
+	thread.stepsLock.Lock()
+	defer thread.stepsLock.Unlock()
 
 	return thread.steps
 }
@@ -212,8 +213,8 @@ func (thread *Thread) SetMaxSteps(max uint64) {
 // It is safe to call CheckSteps from any goroutine, even if the thread
 // is actively executing.
 func (thread *Thread) CheckSteps(delta int64) error {
-	thread.resourceLimitLock.Lock()
-	defer thread.resourceLimitLock.Unlock()
+	thread.stepsLock.Lock()
+	defer thread.stepsLock.Unlock()
 
 	_, err := thread.simulateSteps(delta)
 	return err
@@ -226,8 +227,8 @@ func (thread *Thread) CheckSteps(delta int64) error {
 // It is safe to call AddSteps from any goroutine, even if the thread
 // is actively executing.
 func (thread *Thread) AddSteps(delta int64) error {
-	thread.resourceLimitLock.Lock()
-	defer thread.resourceLimitLock.Unlock()
+	thread.stepsLock.Lock()
+	defer thread.stepsLock.Unlock()
 
 	nextSteps, err := thread.simulateSteps(delta)
 	thread.steps = nextSteps
@@ -331,14 +332,14 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 		err = fmt.Errorf(reason, args...)
 	}
 
-	thread.resourceLimitLock.Lock()
-	defer thread.resourceLimitLock.Unlock()
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
 
 	thread.cancel(err)
 }
 
 // cancel sets cancelReason, preserving earlier reason if any.
-// When called, resourceLimitLock must be locked.
+// When called, contextLock must be locked.
 func (thread *Thread) cancel(err error) {
 	if thread.context == nil {
 		thread.setParentContextUnsynchronised(context.Background())
@@ -2721,8 +2722,8 @@ func (e *StepsSafetyError) Is(err error) bool {
 // It is safe to call CheckAllocs from any goroutine, even if the thread is
 // actively executing.
 func (thread *Thread) CheckAllocs(delta int64) error {
-	thread.resourceLimitLock.Lock()
-	defer thread.resourceLimitLock.Unlock()
+	thread.allocsLock.Lock()
+	defer thread.allocsLock.Unlock()
 
 	_, err := thread.simulateAllocs(delta)
 	return err
@@ -2735,8 +2736,8 @@ func (thread *Thread) CheckAllocs(delta int64) error {
 // It is safe to call AddAllocs from any goroutine, even if the thread is
 // actively executing.
 func (thread *Thread) AddAllocs(delta int64) error {
-	thread.resourceLimitLock.Lock()
-	defer thread.resourceLimitLock.Unlock()
+	thread.allocsLock.Lock()
+	defer thread.allocsLock.Unlock()
 
 	next, err := thread.simulateAllocs(delta)
 	thread.allocs = next
