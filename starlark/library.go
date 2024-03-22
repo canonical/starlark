@@ -80,7 +80,7 @@ func init() {
 		"any":       CPUSafe | MemSafe | IOSafe,
 		"all":       CPUSafe | MemSafe | IOSafe,
 		"bool":      CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"bytes":     CPUSafe | MemSafe | IOSafe,
+		"bytes":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"chr":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"dict":      CPUSafe | MemSafe | IOSafe,
 		"dir":       CPUSafe | MemSafe | TimeSafe | IOSafe,

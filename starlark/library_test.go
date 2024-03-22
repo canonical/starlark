@@ -986,6 +986,77 @@ func TestBytesAllocs(t *testing.T) {
 	})
 }
 
+func TestBytesCancellation(t *testing.T) {
+	bytes, ok := starlark.Universe["bytes"]
+	if !ok {
+		t.Fatal("No such builtin: bytes")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.TimeSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, bytes, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("bytes", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			input := starlark.Bytes(strings.Repeat("foobar", st.N))
+			_, err := starlark.Call(thread, bytes, starlark.Tuple{input}, nil)
+			if err != nil {
+				st.Error("expected noop")
+			}
+		})
+	})
+
+	t.Run("string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			str := starlark.String(strings.Repeat("a🍖", st.N))
+			_, err := starlark.Call(thread, bytes, starlark.Tuple{str}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			iter := &testIterable{
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.MakeInt(n % 256), nil
+				},
+				maxN: st.N,
+			}
+			_, err := starlark.Call(thread, bytes, starlark.Tuple{iter}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestChrSteps(t *testing.T) {
 	chr, ok := starlark.Universe["chr"]
 	if !ok {
