@@ -43,6 +43,11 @@ func (ui *unsafeTestIterator) Next(p *starlark.Value) bool {
 func (ui *unsafeTestIterator) Done()      {}
 func (ui *unsafeTestIterator) Err() error { return fmt.Errorf("Err called") }
 
+func isStarlarkCancellation(err error) bool {
+	const cancellationPrefix = "Starlark computation cancelled:"
+	return strings.Contains(err.Error(), cancellationPrefix)
+}
+
 func TestModuleSafeties(t *testing.T) {
 	for name, value := range json.Module.Members {
 		builtin, ok := value.(*starlark.Builtin)
@@ -231,8 +236,8 @@ func TestJsonDecodeSteps(t *testing.T) {
 
 	const populatedLength = 1000
 	tests := []struct {
-		name              string
-		input             string
+		name     string
+		input    string
 		minSteps uint64
 		maxSteps uint64
 	}{{
@@ -254,8 +259,8 @@ func TestJsonDecodeSteps(t *testing.T) {
 		name:  "null",
 		input: "null",
 	}, {
-		name:              "string",
-		input:             `"tnetennba"`,
+		name:     "string",
+		input:    `"tnetennba"`,
 		minSteps: 10,
 		maxSteps: 10,
 	}, {
@@ -278,8 +283,8 @@ func TestJsonDecodeSteps(t *testing.T) {
 		minSteps: populatedLength,
 		maxSteps: populatedLength,
 	}, {
-		name:              "nested-list",
-		input:             "[[[]]]",
+		name:     "nested-list",
+		input:    "[[[]]]",
 		minSteps: 2,
 		maxSteps: 2,
 	}, {
@@ -302,8 +307,8 @@ func TestJsonDecodeSteps(t *testing.T) {
 		minSteps: (2 + 11) * populatedLength, // Expect on average 2.5*len steps for insertion, 11 per parsed key
 		maxSteps: (3 + 11) * populatedLength,
 	}, {
-		name:              "nested-mapping",
-		input:             `{"l1": {"l2": {"l3": {}}}}`,
+		name:     "nested-mapping",
+		input:    `{"l1": {"l2": {"l3": {}}}}`,
 		minSteps: 3 + 3*3, // 3 steps for the nesting, 3 steps per parsed key
 		maxSteps: 3 + 3*3,
 	}}
@@ -355,6 +360,109 @@ func TestJsonDecodeAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		}
 	})
+}
+
+func TestJsonDecodeCancellation(t *testing.T) {
+	json_decode, _ := json.Module.Attr("decode")
+	if json_decode == nil {
+		t.Fatal("no such method: json.decode")
+	}
+
+	const populatedLength = 1000
+	tests := []struct {
+		name     string
+		input    string
+		minSteps uint64
+		maxSteps uint64
+	}{{
+		name:  "int",
+		input: "48879",
+	}, {
+		name:  "big-int",
+		input: "3825590844416",
+	}, {
+		name:  "float",
+		input: "1.4218e-1",
+	}, {
+		name:  "bool",
+		input: "true",
+	}, {
+		name:  "bool",
+		input: "true",
+	}, {
+		name:  "null",
+		input: "null",
+	}, {
+		name:     "string",
+		input:    `"tnetennba"`,
+		minSteps: 10,
+		maxSteps: 10,
+	}, {
+		name:  "empty-list",
+		input: "[]",
+	}, {
+		name: "populated-list",
+		input: func() string {
+			buf := &strings.Builder{}
+			buf.WriteByte('[')
+			for i := 0; i < populatedLength; i++ {
+				if i > 0 {
+					buf.WriteString(", ")
+				}
+				buf.WriteByte('1')
+			}
+			buf.WriteByte(']')
+			return buf.String()
+		}(),
+		minSteps: populatedLength,
+		maxSteps: populatedLength,
+	}, {
+		name:     "nested-list",
+		input:    "[[[]]]",
+		minSteps: 2,
+		maxSteps: 2,
+	}, {
+		name:  "empty-mapping",
+		input: "{}",
+	}, {
+		name: "populated-mapping",
+		input: func() string {
+			buf := &strings.Builder{}
+			buf.WriteByte('{')
+			for i := 0; i < populatedLength; i++ {
+				if i > 0 {
+					buf.WriteString(", ")
+				}
+				buf.WriteString(fmt.Sprintf(`"%10d": %d`, i, i))
+			}
+			buf.WriteByte('}')
+			return buf.String()
+		}(),
+		minSteps: (2 + 11) * populatedLength, // Expect on average 2.5*len steps for insertion, 11 per parsed key
+		maxSteps: (3 + 11) * populatedLength,
+	}, {
+		name:     "nested-mapping",
+		input:    `{"l1": {"l2": {"l3": {}}}}`,
+		minSteps: 3 + 3*3, // 3 steps for the nesting, 3 steps per parsed key
+		maxSteps: 3 + 3*3,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.TimeSafe)
+			st.SetMaxSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.Cancel("done")
+				json_document := starlark.String("[" + strings.Repeat(test.input+",", st.N) + "null]")
+				_, err := starlark.Call(thread, json_decode, starlark.Tuple{json_document}, nil)
+				if err == nil {
+					st.Error("expected cancellation")
+				} else if !isStarlarkCancellation(err) {
+					st.Errorf("expected cancellation, got: %v", err)
+				}
+			})
+		})
+	}
 }
 
 func TestJsonIndentSteps(t *testing.T) {
