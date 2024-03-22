@@ -1138,8 +1138,7 @@ func TestCancelConsistency(t *testing.T) {
 		case <-thread.Context().Done():
 			// Await synchronisation.
 		case <-syncDeadline:
-			t.Fatal("synchronisation deadline exceeded")
-			t.Error("thread context not done")
+			t.Fatal("cancellation-sync deadline exceeded")
 		}
 
 		opts := &syntax.FileOptions{}
