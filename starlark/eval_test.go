@@ -1118,14 +1118,6 @@ func TestCancelConsistency(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.SetParentContext(ctx)
 
-		syncDeadline := gotime.After(500 * gotime.Millisecond)
-		select {
-		case <-thread.Context().Done():
-			// Await synchronisation.
-		case <-syncDeadline:
-			t.Fatal("synchronisation deadline exceeded")
-		}
-
 		opts := &syntax.FileOptions{}
 		_, err := starlark.ExecFileOptions(opts, thread, "cancelled.star", `x = 1//0`, nil)
 		if !errors.Is(err, context.Canceled) || err.Error() != expected {

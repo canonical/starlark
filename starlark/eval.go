@@ -175,12 +175,17 @@ func (thread *Thread) setParentContextUnsynchronised(ctx context.Context) {
 		close(done)
 	} else if ctxDone := ctx.Done(); ctxDone != nil {
 		// Synchronise parent context cancellation.
-		go func() {
-			select {
-			case <-ctxDone:
-				tc.cancel(ctx.Err())
-			}
-		}()
+		select {
+		case <-ctxDone:
+			tc.cancel(ctx.Err())
+		default:
+			go func() {
+				select {
+				case <-ctxDone:
+					tc.cancel(ctx.Err())
+				}
+			}()
+		}
 	}
 }
 
