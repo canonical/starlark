@@ -13,7 +13,6 @@ import (
 	"math"
 	"math/big"
 	"os"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -35,8 +34,10 @@ type Thread struct {
 	Name string
 
 	// context holds the execution context used by this thread.
-	context     *threadContext
-	contextLock sync.Mutex
+	context      *threadContext
+	contextLock  sync.Mutex
+	cancelReason error
+	done         chan struct{}
 
 	finalizerSet bool
 
@@ -86,44 +87,38 @@ type Thread struct {
 }
 
 type threadContext struct {
-	context.Context
-	cancelReasonLock sync.Mutex
-	cancelReason     error
-	done             chan struct{}
+	thread *Thread
 }
 
 var _ context.Context = &threadContext{}
 
+func (tc *threadContext) Deadline() (deadline time.Time, ok bool) {
+	return time.Time{}, false
+}
+
 func (tc *threadContext) Done() <-chan struct{} {
-	return tc.done
+	return tc.thread.done
 }
 
 func (tc *threadContext) Err() error {
-	tc.cancelReasonLock.Lock()
-	defer tc.cancelReasonLock.Unlock()
+	tc.thread.contextLock.Lock()
+	defer tc.thread.contextLock.Unlock()
 
-	if tc.cancelReason != nil {
+	if tc.thread.cancelReason != nil {
 		return context.Canceled
 	}
-	return tc.Context.Err()
+	return nil
+}
+
+func (tc *threadContext) Value(key interface{}) interface{} {
+	return nil
 }
 
 func (tc *threadContext) cause() error {
-	tc.cancelReasonLock.Lock()
-	defer tc.cancelReasonLock.Unlock()
+	tc.thread.contextLock.Lock()
+	defer tc.thread.contextLock.Unlock()
 
-	return tc.cancelReason
-}
-
-func (tc *threadContext) cancel(cancelReason error) {
-	tc.cancelReasonLock.Lock()
-	defer tc.cancelReasonLock.Unlock()
-
-	if tc.cancelReason != nil {
-		return
-	}
-	tc.cancelReason = cancelReason
-	close(tc.done)
+	return tc.thread.cancelReason
 }
 
 // Context returns the context currently in use by this thread. Unless already
@@ -134,60 +129,13 @@ func (thread *Thread) Context() context.Context {
 	defer thread.contextLock.Unlock()
 
 	if thread.context == nil {
-		thread.setParentContextUnsynchronised(context.Background())
+		thread.context = &threadContext{thread}
+		thread.done = make(chan struct{})
+	}
+	if thread.cancelReason == nil {
+		close(thread.done)
 	}
 	return thread.context
-}
-
-// SetParentContext sets the parent context of the current thread to the given
-// value. It should only be called from the goroutine used when creating this
-// thread.
-func (thread *Thread) SetParentContext(ctx context.Context) {
-	thread.contextLock.Lock()
-	defer thread.contextLock.Unlock()
-
-	thread.setParentContextUnsynchronised(ctx)
-}
-
-var ErrContextChanged = errors.New("context changed")
-
-func (thread *Thread) setParentContextUnsynchronised(ctx context.Context) {
-	var cancelReason error
-	if thread.context != nil {
-		cancelReason = thread.context.cancelReason
-		thread.context.cancel(ErrContextChanged)
-	}
-	done := make(chan struct{})
-	tc := &threadContext{
-		Context:      ctx,
-		cancelReason: cancelReason,
-		done:         done,
-	}
-	thread.context = tc
-
-	if !thread.finalizerSet {
-		thread.finalizerSet = true
-		runtime.SetFinalizer(thread, func(_ interface{}) {
-			thread.context.cancel(ErrContextChanged)
-		})
-	}
-
-	if cancelReason != nil {
-		close(done)
-	} else if ctxDone := ctx.Done(); ctxDone != nil {
-		// Synchronise parent context cancellation.
-		select {
-		case <-ctxDone:
-			tc.cancel(ctx.Err())
-		default:
-			go func() {
-				select {
-				case <-ctxDone:
-					tc.cancel(ctx.Err())
-				}
-			}()
-		}
-	}
 }
 
 // Steps returns the current value of Steps.
@@ -332,30 +280,25 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 		err = fmt.Errorf(reason, args...)
 	}
 
-	thread.contextLock.Lock()
-	defer thread.contextLock.Unlock()
-
 	thread.cancel(err)
 }
 
-// cancel sets cancelReason, preserving earlier reason if any.
-// When called, contextLock must be locked.
-func (thread *Thread) cancel(err error) {
-	if thread.context == nil {
-		thread.setParentContextUnsynchronised(context.Background())
+func (thread *Thread) cancel(cancelReason error) {
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
+
+	if thread.cancelReason != nil {
+		return
 	}
-	thread.context.cancel(err)
+	thread.cancelReason = cancelReason
+	close(thread.done)
 }
 
 func (thread *Thread) cancelled() error {
-	if thread.context == nil {
-		return nil
-	}
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
 
-	if cause := thread.context.cause(); cause != nil {
-		return fmt.Errorf("Starlark computation cancelled: %w", cause)
-	}
-	return nil
+	return thread.cancelReason
 }
 
 // SetLocal sets the thread-local value associated with the specified key.
