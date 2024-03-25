@@ -33,8 +33,10 @@ type Thread struct {
 	// Name is an optional name that describes the thread, for debugging.
 	Name string
 
-	// context holds the execution context used by this thread.
-	context threadContext
+	// contextLock synchronises access to fields required to implement context.
+	contextLock  sync.Mutex
+	cancelReason error
+	done         chan struct{}
 
 	// stack is the stack of (internal) call frames.
 	stack []*frame
@@ -69,6 +71,10 @@ type Thread struct {
 	allocs, maxAllocs uint64
 	allocsLock        sync.Mutex
 
+	// locals holds arbitrary "thread-local" Go values belonging to the client.
+	// They are accessible to the client but not to any Starlark program.
+	locals map[string]interface{}
+
 	// proftime holds the accumulated execution time since the last profile event.
 	proftime time.Duration
 
@@ -77,12 +83,7 @@ type Thread struct {
 	requiredSafety SafetyFlags
 }
 
-type threadContext struct {
-	mu           sync.Mutex
-	locals       map[string]interface{}
-	cancelReason error
-	done         chan struct{}
-}
+type threadContext Thread
 
 var _ context.Context = &threadContext{}
 
@@ -98,63 +99,49 @@ func init() {
 }
 
 func (tc *threadContext) Done() <-chan struct{} {
-	tc.mu.Lock()
-	defer tc.mu.Unlock()
+	thread := (*Thread)(tc)
 
-	if tc.done == nil {
-		if tc.cancelReason == nil {
-			tc.done = make(chan struct{})
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
+
+	if thread.done == nil {
+		if thread.cancelReason == nil {
+			thread.done = make(chan struct{})
 		} else {
-			tc.done = closedChannel
+			thread.done = closedChannel
 		}
 	}
-	return tc.done
+	return thread.done
 }
 
 func (tc *threadContext) Err() error {
-	tc.mu.Lock()
-	defer tc.mu.Unlock()
+	thread := (*Thread)(tc)
 
-	if tc.cancelReason != nil {
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
+
+	if thread.cancelReason != nil {
 		return context.Canceled
 	}
 	return nil
 }
 
 func (tc *threadContext) Value(key interface{}) interface{} {
+	thread := (*Thread)(tc)
 	stringKey, ok := key.(string)
 	if !ok {
 		return nil
 	}
-	return tc.locals[stringKey]
+	return thread.locals[stringKey]
 }
 
 func (tc *threadContext) cause() error {
-	tc.mu.Lock()
-	defer tc.mu.Unlock()
+	thread := (*Thread)(tc)
 
-	return tc.cancelReason
-}
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
 
-func (tc *threadContext) cancel(err error) {
-	tc.mu.Lock()
-	defer tc.mu.Unlock()
-
-	if tc.cancelReason != nil {
-		return
-	}
-	tc.cancelReason = fmt.Errorf("Starlark computation cancelled: %w", err)
-
-	if tc.done != nil {
-		close(tc.done)
-	}
-}
-
-func (tc *threadContext) cancelled() error {
-	tc.mu.Lock()
-	defer tc.mu.Unlock()
-
-	return tc.cancelReason
+	return thread.cancelReason
 }
 
 // Context returns a context which gets cancelled when this thread is
@@ -163,7 +150,7 @@ func (tc *threadContext) cancelled() error {
 //
 // If Context is called, Cancel must also be called.
 func (thread *Thread) Context() context.Context {
-	return &thread.context
+	return (*threadContext)(thread)
 }
 
 // Steps returns the current value of Steps.
@@ -311,25 +298,38 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 }
 
 func (thread *Thread) cancel(err error) {
-	thread.context.cancel(err)
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
+
+	if thread.cancelReason != nil {
+		return
+	}
+	thread.cancelReason = fmt.Errorf("Starlark computation cancelled: %w", err)
+
+	if thread.done != nil {
+		close(thread.done)
+	}
 }
 
 func (thread *Thread) cancelled() error {
-	return thread.context.cancelled()
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
+
+	return thread.cancelReason
 }
 
 // SetLocal sets the thread-local value associated with the specified key.
 // It must not be called after execution begins.
 func (thread *Thread) SetLocal(key string, value interface{}) {
-	if thread.context.locals == nil {
-		thread.context.locals = make(map[string]interface{})
+	if thread.locals == nil {
+		thread.locals = make(map[string]interface{})
 	}
-	thread.context.locals[key] = value
+	thread.locals[key] = value
 }
 
 // Local returns the thread-local value associated with the specified key.
 func (thread *Thread) Local(key string) interface{} {
-	return thread.context.locals[key]
+	return thread.locals[key]
 }
 
 // CallFrame returns a copy of the specified frame of the callstack.
