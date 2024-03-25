@@ -33,7 +33,7 @@ type Thread struct {
 	// Name is an optional name that describes the thread, for debugging.
 	Name string
 
-	// context holds the execution context used by this thread.
+	// contextLock synchronises access to fields required to implement context.
 	contextLock  sync.Mutex
 	cancelReason error
 	done         chan struct{}
