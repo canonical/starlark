@@ -290,10 +290,6 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 }
 
 func (thread *Thread) cancel(cancelReason error) {
-	if cancelReason == nil {
-		panic("cancel reason cannot be nil")
-	}
-
 	thread.contextLock.Lock()
 	defer thread.contextLock.Unlock()
 
