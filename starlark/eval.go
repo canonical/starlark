@@ -307,7 +307,6 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 	} else {
 		err = fmt.Errorf(reason, args...)
 	}
-
 	thread.cancel(err)
 }
 
