@@ -137,9 +137,9 @@ func (thread *Thread) Context() context.Context {
 
 	if thread.done == nil {
 		thread.done = make(chan struct{})
-	}
-	if thread.cancelReason != nil {
-		close(thread.done)
+		if thread.cancelReason != nil {
+			close(thread.done)
+		}
 	}
 	return (*threadContext)(thread)
 }
