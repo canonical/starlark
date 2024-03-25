@@ -111,7 +111,11 @@ func (tc *threadContext) Err() error {
 }
 
 func (tc *threadContext) Value(key interface{}) interface{} {
-	return nil
+	stringKey, ok := key.(string)
+	if !ok {
+		return nil
+	}
+	return tc.thread.Local(stringKey)
 }
 
 func (tc *threadContext) cause() error {
