@@ -86,9 +86,7 @@ type Thread struct {
 	requiredSafety SafetyFlags
 }
 
-type threadContext struct {
-	thread *Thread
-}
+type threadContext Thread
 
 var _ context.Context = &threadContext{}
 
@@ -97,14 +95,17 @@ func (tc *threadContext) Deadline() (deadline time.Time, ok bool) {
 }
 
 func (tc *threadContext) Done() <-chan struct{} {
-	return tc.thread.done
+	thread := (*Thread)(tc)
+	return thread.done
 }
 
 func (tc *threadContext) Err() error {
-	tc.thread.contextLock.Lock()
-	defer tc.thread.contextLock.Unlock()
+	thread := (*Thread)(tc)
 
-	if tc.thread.cancelReason != nil {
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
+
+	if thread.cancelReason != nil {
 		return context.Canceled
 	}
 	return nil
@@ -115,14 +116,17 @@ func (tc *threadContext) Value(key interface{}) interface{} {
 	if !ok {
 		return nil
 	}
-	return tc.thread.Local(stringKey)
+	thread := (*Thread)(tc)
+	return thread.Local(stringKey)
 }
 
 func (tc *threadContext) cause() error {
-	tc.thread.contextLock.Lock()
-	defer tc.thread.contextLock.Unlock()
+	thread := (*Thread)(tc)
 
-	return tc.thread.cancelReason
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
+
+	return thread.cancelReason
 }
 
 // Context returns a context which gets cancelled when this thread is
@@ -134,14 +138,14 @@ func (thread *Thread) Context() context.Context {
 	thread.contextLock.Lock()
 	defer thread.contextLock.Unlock()
 
-	if thread.context == nil {
-		thread.context = &threadContext{thread}
+	if thread.done == nil {
+		thread.context = (*threadContext)(thread)
 		thread.done = make(chan struct{})
 	}
 	if thread.cancelReason != nil {
 		close(thread.done)
 	}
-	return thread.context
+	return (*threadContext)(thread)
 }
 
 // Steps returns the current value of Steps.
