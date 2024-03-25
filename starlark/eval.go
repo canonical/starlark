@@ -125,9 +125,11 @@ func (tc *threadContext) cause() error {
 	return tc.thread.cancelReason
 }
 
-// Context returns the context currently in use by this thread. Unless already
-// cancelled, the next call to thread.SetParentContext will cancel this context
-// and its Err method will start to return ErrContextChanged.
+// Context returns a context which gets cancelled when this thread is
+// cancelled. If the passsed key is a string, calls to Value on the returned
+// context is equivalent to thread.Locals.
+//
+// If Context is called, Cancel must also be called.
 func (thread *Thread) Context() context.Context {
 	thread.contextLock.Lock()
 	defer thread.contextLock.Unlock()
