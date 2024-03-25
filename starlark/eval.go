@@ -33,7 +33,7 @@ type Thread struct {
 	// Name is an optional name that describes the thread, for debugging.
 	Name string
 
-	// contextLock synchronises access to fields required to implement context.
+	// context holds the execution context used by this thread.
 	context threadContext
 
 	// stack is the stack of (internal) call frames.
@@ -158,8 +158,8 @@ func (tc *threadContext) cancelled() error {
 }
 
 // Context returns a context which gets cancelled when this thread is
-// cancelled. If the passsed key is a string, calls to Value on the returned
-// context is equivalent to thread.Locals.
+// cancelled. Calling Value on the returned context with a string key is
+// equivalent to calling thread.Local with that key.
 //
 // If Context is called, Cancel must also be called.
 func (thread *Thread) Context() context.Context {
