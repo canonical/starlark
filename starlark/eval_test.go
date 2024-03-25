@@ -1064,12 +1064,17 @@ func TestContext(t *testing.T) {
 	thread.SetLocal(key, value)
 
 	ctx := thread.Context()
-	defer thread.Cancel("done")
 	if _, ok := ctx.Deadline(); ok {
 		t.Errorf("thread context has deadline")
 	}
 	if v := ctx.Value(key); v != value {
 		t.Errorf("retreived incorrect value: expected %v but got %v", value, v)
+	}
+
+	thread.Cancel("done")
+	ctx2 := thread.Context()
+	if ctx != ctx2 {
+		t.Error("context changed")
 	}
 }
 
