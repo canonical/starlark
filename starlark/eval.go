@@ -136,7 +136,7 @@ func (thread *Thread) Context() context.Context {
 		thread.context = &threadContext{thread}
 		thread.done = make(chan struct{})
 	}
-	if thread.cancelReason == nil {
+	if thread.cancelReason != nil {
 		close(thread.done)
 	}
 	return thread.context
@@ -288,6 +288,10 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 }
 
 func (thread *Thread) cancel(cancelReason error) {
+	if cancelReason == nil {
+		panic("cancel reason cannot be nil")
+	}
+
 	thread.contextLock.Lock()
 	defer thread.contextLock.Unlock()
 
@@ -295,6 +299,10 @@ func (thread *Thread) cancel(cancelReason error) {
 		return
 	}
 	thread.cancelReason = cancelReason
+
+	if thread.done == nil {
+		thread.done = make(chan struct{})
+	}
 	close(thread.done)
 }
 
