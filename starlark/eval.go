@@ -289,14 +289,14 @@ func (thread *Thread) Cancel(reason string, args ...interface{}) {
 	thread.cancel(err)
 }
 
-func (thread *Thread) cancel(cancelReason error) {
+func (thread *Thread) cancel(err error) {
 	thread.contextLock.Lock()
 	defer thread.contextLock.Unlock()
 
 	if thread.cancelReason != nil {
 		return
 	}
-	thread.cancelReason = cancelReason
+	thread.cancelReason = fmt.Errorf("Starlark computation cancelled: %w", err)
 
 	if thread.done == nil {
 		thread.done = make(chan struct{})

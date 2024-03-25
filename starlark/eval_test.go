@@ -1090,9 +1090,7 @@ func TestCancelConsistency(t *testing.T) {
 		t.Error("uncancelled thread context returns unexpected error")
 	}
 
-	const cancelReason = "done"
-
-	thread.Cancel(cancelReason)
+	thread.Cancel("done")
 	select {
 	case <-ctx.Done():
 	default:
@@ -1104,12 +1102,13 @@ func TestCancelConsistency(t *testing.T) {
 		t.Errorf("cancelled context has wrong error, expected %v but got %v", context.Canceled, err)
 	}
 
+	const expectedMsg = "Starlark computation cancelled: done"
 	opts := &syntax.FileOptions{}
 	_, err := starlark.ExecFileOptions(opts, thread, "cancelled.star", `x = 1//0`, nil)
 	if err == nil {
 		t.Error("invalid setup did not result in error")
-	} else if msg := err.Error(); msg != cancelReason {
-		t.Errorf("incorrect error: expected %v but got %v", cancelReason, msg)
+	} else if msg := err.Error(); msg != expectedMsg {
+		t.Errorf("incorrect error: expected %v but got %v", expectedMsg, msg)
 	}
 }
 
