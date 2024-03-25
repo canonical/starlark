@@ -38,8 +38,6 @@ type Thread struct {
 	cancelReason error
 	done         chan struct{}
 
-	finalizerSet bool
-
 	// stack is the stack of (internal) call frames.
 	stack []*frame
 
