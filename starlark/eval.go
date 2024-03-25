@@ -34,7 +34,6 @@ type Thread struct {
 	Name string
 
 	// context holds the execution context used by this thread.
-	context      *threadContext
 	contextLock  sync.Mutex
 	cancelReason error
 	done         chan struct{}
@@ -139,7 +138,6 @@ func (thread *Thread) Context() context.Context {
 	defer thread.contextLock.Unlock()
 
 	if thread.done == nil {
-		thread.context = (*threadContext)(thread)
 		thread.done = make(chan struct{})
 	}
 	if thread.cancelReason != nil {
