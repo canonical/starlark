@@ -108,7 +108,8 @@ func (tc *threadContext) Done() <-chan struct{} {
 		if thread.cancelReason == nil {
 			thread.done = make(chan struct{})
 		} else {
-			thread.done = closedChannel
+			// Don't set thread.done here, so we never risk closing it twice.
+			return closedChannel
 		}
 	}
 	return thread.done
