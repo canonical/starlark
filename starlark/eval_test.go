@@ -983,35 +983,6 @@ func TestSteps(t *testing.T) {
 	if !errors.As(err, &expected) {
 		t.Errorf("execution returned error %q, want too many steps", err)
 	}
-
-	thread.SetMaxSteps(thread.Steps() + 100)
-	thread.Uncancel()
-	_, err = countSteps(1)
-	if err != nil {
-		t.Errorf("execution returned error %q, want nil", err)
-	}
-}
-
-func TestUncancelContextCancellation(t *testing.T) {
-	previousContextCancelled := false
-
-	thread := &starlark.Thread{}
-	thread.Cancel("oh no!")
-	ctx := thread.Context()
-	thread.Uncancel()
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		<-ctx.Done()
-		previousContextCancelled = true
-		wg.Done()
-	}()
-
-	wg.Wait()
-	if !previousContextCancelled {
-		t.Error("previous context not cancelled")
-	}
 }
 
 // TestDeps fails if the interpreter proper (not the REPL, etc) sprouts new external dependencies.
@@ -1085,126 +1056,59 @@ main()
 	}
 }
 
-func TestThreadCancelConsistency(t *testing.T) {
-	const expected = "Starlark computation cancelled"
+func TestContext(t *testing.T) {
+	const key = "E major"
+	const value = "The Four Seasons, Spring"
 
-	ctx, cancel := context.WithCancel(context.Background())
 	thread := &starlark.Thread{}
-	thread.SetContext(ctx)
-	cancel()
+	thread.SetLocal(key, value)
 
-	_, err := starlark.ExecFile(thread, "cancelled.star", `x = 1//0`, nil)
-	if err.Error() != expected {
-		t.Errorf("expected error %q but got %q", expected, err)
+	ctx := thread.Context()
+	if _, ok := ctx.Deadline(); ok {
+		t.Errorf("thread context has deadline")
 	}
-	if !errors.Is(err, context.Canceled) {
-		t.Errorf("unexpected inner error: expected %q but got %q", context.Canceled, err)
-	}
-
-	firstCtxErr := thread.Context().Err()
-	thread.Cancel("second-cancellation")
-	if err = thread.Context().Err(); err.Error() != firstCtxErr.Error() {
-		t.Errorf("Err() return value changed: initially got %q but now got %q", firstCtxErr, err)
+	if v := ctx.Value(key); v != value {
+		t.Errorf("retreived incorrect value: expected %v but got %v", value, v)
 	}
 
-	firstCtx := thread.Context()
-	thread.Uncancel()
-	_, err = starlark.ExecFile(thread, "uncancelled.star", `x = 1`, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if ctx := thread.Context(); ctx == firstCtx {
-		t.Errorf("uncancelled thread did not discard context")
+	thread.Cancel("done")
+	ctx2 := thread.Context()
+	if ctx != ctx2 {
+		t.Error("context changed")
 	}
 }
 
-func TestDoubleCancellation(t *testing.T) {
-	const errorToIgnore = "this shouldn't happen"
-
-	ctx, cancel := context.WithCancel(context.Background())
-	thread := &starlark.Thread{}
-	thread.SetContext(ctx)
-	cancel()
-	thread.Cancel(errorToIgnore)
-
-	_, err := starlark.ExecFile(thread, "cancelled.star", `x = 1`, nil)
-	if !errors.Is(err, context.Canceled) {
-		t.Errorf("expected %v got %v", context.Canceled, err)
-	}
-	if strings.Contains(err.Error(), errorToIgnore) {
-		t.Errorf("unexpected error %v", err)
-	}
-}
-
-func TestContextCancelConsistency(t *testing.T) {
-	const innerError = "oh no!"
-
-	ctx, cancel := context.WithCancel(context.Background())
-	thread := &starlark.Thread{}
-	thread.SetContext(ctx)
-	thread.Cancel(innerError)
-
-	const expectedExecFileError = "Starlark computation cancelled: oh no!"
-	_, err := starlark.ExecFile(thread, "cancelled.star", `x = 1//0`, nil)
-	if err.Error() != expectedExecFileError {
-		t.Errorf("expected error %q but got %q", expectedExecFileError, err)
-	}
-
-	select {
-	case <-thread.Context().Done():
-		expected := context.Canceled
-		if err = thread.Context().Err(); err != expected {
-			t.Errorf("unexpected error: expected %q but got %q", expected, err)
-		}
-	default:
-		t.Error("expected context to be cancelled")
-	}
-	cancel()
-	if err2 := thread.Context().Err(); err2.Error() != err.Error() {
-		t.Errorf("Err() return value changed: initially got %q but now got %q", err, err2)
-	}
-
-	firstCtx := thread.Context()
-	thread.Uncancel()
-	_, err = starlark.ExecFile(thread, "uncancelled.star", `x = 1`, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if ctx := thread.Context(); ctx == firstCtx {
-		t.Errorf("uncancelled thread did not discard context")
-	}
-}
-
-func TestUnspecifiedContext(t *testing.T) {
+func TestCancelConsistency(t *testing.T) {
 	thread := &starlark.Thread{}
 	ctx := thread.Context()
-	if ctx == nil {
-		t.Errorf("thread has no default context")
+	select {
+	case <-ctx.Done():
+		t.Error("uncancelled thread context unexpectedly cancelled")
+	default:
 	}
-	if ctx2 := thread.Context(); ctx != ctx2 {
-		t.Errorf("thread context changed unexpectedly")
+	if err := ctx.Err(); err != nil {
+		t.Error("uncancelled thread context returns unexpected error")
 	}
-}
 
-func TestSpecifiedContext(t *testing.T) {
-	const key = "foo"
-	const value = "bar"
-	ctx := context.WithValue(context.Background(), key, value)
-
-	thread := &starlark.Thread{}
-	thread.SetContext(ctx)
-
-	predecls := starlark.StringDict{
-		"fn": starlark.NewBuiltin("fn", func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-			if v := thread.Context().Value(key); v != value {
-				t.Errorf("could not find %q in thread context, expected value %q but got %#v", key, value, v)
-			}
-			return starlark.None, nil
-		}),
+	thread.Cancel("done")
+	select {
+	case <-ctx.Done():
+	default:
+		t.Error("cancelled thread context not cancelled")
 	}
-	_, err := starlark.ExecFile(thread, "context", "fn()", predecls)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	if err := ctx.Err(); err == nil {
+		t.Error("cancelled thread context has nil error")
+	} else if err != context.Canceled {
+		t.Errorf("cancelled context has wrong error, expected %v but got %v", context.Canceled, err)
+	}
+
+	const expectedMsg = "Starlark computation cancelled: done"
+	opts := &syntax.FileOptions{}
+	_, err := starlark.ExecFileOptions(opts, thread, "cancelled.star", `x = 1//0`, nil)
+	if err == nil {
+		t.Error("invalid setup did not result in error")
+	} else if msg := err.Error(); msg != expectedMsg {
+		t.Errorf("incorrect error: expected %v but got %v", expectedMsg, msg)
 	}
 }
 
