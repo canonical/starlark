@@ -2203,7 +2203,7 @@ func (gi *guardedIterator) Err() error {
 }
 
 func (gi *guardedIterator) Safety() SafetyFlags {
-	const wrapperSafety = CPUSafe | MemSafe
+	const wrapperSafety = CPUSafe | MemSafe | TimeSafe
 	return wrapperSafety & gi.iter.Safety()
 }
 func (gi *guardedIterator) BindThread(thread *Thread) { gi.thread = thread }
