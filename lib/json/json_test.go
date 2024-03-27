@@ -43,9 +43,75 @@ func (ui *unsafeTestIterator) Next(p *starlark.Value) bool {
 func (ui *unsafeTestIterator) Done()      {}
 func (ui *unsafeTestIterator) Err() error { return fmt.Errorf("Err called") }
 
+// testIterable is an iterable with customisable yield behaviour.
+type testIterable struct {
+	// If positive, maxN sets an upper bound on the number of iterations
+	// performed. Otherwise, iteration is unbounded.
+	maxN int
+
+	// nth returns a value to be yielded by the nth Next call.
+	nth func(thread *starlark.Thread, n int) (starlark.Value, error)
+}
+
+var _ starlark.Iterable = &testIterable{}
+
+func (ti *testIterable) Freeze() {}
+func (ti *testIterable) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", ti.Type())
+}
+func (ti *testIterable) String() string       { return "testIterable" }
+func (ti *testIterable) Truth() starlark.Bool { return ti.maxN != 0 }
+func (ti *testIterable) Type() string         { return "testIterable" }
+func (ti *testIterable) Iterate() starlark.Iterator {
+	return &testIterator{
+		maxN: ti.maxN,
+		nth:  ti.nth,
+	}
+}
+
+type testIterator struct {
+	n, maxN int
+	nth     func(thread *starlark.Thread, n int) (starlark.Value, error)
+	thread  *starlark.Thread
+	err     error
+}
+
+var _ starlark.SafeIterator = &testIterator{}
+
+func (it *testIterator) BindThread(thread *starlark.Thread) { it.thread = thread }
+func (it *testIterator) Safety() starlark.SafetyFlags {
+	const safe = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
+	if it.thread == nil {
+		return starlark.NotSafe
+	}
+	return safe
+}
+func (it *testIterator) Next(p *starlark.Value) bool {
+	it.n++
+	if it.nth == nil {
+		it.err = errors.New("testIterator called with nil nth function")
+	}
+	if it.err != nil {
+		return false
+	}
+
+	if it.maxN > 0 && it.n > it.maxN {
+		return false
+	}
+	ret, err := it.nth(it.thread, it.n)
+	if err != nil {
+		it.err = err
+		return false
+	}
+
+	*p = ret
+	return true
+}
+func (it *testIterator) Done()      {}
+func (it *testIterator) Err() error { return it.err }
+
 func isStarlarkCancellation(err error) bool {
-	const cancellationPrefix = "Starlark computation cancelled:"
-	return strings.Contains(err.Error(), cancellationPrefix)
+	return strings.Contains(err.Error(), "Starlark computation cancelled:")
 }
 
 func TestModuleSafeties(t *testing.T) {
@@ -224,6 +290,66 @@ func TestJsonEncodeAllocs(t *testing.T) {
 				st.Error(err)
 			}
 			st.KeepAlive(result)
+		})
+	})
+}
+
+func TestJsonEncodeCancellation(t *testing.T) {
+	json_encode, _ := json.Module.Attr("encode")
+	if json_encode == nil {
+		t.Fatal("no such method: json.encode")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.TimeSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, json_encode, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			iter := &testIterable{
+				maxN: st.N,
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.None, nil
+				},
+			}
+			_, err := starlark.Call(thread, json_encode, starlark.Tuple{iter}, nil)
+			if err == nil {
+				st.Errorf("expected cancellation: %d", st.N)
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("mapping", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			dictToMarshal := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				dictToMarshal.SetKey(starlark.String(fmt.Sprint(i)), starlark.None)
+			}
+			_, err := starlark.Call(thread, json_encode, starlark.Tuple{dictToMarshal}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
 		})
 	})
 }

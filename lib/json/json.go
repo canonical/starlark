@@ -82,7 +82,7 @@ var Module = &starlarkstruct.Module{
 	},
 }
 var safeties = map[string]starlark.SafetyFlags{
-	"encode": starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe,
+	"encode": starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
 	"decode": starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
 	"indent": starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
 }
