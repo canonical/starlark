@@ -105,7 +105,7 @@ func init() {
 		"str":       CPUSafe | MemSafe | IOSafe,
 		"tuple":     CPUSafe | MemSafe | IOSafe,
 		"type":      CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"zip":       CPUSafe | MemSafe | IOSafe,
+		"zip":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 	}
 
 	for name, flags := range universeSafeties {
