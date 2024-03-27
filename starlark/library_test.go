@@ -220,8 +220,7 @@ func (ui *unsafeTestIterator) Done()      {}
 func (ui *unsafeTestIterator) Err() error { return fmt.Errorf("Err called") }
 
 func isStarlarkCancellation(err error) bool {
-	const cancellationPrefix = "Starlark computation cancelled:"
-	return strings.Contains(err.Error(), cancellationPrefix)
+	return strings.Contains(err.Error(), "Starlark computation cancelled:")
 }
 
 func TestAbsSteps(t *testing.T) {
