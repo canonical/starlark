@@ -72,7 +72,7 @@ func (i Int) Unary(op syntax.Token) (Value, error) {
 }
 
 func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}

@@ -315,20 +315,45 @@ func TestSafeUnary(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			st := startest.From(t)
-			st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
-			st.SetMaxSteps(test.steps)
-			st.RunThread(func(thread *starlark.Thread) {
-				input, err := test.input(thread, st.N)
-				if err != nil {
-					st.Error(err)
-				}
-				result, err := starlark.SafeUnary(thread, test.op, input)
-				if err != nil {
-					st.Error(err)
-				}
-				st.KeepAlive(result)
+			t.Run("execution", func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.Safe)
+				st.SetMaxSteps(test.steps)
+				st.RunThread(func(thread *starlark.Thread) {
+					input, err := test.input(thread, st.N)
+					if err != nil {
+						st.Error(err)
+					}
+					result, err := starlark.SafeUnary(thread, test.op, input)
+					if err != nil {
+						st.Error(err)
+					}
+					st.KeepAlive(result)
+				})
 			})
+
+			if test.steps != 0 {
+				t.Run("cancellation", func(t *testing.T) {
+					st := startest.From(t)
+					st.RequireSafety(starlark.TimeSafe)
+					st.SetMaxSteps(0)
+					st.RunThread(func(thread *starlark.Thread) {
+						thread.Cancel("done")
+						input, err := test.input(thread, st.N)
+						if err != nil {
+							st.Error(err)
+						}
+						_, err = starlark.SafeUnary(thread, test.op, input)
+						if err == nil {
+							if thread.Steps() > 0 {
+								st.Error("expected cancellation")
+							}
+						} else if !isStarlarkCancellation(err) {
+							st.Errorf("expected cancellation, got: %v", err)
+						}
+					})
+				})
+			}
 		})
 	}
 }
