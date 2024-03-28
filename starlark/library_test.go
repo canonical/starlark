@@ -4730,6 +4730,30 @@ func TestDictKeysAllocs(t *testing.T) {
 	})
 }
 
+func TestDictKeysCancellation(t *testing.T) {
+	dict := starlark.NewDict(0)
+	dict_keys, _ := dict.Attr("keys")
+	if dict_keys == nil {
+		t.Fatal("no such method: dict.keys")
+	}
+
+	st := startest.From(t)
+	st.RequireSafety(starlark.TimeSafe)
+	st.SetMaxSteps(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		thread.Cancel("done")
+		for i := dict.Len(); i < st.N; i++ {
+			dict.SetKey(starlark.MakeInt(i), starlark.None)
+		}
+		_, err := starlark.Call(thread, dict_keys, nil, nil)
+		if err == nil {
+			st.Error("expected cancellation")
+		} else if !isStarlarkCancellation(err) {
+			st.Errorf("expected cancellation, got: %v", err)
+		}
+	})
+}
+
 func TestDictPopSteps(t *testing.T) {
 	const dictSize = 500
 
