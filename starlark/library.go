@@ -139,7 +139,7 @@ var (
 	dictMethodSafeties = map[string]SafetyFlags{
 		"clear":      CPUSafe | MemSafe | IOSafe,
 		"get":        CPUSafe | MemSafe | IOSafe,
-		"items":      CPUSafe | MemSafe | IOSafe,
+		"items":      CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"keys":       CPUSafe | MemSafe | IOSafe,
 		"pop":        CPUSafe | MemSafe | IOSafe,
 		"popitem":    CPUSafe | MemSafe | IOSafe,

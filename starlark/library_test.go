@@ -4655,6 +4655,29 @@ func TestDictItemsAllocs(t *testing.T) {
 	})
 }
 
+func TestDictItemsCancellation(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.TimeSafe)
+	st.SetMaxSteps(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		thread.Cancel("done")
+		dict := starlark.NewDict(st.N)
+		for i := 0; i < st.N; i++ {
+			dict.SetKey(starlark.MakeInt(i), starlark.None)
+		}
+		dict_items, _ := dict.Attr("items")
+		if dict_items == nil {
+			t.Fatal("no such method: dict.items")
+		}
+		_, err := starlark.Call(thread, dict_items, nil, nil)
+		if err == nil {
+			st.Error("expected cancellation")
+		} else if !isStarlarkCancellation(err) {
+			st.Errorf("expected cancellation, got: %v", err)
+		}
+	})
+}
+
 func TestDictKeysSteps(t *testing.T) {
 	dict := starlark.NewDict(0)
 	dict_keys, _ := dict.Attr("keys")
