@@ -137,7 +137,7 @@ var (
 		"values":     NewBuiltin("values", dict_values),
 	}
 	dictMethodSafeties = map[string]SafetyFlags{
-		"clear":      CPUSafe | MemSafe | IOSafe,
+		"clear":      CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"get":        CPUSafe | MemSafe | IOSafe,
 		"items":      CPUSafe | MemSafe | IOSafe,
 		"keys":       CPUSafe | MemSafe | IOSafe,
@@ -257,7 +257,7 @@ var (
 	}
 	setMethodSafeties = map[string]SafetyFlags{
 		"add":                  CPUSafe | MemSafe | IOSafe,
-		"clear":                CPUSafe | MemSafe | IOSafe,
+		"clear":                CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"difference":           CPUSafe | MemSafe | IOSafe,
 		"discard":              CPUSafe | MemSafe | IOSafe,
 		"intersection":         CPUSafe | MemSafe | IOSafe,

@@ -4434,6 +4434,27 @@ func TestDictClearAllocs(t *testing.T) {
 	})
 }
 
+func TestDictClearCancellation(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.TimeSafe)
+	st.SetMaxSteps(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		thread.Cancel("done")
+		dict := starlark.NewDict(st.N * 8)
+		dict.SetKey(starlark.None, starlark.None) // force cleanup
+		dict_clear, _ := dict.Attr("clear")
+		if dict_clear == nil {
+			t.Fatal("no such method: dict.clear")
+		}
+		_, err := starlark.Call(thread, dict_clear, nil, nil)
+		if err == nil {
+			st.Error("expected cancellation")
+		} else if !isStarlarkCancellation(err) {
+			st.Errorf("expected cancellation, got: %v", err)
+		}
+	})
+}
+
 func TestDictGetSteps(t *testing.T) {
 	const dictSize = 500
 
@@ -7930,6 +7951,27 @@ func TestSetClearAllocs(t *testing.T) {
 			st.Error(err)
 		}
 		st.KeepAlive(result)
+	})
+}
+
+func TestSetClearCancellation(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.TimeSafe)
+	st.SetMaxSteps(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		thread.Cancel("done")
+		set := starlark.NewSet(st.N * 8)
+		set.Insert(starlark.None) // force cleanup
+		dict_clear, _ := set.Attr("clear")
+		if dict_clear == nil {
+			t.Fatal("no such method: set.clear")
+		}
+		_, err := starlark.Call(thread, dict_clear, nil, nil)
+		if err == nil {
+			st.Error("expected cancellation")
+		} else if !isStarlarkCancellation(err) {
+			st.Errorf("expected cancellation, got: %v", err)
+		}
 	})
 }
 
