@@ -4580,6 +4580,73 @@ func TestDictGetAllocs(t *testing.T) {
 	})
 }
 
+func TestDictGetCancellation(t *testing.T) {
+	t.Run("few-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			dict := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				dict.SetKey(starlark.MakeInt(i), starlark.None)
+			}
+			dict_get, _ := dict.Attr("get")
+			if dict_get == nil {
+				t.Fatal("no such method: dict.get")
+			}
+			// existing key
+			_, err := starlark.Call(thread, dict_get, starlark.Tuple{starlark.MakeInt(0)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+			// missing key
+			_, err = starlark.Call(thread, dict_get, starlark.Tuple{starlark.MakeInt(st.N)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			dict := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				// Int hash only uses the least 32 bits.
+				// Leaving them blank creates collisions.
+				key := starlark.MakeInt64(int64(i) << 32)
+				dict.SetKey(key, starlark.None)
+			}
+			dict_get, _ := dict.Attr("get")
+			if dict_get == nil {
+				t.Fatal("no such method: dict.get")
+			}
+			// existing key
+			_, err := starlark.Call(thread, dict_get, starlark.Tuple{starlark.MakeInt64(int64(1) << 32)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+			// missing key
+			_, err = starlark.Call(thread, dict_get, starlark.Tuple{starlark.MakeInt64(int64(st.N) << 32)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestDictItemsSteps(t *testing.T) {
 	dict := starlark.NewDict(0)
 	dict_items, _ := dict.Attr("items")

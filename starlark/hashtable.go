@@ -203,7 +203,7 @@ func (ht *hashtable) grow(thread *Thread) error {
 }
 
 func (ht *hashtable) lookup(thread *Thread, k Value) (v Value, found bool, err error) {
-	if err := CheckSafety(thread, CPUSafe|MemSafe|IOSafe); err != nil {
+	if err := CheckSafety(thread, CPUSafe|MemSafe|TimeSafe|IOSafe); err != nil {
 		return nil, false, err
 	}
 	h, err := k.Hash()
