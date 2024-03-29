@@ -145,7 +145,7 @@ var (
 		"popitem":    CPUSafe | MemSafe | IOSafe,
 		"setdefault": CPUSafe | MemSafe | IOSafe,
 		"update":     CPUSafe | MemSafe | IOSafe,
-		"values":     CPUSafe | MemSafe | IOSafe,
+		"values":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 	}
 
 	listMethods = map[string]*Builtin{
