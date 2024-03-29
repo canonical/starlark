@@ -164,7 +164,7 @@ var (
 		"index":  CPUSafe | MemSafe | IOSafe,
 		"insert": CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"pop":    CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"remove": CPUSafe | MemSafe | IOSafe,
+		"remove": CPUSafe | MemSafe | TimeSafe | IOSafe,
 	}
 
 	stringMethods = map[string]*Builtin{

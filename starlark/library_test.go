@@ -5830,6 +5830,30 @@ func TestListRemoveAllocs(t *testing.T) {
 	})
 }
 
+func TestListRemoveCancellation(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.TimeSafe)
+	st.SetMaxSteps(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		thread.Cancel("done")
+		list := starlark.NewList(make([]starlark.Value, 0, st.N))
+		for i := 0; i < st.N; i++ {
+			list.Append(starlark.MakeInt(i))
+		}
+		list_remove, _ := list.Attr("remove")
+		if list_remove == nil {
+			t.Fatal("no such method: list.remove")
+		}
+		input := list.Index(0)
+		_, err := starlark.Call(thread, list_remove, starlark.Tuple{input}, nil)
+		if err == nil {
+			st.Error("expected cancellation")
+		} else if !isStarlarkCancellation(err) {
+			st.Errorf("expected cancellation, got: %v", err)
+		}
+	})
+}
+
 func TestStringCapitalizeSteps(t *testing.T) {
 	tests := []struct {
 		name          string
