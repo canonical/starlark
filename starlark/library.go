@@ -311,7 +311,7 @@ func builtinAttr(recv Value, name string, methods map[string]*Builtin) (Value, e
 }
 
 func safeBuiltinAttr(thread *Thread, recv Value, name string, methods map[string]*Builtin) (Value, error) {
-	if err := CheckSafety(thread, CPUSafe|MemSafe); err != nil {
+	if err := CheckSafety(thread, CPUSafe|MemSafe|TimeSafe); err != nil {
 		return nil, err
 	}
 	b := methods[name]
