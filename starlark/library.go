@@ -160,7 +160,7 @@ var (
 	listMethodSafeties = map[string]SafetyFlags{
 		"append": CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"clear":  CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"extend": CPUSafe | MemSafe | IOSafe,
+		"extend": CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"index":  CPUSafe | MemSafe | IOSafe,
 		"insert": CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"pop":    CPUSafe | MemSafe | TimeSafe | IOSafe,

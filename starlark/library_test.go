@@ -5515,6 +5515,79 @@ func TestListExtendAllocs(t *testing.T) {
 	})
 }
 
+func TestListExtendCancellation(t *testing.T) {
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.TimeSafe)
+
+		list := starlark.NewList([]starlark.Value{})
+		list_extend, _ := list.Attr("extend")
+		if list_extend == nil {
+			t.Fatal("no such method: list.extend")
+		}
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, list_extend, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("list", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			list := starlark.NewList([]starlark.Value{})
+			list_extend, _ := list.Attr("extend")
+			if list_extend == nil {
+				st.Fatal("no such method: list.extend")
+			}
+
+			toAdd := starlark.NewList(make([]starlark.Value, 0, st.N))
+			for i := 0; i < st.N; i++ {
+				toAdd.Append(starlark.None)
+			}
+			_, err := starlark.Call(thread, list_extend, starlark.Tuple{toAdd}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			list := starlark.NewList([]starlark.Value{})
+			list_extend, _ := list.Attr("extend")
+			if list_extend == nil {
+				t.Fatal("no such method: list.extend")
+			}
+
+			iter := &testIterable{
+				nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
+					return starlark.None, nil
+				},
+				maxN: st.N,
+			}
+			_, err := starlark.Call(thread, list_extend, starlark.Tuple{iter}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestListIndexSteps(t *testing.T) {
 	const preallocSize = 150_000
 
