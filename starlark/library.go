@@ -98,7 +98,7 @@ func init() {
 		"ord":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"print":     CPUSafe | MemSafe,
 		"range":     CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"repr":      CPUSafe | MemSafe | IOSafe,
+		"repr":      CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"reversed":  CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"set":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"sorted":    CPUSafe | MemSafe | TimeSafe | IOSafe,
