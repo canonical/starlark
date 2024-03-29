@@ -161,7 +161,7 @@ var (
 		"append": CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"clear":  CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"extend": CPUSafe | MemSafe | IOSafe,
-		"index":  CPUSafe | MemSafe | IOSafe,
+		"index":  CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"insert": CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"pop":    CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"remove": CPUSafe | MemSafe | IOSafe,
