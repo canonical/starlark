@@ -1949,10 +1949,18 @@ func testWriteValueCancellation(t *testing.T, name string) {
 		}
 	})
 
-	tests := []struct {
+	type writeValueTest struct {
 		name  string
 		input func(n int) starlark.Value
-	}{{
+	}
+
+	stringTest := writeValueTest{
+		name: "String",
+		input: func(n int) starlark.Value {
+			return starlark.String(strings.Repeat("a", n))
+		},
+	}
+	tests := []writeValueTest{{
 		name: "Bytes",
 		input: func(n int) starlark.Value {
 			return starlark.Bytes(strings.Repeat("a", n))
@@ -1994,11 +2002,6 @@ func testWriteValueCancellation(t *testing.T, name string) {
 				set.Insert(key)
 			}
 			return set
-		},
-	}, {
-		name: "String",
-		input: func(n int) starlark.Value {
-			return starlark.String(strings.Repeat("a", n))
 		},
 	}, {
 		name: "Tuple",
@@ -2049,6 +2052,9 @@ func testWriteValueCancellation(t *testing.T, name string) {
 			}
 		},
 	}}
+	if name != "str" {
+		tests = append(tests, stringTest)
+	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			st := startest.From(t)
@@ -4383,6 +4389,10 @@ func TestStrAllocs(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestStrCancellation(t *testing.T) {
+	testWriteValueCancellation(t, "str")
 }
 
 func TestTupleSteps(t *testing.T) {
