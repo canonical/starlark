@@ -208,7 +208,7 @@ func (i Int) Format(s fmt.State, ch rune) {
 }
 
 func (i Int) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}

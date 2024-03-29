@@ -458,7 +458,7 @@ type NoneType byte
 const None = NoneType(0)
 
 func (NoneType) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -481,7 +481,7 @@ const (
 )
 
 func (b Bool) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -554,7 +554,7 @@ func (f Float) format(buf StringBuilder, conv byte) error {
 }
 
 func (f Float) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -684,7 +684,7 @@ func (f Float) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
 type String string
 
 func (s String) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -762,7 +762,7 @@ var (
 )
 
 func (si stringElems) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -858,7 +858,7 @@ type stringCodepoints struct {
 var _ Iterable = (*stringCodepoints)(nil)
 
 func (si stringCodepoints) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -966,7 +966,7 @@ func (fn *Function) Truth() Bool           { return true }
 func (fn *Function) String() string        { return toString(fn) }
 
 func (fn *Function) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -1051,7 +1051,7 @@ func (b *Builtin) Hash() (uint32, error) {
 }
 
 func (b *Builtin) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -1152,7 +1152,7 @@ func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.
 func (d *Dict) String() string                                  { return toString(d) }
 
 func (d *Dict) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -1436,7 +1436,7 @@ func (t Tuple) Freeze() {
 }
 
 func (t Tuple) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -1514,7 +1514,7 @@ func (s *Set) Truth() Bool                            { return s.Len() > 0 }
 func (s *Set) String() string                         { return toString(s) }
 
 func (s *Set) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -2273,7 +2273,7 @@ var (
 )
 
 func (b Bytes) SafeString(thread *Thread, sb StringBuilder) error {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return err
 	}

@@ -172,7 +172,7 @@ func (s *Struct) ToStringDict(d starlark.StringDict) {
 }
 
 func (s *Struct) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
-	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe
+	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return err
 	}
