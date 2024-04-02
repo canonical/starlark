@@ -6459,6 +6459,26 @@ func testStringIsSteps(t *testing.T, methodName, trueExample string, trueSteps i
 	})
 }
 
+func testStringIsCancellation(t *testing.T, methodName, example string) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.TimeSafe)
+	st.SetMaxSteps(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		thread.Cancel("done")
+		str := starlark.String(strings.Repeat(example, st.N))
+		method, _ := str.Attr(methodName)
+		if method == nil {
+			st.Fatalf("no such method: string.%s", methodName)
+		}
+		_, err := starlark.Call(thread, method, nil, nil)
+		if err == nil {
+			st.Error("expected cancellation")
+		} else if !isStarlarkCancellation(err) {
+			st.Errorf("expected cancellation, got: %v", err)
+		}
+	})
+}
+
 func TestStringIsalnumSteps(t *testing.T) {
 	testStringIsSteps(t, "isalnum", "a0", 2, "--", 1)
 }
@@ -6481,6 +6501,10 @@ func TestStringIsalnumAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		}
 	})
+}
+
+func TestStringIsalnumCancellation(t *testing.T) {
+	testStringIsCancellation(t, "isalnum", "a0")
 }
 
 func TestStringIsalphaSteps(t *testing.T) {
@@ -6507,6 +6531,10 @@ func TestStringIsalphaAllocs(t *testing.T) {
 	})
 }
 
+func TestStringIsalphaCancellation(t *testing.T) {
+	testStringIsCancellation(t, "isalpha", "aa")
+}
+
 func TestStringIsdigitSteps(t *testing.T) {
 	testStringIsSteps(t, "isdigit", "00", 2, "aa", 1)
 }
@@ -6529,6 +6557,10 @@ func TestStringIsdigitAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		}
 	})
+}
+
+func TestStringIsdigitCancellation(t *testing.T) {
+	testStringIsCancellation(t, "isdigit", "00")
 }
 
 func TestStringIslowerSteps(t *testing.T) {
@@ -6555,6 +6587,10 @@ func TestStringIslowerAllocs(t *testing.T) {
 	})
 }
 
+func TestStringIslowerCancellation(t *testing.T) {
+	testStringIsCancellation(t, "islower", "aa")
+}
+
 func TestStringIsspaceSteps(t *testing.T) {
 	testStringIsSteps(t, "isspace", "  ", 2, "--", 1)
 }
@@ -6577,6 +6613,10 @@ func TestStringIsspaceAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		}
 	})
+}
+
+func TestStringIsspaceCancellation(t *testing.T) {
+	testStringIsCancellation(t, "isspace", "  ")
 }
 
 func TestStringIstitleSteps(t *testing.T) {
@@ -6603,6 +6643,10 @@ func TestStringIstitleAllocs(t *testing.T) {
 	})
 }
 
+func TestStringIstitleCancellation(t *testing.T) {
+	testStringIsCancellation(t, "istitle", "Ab ")
+}
+
 func TestStringIsupperSteps(t *testing.T) {
 	testStringIsSteps(t, "isupper", "AA", 2, "aa", 2)
 }
@@ -6625,6 +6669,10 @@ func TestStringIsupperAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		}
 	})
+}
+
+func TestStringIsupperCancellation(t *testing.T) {
+	testStringIsCancellation(t, "isupper", "AA")
 }
 
 func TestStringJoinSteps(t *testing.T) {
