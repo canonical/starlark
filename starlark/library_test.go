@@ -1691,7 +1691,149 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 			})
 		})
 	}
+}
 
+func testWriteValueCancellation(t *testing.T, name string) {
+	builtin, ok := starlark.Universe[name]
+	if !ok {
+		t.Fatalf("no such builtin: %s", name)
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.Print = func(thread *starlark.Thread, msg string) {
+			// Do nothing.
+		}
+		thread.RequireSafety(starlark.TimeSafe)
+
+		stringer := &unsafeTestStringer{t: t}
+		_, err := starlark.Call(thread, builtin, starlark.Tuple{stringer}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	tests := []struct {
+		name  string
+		input func(n int) starlark.Value
+	}{{
+		name: "Bytes",
+		input: func(n int) starlark.Value {
+			return starlark.Bytes(strings.Repeat("a", n))
+		},
+	}, {
+		name: "Dict",
+		input: func(n int) starlark.Value {
+			dict := starlark.NewDict(n)
+			for i := 0; i < n; i++ {
+				// Int hash only uses the least 32 bits.
+				// Leaving them blank creates collisions.
+				key := starlark.MakeInt64(int64(i) << 32)
+				dict.SetKey(key, starlark.None)
+			}
+			return dict
+		},
+	}, {
+		name: "Int(big)",
+		input: func(n int) starlark.Value {
+			return starlark.MakeInt64(1 << n)
+		},
+	}, {
+		name: "List",
+		input: func(n int) starlark.Value {
+			elems := make([]starlark.Value, n)
+			for i := range elems {
+				elems[i] = starlark.None
+			}
+			return starlark.NewList(elems)
+		},
+	}, {
+		name: "Set",
+		input: func(n int) starlark.Value {
+			set := starlark.NewSet(n)
+			for i := 0; i < n; i++ {
+				// Int hash only uses the least 32 bits.
+				// Leaving them blank creates collisions.
+				key := starlark.MakeInt64(int64(i) << 32)
+				set.Insert(key)
+			}
+			return set
+		},
+	}, {
+		name: "String",
+		input: func(n int) starlark.Value {
+			return starlark.String(strings.Repeat("a", n))
+		},
+	}, {
+		name: "Tuple",
+		input: func(n int) starlark.Value {
+			elems := make([]starlark.Value, n)
+			for i := range elems {
+				elems[i] = starlark.None
+			}
+			return starlark.Tuple(elems)
+		},
+	}, {
+		name: "Bytes elems",
+		input: func(n int) starlark.Value {
+			return starlark.Bytes(strings.Repeat("a", n)).Iterable()
+		},
+	}, {
+		name: "String elems (chars)",
+		input: func(n int) starlark.Value {
+			return starlark.String(strings.Repeat("a", n)).Elems(false)
+		},
+	}, {
+		name: "String elems (ords)",
+		input: func(n int) starlark.Value {
+			return starlark.String(strings.Repeat("a", n)).Elems(true)
+		},
+	}, {
+		name: "String codepoints (chars)",
+		input: func(n int) starlark.Value {
+			return starlark.String(strings.Repeat("a", n)).Codepoints(false)
+		},
+	}, {
+		name: "String codepoints (ords)",
+		input: func(n int) starlark.Value {
+			return starlark.String(strings.Repeat("a", n)).Codepoints(true)
+		},
+	}, {
+		name: "SafeStringer",
+		input: func(n int) starlark.Value {
+			return &testSafeStringer{
+				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
+					for i := 0; i < n; i++ {
+						if _, err := sb.WriteString("foo"); err != nil {
+							return err
+						}
+					}
+					return nil
+				},
+			}
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.TimeSafe)
+			st.SetMaxSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.Cancel("done")
+				thread.Print = func(thread *starlark.Thread, msg string) {
+					// Do nothing.
+				}
+				_, err := starlark.Call(thread, builtin, starlark.Tuple{test.input(st.N)}, nil)
+				if err == nil {
+					st.Error("expected cancellation")
+				} else if !isStarlarkCancellation(err) {
+					st.Errorf("expected cancellation, got: %v", err)
+				}
+			})
+		})
+	}
 }
 
 func TestFailSteps(t *testing.T) {
@@ -1746,6 +1888,10 @@ func TestFailAllocs(t *testing.T) {
 			thread.AddAllocs(starlark.StringTypeOverhead)
 		}
 	})
+}
+
+func TestFailCancellation(t *testing.T) {
+	testWriteValueCancellation(t, "fail")
 }
 
 func TestFloatSteps(t *testing.T) {
