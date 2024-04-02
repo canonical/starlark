@@ -6121,6 +6121,62 @@ func TestStringEndswithAllocs(t *testing.T) {
 	testStringFixAllocs(t, "endswith")
 }
 
+// testStringFixCancellation tests string.startswith and string.endswith cancellation
+func testStringFixCancellation(t *testing.T, method_name string) {
+	t.Run("string", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			string_ := starlark.String(strings.Repeat("foo-", st.N+1))
+			string_ = string_[:len(string_)-1]
+			method, _ := string_.Attr(method_name)
+			if method == nil {
+				t.Fatalf("no such method: string.%s", method)
+			}
+
+			fix := string_[4:]
+			_, err := starlark.Call(thread, method, starlark.Tuple{fix}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("tuple", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			string_ := starlark.String(strings.Repeat("foo-", st.N+1))
+			string_ = string_[:len(string_)-1]
+			method, _ := string_.Attr(method_name)
+			if method == nil {
+				t.Fatalf("no such method: string.%s", method)
+			}
+
+			fixes := starlark.Tuple{
+				string_[4:], // existing
+				starlark.String("absent"),
+			}
+			_, err := starlark.Call(thread, method, starlark.Tuple{fixes}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
+func TestStringEndswithCancellation(t *testing.T) {
+	testStringFixCancellation(t, "endswith")
+}
+
 func testStringFindMethodSteps(t *testing.T, name string) {
 	t.Run("small", func(t *testing.T) {
 		haystack := starlark.String("Was it a car or a cat I saw?")
@@ -7451,6 +7507,10 @@ func TestStringStartswithSteps(t *testing.T) {
 
 func TestStringStartswithAllocs(t *testing.T) {
 	testStringFixAllocs(t, "startswith")
+}
+
+func TestStringStartswithCancellation(t *testing.T) {
+	testStringFixCancellation(t, "startswith")
 }
 
 func TestStringStripSteps(t *testing.T) {
