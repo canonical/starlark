@@ -5891,6 +5891,43 @@ func TestStringCapitalizeAllocs(t *testing.T) {
 	})
 }
 
+func TestStringCapitalizeCancellation(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{{
+		name:  "ascii",
+		input: "input",
+	}, {
+		name:  "unicode-larger-result",
+		input: "ɐdroit",
+	}, {
+		name:  "unicode-smaller-result",
+		input: "ınput",
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.TimeSafe)
+			st.SetMaxSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.Cancel("done")
+				string_capitalize, _ := starlark.String(strings.Repeat(test.input, st.N)).Attr("capitalize")
+				if string_capitalize == nil {
+					t.Fatal("no such method: string.capitalize")
+				}
+
+				_, err := starlark.Call(thread, string_capitalize, nil, nil)
+				if err == nil {
+					st.Error("expected cancellation")
+				} else if !isStarlarkCancellation(err) {
+					st.Errorf("expected cancellation, got: %v", err)
+				}
+			})
+		})
+	}
+}
+
 func testStringIterableSteps(t *testing.T, methodName string) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.CPUSafe)
