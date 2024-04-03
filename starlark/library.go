@@ -140,7 +140,7 @@ var (
 		"clear":      CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"get":        CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"items":      CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"keys":       CPUSafe | MemSafe | IOSafe,
+		"keys":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"pop":        CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"popitem":    CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"setdefault": CPUSafe | MemSafe | IOSafe,
