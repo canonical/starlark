@@ -143,7 +143,7 @@ var (
 		"keys":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"pop":        CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"popitem":    CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"setdefault": CPUSafe | MemSafe | IOSafe,
+		"setdefault": CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"update":     CPUSafe | MemSafe | IOSafe,
 		"values":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 	}
