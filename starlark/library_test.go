@@ -6874,6 +6874,47 @@ func TestStringJoinAllocs(t *testing.T) {
 	})
 }
 
+func TestStringJoinCancellation(t *testing.T) {
+	string_join, _ := starlark.String("aa").Attr("join")
+	if string_join == nil {
+		t.Fatal("no such method: string.join")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.TimeSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, string_join, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("execution", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			iter := &testIterable{
+				maxN: st.N,
+				nth: func(_ *starlark.Thread, _ int) (starlark.Value, error) {
+					return starlark.String("b"), nil
+				},
+			}
+			_, err := starlark.Call(thread, string_join, starlark.Tuple{iter}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestStringLowerSteps(t *testing.T) {
 	t.Run("short", func(t *testing.T) {
 		str := starlark.String("δηαδβηηφ")
