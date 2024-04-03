@@ -7769,6 +7769,71 @@ func TestStringTitleAllocs(t *testing.T) {
 	})
 }
 
+func TestStringTitleCancellation(t *testing.T) {
+	t.Run("ASCII", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			str := starlark.String(strings.Repeat("deadbeef ", st.N))
+			string_title, _ := str.Attr("title")
+			if string_title == nil {
+				t.Fatal("no such method: string.title")
+			}
+
+			_, err := starlark.Call(thread, string_title, nil, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("Unicode (same length)", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			str := starlark.String(strings.Repeat("δηαδβηηφ ", st.N))
+			string_title, _ := str.Attr("title")
+			if string_title == nil {
+				t.Fatal("no such method: string.title")
+			}
+
+			_, err := starlark.Call(thread, string_title, nil, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("Unicode (different length)", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			str := starlark.String(strings.Repeat("ı ", st.N))
+			string_title, _ := str.Attr("title")
+			if string_title == nil {
+				t.Fatal("no such method: string.title")
+			}
+
+			_, err := starlark.Call(thread, string_title, nil, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestStringUpperSteps(t *testing.T) {
 	t.Run("short", func(t *testing.T) {
 		st := startest.From(t)
