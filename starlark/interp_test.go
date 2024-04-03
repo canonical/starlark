@@ -532,7 +532,7 @@ func TestIndexing(t *testing.T) {
 				t.Run("get", func(t *testing.T) {
 					dummy := &testing.T{}
 					st := startest.From(dummy)
-					st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
+					st.RequireSafety(starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe)
 					st.AddValue("input", test.input)
 					ok := st.RunString(`
 						input[0]
@@ -545,7 +545,7 @@ func TestIndexing(t *testing.T) {
 				t.Run("set", func(t *testing.T) {
 					dummy := &testing.T{}
 					st := startest.From(dummy)
-					st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
+					st.RequireSafety(starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe)
 					st.AddValue("input", test.input)
 					ok := st.RunString(`
 						input[0] = None
@@ -595,7 +595,7 @@ func TestIndexing(t *testing.T) {
 			for _, test := range tests {
 				t.Run(test.name, func(t *testing.T) {
 					st := startest.From(t)
-					st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
+					st.RequireSafety(starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe)
 					st.SetMinSteps(1)
 					st.AddValue("input", test.input)
 					st.RunString(`
@@ -620,7 +620,7 @@ func TestIndexing(t *testing.T) {
 			for _, test := range tests {
 				t.Run(test.name, func(t *testing.T) {
 					st := startest.From(t)
-					st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
+					st.RequireSafety(starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe)
 					st.SetMinSteps(1)
 					st.AddValue("input", test.input)
 					st.RunString(`
@@ -629,6 +629,36 @@ func TestIndexing(t *testing.T) {
 					`)
 				})
 			}
+		})
+
+		t.Run("cancellation", func(t *testing.T) {
+			t.Run("dict", func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.TimeSafe)
+				st.SetMaxSteps(0)
+				st.RunThread(func(thread *starlark.Thread) {
+					thread.Cancel("done")
+					dict := starlark.NewDict(st.N)
+					for i := 0; i < st.N; i++ {
+						// Int hash only uses the least 32 bits.
+						// Leaving them blank creates collisions.
+						key := starlark.MakeInt64(int64(i) << 32)
+						dict.SetKey(key, starlark.None)
+					}
+					_, _, err := dict.SafeGet(thread, starlark.None)
+					if err == nil {
+						st.Error("expected cancellation")
+					} else if !isStarlarkCancellation(err) {
+						st.Errorf("expected cancellation, got: %v", err)
+					}
+					err = dict.SafeSetKey(thread, starlark.MakeInt64(int64(st.N)<<32), starlark.None)
+					if err == nil {
+						st.Error("expected cancellation")
+					} else if !isStarlarkCancellation(err) {
+						st.Errorf("expected cancellation, got: %v", err)
+					}
+				})
+			})
 		})
 	})
 }

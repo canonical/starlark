@@ -870,6 +870,19 @@ func TestSafeAttr(t *testing.T) {
 						}
 					})
 				})
+
+				t.Run("cancellation", func(t *testing.T) {
+					st := startest.From(t)
+					st.RequireSafety(starlark.TimeSafe)
+					st.SetMaxSteps(0)
+					st.RunThread(func(thread *starlark.Thread) {
+						thread.Cancel("done")
+						_, err := input.SafeAttr(thread, attr)
+						if err != nil {
+							st.Error(err)
+						}
+					})
+				})
 			})
 		}
 	}
