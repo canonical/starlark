@@ -139,13 +139,13 @@ var (
 	dictMethodSafeties = map[string]SafetyFlags{
 		"clear":      CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"get":        CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"items":      CPUSafe | MemSafe | IOSafe,
+		"items":      CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"keys":       CPUSafe | MemSafe | IOSafe,
-		"pop":        CPUSafe | MemSafe | IOSafe,
-		"popitem":    CPUSafe | MemSafe | IOSafe,
+		"pop":        CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"popitem":    CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"setdefault": CPUSafe | MemSafe | IOSafe,
 		"update":     CPUSafe | MemSafe | IOSafe,
-		"values":     CPUSafe | MemSafe | IOSafe,
+		"values":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 	}
 
 	listMethods = map[string]*Builtin{
@@ -259,12 +259,12 @@ var (
 		"add":                  CPUSafe | MemSafe | IOSafe,
 		"clear":                CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"difference":           CPUSafe | MemSafe | IOSafe,
-		"discard":              CPUSafe | MemSafe | IOSafe,
+		"discard":              CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"intersection":         CPUSafe | MemSafe | IOSafe,
 		"issubset":             CPUSafe | MemSafe | IOSafe,
 		"issuperset":           CPUSafe | MemSafe | IOSafe,
-		"pop":                  CPUSafe | MemSafe | IOSafe,
-		"remove":               CPUSafe | MemSafe | IOSafe,
+		"pop":                  CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"remove":               CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"symmetric_difference": CPUSafe | MemSafe | IOSafe,
 		"union":                CPUSafe | MemSafe | IOSafe,
 	}

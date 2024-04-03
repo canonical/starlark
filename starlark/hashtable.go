@@ -339,7 +339,7 @@ func (ht *hashtable) values() []Value {
 }
 
 func (ht *hashtable) delete(thread *Thread, k Value) (v Value, found bool, err error) {
-	if err := CheckSafety(thread, CPUSafe|MemSafe|IOSafe); err != nil {
+	if err := CheckSafety(thread, CPUSafe|MemSafe|TimeSafe|IOSafe); err != nil {
 		return nil, false, err
 	}
 	if err := ht.checkMutable("delete from"); err != nil {

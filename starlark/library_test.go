@@ -5557,6 +5557,29 @@ func TestDictItemsAllocs(t *testing.T) {
 	})
 }
 
+func TestDictItemsCancellation(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.TimeSafe)
+	st.SetMaxSteps(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		thread.Cancel("done")
+		dict := starlark.NewDict(st.N)
+		for i := 0; i < st.N; i++ {
+			dict.SetKey(starlark.MakeInt(i), starlark.None)
+		}
+		dict_items, _ := dict.Attr("items")
+		if dict_items == nil {
+			t.Fatal("no such method: dict.items")
+		}
+		_, err := starlark.Call(thread, dict_items, nil, nil)
+		if err == nil {
+			st.Error("expected cancellation")
+		} else if !isStarlarkCancellation(err) {
+			st.Errorf("expected cancellation, got: %v", err)
+		}
+	})
+}
+
 func TestDictKeysSteps(t *testing.T) {
 	dict := starlark.NewDict(0)
 	dict_keys, _ := dict.Attr("keys")
@@ -5755,6 +5778,73 @@ func TestDictPopAllocs(t *testing.T) {
 	})
 }
 
+func TestDictPopCancellation(t *testing.T) {
+	t.Run("few-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			dict := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				dict.SetKey(starlark.MakeInt(i), starlark.None)
+			}
+			dict_pop, _ := dict.Attr("pop")
+			if dict_pop == nil {
+				t.Fatal("no such method: dict.pop")
+			}
+			// existing key
+			_, err := starlark.Call(thread, dict_pop, starlark.Tuple{starlark.MakeInt(0)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+			// missing key
+			_, err = starlark.Call(thread, dict_pop, starlark.Tuple{starlark.MakeInt(st.N)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			dict := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				// Int hash only uses the least 32 bits.
+				// Leaving them blank creates collisions.
+				key := starlark.MakeInt64(int64(i) << 32)
+				dict.SetKey(key, starlark.None)
+			}
+			dict_pop, _ := dict.Attr("pop")
+			if dict_pop == nil {
+				t.Fatal("no such method: dict.pop")
+			}
+			// existing key
+			_, err := starlark.Call(thread, dict_pop, starlark.Tuple{starlark.MakeInt(0)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+			// missing key
+			_, err = starlark.Call(thread, dict_pop, starlark.Tuple{starlark.MakeInt(st.N)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestDictPopitemSteps(t *testing.T) {
 	const dictSize = 500
 
@@ -5844,6 +5934,57 @@ func TestDictPopitemAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		}
 		st.KeepAlive(dict)
+	})
+}
+
+func TestDictPopitemCancellation(t *testing.T) {
+	t.Run("few-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			dict := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				dict.SetKey(starlark.MakeInt(i), starlark.None)
+			}
+			dict_popitem, _ := dict.Attr("popitem")
+			if dict_popitem == nil {
+				t.Fatal("no such method: dict.popitem")
+			}
+			_, err := starlark.Call(thread, dict_popitem, nil, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			dict := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				// Int hash only uses the least 32 bits.
+				// Leaving them blank creates collisions.
+				key := starlark.MakeInt64(int64(i) << 32)
+				dict.SetKey(key, starlark.None)
+			}
+			dict_popitem, _ := dict.Attr("popitem")
+			if dict_popitem == nil {
+				t.Fatal("no such method: dict.popitem")
+			}
+			_, err := starlark.Call(thread, dict_popitem, nil, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
 	})
 }
 
@@ -6112,6 +6253,29 @@ func TestDictValuesAllocs(t *testing.T) {
 				st.KeepAlive(result)
 			}
 		})
+	})
+}
+
+func TestDictValuesCancellation(t *testing.T) {
+	st := startest.From(t)
+	st.RequireSafety(starlark.TimeSafe)
+	st.SetMaxSteps(0)
+	st.RunThread(func(thread *starlark.Thread) {
+		thread.Cancel("done")
+		dict := starlark.NewDict(0)
+		dict_values, _ := dict.Attr("values")
+		if dict_values == nil {
+			t.Fatal("no such method: dict.values")
+		}
+		for i := 0; i < st.N; i++ {
+			dict.SetKey(starlark.MakeInt(i), starlark.None)
+		}
+		_, err := starlark.Call(thread, dict_values, nil, nil)
+		if err == nil {
+			st.Error("expected cancellation")
+		} else if !isStarlarkCancellation(err) {
+			st.Errorf("expected cancellation, got: %v", err)
+		}
 	})
 }
 
@@ -9118,6 +9282,72 @@ func TestSetDiscardAllocs(t *testing.T) {
 	})
 }
 
+func TestSetDiscardCancellation(t *testing.T) {
+	t.Run("few-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			set := starlark.NewSet(st.N)
+			for i := 0; i < st.N; i++ {
+				set.Insert(starlark.MakeInt(i))
+			}
+			set_discard, _ := set.Attr("discard")
+			if set_discard == nil {
+				t.Fatal("no such method: set.discard")
+			}
+			// existing key
+			_, err := starlark.Call(thread, set_discard, starlark.Tuple{starlark.MakeInt(0)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+			// missing key
+			_, err = starlark.Call(thread, set_discard, starlark.Tuple{starlark.MakeInt(st.N)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			set := starlark.NewSet(st.N)
+			for i := 0; i < st.N; i++ {
+				// Int hash only uses the least 32 bits.
+				// Leaving them blank creates collisions.
+				set.Insert(starlark.MakeInt64(int64(i) << 32))
+			}
+			set_discard, _ := set.Attr("discard")
+			if set_discard == nil {
+				t.Fatal("no such method: set.discard")
+			}
+			// existing key
+			_, err := starlark.Call(thread, set_discard, starlark.Tuple{starlark.MakeInt(0)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+			// missing key
+			_, err = starlark.Call(thread, set_discard, starlark.Tuple{starlark.MakeInt(st.N)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestSetIntersectionSteps(t *testing.T) {
 	t.Run("safety-respected", func(t *testing.T) {
 		thread := &starlark.Thread{}
@@ -9507,6 +9737,56 @@ func TestSetPopAllocs(t *testing.T) {
 	})
 }
 
+func TestSetPopCancellation(t *testing.T) {
+	t.Run("few-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			set := starlark.NewSet(st.N)
+			for i := 0; i < st.N; i++ {
+				set.Insert(starlark.MakeInt(i))
+			}
+			set_pop, _ := set.Attr("pop")
+			if set_pop == nil {
+				t.Fatal("no such method: set.pop")
+			}
+			_, err := starlark.Call(thread, set_pop, nil, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			set := starlark.NewSet(st.N)
+			for i := 0; i < st.N; i++ {
+				// Int hash only uses the least 32 bits.
+				// Leaving them blank creates collisions.
+				set.Insert(starlark.MakeInt64(int64(i) << 32))
+			}
+			set_pop, _ := set.Attr("pop")
+			if set_pop == nil {
+				t.Fatal("no such method: set.pop")
+			}
+			_, err := starlark.Call(thread, set_pop, nil, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestSetRemoveSteps(t *testing.T) {
 	const setSize = 500
 
@@ -9629,6 +9909,72 @@ func TestSetRemoveAllocs(t *testing.T) {
 			st.KeepAlive(result)
 			set.Insert(key) // Add the key back for next iteration.
 		}
+	})
+}
+
+func TestSetRemoveCancellation(t *testing.T) {
+	t.Run("few-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			set := starlark.NewSet(st.N)
+			for i := 0; i < st.N; i++ {
+				set.Insert(starlark.MakeInt(i))
+			}
+			set_remove, _ := set.Attr("remove")
+			if set_remove == nil {
+				t.Fatal("no such method: set.remove")
+			}
+			// existing key
+			_, err := starlark.Call(thread, set_remove, starlark.Tuple{starlark.MakeInt(0)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+			// missing key
+			_, err = starlark.Call(thread, set_remove, starlark.Tuple{starlark.MakeInt(st.N)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			set := starlark.NewSet(st.N)
+			for i := 0; i < st.N; i++ {
+				// Int hash only uses the least 32 bits.
+				// Leaving them blank creates collisions.
+				set.Insert(starlark.MakeInt64(int64(i) << 32))
+			}
+			set_remove, _ := set.Attr("remove")
+			if set_remove == nil {
+				t.Fatal("no such method: set.remove")
+			}
+			// existing key
+			_, err := starlark.Call(thread, set_remove, starlark.Tuple{starlark.MakeInt(0)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+			// missing key
+			_, err = starlark.Call(thread, set_remove, starlark.Tuple{starlark.MakeInt(st.N)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
 	})
 }
 
