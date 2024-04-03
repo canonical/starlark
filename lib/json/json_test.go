@@ -589,6 +589,22 @@ func TestJsonDecodeCancellation(t *testing.T) {
 			})
 		})
 	}
+
+	t.Run("padded", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			json_document := starlark.String(strings.Repeat(" ", st.N) + "1")
+			_, err := starlark.Call(thread, json_decode, starlark.Tuple{json_document}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
 }
 
 func TestJsonIndentSteps(t *testing.T) {
