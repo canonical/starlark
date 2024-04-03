@@ -81,7 +81,7 @@ func (ht *hashtable) freeze() {
 }
 
 func (ht *hashtable) insert(thread *Thread, k, v Value) error {
-	if err := CheckSafety(thread, CPUSafe|MemSafe|IOSafe); err != nil {
+	if err := CheckSafety(thread, CPUSafe|MemSafe|TimeSafe|IOSafe); err != nil {
 		return err
 	}
 	if err := ht.checkMutable("insert into"); err != nil {
@@ -203,7 +203,7 @@ func (ht *hashtable) grow(thread *Thread) error {
 }
 
 func (ht *hashtable) lookup(thread *Thread, k Value) (v Value, found bool, err error) {
-	if err := CheckSafety(thread, CPUSafe|MemSafe|IOSafe); err != nil {
+	if err := CheckSafety(thread, CPUSafe|MemSafe|TimeSafe|IOSafe); err != nil {
 		return nil, false, err
 	}
 	h, err := k.Hash()
