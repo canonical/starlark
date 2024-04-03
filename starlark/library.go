@@ -144,7 +144,7 @@ var (
 		"pop":        CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"popitem":    CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"setdefault": CPUSafe | MemSafe | IOSafe,
-		"update":     CPUSafe | MemSafe | IOSafe,
+		"update":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"values":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 	}
 
