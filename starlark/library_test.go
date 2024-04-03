@@ -687,6 +687,47 @@ func TestAllAllocs(t *testing.T) {
 	})
 }
 
+func TestAllCancellation(t *testing.T) {
+	all, ok := starlark.Universe["all"]
+	if !ok {
+		t.Fatal("no such builtin: all")
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.TimeSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, all, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("iteration", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			iter := &testIterable{
+				maxN: st.N,
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.True, nil
+				},
+			}
+			_, err := starlark.Call(thread, all, starlark.Tuple{iter}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestBoolSteps(t *testing.T) {
 	bool_, ok := starlark.Universe["bool"]
 	if !ok {
