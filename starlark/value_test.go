@@ -332,7 +332,7 @@ func TestSafeUnary(t *testing.T) {
 				})
 			})
 
-			if test.steps != 0 {
+			if test.steps > 0 {
 				t.Run("cancellation", func(t *testing.T) {
 					st := startest.From(t)
 					st.RequireSafety(starlark.TimeSafe)
