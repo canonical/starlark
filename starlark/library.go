@@ -78,34 +78,34 @@ func init() {
 	universeSafeties = map[string]SafetyFlags{
 		"abs":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"any":       CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"all":       CPUSafe | MemSafe | IOSafe,
+		"all":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"bool":      CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"bytes":     CPUSafe | MemSafe | IOSafe,
+		"bytes":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"chr":       CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"dict":      CPUSafe | MemSafe | IOSafe,
+		"dict":      CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"dir":       CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"enumerate": CPUSafe | MemSafe | IOSafe,
-		"fail":      CPUSafe | MemSafe | IOSafe,
+		"enumerate": CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"fail":      CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"float":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"getattr":   CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"hasattr":   CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"hash":      CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"int":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"len":       CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"list":      CPUSafe | MemSafe | IOSafe,
-		"max":       CPUSafe | MemSafe | IOSafe,
-		"min":       CPUSafe | MemSafe | IOSafe,
+		"list":      CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"max":       CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"min":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"ord":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"print":     CPUSafe | MemSafe,
 		"range":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"repr":      CPUSafe | MemSafe | IOSafe,
-		"reversed":  CPUSafe | MemSafe | IOSafe,
-		"set":       CPUSafe | MemSafe | IOSafe,
-		"sorted":    CPUSafe | MemSafe | IOSafe,
+		"reversed":  CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"set":       CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"sorted":    CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"str":       CPUSafe | MemSafe | IOSafe,
-		"tuple":     CPUSafe | MemSafe | IOSafe,
+		"tuple":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"type":      CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"zip":       CPUSafe | MemSafe | IOSafe,
+		"zip":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 	}
 
 	for name, flags := range universeSafeties {
@@ -137,7 +137,7 @@ var (
 		"values":     NewBuiltin("values", dict_values),
 	}
 	dictMethodSafeties = map[string]SafetyFlags{
-		"clear":      CPUSafe | MemSafe | IOSafe,
+		"clear":      CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"get":        CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"items":      CPUSafe | MemSafe | IOSafe,
 		"keys":       CPUSafe | MemSafe | IOSafe,
@@ -257,7 +257,7 @@ var (
 	}
 	setMethodSafeties = map[string]SafetyFlags{
 		"add":                  CPUSafe | MemSafe | IOSafe,
-		"clear":                CPUSafe | MemSafe | IOSafe,
+		"clear":                CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"difference":           CPUSafe | MemSafe | IOSafe,
 		"discard":              CPUSafe | MemSafe | IOSafe,
 		"intersection":         CPUSafe | MemSafe | IOSafe,
@@ -311,7 +311,7 @@ func builtinAttr(recv Value, name string, methods map[string]*Builtin) (Value, e
 }
 
 func safeBuiltinAttr(thread *Thread, recv Value, name string, methods map[string]*Builtin) (Value, error) {
-	if err := CheckSafety(thread, CPUSafe|MemSafe); err != nil {
+	if err := CheckSafety(thread, CPUSafe|MemSafe|TimeSafe); err != nil {
 		return nil, err
 	}
 	b := methods[name]
@@ -1231,7 +1231,7 @@ var (
 func (r rangeValue) Len() int          { return r.len }
 func (r rangeValue) Index(i int) Value { return MakeInt(r.start + i*r.step) }
 func (r rangeValue) SafeIndex(thread *Thread, i int) (Value, error) {
-	const safety = CPUSafe | MemSafe
+	const safety = CPUSafe | MemSafe | TimeSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
