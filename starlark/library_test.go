@@ -3252,6 +3252,55 @@ func TestMinAllocs(t *testing.T) {
 	testMinMaxAllocs(t, "min")
 }
 
+func testMinMaxCancellation(t *testing.T, name string) {
+	minOrMax, ok := starlark.Universe[name]
+	if !ok {
+		t.Fatalf("no such builtin: %s", name)
+	}
+
+	t.Run("safety-respected", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.TimeSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, minOrMax, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("result", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			iterable := &testIterable{
+				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.MakeInt(n), nil
+				},
+				maxN: st.N,
+			}
+			_, err := starlark.Call(thread, minOrMax, starlark.Tuple{iterable}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
+func TestMaxCancellation(t *testing.T) {
+	testMinMaxCancellation(t, "max")
+}
+
+func TestMinCancellation(t *testing.T) {
+	testMinMaxCancellation(t, "min")
+}
+
 func TestOrdSteps(t *testing.T) {
 	ord, ok := starlark.Universe["ord"]
 	if !ok {
