@@ -5631,34 +5631,25 @@ func TestListIndexCancellation(t *testing.T) {
 		if list_index == nil {
 			t.Fatal("no such method: list.index")
 		}
+		ensureCancellation := func(err error) {
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		}
 		// Last
 		_, err := starlark.Call(thread, list_index, starlark.Tuple{starlark.MakeInt(st.N - 1)}, nil)
-		if err == nil {
-			st.Error("expected cancellation")
-		} else if !isStarlarkCancellation(err) {
-			st.Errorf("expected cancellation, got: %v", err)
-		}
+		ensureCancellation(err)
 		// Missing
 		_, err = starlark.Call(thread, list_index, starlark.Tuple{starlark.None}, nil)
-		if err == nil {
-			st.Error("expected cancellation")
-		} else if !isStarlarkCancellation(err) {
-			st.Errorf("expected cancellation, got: %v", err)
-		}
+		ensureCancellation(err)
 		// Last with hint
 		_, err = starlark.Call(thread, list_index, starlark.Tuple{starlark.MakeInt(st.N - 1), starlark.MakeInt(st.N / 2), starlark.MakeInt(st.N)}, nil)
-		if err == nil {
-			st.Error("expected cancellation")
-		} else if !isStarlarkCancellation(err) {
-			st.Errorf("expected cancellation, got: %v", err)
-		}
+		ensureCancellation(err)
 		// Missing with hint
 		_, err = starlark.Call(thread, list_index, starlark.Tuple{starlark.None, starlark.MakeInt(st.N / 2), starlark.MakeInt(st.N)}, nil)
-		if err == nil {
-			st.Error("expected cancellation")
-		} else if !isStarlarkCancellation(err) {
-			st.Errorf("expected cancellation, got: %v", err)
-		}
+		ensureCancellation(err)
 	})
 }
 
