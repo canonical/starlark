@@ -6257,6 +6257,79 @@ func TestDictUpdateAllocs(t *testing.T) {
 	})
 }
 
+func TestDictUpdateCancellation(t *testing.T) {
+	t.Run("safety-respected", func(t *testing.T) {
+		dict := starlark.NewDict(0)
+		dict_update, _ := dict.Attr("update")
+		if dict_update == nil {
+			t.Fatal("no such method: dict.update")
+		}
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.TimeSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, dict_update, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			dict := starlark.NewDict(0)
+			dict_update, _ := dict.Attr("update")
+			if dict_update == nil {
+				t.Fatal("no such method: dict.update")
+			}
+
+			iter := &testIterable{
+				nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+					return starlark.Tuple{starlark.MakeInt(n), starlark.None}, nil
+				},
+				maxN: st.N,
+			}
+			_, err := starlark.Call(thread, dict_update, starlark.Tuple{iter}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("mapping-iterable", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			dict := starlark.NewDict(0)
+			dict_update, _ := dict.Attr("update")
+			if dict_update == nil {
+				t.Fatal("no such method: dict.update")
+			}
+
+			mapIter := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				mapIter.SetKey(starlark.MakeInt(i), starlark.None)
+			}
+			_, err := starlark.Call(thread, dict_update, starlark.Tuple{mapIter}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestDictValuesSteps(t *testing.T) {
 	dict := starlark.NewDict(0)
 	dict_values, _ := dict.Attr("values")
