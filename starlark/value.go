@@ -838,9 +838,14 @@ func (it *stringElemsIterator) Next(p *Value) bool {
 	}
 }
 
-func (it *stringElemsIterator) Done()               {}
-func (it *stringElemsIterator) Err() error          { return it.err }
-func (it *stringElemsIterator) Safety() SafetyFlags { return CPUSafe | MemSafe }
+func (it *stringElemsIterator) Done()      {}
+func (it *stringElemsIterator) Err() error { return it.err }
+func (it *stringElemsIterator) Safety() SafetyFlags {
+	if it.thread == nil {
+		return NotSafe
+	}
+	return CPUSafe | MemSafe | TimeSafe
+}
 
 // A stringCodepoints is an iterable whose iterator yields a sequence of
 // Unicode code points, either numerically or as successive substrings.
@@ -914,8 +919,13 @@ func (it *stringCodepointsIterator) Next(p *Value) bool {
 
 func (*stringCodepointsIterator) Done() {}
 
-func (it *stringCodepointsIterator) Err() error          { return it.err }
-func (it *stringCodepointsIterator) Safety() SafetyFlags { return CPUSafe | MemSafe }
+func (it *stringCodepointsIterator) Err() error { return it.err }
+func (it *stringCodepointsIterator) Safety() SafetyFlags {
+	if it.thread == nil {
+		return NotSafe
+	}
+	return CPUSafe | MemSafe | TimeSafe
+}
 
 // A Function is a function defined by a Starlark def statement or lambda expression.
 // The initialization behavior of a Starlark module is also represented by a Function.
@@ -1353,7 +1363,7 @@ func (it *listIterator) Done() {
 	}
 }
 
-func (it *listIterator) Safety() SafetyFlags       { return CPUSafe | MemSafe }
+func (it *listIterator) Safety() SafetyFlags       { return CPUSafe | MemSafe | TimeSafe }
 func (it *listIterator) BindThread(thread *Thread) {}
 func (it *listIterator) Err() error                { return nil }
 
@@ -1473,7 +1483,7 @@ func (it *tupleIterator) Done() {}
 
 func (it *tupleIterator) BindThread(thread *Thread) {}
 func (it *tupleIterator) Err() error                { return nil }
-func (it *tupleIterator) Safety() SafetyFlags       { return CPUSafe | MemSafe }
+func (it *tupleIterator) Safety() SafetyFlags       { return CPUSafe | MemSafe | TimeSafe }
 
 // A Set represents a Starlark set value.
 // The zero value of Set is a valid empty set.

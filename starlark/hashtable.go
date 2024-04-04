@@ -495,8 +495,13 @@ func (it *keyIterator) Done() {
 	}
 }
 
-func (ki *keyIterator) Err() error                { return nil }
-func (ki *keyIterator) Safety() SafetyFlags       { return CPUSafe | MemSafe }
+func (ki *keyIterator) Err() error { return nil }
+func (ki *keyIterator) Safety() SafetyFlags {
+	if ki.thread == nil {
+		return NotSafe
+	}
+	return CPUSafe | MemSafe | TimeSafe
+}
 func (ki *keyIterator) BindThread(thread *Thread) { ki.thread = thread }
 
 // TODO(adonovan): use go1.19's maphash.String.

@@ -1360,21 +1360,15 @@ func (it *rangeIterator) Next(p *Value) bool {
 	if it.err != nil {
 		return false
 	}
-
 	if it.i < it.r.len {
-		// value will always be an Int
-		value := it.r.Index(it.i)
-
-		if it.thread != nil {
-			if err := it.thread.AddAllocs(EstimateSize(value)); err != nil {
-				it.err = err
-				return false
-			}
+		if v, err := it.r.SafeIndex(it.thread, it.i); err != nil {
+			it.err = err
+			return false
+		} else {
+			*p = v
+			it.i++
+			return true
 		}
-
-		*p = value
-		it.i++
-		return true
 	}
 	return false
 }
@@ -1385,7 +1379,7 @@ func (it *rangeIterator) Safety() SafetyFlags {
 	if it.thread == nil {
 		return NotSafe
 	}
-	return CPUSafe | MemSafe
+	return CPUSafe | MemSafe | TimeSafe
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#repr
@@ -2248,8 +2242,13 @@ func (it *bytesIterator) Next(p *Value) bool {
 
 func (*bytesIterator) Done() {}
 
-func (it *bytesIterator) Err() error          { return it.err }
-func (it *bytesIterator) Safety() SafetyFlags { return CPUSafe | MemSafe }
+func (it *bytesIterator) Err() error { return it.err }
+func (it *bytesIterator) Safety() SafetyFlags {
+	if it.thread == nil {
+		return NotSafe
+	}
+	return CPUSafe | MemSafe | TimeSafe
+}
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·count
 func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
