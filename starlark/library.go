@@ -238,7 +238,7 @@ var (
 		"splitlines":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"startswith":     CPUSafe | MemSafe | IOSafe,
 		"strip":          CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"title":          CPUSafe | MemSafe | IOSafe,
+		"title":          CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"upper":          CPUSafe | MemSafe | TimeSafe | IOSafe,
 	}
 
