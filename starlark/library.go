@@ -256,7 +256,7 @@ var (
 		"union":                NewBuiltin("union", set_union),
 	}
 	setMethodSafeties = map[string]SafetyFlags{
-		"add":                  CPUSafe | MemSafe | IOSafe,
+		"add":                  CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"clear":                CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"difference":           CPUSafe | MemSafe | IOSafe,
 		"discard":              CPUSafe | MemSafe | TimeSafe | IOSafe,
