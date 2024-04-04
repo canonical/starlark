@@ -6090,6 +6090,58 @@ func TestDictSetdefaultAllocs(t *testing.T) {
 	})
 }
 
+func TestDictSetdefaultCancellation(t *testing.T) {
+	t.Run("few-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			dict := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				dict.SetKey(starlark.MakeInt(i), starlark.None)
+			}
+			dict_setdefault, _ := dict.Attr("setdefault")
+			if dict_setdefault == nil {
+				t.Fatal("no such method: dict.setdefault")
+			}
+			key := starlark.MakeInt(st.N)
+			_, err := starlark.Call(thread, dict_setdefault, starlark.Tuple{key, starlark.None}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			dict := starlark.NewDict(st.N)
+			for i := 0; i < st.N; i++ {
+				// Int hash only uses the least 32 bits.
+				// Leaving them blank creates collisions.
+				dict.SetKey(starlark.MakeInt64(int64(i)<<32), starlark.None)
+			}
+			dict_setdefault, _ := dict.Attr("setdefault")
+			if dict_setdefault == nil {
+				t.Fatal("no such method: dict.setdefault")
+			}
+			key := starlark.MakeInt64(int64(st.N) << 32)
+			_, err := starlark.Call(thread, dict_setdefault, starlark.Tuple{key, starlark.None}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestDictUpdateSteps(t *testing.T) {
 	t.Run("safety-respected", func(t *testing.T) {
 		dict := starlark.NewDict(0)
