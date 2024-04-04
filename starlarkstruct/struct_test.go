@@ -16,6 +16,10 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+func isStarlarkCancellation(err error) bool {
+	return strings.Contains(err.Error(), "Starlark computation cancelled:")
+}
+
 var make_struct = starlark.NewBuiltinWithSafety("struct", starlarkstruct.MakeSafety, starlarkstruct.Make)
 
 func Test(t *testing.T) {
@@ -109,6 +113,30 @@ func TestStructSafeAttr(t *testing.T) {
 			t.Errorf("unconsistent SafeAttr implementation: expected %v and %v to be equal", safeResult, unsafeResult)
 		}
 	})
+
+	t.Run("cancellation", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			entries := make([]starlark.Tuple, st.N+2)
+			// Worst case is to get the second element which takes ceil(log(N)) comparisons
+			entries[0] = starlark.Tuple{starlark.String("a"), starlark.None}
+			entries[1] = starlark.Tuple{starlark.String("b"), starlark.None}
+			for i := 0; i < st.N; i++ {
+				key := fmt.Sprintf("c%d", i)
+				entries[i+2] = starlark.Tuple{starlark.String(key), starlark.None}
+			}
+			struct_ := starlarkstruct.FromKeywords(starlarkstruct.Default, entries)
+			_, err := struct_.SafeAttr(thread, "b")
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
 }
 
 func TestStructSafeString(t *testing.T) {
@@ -143,6 +171,22 @@ func TestStructSafeString(t *testing.T) {
 		if unsafeResult != safeResult {
 			t.Errorf("inconsistent stringer implementation: expected %s got %s", unsafeResult, safeResult)
 		}
+	})
+
+	t.Run("cancellation", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			builder := starlark.NewSafeStringBuilder(thread)
+			err := struct_.SafeString(thread, builder)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
 	})
 }
 

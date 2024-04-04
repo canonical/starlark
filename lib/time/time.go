@@ -210,7 +210,7 @@ func (d *Duration) Unpack(v starlark.Value) error {
 
 // SafeString implements the SafeStringer interface.
 func (d Duration) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
-	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe
+	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -240,7 +240,7 @@ func (d Duration) Hash() (uint32, error) {
 func (d Duration) Truth() starlark.Bool { return d != 0 }
 
 func (d Duration) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
-	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe
+	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
@@ -457,7 +457,7 @@ func newTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, 
 }
 
 func (t Time) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
-	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe
+	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return err
 	}
@@ -490,7 +490,7 @@ func (t Time) Hash() (uint32, error) {
 func (t Time) Truth() starlark.Bool { return !starlark.Bool(time.Time(t).IsZero()) }
 
 func (t Time) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
-	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe
+	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
