@@ -639,7 +639,7 @@ func (f Float) Unary(op syntax.Token) (Value, error) {
 }
 
 func (f Float) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
-	const safety = CPUSafe | MemSafe | IOSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
