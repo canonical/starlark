@@ -262,7 +262,7 @@ var (
 		"discard":              CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"intersection":         CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"issubset":             CPUSafe | MemSafe | IOSafe,
-		"issuperset":           CPUSafe | MemSafe | IOSafe,
+		"issuperset":           CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"pop":                  CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"remove":               CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"symmetric_difference": CPUSafe | MemSafe | IOSafe,
