@@ -261,7 +261,7 @@ var (
 		"difference":           CPUSafe | MemSafe | IOSafe,
 		"discard":              CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"intersection":         CPUSafe | MemSafe | IOSafe,
-		"issubset":             CPUSafe | MemSafe | IOSafe,
+		"issubset":             CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"issuperset":           CPUSafe | MemSafe | IOSafe,
 		"pop":                  CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"remove":               CPUSafe | MemSafe | TimeSafe | IOSafe,
