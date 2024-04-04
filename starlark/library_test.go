@@ -8671,6 +8671,74 @@ func testStringSplitSteps(t *testing.T, methodName string) {
 	})
 }
 
+func testStringSplitCancellation(t *testing.T, methodName string) {
+	t.Run("with-delimiter", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			delimiter := starlark.String("beef")
+			str := starlark.String(strings.Repeat("deadbeef", st.N))
+			method, _ := str.Attr(methodName)
+			if method == nil {
+				st.Fatalf("no such method: string.%s", methodName)
+			}
+
+			_, err := starlark.Call(thread, method, starlark.Tuple{delimiter}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("with-limit", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			str := starlark.String(fmt.Sprintf("go%sgo", strings.Repeat(" ", st.N)))
+			method, _ := str.Attr(methodName)
+			if method == nil {
+				st.Fatalf("no such method: string.%s", methodName)
+			}
+
+			delimiter := starlark.String(" ")
+			limit := starlark.MakeInt(st.N)
+			_, err := starlark.Call(thread, method, starlark.Tuple{delimiter, limit}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("defaults", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			str := starlark.String(fmt.Sprintf("go%sgo", strings.Repeat(" ", st.N)))
+			method, _ := str.Attr(methodName)
+			if method == nil {
+				st.Fatalf("no such method: string.%s", methodName)
+			}
+
+			_, err := starlark.Call(thread, method, starlark.Tuple{}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestStringRsplitSteps(t *testing.T) {
 	testStringSplitSteps(t, "rsplit")
 }
@@ -8722,6 +8790,10 @@ func TestStringRsplitAllocs(t *testing.T) {
 			st.KeepAlive(result)
 		})
 	})
+}
+
+func TestStringRsplitCancellation(t *testing.T) {
+	testStringSplitCancellation(t, "rsplit")
 }
 
 func TestStringRstripSteps(t *testing.T) {
@@ -8803,6 +8875,10 @@ func TestStringSplitAllocs(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestStringSplitCancellation(t *testing.T) {
+	testStringSplitCancellation(t, "split")
 }
 
 func TestStringSplitlinesSteps(t *testing.T) {
