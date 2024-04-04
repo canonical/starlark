@@ -7635,6 +7635,160 @@ func TestStringFormatAllocs(t *testing.T) {
 	})
 }
 
+func TestStringFormatCancellation(t *testing.T) {
+	t.Run("safety-respected", func(t *testing.T) {
+		format := starlark.String("{{{0!s}}}")
+		string_format, _ := format.Attr("format")
+		if string_format == nil {
+			t.Fatal("no such method: string.format")
+		}
+
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.TimeSafe)
+		thread.Print = func(thread *starlark.Thread, msg string) {
+			// Do nothing.
+		}
+
+		stringer := &unsafeTestStringer{t}
+		_, err := starlark.Call(thread, string_format, starlark.Tuple{stringer}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	tests := []struct {
+		name  string
+		input func(n int) starlark.Value
+	}{{
+		name: "None",
+		input: func(n int) starlark.Value {
+			return starlark.None
+		},
+	}, {
+		name: "Bool",
+		input: func(n int) starlark.Value {
+			return starlark.True
+		},
+	}, {
+		name: "Int",
+		input: func(n int) starlark.Value {
+			return starlark.MakeInt64(1 << n)
+		},
+	}, {
+		name: "String",
+		input: func(n int) starlark.Value {
+			return starlark.String(strings.Repeat(`"test"`, n))
+		},
+	}, {
+		name: "Dict",
+		input: func(n int) starlark.Value {
+			dict := starlark.NewDict(n)
+			for i := 0; i < n; i++ {
+				dict.SetKey(starlark.MakeInt(i), starlark.None)
+			}
+			return dict
+		},
+	}, {
+		name: "Set",
+		input: func(n int) starlark.Value {
+			set := starlark.NewSet(n)
+			for i := 0; i < n; i++ {
+				set.Insert(starlark.MakeInt(i))
+			}
+			return set
+		},
+	}, {
+		name: "List",
+		input: func(n int) starlark.Value {
+			elems := make([]starlark.Value, n)
+			for i := range elems {
+				elems[i] = starlark.None
+			}
+			return starlark.NewList(elems)
+		},
+	}, {
+		name: "Tuple",
+		input: func(n int) starlark.Value {
+			elems := make([]starlark.Value, n)
+			for i := range elems {
+				elems[i] = starlark.None
+			}
+			return starlark.Tuple(elems)
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Run("positional", func(t *testing.T) {
+				format := starlark.String("{{{0!s}}}")
+				string_format, _ := format.Attr("format")
+				if string_format == nil {
+					t.Fatal("no such method: string.format")
+				}
+
+				st := startest.From(t)
+				st.RequireSafety(starlark.TimeSafe)
+				st.SetMaxSteps(0)
+				st.RunThread(func(thread *starlark.Thread) {
+					thread.Cancel("done")
+					input := test.input(st.N)
+					_, err := starlark.Call(thread, string_format, starlark.Tuple{input}, nil)
+					if err == nil {
+						st.Error("expected cancellation")
+					} else if !isStarlarkCancellation(err) {
+						st.Errorf("expected cancellation, got: %v", err)
+					}
+				})
+			})
+
+			t.Run("named", func(t *testing.T) {
+				format := starlark.String("{{{input!s}}}")
+				string_format, _ := format.Attr("format")
+				if string_format == nil {
+					t.Fatal("no such method: string.format")
+				}
+
+				st := startest.From(t)
+				st.RequireSafety(starlark.TimeSafe)
+				st.SetMaxSteps(0)
+				st.RunThread(func(thread *starlark.Thread) {
+					thread.Cancel("done")
+					input := test.input(st.N)
+					kwargs := []starlark.Tuple{{starlark.String("input"), input}}
+					_, err := starlark.Call(thread, string_format, nil, kwargs)
+					if err == nil {
+						st.Error("expected cancellation")
+					} else if !isStarlarkCancellation(err) {
+						st.Errorf("expected cancellation, got: %v", err)
+					}
+				})
+			})
+		})
+	}
+
+	t.Run("String (repr)", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			format := starlark.String("{{{0!r}}}")
+			string_format, _ := format.Attr("format")
+			if string_format == nil {
+				st.Fatal("no such method: string.format")
+			}
+			input := starlark.String(strings.Repeat(`"test"`, st.N))
+			_, err := starlark.Call(thread, string_format, starlark.Tuple{input}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestStringIndexSteps(t *testing.T) {
 	testStringFindMethodSteps(t, "index")
 }
