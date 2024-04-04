@@ -10,10 +10,6 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
-func isStarlarkCancellation(err error) bool {
-	return strings.Contains(err.Error(), "Starlark computation cancelled:")
-}
-
 var makeModule = starlark.NewBuiltinWithSafety("make_module", starlarkstruct.MakeModuleSafety, starlarkstruct.MakeModule)
 
 func TestModuleSafeString(t *testing.T) {
