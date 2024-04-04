@@ -425,8 +425,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 		return nil, fmt.Errorf("%s: unexpected keyword argument x", b.Name())
 	}
 
-	// Make sure that ill-formed strings like many spaces at the beginning
-	// can't make this function hang.
+	// Avoid hanging on inputs containing many padding characters.
 	if err := thread.CheckSteps(int64(len(s) / 64)); err != nil {
 		return nil, err
 	}
