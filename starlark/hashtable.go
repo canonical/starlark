@@ -240,6 +240,9 @@ func (ht *hashtable) lookup(thread *Thread, k Value) (v Value, found bool, err e
 
 // count returns the number of distinct elements of iter that are elements of ht.
 func (ht *hashtable) count(thread *Thread, iter Iterator) (int, error) {
+	if err := CheckSafety(thread, CPUSafe|MemSafe|TimeSafe|IOSafe); err != nil {
+		return 0, err
+	}
 	if ht.table == nil {
 		return 0, nil // empty
 	}
