@@ -83,7 +83,7 @@ var Module = &starlarkstruct.Module{
 }
 var safeties = map[string]starlark.SafetyFlags{
 	"encode": starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
-	"decode": starlark.CPUSafe | starlark.MemSafe | starlark.IOSafe,
+	"decode": starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
 	"indent": starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
 }
 
@@ -423,6 +423,11 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 		// "x" parameter is positional only; UnpackArgs does not allow us to
 		// directly express "def decode(x, *, default)"
 		return nil, fmt.Errorf("%s: unexpected keyword argument x", b.Name())
+	}
+
+	// Avoid hanging on inputs containing many padding characters.
+	if err := thread.CheckSteps(int64(len(s) / 64)); err != nil {
+		return nil, err
 	}
 
 	// The decoder necessarily makes certain representation choices
