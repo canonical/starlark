@@ -10832,6 +10832,59 @@ func TestSetSymmetricDifferenceAllocs(t *testing.T) {
 	})
 }
 
+func TestSetSymmetricDifferenceCancellation(t *testing.T) {
+	t.Run("safety-respected", func(t *testing.T) {
+		set := starlark.NewSet(0)
+		set_symmetric_difference, _ := set.Attr("symmetric_difference")
+		if set_symmetric_difference == nil {
+			t.Fatal("no such method: set.symmetric_difference")
+		}
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.TimeSafe)
+
+		iter := &unsafeTestIterable{t}
+		_, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{iter}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("execution", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			set := starlark.NewSet(st.N)
+			for i := 0; i < st.N; i++ {
+				set.Insert(starlark.MakeInt(i))
+			}
+			set_symmetric_difference, _ := set.Attr("symmetric_difference")
+			if set_symmetric_difference == nil {
+				t.Fatal("no such method: set.symmetric_difference")
+			}
+			iter := &testIterable{
+				maxN: st.N,
+				nth: func(_ *starlark.Thread, n int) (starlark.Value, error) {
+					if n%2 == 0 {
+						return starlark.MakeInt(n), nil // in set
+					} else {
+						return starlark.MakeInt(-n), nil // not in set
+					}
+				},
+			}
+			_, err := starlark.Call(thread, set_symmetric_difference, starlark.Tuple{iter}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestSetUnionSteps(t *testing.T) {
 	t.Run("safety-respected", func(t *testing.T) {
 		thread := &starlark.Thread{}

@@ -1720,7 +1720,7 @@ func (s *Set) SymmetricDifference(other Iterator) (Value, error) {
 }
 
 func (s *Set) safeSymmetricDifference(thread *Thread, other Iterator) (Value, error) {
-	if err := CheckSafety(thread, CPUSafe|MemSafe); err != nil {
+	if err := CheckSafety(thread, CPUSafe|MemSafe|TimeSafe); err != nil {
 		return nil, err
 	}
 
