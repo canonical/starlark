@@ -222,7 +222,7 @@ var (
 		"isspace":        CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"istitle":        CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"isupper":        CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"join":           CPUSafe | MemSafe | IOSafe,
+		"join":           CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"lower":          CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"lstrip":         CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"partition":      CPUSafe | MemSafe | TimeSafe | IOSafe,
