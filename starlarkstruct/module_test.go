@@ -45,6 +45,22 @@ func TestModuleSafeString(t *testing.T) {
 			t.Errorf("inconsistent stringer implementation: expected %s got %s", unsafeResult, safeResult)
 		}
 	})
+
+	t.Run("cancellation", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			builder := starlark.NewSafeStringBuilder(thread)
+			err := module.SafeString(thread, builder)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
 }
 
 func TestModuleSafeAttr(t *testing.T) {
