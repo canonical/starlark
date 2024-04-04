@@ -143,7 +143,7 @@ var (
 		"keys":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"pop":        CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"popitem":    CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"setdefault": CPUSafe | MemSafe | IOSafe,
+		"setdefault": CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"update":     CPUSafe | MemSafe | IOSafe,
 		"values":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 	}
@@ -160,11 +160,11 @@ var (
 	listMethodSafeties = map[string]SafetyFlags{
 		"append": CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"clear":  CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"extend": CPUSafe | MemSafe | IOSafe,
+		"extend": CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"index":  CPUSafe | MemSafe | IOSafe,
 		"insert": CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"pop":    CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"remove": CPUSafe | MemSafe | IOSafe,
+		"remove": CPUSafe | MemSafe | TimeSafe | IOSafe,
 	}
 
 	stringMethods = map[string]*Builtin{
@@ -205,7 +205,7 @@ var (
 		"upper":          NewBuiltin("upper", string_upper),
 	}
 	stringMethodSafeties = map[string]SafetyFlags{
-		"capitalize":     CPUSafe | MemSafe | IOSafe,
+		"capitalize":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"codepoint_ords": CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"codepoints":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"count":          CPUSafe | MemSafe | TimeSafe | IOSafe,
@@ -213,15 +213,15 @@ var (
 		"elems":          CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"endswith":       CPUSafe | MemSafe | IOSafe,
 		"find":           CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"format":         CPUSafe | MemSafe | IOSafe,
+		"format":         CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"index":          CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"isalnum":        CPUSafe | MemSafe | IOSafe,
-		"isalpha":        CPUSafe | MemSafe | IOSafe,
-		"isdigit":        CPUSafe | MemSafe | IOSafe,
-		"islower":        CPUSafe | MemSafe | IOSafe,
-		"isspace":        CPUSafe | MemSafe | IOSafe,
-		"istitle":        CPUSafe | MemSafe | IOSafe,
-		"isupper":        CPUSafe | MemSafe | IOSafe,
+		"isalnum":        CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"isalpha":        CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"isdigit":        CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"islower":        CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"isspace":        CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"istitle":        CPUSafe | MemSafe | TimeSafe | IOSafe,
+		"isupper":        CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"join":           CPUSafe | MemSafe | IOSafe,
 		"lower":          CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"lstrip":         CPUSafe | MemSafe | TimeSafe | IOSafe,
@@ -232,13 +232,13 @@ var (
 		"rfind":          CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"rindex":         CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"rpartition":     CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"rsplit":         CPUSafe | MemSafe | IOSafe,
+		"rsplit":         CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"rstrip":         CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"split":          CPUSafe | MemSafe | IOSafe,
+		"split":          CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"splitlines":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"startswith":     CPUSafe | MemSafe | IOSafe,
 		"strip":          CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"title":          CPUSafe | MemSafe | IOSafe,
+		"title":          CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"upper":          CPUSafe | MemSafe | TimeSafe | IOSafe,
 	}
 
@@ -256,13 +256,13 @@ var (
 		"union":                NewBuiltin("union", set_union),
 	}
 	setMethodSafeties = map[string]SafetyFlags{
-		"add":                  CPUSafe | MemSafe | IOSafe,
+		"add":                  CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"clear":                CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"difference":           CPUSafe | MemSafe | IOSafe,
+		"difference":           CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"discard":              CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"intersection":         CPUSafe | MemSafe | IOSafe,
+		"intersection":         CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"issubset":             CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"issuperset":           CPUSafe | MemSafe | IOSafe,
+		"issuperset":           CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"pop":                  CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"remove":               CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"symmetric_difference": CPUSafe | MemSafe | IOSafe,
@@ -1360,21 +1360,15 @@ func (it *rangeIterator) Next(p *Value) bool {
 	if it.err != nil {
 		return false
 	}
-
 	if it.i < it.r.len {
-		// value will always be an Int
-		value := it.r.Index(it.i)
-
-		if it.thread != nil {
-			if err := it.thread.AddAllocs(EstimateSize(value)); err != nil {
-				it.err = err
-				return false
-			}
+		if v, err := it.r.SafeIndex(it.thread, it.i); err != nil {
+			it.err = err
+			return false
+		} else {
+			*p = v
+			it.i++
+			return true
 		}
-
-		*p = value
-		it.i++
-		return true
 	}
 	return false
 }
@@ -1385,7 +1379,7 @@ func (it *rangeIterator) Safety() SafetyFlags {
 	if it.thread == nil {
 		return NotSafe
 	}
-	return CPUSafe | MemSafe
+	return CPUSafe | MemSafe | TimeSafe
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#repr
@@ -2248,8 +2242,13 @@ func (it *bytesIterator) Next(p *Value) bool {
 
 func (*bytesIterator) Done() {}
 
-func (it *bytesIterator) Err() error          { return it.err }
-func (it *bytesIterator) Safety() SafetyFlags { return CPUSafe | MemSafe }
+func (it *bytesIterator) Err() error { return it.err }
+func (it *bytesIterator) Safety() SafetyFlags {
+	if it.thread == nil {
+		return NotSafe
+	}
+	return CPUSafe | MemSafe | TimeSafe
+}
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·count
 func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
