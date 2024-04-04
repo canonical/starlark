@@ -503,7 +503,7 @@ func (ki *keyIterator) Safety() SafetyFlags {
 	if ki.thread == nil {
 		return NotSafe
 	}
-	return CPUSafe | MemSafe | TimeSafe
+	return CPUSafe | MemSafe | TimeSafe | IOSafe
 }
 func (ki *keyIterator) BindThread(thread *Thread) { ki.thread = thread }
 
