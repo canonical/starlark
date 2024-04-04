@@ -6136,7 +6136,7 @@ func testStringFixCancellation(t *testing.T, method_name string) {
 				t.Fatalf("no such method: string.%s", method)
 			}
 
-			fix := string_[4:]
+			fix := starlark.String("foo-")
 			_, err := starlark.Call(thread, method, starlark.Tuple{fix}, nil)
 			if err == nil {
 				st.Error("expected cancellation")
@@ -6160,7 +6160,7 @@ func testStringFixCancellation(t *testing.T, method_name string) {
 			}
 
 			fixes := starlark.Tuple{
-				string_[4:], // existing
+				starlark.String("foo-"), // existing
 				starlark.String("absent"),
 			}
 			_, err := starlark.Call(thread, method, starlark.Tuple{fixes}, nil)
