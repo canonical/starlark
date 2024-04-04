@@ -9462,6 +9462,55 @@ func TestSetAddAllocs(t *testing.T) {
 	})
 }
 
+func TestSetAddCancellation(t *testing.T) {
+	t.Run("few-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			set := starlark.NewSet(st.N)
+			for i := 0; i < st.N; i++ {
+				set.Insert(starlark.MakeInt(i))
+			}
+			set_add, _ := set.Attr("add")
+			if set_add == nil {
+				t.Fatal("no such method: set.add")
+			}
+			_, err := starlark.Call(thread, set_add, starlark.Tuple{starlark.MakeInt(st.N)}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+
+	t.Run("many-collisions", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			set := starlark.NewSet(st.N)
+			for i := 0; i < st.N; i++ {
+				set.Insert(starlark.MakeInt64(int64(i) << 32))
+			}
+			set_add, _ := set.Attr("add")
+			if set_add == nil {
+				t.Fatal("no such method: set.add")
+			}
+			key := starlark.MakeInt64(int64(st.N) << 32)
+			_, err := starlark.Call(thread, set_add, starlark.Tuple{key}, nil)
+			if err == nil {
+				st.Error("expected cancellation")
+			} else if !isStarlarkCancellation(err) {
+				st.Errorf("expected cancellation, got: %v", err)
+			}
+		})
+	})
+}
+
 func TestSetClearSteps(t *testing.T) {
 	const smallSetSize = 200
 
