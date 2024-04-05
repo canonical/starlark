@@ -3643,6 +3643,10 @@ func TestReprAllocs(t *testing.T) {
 	})
 }
 
+func TestReprCancellation(t *testing.T) {
+	testWriteValueCancellation(t, "repr")
+}
+
 func TestReversedSteps(t *testing.T) {
 	reversed, ok := starlark.Universe["reversed"]
 	if !ok {
