@@ -96,7 +96,7 @@ func init() {
 		"max":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"min":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"ord":       CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"print":     CPUSafe | MemSafe,
+		"print":     CPUSafe | MemSafe | TimeSafe,
 		"range":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"repr":      CPUSafe | MemSafe | IOSafe,
 		"reversed":  CPUSafe | MemSafe | TimeSafe | IOSafe,
