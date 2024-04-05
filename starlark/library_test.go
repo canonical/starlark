@@ -6919,7 +6919,7 @@ func TestListIndexCancellation(t *testing.T) {
 		if list_index == nil {
 			t.Fatal("no such method: list.index")
 		}
-		ensureCancellation := func(err error) {
+		testIsCancellation := func(err error) {
 			if err == nil {
 				st.Error("expected cancellation")
 			} else if !isStarlarkCancellation(err) {
@@ -6928,16 +6928,16 @@ func TestListIndexCancellation(t *testing.T) {
 		}
 		// Last
 		_, err := starlark.Call(thread, list_index, starlark.Tuple{starlark.MakeInt(st.N - 1)}, nil)
-		ensureCancellation(err)
+		testIsCancellation(err)
 		// Missing
 		_, err = starlark.Call(thread, list_index, starlark.Tuple{starlark.None}, nil)
-		ensureCancellation(err)
+		testIsCancellation(err)
 		// Last with hint
 		_, err = starlark.Call(thread, list_index, starlark.Tuple{starlark.MakeInt(st.N - 1), starlark.MakeInt(st.N / 2), starlark.MakeInt(st.N)}, nil)
-		ensureCancellation(err)
+		testIsCancellation(err)
 		// Missing with hint
 		_, err = starlark.Call(thread, list_index, starlark.Tuple{starlark.None, starlark.MakeInt(st.N / 2), starlark.MakeInt(st.N)}, nil)
-		ensureCancellation(err)
+		testIsCancellation(err)
 	})
 }
 
