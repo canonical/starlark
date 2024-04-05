@@ -700,7 +700,7 @@ func (s String) Hash() (uint32, error) { return hashString(string(s)), nil }
 func (s String) Len() int              { return len(s) } // bytes
 func (s String) Index(i int) Value     { return s[i : i+1] }
 func (s String) SafeIndex(thread *Thread, i int) (Value, error) {
-	const safety = CPUSafe | MemSafe | TimeSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
@@ -786,7 +786,7 @@ func (si stringElems) Index(i int) Value {
 	}
 }
 func (si stringElems) SafeIndex(thread *Thread, i int) (Value, error) {
-	const safety = CPUSafe | MemSafe | TimeSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
@@ -844,7 +844,7 @@ func (it *stringElemsIterator) Safety() SafetyFlags {
 	if it.thread == nil {
 		return NotSafe
 	}
-	return CPUSafe | MemSafe | TimeSafe
+	return CPUSafe | MemSafe | TimeSafe | IOSafe
 }
 
 // A stringCodepoints is an iterable whose iterator yields a sequence of
@@ -924,7 +924,7 @@ func (it *stringCodepointsIterator) Safety() SafetyFlags {
 	if it.thread == nil {
 		return NotSafe
 	}
-	return CPUSafe | MemSafe | TimeSafe
+	return CPUSafe | MemSafe | TimeSafe | IOSafe
 }
 
 // A Function is a function defined by a Starlark def statement or lambda expression.
@@ -1164,7 +1164,7 @@ func (d *Dict) SafeGet(thread *Thread, k Value) (v Value, found bool, err error)
 }
 
 func (d *Dict) SafeSetKey(thread *Thread, k, v Value) error {
-	if err := CheckSafety(thread, CPUSafe|MemSafe|TimeSafe); err != nil {
+	if err := CheckSafety(thread, CPUSafe|MemSafe|TimeSafe|IOSafe); err != nil {
 		return err
 	}
 	if err := d.ht.insert(thread, k, v); err != nil {
@@ -1274,7 +1274,7 @@ func (l *List) Truth() Bool           { return l.Len() > 0 }
 func (l *List) Len() int              { return len(l.elems) }
 func (l *List) Index(i int) Value     { return l.elems[i] }
 func (l *List) SafeIndex(thread *Thread, i int) (Value, error) {
-	const safety = CPUSafe | MemSafe | TimeSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
@@ -1363,7 +1363,7 @@ func (it *listIterator) Done() {
 	}
 }
 
-func (it *listIterator) Safety() SafetyFlags       { return CPUSafe | MemSafe | TimeSafe }
+func (it *listIterator) Safety() SafetyFlags       { return CPUSafe | MemSafe | TimeSafe | IOSafe }
 func (it *listIterator) BindThread(thread *Thread) {}
 func (it *listIterator) Err() error                { return nil }
 
@@ -1408,7 +1408,7 @@ type Tuple []Value
 func (t Tuple) Len() int          { return len(t) }
 func (t Tuple) Index(i int) Value { return t[i] }
 func (t Tuple) SafeIndex(thread *Thread, i int) (Value, error) {
-	const safety = CPUSafe | MemSafe | TimeSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
@@ -1483,7 +1483,7 @@ func (it *tupleIterator) Done() {}
 
 func (it *tupleIterator) BindThread(thread *Thread) {}
 func (it *tupleIterator) Err() error                { return nil }
-func (it *tupleIterator) Safety() SafetyFlags       { return CPUSafe | MemSafe | TimeSafe }
+func (it *tupleIterator) Safety() SafetyFlags       { return CPUSafe | MemSafe | TimeSafe | IOSafe }
 
 // A Set represents a Starlark set value.
 // The zero value of Set is a valid empty set.
@@ -1720,7 +1720,7 @@ func (s *Set) SymmetricDifference(other Iterator) (Value, error) {
 }
 
 func (s *Set) safeSymmetricDifference(thread *Thread, other Iterator) (Value, error) {
-	if err := CheckSafety(thread, CPUSafe|MemSafe|TimeSafe); err != nil {
+	if err := CheckSafety(thread, CPUSafe|MemSafe|TimeSafe|IOSafe); err != nil {
 		return nil, err
 	}
 
@@ -2213,7 +2213,7 @@ func (gi *guardedIterator) Err() error {
 }
 
 func (gi *guardedIterator) Safety() SafetyFlags {
-	const wrapperSafety = CPUSafe | MemSafe | TimeSafe
+	const wrapperSafety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	return wrapperSafety & gi.iter.Safety()
 }
 func (gi *guardedIterator) BindThread(thread *Thread) { gi.thread = thread }
@@ -2288,7 +2288,7 @@ func (b Bytes) Hash() (uint32, error) { return String(b).Hash() }
 func (b Bytes) Len() int              { return len(b) }
 func (b Bytes) Index(i int) Value     { return b[i : i+1] }
 func (b Bytes) SafeIndex(thread *Thread, i int) (Value, error) {
-	const safety = CPUSafe | MemSafe | TimeSafe
+	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe
 	if err := CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
