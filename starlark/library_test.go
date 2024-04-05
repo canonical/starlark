@@ -1953,7 +1953,6 @@ func testWriteValueCancellation(t *testing.T, name string) {
 		name  string
 		input func(n int) starlark.Value
 	}
-
 	stringTest := writeValueTest{
 		name: "String",
 		input: func(n int) starlark.Value {
@@ -2052,6 +2051,7 @@ func testWriteValueCancellation(t *testing.T, name string) {
 			}
 		},
 	}}
+	// calling str("...") does trivial, uncancellable work.
 	if name != "str" {
 		tests = append(tests, stringTest)
 	}
