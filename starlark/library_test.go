@@ -1958,6 +1958,11 @@ func testWriteValueCancellation(t *testing.T, name string) {
 			return starlark.Bytes(strings.Repeat("a", n))
 		},
 	}, {
+		name: "Bytes (invalid utf8)",
+		input: func(n int) starlark.Value {
+			return starlark.Bytes(strings.Repeat(string([]byte{0x80}), n))
+		},
+	}, {
 		name: "Dict",
 		input: func(n int) starlark.Value {
 			dict := starlark.NewDict(n)
@@ -3474,6 +3479,10 @@ func TestPrintAllocs(t *testing.T) {
 	})
 }
 
+func TestPrintCancellation(t *testing.T) {
+	testWriteValueCancellation(t, "print")
+}
+
 func TestRangeSteps(t *testing.T) {
 	range_, ok := starlark.Universe["range"]
 	if !ok {
@@ -3632,6 +3641,10 @@ func TestReprAllocs(t *testing.T) {
 			st.KeepAlive(res)
 		}
 	})
+}
+
+func TestReprCancellation(t *testing.T) {
+	testWriteValueCancellation(t, "repr")
 }
 
 func TestReversedSteps(t *testing.T) {
