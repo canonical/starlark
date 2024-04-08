@@ -102,17 +102,40 @@ A nice side effect of this pattern is that the allocation check can be finer-gra
 Recognizing a slice allocation is rather straightforward as it is literally calling the `make` builtin:
 
 ```go
-storage := make([]byte, 10 * n)
+storage := make([]int, n)
 ```
 
-To make this safe, it is enough to add memory accounting right before the allocation:
+The amount of memory necessary to satisfy this allocation can be easily estimated with a call to `EstimateMakeSize`:
+
 ```go
-size := 10 * n
-if err := thread.AddAllocs(size); err != nil {
-    return nil, err
+storageSize := starlark.EstimateMakeSize([]int{}, n)
+```
+
+However, when dealing with interfaces, converting a value to an interface might require additional memory. Let's consider the following code:
+
+```go
+result := make([]any, n)
+for i := 0; i < n; i++ {
+    result[i] = i
 }
 ```
 
+One might be tempted to make this function safe by simply adding:
+
+```go
+resultSize := starlark.EstimateMakeSize([]any{}, n)
+if err := thread.AddAllocs(resultSize); err != nil { ... }
+```
+
+However, testing the result might be surprising as it would fail. In fact, each element of `result` needs some memory to store the value (an integer in this case) in the interface. The need for this allocation is somehow subtle and depends *on the type of `result`* and not on the type of `i`.
+
+It is possible to ask `EstimateMakeSize` to take this kind of scenarios into account by specifing a *template* for the element, in a similar way a template is used for `EstimateSize`. In this case, for example, to estimate the real size of `result` it is possible to write:
+
+```go
+resultSize := starlark.EstimateMakeSize([]any{int(0)}, n)
+```
+
+The `int(0)` serves as the *element template* and will be taken into account for the estimation of the size.
 
 ### Transient allocations
 
