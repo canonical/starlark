@@ -1,6 +1,6 @@
 # How to make a builtin safe
 
-Starlark functionality can be enchanced by writing new functions in the Go language, usually called *builtin*. When developing a Starlark builtin, it is important to properly track memory usage to comply with safety requirements.
+Starlark functionality can be enhanced by writing new functions in the Go language, usually called *builtin*, or adding new types. When developing a Starlark builtin or a Starlark type interface, it is important to properly track resource usage to comply with safety requirements.
 
 Every part of Starlark computation can be characterized by one or more safety aspects, which are expressed as `starlark.SafetyFlags`:
  - `starlark.CPUSafe`: the function is capable of counting the number of steps it performs and to stop if those steps are over the budget.
@@ -40,7 +40,7 @@ A more compact way to declare a builtin's safety is to use the function `starlar
 beAwesomeBuiltin := starlark.NewBuiltinWithSafety("be_awesome", starlark.MemSafe | starlark.IOSafe, beAwesome)
 ```
 
-While the latter approach is the preferred one for new code, when forking an existing library for use in the constrained starlark language, the former can be used to reduce merge claches with upstream.
+While the latter approach is the preferred one for new code, when forking an existing library for use in the constrained Starlark language, the former can be used to reduce merge clashes with upstream.
 
 ## Counting memory usage
 
@@ -69,7 +69,7 @@ There are many ways Go allocates memory:
 
 [^no-make]: while this is in general true, if the size of the slice is fixed at compile time and the result does not escape, the Go compiler *might* replace the heap allocation with a stack one.
 
-In general, it is difficult to compute precisely the amount of memory used as it sometimes depend on the content of the result and the state of the allocator. As such, we refer to the computation of the size of an objec as *estimating* the size. Starlark provides two functions to help with that: `starlark.EstimateSize` and `starlark.EstimateMakeSize`.
+In general, it is difficult to compute precisely the amount of memory used as it sometimes depend on the content of the result and the state of the allocator. As such, we refer to the computation of the size of an object as *estimating* the size. Starlark provides two functions to help with that: `starlark.EstimateSize` and `starlark.EstimateMakeSize`.
 
 #### Estimating objects
 
