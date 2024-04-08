@@ -54,9 +54,65 @@ Normally, it is difficult to understand when and if Go allocates memory by just 
 
 This simplifies greatly the complexity of writing memory accounting for a Starlark function.
 
-Clearly, once allocated, the lifetime of a variable is not anymore under control of the function which can make no assumptions about it. However, when considering safety, it is ok to take a pessimistic approach, always taking into account the worst case. In this case, it is ok to consider all allocations as lasting until the end of the script run. While this guarantees safety, it is also useful to distinguish between two types of allocation:
+Clearly, once allocated, the lifetime of a variable is not anymore under control of the function which can make no assumptions about it. However, when considering safety, it is ok to take a pessimistic approach, always taking into account the worst case. For memory, this means considering all allocations as lasting until the end of the script run. While this guarantees safety, it is also useful to distinguish between two types of allocation:
  - persistent allocations: all allocations which are reachable when the function ends;
  - transient allocations (memory spikes): all allocations which are not reachable (i.e. are collectable) when the function returns.
+
+### Estimating allocation size
+
+There are many ways Go allocates memory:
+ - when a pointer escapes its context.
+ - when a value is wrapped in an interface.
+ - when a slice is allocated with `make`[^no-make].
+ - when a new element is appended to a slice with no capacity left.
+ - when a new element is inserted in a map.
+
+[^no-make]: while this is in general true, if the size of the slice is fixed at compile time and the result does not escape, the Go compiler *might* replace the heap allocation with a stack one.
+
+In general, it is difficult to compute precisely the amount of memory used as it sometimes depend on the content of the result and the state of the allocator. As such, we refer to the computation of the size of an objec as *estimating* the size. Starlark provides two functions to help with that: `starlark.EstimateSize` and `starlark.EstimateMakeSize`.
+
+#### Estimating objects
+
+`EstimateSize` takes an object and returns the estimated size of the whole object tree. As such, it usually forces the code to first allocate and then count for the memory[^fixed]. Moreover, when using `EstimateSize`, care should be taken in not counting objects more than once. For example:
+
+```go
+a, err := MakeObjSafe(thread) // Counts the cost of its result
+if err != nil { ... }
+b := MyStruct{ field: objA }
+bSize := starlark.EstimateSize(b)
+if err := thread.AddAllocs(bSize); err != nil { ... }
+```
+
+In the above example, the cost of `a` is being counted twice: once in `MakeObjSafe` and once when computing `bSize`. In these cases it is useful to pass to `EstimateSize` an *object template* instead, which does not reference the field:
+
+```go
+a, err := MakeObjSafe(thread) // Counts the cost of its result
+if err != nil { ... }
+bSize := starlark.EstimateSize(MyStruct{}) // empty template
+if err := thread.AddAllocs(bSize); err != nil { ... }
+b := MyStruct{ field: objA }
+```
+
+A nice side effect of this pattern is that the allocation check can be finer-grained and can be moved *before* the allocation happens. As such, the object template is also useful when the size of the object does not depend on its content.
+
+`EstimateSize` is also capable of estimating the size of `chan`nels `map`s and `slice`s. In the first case, it only takes into account the size of the channel buffer. In the other cases, all keys and all values will be taken into account, making the operation rather expensive. Moreover, in the case of `map` only the size can be taken into account, making the estimation sometimes unreliable.
+
+#### Estimating slices
+
+Recognizing a slice allocation is rather straightforward as it is literally calling the `make` builtin:
+
+```go
+storage := make([]byte, 10 * n)
+```
+
+To make this safe, it is enough to add memory accounting right before the allocation:
+```go
+size := 10 * n
+if err := thread.AddAllocs(size); err != nil {
+    return nil, err
+}
+```
+
 
 ### Transient allocations
 
@@ -106,14 +162,6 @@ if err := thread.AddAllocs(-1500); err != nil {
 }
 ```
 
-### Persistent allocations
-
-
-
-### Estimating allocation size
-
-#### Maps
-
-** REMEMBER TO TALK ABOUT MAPS WHEN EXPLAINING ESTIMATESIZE **
+### Testing
 
 [^1]: this does not mean that those function will never be inlined. If called directly in any other part of the codebase, they might.
