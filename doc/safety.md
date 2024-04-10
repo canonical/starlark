@@ -1,77 +1,77 @@
 # How to make a builtin safe
 
-Starlark functionality can be enhanced by writing new functions in the Go language, usually called *builtin*, or adding new types. When developing a Starlark builtin or a Starlark type interface, it is important to properly track resource usage to comply with safety requirements.
+Starlark's capabilities are enhanced by exposing new builtins (functions callable from Starlark, written in Go) or new types (types implementing Starlark interfaces, written in Go). Clearly, allowing users unlimited access to run code on the host can be problematic, hence safety constraints must be enforced. As this may only be done on a best-effort basis, safety can only be enforced with a contract - the host declares the safety properties it cares about and all code run on it must then respect these properties. The contract is upheld through testing.
 
-Every part of Starlark computation can be characterized by one or more safety aspects, which are expressed as `starlark.SafetyFlags`:
- - `starlark.CPUSafe`: the function is capable of counting the number of steps it performs and to stop if those steps are over the budget.
- - `starlark.MemSafe`: the function is capable of counting the number of bytes it allocates and to stop if those steps are over the budget.
- - `starlark.TimeSafe`: the function is capable of stopping, if requested, within a reasonable amount of time.
- - `starlark.IOSafe`: the function does not access any IO resource outside of the confinement requirements.
+Safety properties are specified through the use of starlark.SafetyFlags. These are:
+ - `CPUSafe` - when significant work is done, such a function will count the number of arbitrary 'steps' and compare this to its budget.
+ - `MemSafe` - when persistent or significant transient allocations are made, such a function will count the number of bytes used and compare this to its budget
+ - `TimeSafe` - when the executing thread is cancelled, such a function will stop within a reasonable amount of time
+ - `IOSafe` - such a function does not access any IO resource outside of confinement requirements.
 
-Starlark execution is always performed against a `starlark.Thread` object which acts as an *execution context*. The threads also contains the safety limits for a given execution, including:
- - allowed safety flags[^safety-flags];
+Starlark execution is always performed with respect to a `starlark.Thread` object which acts as an *execution context*. This contains the safety constraints for a given execution, including:
+ - required safety flags;
  - memory allocation budget;
  - computation steps budget;
- - cancellation management.
+ - cancellation token management.
 
-[^safety-flags]: any part of the script execution which is not allowed will result in the termination of the run with an error.
+## How to declare safety
 
-## Declaring safety
+<!-- Move NewBuiltinWithSafety first  -->
 
-The first step to provide a new builtin to the language is to *declare* it. This is achieved in upstream starlark with `starlark.NewBuiltin`, for example:
+The first step to provide a new builtin to the language is to *declare* it. This is achieved in upstream starlark with `starlark.NewBuiltinWithSafety`, for example:
 
 ```go
-beAwesomeBuiltin := starlark.NewBuiltin("be_awesome", beAwesome)
+beAwesomeBuiltin := starlark.NewBuiltinWithSafety("be_awesome", starlark.MemSafe | starlark.IOSafe, func(...) { ... })
 ```
 
-By default, this method creates a builtin which is marked as `NotSafe`. It is possible to use the method `DeclareSafety` to change that, for example in the `init` module function:
+As a convention, the order of the flags usually follows their value (`CPUSafe`, `MemSafe`, `TimeSafe`, `IOSafe`).
+
+### How to reduce merge-conflicts with an upstream
+
+When dealing with an upstream library which is not using safety machinery, it is often important to keep the patch size small and to avoid merge conflicts when possible. In this case, it is handy to not change the declaration, but separately declare the safety during initialization with the method `DeclareSafety`. For example:
 
 ```go
+upstreamBuiltin := starlark.NewBuiltin("upstream", func(...) { ... })
+...
 func init() {
-    beAwesomeBuiltin.DeclareSafety(starlark.MemSafe | starlark.IOSafe)
+    upstreamBuiltin.DeclareSafety(starlark.MemSafe | starlark.IOSafe)
 }
 ```
 
-Flags can be combined with the bitwise or operator `|`. As a convention, the order of the flags usually follows their value (`CPUSafe`, `MemSafe`, `TimeSafe`, `IOSafe`).
-
-A more compact way to declare a builtin's safety is to use the function `starlark.NewBuiltinWithSafety`, which combines the two steps above in a single one:
-
-```go
-beAwesomeBuiltin := starlark.NewBuiltinWithSafety("be_awesome", starlark.MemSafe | starlark.IOSafe, beAwesome)
-```
-
-While the latter approach is the preferred one for new code, when forking an existing library for use in the constrained Starlark language, the former can be used to reduce merge clashes with upstream.
-
-## Counting memory usage
+## How to count memory usage
 
 Starlark provides two methods to account for memory: 
- - `Thread.AddAllocs(allocs int64) error`: add allocs bytes to the used memory counter. If the operation would go over the budget, it fails with an error. `allocs` can be negative.
- - `Thread.CheckAllocs(allocs int64) error`: returns an error if a call to `AddAllocs` with the same amount would fail. It doesn't update the used memory counter.
+ - `thread.AddAllocs`: add the parameter to the used-memory counter. If the operation would go over the budget, it returns an error.
+ - `thread.CheckAllocs`: returns an error if a call to `AddAllocs` with the same amount would fail. It doesn't update the used-memory counter.
 
-Normally, it is difficult to understand when and if Go allocates memory by just reading the code as inlining and escape analisys can drastically change the memory layout. However, when used in the Starlark interpreter[^1], it can be assumed that:
+Normally, it is difficult to understand when and if Go allocates memory by just reading the code as inlining and escape analysis can drastically change the memory layout. However, when used in the Starlark interpreter, it can be assumed that:
  - the function will never be inlined;
  - the result of the function will always escape.
 
-This simplifies greatly the complexity of writing memory accounting for a Starlark function.
-
-Clearly, once allocated, the lifetime of a variable is not anymore under control of the function which can make no assumptions about it. However, when considering safety, it is ok to take a pessimistic approach, always taking into account the worst case. For memory, this means considering all allocations as lasting until the end of the script run. While this guarantees safety, it is also useful to distinguish between two types of allocation:
- - persistent allocations: all allocations which are reachable when the function ends;
- - transient allocations (memory spikes): all allocations which are not reachable (i.e. are collectable) when the function returns.
-
-### Estimating allocation size
 
 There are many ways Go allocates memory:
  - when a pointer escapes its context.
- - when a value is wrapped in an interface.
- - when a slice is allocated with `make`[^no-make].
- - when a new element is appended to a slice with no capacity left.
- - when a new element is inserted in a map.
+ - when creating a slice with `make`[^no-make]
+ - when appending to a slice with no remaining capacity
+ - when inserting into a map
+ - when converting any concrete value to an interface
 
-[^no-make]: while this is in general true, if the size of the slice is fixed at compile time and the result does not escape, the Go compiler *might* replace the heap allocation with a stack one.
+NB: the last one is implicit!
 
-In general, it is difficult to compute precisely the amount of memory used as it sometimes depend on the content of the result and the state of the allocator. As such, we refer to the computation of the size of an object as *estimating* the size. Starlark provides two functions to help with that: `starlark.EstimateSize` and `starlark.EstimateMakeSize`.
+Counting the exact amount of memory in use by a program at one time is both prohibitively complex and is little better than a good approximation. To this end, we partition declarations into two categories:
 
-#### Estimating objects
+ - Persistent allocations - those still reachable after a builtin terminates.
+ - Transient allocations - those which may be freed when the builtin terminates.
+
+Persistent allocations must be counted. Transient allocations need only be counted if they are significantly large. (Small memory spikes are generally not worth the complication of counting.)
+
+Given the expected infrequency of garbage collection cycles and the short-lived nature of safe Starlark execution, the freeing of persistent values can be ignored.
+
+### How to estimate allocation size
+
+The amount of memory used by a particular object can be estimated using the `starlark.EstimateSize` function. In the case of make, it is possible to estimate the amount of memory being used ahead of time using `starlark.EstimateMakeSize`.
+
+#### How to estimate objects
 
 `EstimateSize` takes an object and returns the estimated size of the whole object tree. As such, it usually forces the code to first allocate and then count for the memory[^fixed]. Moreover, when using `EstimateSize`, care should be taken in not counting objects more than once. For example:
 
@@ -97,7 +97,7 @@ A nice side effect of this pattern is that the allocation check can be finer-gra
 
 `EstimateSize` is also capable of estimating the size of `chan`nels `map`s and `slice`s. In the first case, it only takes into account the size of the channel buffer. In the other cases, all keys and all values will be taken into account, making the operation rather expensive. Moreover, in the case of `map` only the size can be taken into account, making the estimation sometimes unreliable.
 
-#### Estimating slices
+#### How to estimate slices
 
 Recognizing a slice allocation is rather straightforward as it is literally calling the `make` builtin:
 
@@ -137,7 +137,7 @@ resultSize := starlark.EstimateMakeSize([]any{int(0)}, n)
 
 The `int(0)` serves as the *element template* and will be taken into account for the estimation of the size.
 
-### Transient allocations
+### How to constrain transient allocations
 
 The main objective when dealing with a transient allocation is to make sure that the spike is contained, to avoid spikes so big that might take the whole embedding application down.
 
@@ -185,6 +185,4 @@ if err := thread.AddAllocs(-1500); err != nil {
 }
 ```
 
-### Testing
-
-[^1]: this does not mean that those function will never be inlined. If called directly in any other part of the codebase, they might.
+### How to test memory safety
