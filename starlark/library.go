@@ -96,7 +96,7 @@ func init() {
 		"max":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"min":       CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"ord":       CPUSafe | MemSafe | TimeSafe | IOSafe,
-		"print":     CPUSafe | MemSafe | TimeSafe,
+		"print":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"range":     CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"repr":      CPUSafe | MemSafe | TimeSafe | IOSafe,
 		"reversed":  CPUSafe | MemSafe | TimeSafe | IOSafe,
@@ -1184,9 +1184,15 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 
 	s := buf.String()
 	if thread.Print != nil {
+		if err := CheckSafety(thread, thread.PrintSafety); err != nil {
+			return nil, err
+		}
 		thread.Print(thread, s)
 	} else {
 		thread.AddAllocs(-int64(buf.Allocs()))
+		if err := CheckSafety(thread, MemSafe|CPUSafe|TimeSafe); err != nil {
+			return nil, err
+		}
 		fmt.Fprintln(os.Stderr, s)
 	}
 	return None, nil

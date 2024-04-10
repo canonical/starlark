@@ -3489,6 +3489,39 @@ func TestPrintCancellation(t *testing.T) {
 	testWriteValueCancellation(t, "print")
 }
 
+func TestPrintSafety(t *testing.T) {
+	print, ok := starlark.Universe["print"]
+	if !ok {
+		t.Fatalf("no such builtin: print")
+	}
+
+	t.Run("default", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.RequireSafety(starlark.IOSafe)
+
+		_, err := starlark.Call(thread, print, starlark.Tuple{starlark.String("foo")}, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if !errors.Is(err, starlark.ErrSafety) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("custom", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.PrintSafety = starlark.IOSafe
+		thread.Print = func(thread *starlark.Thread, msg string) {
+			// do nothing
+		}
+		thread.RequireSafety(starlark.IOSafe)
+
+		_, err := starlark.Call(thread, print, starlark.Tuple{starlark.String("foo")}, nil)
+		if err != nil {
+			t.Error(err)
+		}
+	})
+}
+
 func TestRangeSteps(t *testing.T) {
 	range_, ok := starlark.Universe["range"]
 	if !ok {
