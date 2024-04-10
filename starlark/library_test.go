@@ -3511,7 +3511,7 @@ func TestPrintSafety(t *testing.T) {
 		thread := &starlark.Thread{}
 		thread.PrintSafety = starlark.IOSafe
 		thread.Print = func(thread *starlark.Thread, msg string) {
-			// do nothing
+			// Do nothing.
 		}
 		thread.RequireSafety(starlark.IOSafe)
 
