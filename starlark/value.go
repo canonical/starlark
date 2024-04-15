@@ -1267,6 +1267,9 @@ func (l *List) checkMutable(verb string) error {
 	return nil
 }
 
+func (l *List) SafeString(thread *Thread, sb StringBuilder) error {
+	return writeValue(thread, sb, l, nil)
+}
 func (l *List) String() string        { return toString(l) }
 func (l *List) Type() string          { return "list" }
 func (l *List) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable type: list") }
