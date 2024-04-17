@@ -137,6 +137,8 @@ resultSize := starlark.EstimateMakeSize([]any{int(0)}, n)
 
 The `int(0)` serves as the *element template* and will be taken into account for the estimation of the size.
 
+As a last note, when returning parts of existing strings or slices, the backing array is shared, so no allocation takes place for that. However, when converting the string or slice to an interface, a small header needs to be allocated. For these cases, the `starlark` package provides two constants to easily count for this cost: `StringTypeOverhead` and `SliceTypeOverhead`.
+
 ### How to constrain transient allocations
 
 The main objective when dealing with a transient allocation is to make sure that the spike is contained, to avoid spikes so big that might take the whole embedding application down.
