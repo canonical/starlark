@@ -188,3 +188,66 @@ if err := thread.AddAllocs(-1500); err != nil {
 ```
 
 ### How to test memory safety
+
+Testing memory safety is important as it is the way to tie the allocation model defined in each function to reality.
+
+Measuring memory can be difficult in a GC environment. For this reason, the `startest` package tries to help by abstracting away the details.
+
+All memory test should start by instantiating the `startest` package and by requiring memory safety. By convention, memory tests are named as `TestXXXAllocs`.
+
+The test is then composed by the logic passed to the `st.RunThread` method. The logic should make the function allocate an amount of memory proportional to the `st.N`. `startest` package might run the logic multiple times to gather a significant amount of memory samples, similar to how benchmarking works.
+
+It is important to note that the GC might collect memory before the measuring logic gets a chance to run. For this reason, it is important to keep alive objects that are worth measuring (typically the result) using the `KeepAlive` function.
+
+```go
+func TestMyAwesomeAllocs(t *testing.T) {
+    st := startest.From(t) // by convention, the startest object is called `st`
+    st.RequireSafety(starlark.MemSafe)
+    st.RunThread(func(thread *starlark.Thread) {
+        for i := 0; i < st.N; i++ {
+            result, err := starlark.Call(thread, myAwesomeBuiltin, nil, nil)
+            if err != nil {
+                st.Error(err)
+            }
+            st.KeepAlive(result)
+        }
+    })
+}
+```
+
+In case the function allocations depend on the input, then it is possible to test the behavior by passing a parameter which depends on `st.N` instead of using a loop. For example:
+
+```go
+// repeat creates a new tuple with n * len(tuple) elements, 
+// containing tuple repeated n times
+func repeat(tuple starlark.Tuple, n int) starlark.Tuple
+...
+func TestRepeatAllocs(t *testing.T) starlark.Tuple {
+    st := startest.From(t)
+    st.RequireSafety(starlark.MemSafe)
+    st.RunThread(func(thread *starlark.Thread) {
+        tuple := starlark.Tuple{ starlark.True, starlark.False, starlark.None }
+        result = repeat(tuple, st.N) // the output depends on st.N, no need for a loop here
+        st.KeepAlive(result)
+    })
+}
+```
+
+As a last note, it is optionally possible to check for max allocation per N with the method `st.SetMaxAllocs`. This is most useful to guarantee that some function does not allocate at all. For example:
+
+```go
+func itentity(value starlark.Value) starlark.Value { return value }
+...
+func TestIdentityAllocs(t *testing.T) starlark.Tuple {
+    value := ...
+    st := startest.From(t)
+    st.RequireSafety(starlark.MemSafe)
+    st.SetMaxAllocs(0)
+    st.RunThread(func(thread *starlark.Thread) {
+        for i := 0; i < st.N; i++ {
+            result = identity(value)
+            st.KeepAlive(result)
+        }
+    })
+}
+```
