@@ -53,7 +53,7 @@ There are many ways Go allocates memory:
  - when appending to a slice with no remaining capacity
  - when inserting into a map
 
-NB: the firt two are implicit!
+NB: the first two are implicit!
 
 Counting the exact amount of memory in use by a program at one time is both prohibitively complex and little better than a good approximation. To this end, we partition declarations into two categories:
 
