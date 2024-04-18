@@ -83,15 +83,6 @@ if err := thread.AddAllocs(starlark.EstimateSize(myObject)); err != nil { ... }
 
 Wwhen using `EstimateSize`, care should be taken in not counting objects more than once. For example:
 
-<!--
-'the cost of its result' could be made more precise as 'the cost of a'
-As MakeObjSafe counting is just a (good) convention, perhaps the comment should be 
-MyStruct could be renamed to B
-When constructing MyStruct, I think we should use &MyStruct{...} to make the allocation more obvious (this currently relies on an unseen escape, the & just helps with clarity even if allocation isn't guaranteed lol)
-Populating MyStruct could be done without referring to field (MyStruct { a }), also objA doesn't exist :P
-Perhaps a comment at the end of the EstimateSize line could read // a is also counted here!
--->
-
 ```go
 a, err := MakeA(thread) // Expect this to count the cost of a
 if err != nil { ... }
