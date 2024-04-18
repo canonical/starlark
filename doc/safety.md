@@ -16,8 +16,6 @@ Starlark execution is always performed with respect to a `starlark.Thread` objec
 
 ## How to declare safety
 
-<!-- Move NewBuiltinWithSafety first  -->
-
 The first step to provide a new builtin to the language is to *declare* it. This is achieved in upstream starlark with `starlark.NewBuiltinWithSafety`, for example:
 
 ```go
@@ -26,7 +24,7 @@ beAwesomeBuiltin := starlark.NewBuiltinWithSafety("be_awesome", starlark.MemSafe
 
 As a convention, the order of the flags usually follows their value (`CPUSafe`, `MemSafe`, `TimeSafe`, `IOSafe`).
 
-### How to reduce merge-conflicts with an upstream
+### How to reduce merge-conflicts with an upstream library
 
 When dealing with an upstream library which is not using safety machinery, it is often important to keep the patch size small and to avoid merge conflicts when possible. In this case, it is handy to not change the declaration, but separately declare the safety during initialization with the method `DeclareSafety`. For example:
 
@@ -48,17 +46,16 @@ Normally, it is difficult to understand when and if Go allocates memory by just 
  - the function will never be inlined;
  - the result of the function will always escape.
 
-
 There are many ways Go allocates memory:
- - when a pointer escapes its context.
- - when creating a slice with `make`[^no-make]
+ - when a pointer escapes its function scope
+ - when converting any concrete value to an interface
+ - when creating a slice with `make`
  - when appending to a slice with no remaining capacity
  - when inserting into a map
- - when converting any concrete value to an interface
 
-NB: the last one is implicit!
+NB: the firt two are implicit!
 
-Counting the exact amount of memory in use by a program at one time is both prohibitively complex and is little better than a good approximation. To this end, we partition declarations into two categories:
+Counting the exact amount of memory in use by a program at one time is both prohibitively complex and little better than a good approximation. To this end, we partition declarations into two categories:
 
  - Persistent allocations - those still reachable after a builtin terminates.
  - Transient allocations - those which may be freed when the builtin terminates.
@@ -69,49 +66,66 @@ Given the expected infrequency of garbage collection cycles and the short-lived 
 
 ### How to estimate allocation size
 
-The amount of memory used by a particular object can be estimated using the `starlark.EstimateSize` function. In the case of make, it is possible to estimate the amount of memory being used ahead of time using `starlark.EstimateMakeSize`.
+In our API, there are two central functions and two central values which may be used to estimate the size of any Go value. These are:
+ - `EstimateSize`, which estimates the size of a given object
+ - `EstimateMakeSize`, which estimates the size to be allocated by a call to make with the same arguments
+ - `StringTypeOverhead` and `SliceTypeOverhead`, which account for the top-level cost of these structures, useful when a string/slice is created which is just a sub-string/sub-slice of another, already accounted-for one
 
 #### How to estimate objects
 
-`EstimateSize` takes an object and returns the estimated size of the whole object tree. As such, it usually forces the code to first allocate and then count for the memory[^fixed]. Moreover, when using `EstimateSize`, care should be taken in not counting objects more than once. For example:
+So you've found an allocation and you want to account for it. What should you use?
+
+`EstimateSize` takes an object and returns the estimated size of the whole object tree. As such, it usually forces the code to first allocate the object and then count its memory, hence to avoid large spikes, code should be structured so that this is only called on relatively small objects (which may make up a larger one). Exactly how is described later.
 
 ```go
-a, err := MakeObjSafe(thread) // Counts the cost of its result
+if err := thread.AddAllocs(starlark.EstimateSize(myObject)); err != nil { ... }
+```
+
+Wwhen using `EstimateSize`, care should be taken in not counting objects more than once. For example:
+
+<!--
+'the cost of its result' could be made more precise as 'the cost of a'
+As MakeObjSafe counting is just a (good) convention, perhaps the comment should be 
+MyStruct could be renamed to B
+When constructing MyStruct, I think we should use &MyStruct{...} to make the allocation more obvious (this currently relies on an unseen escape, the & just helps with clarity even if allocation isn't guaranteed lol)
+Populating MyStruct could be done without referring to field (MyStruct { a }), also objA doesn't exist :P
+Perhaps a comment at the end of the EstimateSize line could read // a is also counted here!
+-->
+
+```go
+a, err := MakeA(thread) // Expect this to count the cost of a
 if err != nil { ... }
-b := MyStruct{ field: objA }
-bSize := starlark.EstimateSize(b)
+b := &B{ a }
+bSize := starlark.EstimateSize(b) // a is also counted here!
 if err := thread.AddAllocs(bSize); err != nil { ... }
 ```
 
-In the above example, the cost of `a` is being counted twice: once in `MakeObjSafe` and once when computing `bSize`. In these cases it is useful to pass to `EstimateSize` an *object template* instead, which does not reference the field:
+To avoid this double-counting, pass an *object template* to `EstimateSize`. Here we define an object template as a partially-constructed instance of that object where only the fields we want to count are populated. In the above example, no fields will be populated in the new template.
 
 ```go
-a, err := MakeObjSafe(thread) // Counts the cost of its result
+a, err := MakeA(thread) // Expect this to count the cost of a
 if err != nil { ... }
-bSize := starlark.EstimateSize(MyStruct{}) // empty template
+bSize := starlark.EstimateSize(B{}) // empty template
 if err := thread.AddAllocs(bSize); err != nil { ... }
-b := MyStruct{ field: objA }
+b := B{ a }
 ```
 
 A nice side effect of this pattern is that the allocation check can be finer-grained and can be moved *before* the allocation happens. As such, the object template is also useful when the size of the object does not depend on its content.
 
-`EstimateSize` is also capable of estimating the size of `chan`nels `map`s and `slice`s. In the first case, it only takes into account the size of the channel buffer. In the other cases, all keys and all values will be taken into account, making the operation rather expensive. Moreover, in the case of `map` only the size can be taken into account, making the estimation sometimes unreliable.
+Estimating the cost of an entire structure can be expensive, for example when a map, slice or array is passed, every key and every value will also be traversed, along with their children!
+
+Although this function can slightly (and safely) overestimate, in the case of channels and maps it may also underestimate! As Go does not expose the content of channels for reflection, only the size of the channel buffer can be accounted for. Similarly, Go does not expose the capacity of a map, only its length, hence if a map is created, many items added then many removed, len(map) might be low, but its capacity could be much higher! Care must be taken if Starlark is given access to such values.
 
 #### How to estimate slices
 
-Recognizing a slice allocation is rather straightforward as it is literally calling the `make` builtin:
+To recognise a slice allocation, look for either a call to the `make` builtin or an expression like `[]T{...}`. The amount of memory necessary to satisfy this allocation can be easily estimated with a call to `EstimateMakeSize`:
 
 ```go
-storage := make([]int, n)
+size := starlark.EstimateMakeSize([]int{}, n)
+if err := thread.AddAllocs(size); err != nil {...}
 ```
 
-The amount of memory necessary to satisfy this allocation can be easily estimated with a call to `EstimateMakeSize`:
-
-```go
-storageSize := starlark.EstimateMakeSize([]int{}, n)
-```
-
-However, when dealing with interfaces, converting a value to an interface might require additional memory. Let's consider the following code:
+However, when dealing with interfaces, there is often an implicit conversion from a value to an interface, which might require additional memory. Let's consider the following code:
 
 ```go
 result := make([]any, n)
@@ -127,33 +141,34 @@ resultSize := starlark.EstimateMakeSize([]any{}, n)
 if err := thread.AddAllocs(resultSize); err != nil { ... }
 ```
 
-However, testing the result might be surprising as it would fail. In fact, each element of `result` needs some memory to store the value (an integer in this case) in the interface. The need for this allocation is somehow subtle and depends *on the type of `result`* and not on the type of `i`.
+However this would be incorrect! The elements of `result` are not integers but interfaces *containing* integers and that implicit interface conversion forces an allocation, even for simple types. This allocation is subtle and depends on the type of `result` and not the type of `i`.
 
-It is possible to ask `EstimateMakeSize` to take this kind of scenarios into account by specifing a *template* for the element, in a similar way a template is used for `EstimateSize`. In this case, for example, to estimate the real size of `result` it is possible to write:
+To make `EstimateMakeSize` take these kinda of scenarios into account, specify a template for the element*, in a similar way a template is used for `EstimateSize`. For the above case, to estimate correctly and concisely the size of `result` it is possible to write:
 
 ```go
 resultSize := starlark.EstimateMakeSize([]any{int(0)}, n)
 ```
 
-The `int(0)` serves as the *element template* and will be taken into account for the estimation of the size.
+Always be careful to match the types passed in the template with exactly the types being handled, especially when interfaces are involved. Taking good care here will pay off when it comes to testing.
 
+<!-- REPHRASE THIS to talk about headers -->
 As a last note, when returning parts of existing strings or slices, the backing array is shared, so no allocation takes place for that. However, when converting the string or slice to an interface, a small header needs to be allocated. For these cases, the `starlark` package provides two constants to easily count for this cost: `StringTypeOverhead` and `SliceTypeOverhead`.
 
 ### How to constrain transient allocations
 
-The main objective when dealing with a transient allocation is to make sure that the spike is contained, to avoid spikes so big that might take the whole embedding application down.
+Accounting for every single allocation Go makes during a computation is prohibitively complex, so some spikes in memory usage e.g. for scratch space when computing some value are somewhat inevitable. The key to making these safe is to prevent these spikes getting so large that they can take down the entire embedding application.
 
-There are two ways to deal with transient allocations in Starlark. The easiest and natural one is to use `CheckAllocs` method to ask the thread if there is enough memory for the spike. Even when available, no memory will be added to the memory budged. For example:
+Easiest and most natural one is to use the `CheckAllocs` function to ask the current Starlark thread whether there is enough memory in its budget to account for the spike. The total counted memory remains unchanged in this case. For example:
 
 ```go
-allocationSize := 300 * 1024 // 300 KiB
-if err := thread.CheckAllocs(allocationSize); err != nil {
+spikeSize := 300 * 1024 // 300 KiB
+if err := thread.CheckAllocs(spikeSize); err != nil {
     return nil, err
 }
-storage := make([]byte, allocationSize)
+scratchBuffer := make([]byte, allocationSize)
 ```
 
-This, however, would not work if two or more transient allocation are done separately, for example:
+This, however, would not work if two or more transient allocation are declared separately. Consider the following example:
 
 ```go
 thread.SetMaxAllocs(1000)
@@ -162,13 +177,14 @@ if err := thread.CheckAllocs(900); err != nil { // OK, budget is enough
     return nil, err
 }
 storage1 := make([]byte, 900)
+
 if err := thread.CheckAllocs(600); err != nil { // Not ok, it should fail!
     return nil, err
 }
 storage2 := make([]byte, 600)
 ```
 
-In this case, the allocation made was about `1500` bytes which is above the budget. However, the logic failed to detect it as `CheckAllocs` does not update the counter. For this reason, it is ok in these cases to call `AddAllocs` instead, with a negative amount. A possible solution in the case above would be:
+In this case, the *total* spike size was around `1500` bytes which is above the budget. However, this logic failed to detect it as `CheckAllocs` does not update the counter. To avoid this problem, use AddAllocs to update the counter, then AddAllocs again, this time with a negative amount, to remove the counting. This technique is especially important in recursive functions! A possible solution in the case above would be:
 
 ```go
 thread.SetMaxAllocs(1000)
@@ -182,30 +198,31 @@ if err := thread.AddAllocs(600); err != nil {
 }
 storage2 := make([]byte, 600)
 ...
-if err := thread.AddAllocs(-1500); err != nil {
+spikeSize := 900 + 600
+if err := thread.AddAllocs(-spikeSize); err != nil {
     return nil, err
 }
 ```
 
 ### How to test memory safety
 
-Testing memory safety is important as it is the way to tie the allocation model defined in each function to reality.
+All the above declarations are good in theory but to achieve safety we must test this model against reality. Don't be surprised if you've missed something!
 
-Measuring memory can be difficult in a GC environment. For this reason, the `startest` package tries to help by abstracting away the details.
-
-All memory test should start by instantiating the `startest` package and by requiring memory safety. By convention, memory tests are named as `TestXXXAllocs`.
-
-The test is then composed by the logic passed to the `st.RunThread` method. The logic should make the function allocate an amount of memory proportional to the `st.N`. `startest` package might run the logic multiple times to gather a significant amount of memory samples, similar to how benchmarking works.
-
-It is important to note that the GC might collect memory before the measuring logic gets a chance to run. For this reason, it is important to keep alive objects that are worth measuring (typically the result) using the `KeepAlive` function.
+Say we've written a builtin called `myAwesomeBuiltin`. To test its memory safety, use the `startest` package, create a new test instance as detailed below and make sure to *require* the `MemSafe` flag to tell the instance to test for memory safety.
 
 ```go
-func TestMyAwesomeAllocs(t *testing.T) {
+func TestMyAwesomeBuiltinAllocs(t *testing.T) {
     st := startest.From(t) // by convention, the startest object is called `st`
     st.RequireSafety(starlark.MemSafe)
-    st.RunThread(func(thread *starlark.Thread) {
+```
+
+Then, use the `st.RunThread` method to make a workload to benchmark. This must allocate an amount of memory proportional to the provided `st.N`. Make sure this has no side-effects as this logic may be run many times. Finally, call `st.KeepAlive` with the value to be measured which in our case is the result of our builtin
+
+```go
+   st.RunThread(func(thread *starlark.Thread) {
+        // (The existing code copy-pasted)
         for i := 0; i < st.N; i++ {
-            result, err := starlark.Call(thread, myAwesomeBuiltin, nil, nil)
+            result, err := starlark.Call(thread, beAwesomeBuiltin, nil, nil)
             if err != nil {
                 st.Error(err)
             }
@@ -215,28 +232,25 @@ func TestMyAwesomeAllocs(t *testing.T) {
 }
 ```
 
-In case the function allocations depend on the input, then it is possible to test the behavior by passing a parameter which depends on `st.N` instead of using a loop. For example:
+This pattern of repeatedly calling the builtin st.N times works when the input has no effect on the size of the output. To exercise a function whose output size depends on its input, use `st.N` to construct an input which will force an output with size proportional to `st.N`.
 
 ```go
-// repeat creates a new tuple with n * len(tuple) elements, 
-// containing tuple repeated n times
-func repeat(tuple starlark.Tuple, n int) starlark.Tuple
+func repeat(thread *starlark.Thread, v starlark.Value, times int) []starlark.Value
 ...
 func TestRepeatAllocs(t *testing.T) starlark.Tuple {
     st := startest.From(t)
     st.RequireSafety(starlark.MemSafe)
     st.RunThread(func(thread *starlark.Thread) {
         tuple := starlark.Tuple{ starlark.True, starlark.False, starlark.None }
-        result = repeat(tuple, st.N) // the output depends on st.N, no need for a loop here
+        result = repeat(thread, tuple, st.N) // the output depends on st.N, no need for a loop here
         st.KeepAlive(result)
     })
 }
 ```
-
-As a last note, it is optionally possible to check for max allocation per N with the method `st.SetMaxAllocs`. This is most useful to guarantee that some function does not allocate at all. For example:
+As a final note, to check that function does not allocate at all, use `st.SetMaxAllocs(0)` to set the maximum permissible allocations per st.N to zero as in the following:
 
 ```go
-func itentity(value starlark.Value) starlark.Value { return value }
+func shouldNotAllocate(value starlark.Value) starlark.Value { return value }
 ...
 func TestIdentityAllocs(t *testing.T) starlark.Tuple {
     value := ...
@@ -245,7 +259,7 @@ func TestIdentityAllocs(t *testing.T) starlark.Tuple {
     st.SetMaxAllocs(0)
     st.RunThread(func(thread *starlark.Thread) {
         for i := 0; i < st.N; i++ {
-            result = identity(value)
+            result = shouldNotAllocate(value)
             st.KeepAlive(result)
         }
     })
