@@ -8,7 +8,7 @@ Safety properties are specified through the use of starlark.SafetyFlags. These a
  - `TimeSafe` - when the executing thread is cancelled, such a function will stop within a reasonable amount of time
  - `IOSafe` - such a function does not access any IO resource outside of confinement requirements.
 
-Starlark execution is always performed with respect to a `starlark.Thread` object which acts as an *execution context*. This contains the safety constraints for a given execution, including:
+Starlark execution is always performed with respect to a `starlark.Thread` which acts as an *execution context*. This contains the safety constraints for a given execution, including:
  - required safety flags;
  - memory allocation budget;
  - computation steps budget;
@@ -67,21 +67,21 @@ Given the expected infrequency of garbage collection cycles and the short-lived 
 ### How to estimate allocation size
 
 In our API, there are two central functions and two central values which may be used to estimate the size of any Go value. These are:
- - `EstimateSize`, which estimates the size of a given object
+ - `EstimateSize`, which estimates the size of a given value
  - `EstimateMakeSize`, which estimates the size to be allocated by a call to make with the same arguments
  - `StringTypeOverhead` and `SliceTypeOverhead`, which account for the top-level cost of these structures, useful when a string/slice is created which is just a sub-string/sub-slice of another, already accounted-for one
 
-#### How to estimate objects
+#### How to estimate values
 
 So you've found an allocation and you want to account for it. What should you use?
 
-`EstimateSize` takes an object and returns the estimated size of the whole object tree. As such, it usually forces the code to first allocate the object and then count its memory, hence to avoid large spikes, code should be structured so that this is only called on relatively small objects (which may make up a larger one). Exactly how is described later.
+`EstimateSize` takes a value and returns the estimated size of the whole tree. As such, it usually forces the code to first allocate the value and then count its memory, hence to avoid large spikes, code should be structured so that this is only called on relatively small values (which may make up a larger one). Exactly how is described later.
 
 ```go
-if err := thread.AddAllocs(starlark.EstimateSize(myObject)); err != nil { ... }
+if err := thread.AddAllocs(starlark.EstimateSize(myValue)); err != nil { ... }
 ```
 
-Wwhen using `EstimateSize`, care should be taken in not counting objects more than once. For example:
+When using `EstimateSize`, care should be taken in not counting values more than once. For example:
 
 ```go
 a, err := MakeA(thread) // Expect this to count the cost of a
@@ -91,7 +91,7 @@ bSize := starlark.EstimateSize(b) // a is also counted here!
 if err := thread.AddAllocs(bSize); err != nil { ... }
 ```
 
-To avoid this double-counting, pass an *object template* to `EstimateSize`. Here we define an object template as a partially-constructed instance of that object where only the fields we want to count are populated. In the above example, no fields will be populated in the new template.
+To avoid this double-counting, pass an *value template* to `EstimateSize`. Here we define a value template as a partially-constructed instance of that type where only the fields we want to count are populated. In the above example, no fields will be populated in the new template.
 
 ```go
 a, err := MakeA(thread) // Expect this to count the cost of a
@@ -101,7 +101,7 @@ if err := thread.AddAllocs(bSize); err != nil { ... }
 b := B{ a }
 ```
 
-A nice side effect of this pattern is that the allocation check can be finer-grained and can be moved *before* the allocation happens. As such, the object template is also useful when the size of the object does not depend on its content.
+A nice side effect of this pattern is that the allocation check can be finer-grained and can be moved *before* the allocation happens. As such, the template is also useful when the size of the value does not depend on its content, but just on its type.
 
 Estimating the cost of an entire structure can be expensive, for example when a map, slice or array is passed, every key and every value will also be traversed, along with their children!
 
@@ -202,7 +202,7 @@ Say we've written a builtin called `myAwesomeBuiltin`. To test its memory safety
 
 ```go
 func TestMyAwesomeBuiltinAllocs(t *testing.T) {
-    st := startest.From(t) // by convention, the startest object is called `st`
+    st := startest.From(t) // by convention, the startest instance is called `st`
     st.RequireSafety(starlark.MemSafe)
 ```
 
