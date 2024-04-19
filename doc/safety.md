@@ -1,6 +1,6 @@
 # How to make a builtin safe
 
-Starlark's capabilities are enhanced by exposing new builtins (functions callable from Starlark, written in Go) or new types (types implementing Starlark interfaces, written in Go). Clearly, allowing users unlimited access to run code on the host can be problematic, hence safety constraints must be enforced. As this may only be done on a best-effort basis, safety can only be enforced with a contract - the host declares the safety properties it cares about and all code run on it must then respect these properties. The contract is upheld through testing.
+Starlark's capabilities are enhanced by exposing new builtins (functions callable from Starlark, written in Go) or new types (types implementing Starlark interfaces, written in Go). Clearly, allowing users unlimited access to run code on the host can be problematic, hence safety constraints must be enforced. Unfortunately, the Go interpreter doesn't offer a good basis for such hard enforcement of constraints, so what is implemented is a best effort system via a contract: the host declares the safety properties it cares about and all code run on it must then respect these properties. The contract is upheld through testing.
 
 Safety properties are specified through the use of starlark.SafetyFlags. These are:
  - `CPUSafe` - when significant work is done, such a function will count the number of arbitrary 'steps' and compare this to its budget.
@@ -38,7 +38,7 @@ func init() {
 
 ## How to count memory usage
 
-Starlark provides two methods to account for memory: 
+Two methods are provided to account for memory: 
  - `thread.AddAllocs`: add the parameter to the used-memory counter. If the operation would go over the budget, it returns an error.
  - `thread.CheckAllocs`: returns an error if a call to `AddAllocs` with the same amount would fail. It doesn't update the used-memory counter.
 
@@ -60,7 +60,7 @@ Counting the exact amount of memory in use by a program at one time is both proh
  - Persistent allocations - those still reachable after a builtin terminates.
  - Transient allocations - those which may be freed when the builtin terminates.
 
-Persistent allocations must be counted. Transient allocations need only be counted if they are significantly large. (Small memory spikes are generally not worth the complication of counting.)
+Persistent allocations must be counted. Transient allocations need only be counted if they are significantly large (small memory spikes are generally not worth the complication of counting).
 
 Given the expected infrequency of garbage collection cycles and the short-lived nature of safe Starlark execution, the freeing of persistent values can be ignored.
 
@@ -197,7 +197,7 @@ if err := thread.AddAllocs(-spikeSize); err != nil {
 
 ### How to test memory safety
 
-All the above declarations are good in theory but to achieve safety we must test this model against reality. Don't be surprised if you've missed something!
+All the above declarations are good in theory but to achieve safety we must test this model against reality. Don't be surprised if you've missed something.
 
 Say we've written a builtin called `myAwesomeBuiltin`. To test its memory safety, use the `startest` package, create a new test instance as detailed below and make sure to *require* the `MemSafe` flag to tell the instance to test for memory safety.
 
