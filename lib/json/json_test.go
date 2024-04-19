@@ -12,6 +12,7 @@ import (
 )
 
 type unsafeTestIterable struct {
+	// Allows test errors to be declared in methods without error returns.
 	testBase startest.TestBase
 }
 
@@ -31,6 +32,7 @@ func (ui *unsafeTestIterable) Iterate() starlark.Iterator {
 }
 
 type unsafeTestIterator struct {
+	// Allows test errors to be declared in methods without error returns.
 	testBase startest.TestBase
 }
 

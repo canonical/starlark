@@ -188,6 +188,7 @@ func (iter *testSequenceIterator) Next(p *starlark.Value) bool {
 }
 
 type unsafeTestIterable struct {
+	// Allows test errors to be declared in methods without error returns.
 	testBase startest.TestBase
 }
 
@@ -207,6 +208,7 @@ func (ui *unsafeTestIterable) Iterate() starlark.Iterator {
 }
 
 type unsafeTestIterator struct {
+	// Allows test errors to be declared in methods without error returns.
 	testBase startest.TestBase
 }
 
@@ -1722,6 +1724,7 @@ func TestEnumerateCancellation(t *testing.T) {
 }
 
 type unsafeTestStringer struct {
+	// Allows test errors to be declared in methods without error returns.
 	t startest.TestBase
 }
 
@@ -1737,6 +1740,7 @@ func (uts *unsafeTestStringer) String() string {
 }
 
 type testSafeStringer struct {
+	// Allows test errors to be declared in methods without error returns.
 	t          startest.TestBase
 	safeString func(thread *starlark.Thread, sb starlark.StringBuilder) error
 }
