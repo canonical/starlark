@@ -142,8 +142,7 @@ resultSize := starlark.EstimateMakeSize([]any{int(0)}, n)
 
 Always be careful to match the types passed in the template with exactly the types being handled, especially when interfaces are involved. Taking good care here will pay off when it comes to testing.
 
-<!-- REPHRASE THIS to talk about headers -->
-As a last note, when returning parts of existing strings or slices, the backing array is shared, so no allocation takes place for that. However, when converting the string or slice to an interface, a small header needs to be allocated. For these cases, the `starlark` package provides two constants to easily count for this cost: `StringTypeOverhead` and `SliceTypeOverhead`.
+As a last note, when converting a slice to an interface, the space for its *header* is allocated. This holds true for strings as well. Given how common they are, two constants are provided these cases: `StringTypeOverhead` and `SliceTypeOverhead`.
 
 ### How to constrain transient allocations
 
