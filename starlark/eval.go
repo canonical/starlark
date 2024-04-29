@@ -64,10 +64,6 @@ type Thread struct {
 	steps, maxSteps uint64
 	stepsLock       sync.Mutex
 
-	// OnMaxSteps is called when the thread reaches the limit set by SetMaxSteps.
-	// The default behavior is to cancel the thread.
-	OnMaxSteps func(thread *Thread)
-
 	// allocs counts the abstract memory units claimed by this resource pool
 	allocs, maxAllocs uint64
 	allocsLock        sync.Mutex
@@ -165,9 +161,7 @@ func (thread *Thread) Steps() uint64 {
 
 // SetMaxSteps sets a limit on the number of Starlark
 // computation steps that may be executed by this thread. If the
-// thread's step counter exceeds this limit, the interpreter calls
-// the optional OnMaxSteps function or the default behavior
-// of cancelling the thread.
+// thread's step counter exceeds this limit, the thread is cancelled.
 func (thread *Thread) SetMaxSteps(max uint64) {
 	thread.maxSteps = max
 }
@@ -198,11 +192,7 @@ func (thread *Thread) AddSteps(delta int64) error {
 	nextSteps, err := thread.simulateSteps(delta)
 	thread.steps = nextSteps
 	if err != nil {
-		if thread.OnMaxSteps != nil {
-			thread.OnMaxSteps(thread)
-		} else {
-			thread.cancel(err)
-		}
+		thread.cancel(err)
 	}
 
 	return err
