@@ -286,10 +286,9 @@ To count CPU usage here, the following lines are added before the `strings.HasPr
 
 ```go
 if err := thread.AddSteps(int64(len(prefix))); err != nil {
-    return “”, err
+    return "", err
 }
 ```
-<!-- TODO: note not exact somewhere -->
 
 When `prefix` is non-empty, this will add a non-zero number of steps to the step counter, but what about when `prefix` is the empty string?
 In this case, although some work will be done, the amount is insignificant so can be safely ignored as the Starlark interpreter will implicitly add at least one step every time a builtin is called.
