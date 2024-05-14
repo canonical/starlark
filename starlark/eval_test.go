@@ -1078,6 +1078,98 @@ func TestContext(t *testing.T) {
 	}
 }
 
+func TestMaxStackDepth(t *testing.T) {
+	opts := &syntax.FileOptions{
+		Recursion: true,
+	}
+
+	t.Run("implicitly-unbounded", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		code, err := startest.Reindent(`
+			def recurse(i):
+				if i != 0:
+					recurse(i - 1)
+			recurse(10000)
+		`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = starlark.ExecFileOptions(opts, thread, "test.star", code, nil)
+		if err != nil {
+			t.Error(err)
+		}
+	})
+
+	t.Run("explicitly-unbounded", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		code, err := startest.Reindent(`
+			def recurse(i):
+				if i != 0:
+					recurse(i - 1)
+			recurse(10000)
+		`)
+		thread.SetMaxStackDepth(0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = starlark.ExecFileOptions(opts, thread, "test.star", code, nil)
+		if err != nil {
+			t.Error(err)
+		}
+	})
+
+	t.Run("bounded-shallow", func(t *testing.T) {
+		const depthLimit = 100
+		const depthTarget = depthLimit / 2
+
+		thread := &starlark.Thread{}
+		code, err := startest.Reindent(fmt.Sprintf(
+			`
+				def recurse(i):
+					if i != 0:
+						recurse(i - 1)
+				recurse(%d)
+			`,
+			depthTarget,
+		))
+		thread.SetMaxStackDepth(depthLimit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = starlark.ExecFileOptions(opts, thread, "test.star", code, nil)
+		if err != nil {
+			t.Error(err)
+		}
+	})
+
+	t.Run("bounded-overly-deep", func(t *testing.T) {
+		const expected = "call stack too deep"
+		const depthLimit = 100
+		const depthTarget = depthLimit * 2
+
+		thread := &starlark.Thread{}
+		code, err := startest.Reindent(fmt.Sprintf(
+			`
+				def recurse(i):
+					if i != 0:
+						recurse(i - 1)
+				recurse(%d)
+			`,
+			depthTarget,
+		))
+		thread.SetMaxStackDepth(depthLimit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = starlark.ExecFileOptions(opts, thread, "test.star", code, nil)
+		if err == nil {
+			t.Error("expected error")
+		} else if err.Error() != expected {
+			t.Errorf("incorrect error: expected %v but got %v", expected, err)
+		}
+	})
+}
+
 func TestCancelConsistency(t *testing.T) {
 	thread := &starlark.Thread{}
 	ctx := thread.Context()

@@ -39,7 +39,8 @@ type Thread struct {
 	done         chan struct{}
 
 	// stack is the stack of (internal) call frames.
-	stack []*frame
+	stack         []*frame
+	maxStackDepth uint
 
 	// Print is the client-supplied implementation of the Starlark
 	// 'print' function. If nil, fmt.Fprintln(os.Stderr, msg) is
@@ -149,6 +150,12 @@ func (tc *threadContext) cause() error {
 // If Context is called, Cancel must also be called.
 func (thread *Thread) Context() context.Context {
 	return (*threadContext)(thread)
+}
+
+// SetMaxStackDepth sets a limit on the depth of Starlark's stack. If the
+// passed depth is zero, Starlark does not limit its stack.
+func (thread *Thread) SetMaxStackDepth(depth uint) {
+	thread.maxStackDepth = depth
 }
 
 // Steps returns the current value of Steps.
@@ -2132,6 +2139,10 @@ func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 
 // Call calls the function fn with the specified positional and keyword arguments.
 func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
+	if thread.maxStackDepth > 0 && uint(len(thread.stack)+1) >= thread.maxStackDepth {
+		return nil, fmt.Errorf("call stack too deep")
+	}
+
 	c, ok := fn.(Callable)
 	if !ok {
 		return nil, fmt.Errorf("invalid call of non-function (%s)", fn.Type())
