@@ -2139,10 +2139,6 @@ func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 
 // Call calls the function fn with the specified positional and keyword arguments.
 func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
-	if thread.maxStackDepth > 0 && uint(len(thread.stack)+1) >= thread.maxStackDepth {
-		return nil, fmt.Errorf("call stack too deep")
-	}
-
 	c, ok := fn.(Callable)
 	if !ok {
 		return nil, fmt.Errorf("invalid call of non-function (%s)", fn.Type())
@@ -2161,6 +2157,10 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 			return nil, fmt.Errorf("cannot call builtin '%s': %w", b.Name(), err)
 		}
 		return nil, fmt.Errorf("cannot call value of type '%s': %w", c.Type(), err)
+	}
+
+	if thread.maxStackDepth > 0 && uint(len(thread.stack)+1) >= thread.maxStackDepth {
+		return nil, fmt.Errorf("call stack too deep")
 	}
 
 	// Allocate and push a new frame.
