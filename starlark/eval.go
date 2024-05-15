@@ -12,7 +12,7 @@ import (
 	"log"
 	"math"
 	"math/big"
-	"os"
+	"math/bits"
 	"sort"
 	"strings"
 	"sync"
@@ -171,11 +171,11 @@ func (thread *Thread) SetMaxSteps(max uint64) {
 //
 // It is safe to call CheckSteps from any goroutine, even if the thread
 // is actively executing.
-func (thread *Thread) CheckSteps(delta int64) error {
+func (thread *Thread) CheckSteps(deltas ...int64) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
-	_, err := thread.simulateSteps(delta)
+	_, err := thread.simulateSteps(deltas)
 	return err
 }
 
@@ -185,11 +185,11 @@ func (thread *Thread) CheckSteps(delta int64) error {
 //
 // It is safe to call AddSteps from any goroutine, even if the thread
 // is actively executing.
-func (thread *Thread) AddSteps(delta int64) error {
+func (thread *Thread) AddSteps(deltas ...int64) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
-	nextSteps, err := thread.simulateSteps(delta)
+	nextSteps, err := thread.simulateSteps(deltas)
 	thread.steps = nextSteps
 	if err != nil {
 		thread.cancel(err)
@@ -201,33 +201,21 @@ func (thread *Thread) AddSteps(delta int64) error {
 // simulateSteps simulates a call to AddSteps returning the
 // new total step-count and any error this would entail. No change is
 // recorded.
-func (thread *Thread) simulateSteps(delta int64) (uint64, error) {
+func (thread *Thread) simulateSteps(deltas []int64) (uint64, error) {
 	if err := thread.cancelled(); err != nil {
 		return thread.steps, err
 	}
 
-	var nextSteps uint64
-	if delta < 0 {
-		udelta := uint64(-delta)
-		if udelta < thread.steps {
-			nextSteps = thread.steps - udelta
-		} else {
-			nextSteps = 0
-		}
-		return nextSteps, nil
-	}
+	nextSteps := thread.steps
 
-	udelta := uint64(delta)
-	if udelta <= math.MaxInt64-thread.steps {
-		nextSteps = thread.steps + udelta
-	} else {
-		nextSteps = math.MaxUint64
-	}
+	for _, delta := range deltas {
+		nextSteps = satAdd64(nextSteps, delta)
 
-	if thread.maxSteps != 0 && nextSteps > thread.maxSteps {
-		return nextSteps, &StepsSafetyError{
-			Current: thread.steps,
-			Max:     thread.maxSteps,
+		if thread.maxSteps != 0 && nextSteps > thread.maxSteps {
+			return nextSteps, &StepsSafetyError{
+				Current: thread.steps,
+				Max:     thread.maxSteps,
+			}
 		}
 	}
 
@@ -2678,11 +2666,11 @@ func (e *StepsSafetyError) Is(err error) bool {
 //
 // It is safe to call CheckAllocs from any goroutine, even if the thread is
 // actively executing.
-func (thread *Thread) CheckAllocs(delta int64) error {
+func (thread *Thread) CheckAllocs(deltas ...int64) error {
 	thread.allocsLock.Lock()
 	defer thread.allocsLock.Unlock()
 
-	_, err := thread.simulateAllocs(delta)
+	_, err := thread.simulateAllocs(deltas)
 	return err
 }
 
@@ -2692,11 +2680,11 @@ func (thread *Thread) CheckAllocs(delta int64) error {
 //
 // It is safe to call AddAllocs from any goroutine, even if the thread is
 // actively executing.
-func (thread *Thread) AddAllocs(delta int64) error {
+func (thread *Thread) AddAllocs(deltas ...int64) error {
 	thread.allocsLock.Lock()
 	defer thread.allocsLock.Unlock()
 
-	next, err := thread.simulateAllocs(delta)
+	next, err := thread.simulateAllocs(deltas)
 	thread.allocs = next
 	if err != nil {
 		thread.cancel(err)
@@ -2708,36 +2696,39 @@ func (thread *Thread) AddAllocs(delta int64) error {
 // simulateAllocs simulates a call to AddAllocs returning the new total
 // allocations associated with this thread and any error this would entail. No
 // change is recorded.
-func (thread *Thread) simulateAllocs(delta int64) (uint64, error) {
-	var nextAllocs uint64
+func (thread *Thread) simulateAllocs(deltas []int64) (uint64, error) {
+	nextAllocs := thread.allocs
 
-	if delta < 0 {
-		udelta := uint64(-delta)
-		if udelta < thread.allocs {
-			nextAllocs = thread.allocs - udelta
-		} else {
-			nextAllocs = 0
-		}
-		return nextAllocs, nil
-	}
+	for _, delta := range deltas {
+		nextAllocs = satAdd64(nextAllocs, delta)
 
-	udelta := uint64(delta)
-	if udelta <= math.MaxUint64-thread.allocs {
-		nextAllocs = thread.allocs + udelta
-	} else {
-		nextAllocs = math.MaxUint64
-	}
-
-	if vmdebug {
-		fmt.Fprintf(os.Stderr, "allocation limit exceeded after %d steps: %d > %d", thread.steps, thread.allocs, thread.maxAllocs)
-	}
-
-	if thread.maxAllocs != 0 && nextAllocs > thread.maxAllocs {
-		return nextAllocs, &AllocsSafetyError{
-			Current: thread.allocs,
-			Max:     thread.maxAllocs,
+		if thread.maxAllocs != 0 && nextAllocs > thread.maxAllocs {
+			return nextAllocs, &AllocsSafetyError{
+				Current: thread.allocs,
+				Max:     thread.maxAllocs,
+			}
 		}
 	}
 
 	return nextAllocs, nil
+}
+
+func satAdd64(a uint64, b int64) uint64 {
+	if a == math.MaxUint64 {
+		return math.MaxUint64
+	}
+
+	if b >= 0 {
+		sum, carry := bits.Add64(a, uint64(b), 0)
+		if carry != 0 {
+			return math.MaxUint64
+		}
+		return sum
+	}
+
+	diff, borrow := bits.Sub64(a, uint64(-b), 0)
+	if borrow != 0 {
+		return 0
+	}
+	return diff
 }
