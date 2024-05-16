@@ -267,7 +267,7 @@ func estimateChanDirectWithCap(t reflect.Type, cap int) uintptr {
 	// will be allocated in a single bigger block (leading
 	// to a single getAllocSize call).
 	headerSize := roundAllocSize(chanHeaderSize)
-	bufferSize := roundAllocSize(uintptr(cap) * elemSize)
+	bufferSize := roundAllocSize(saturatingMul(uintptr(cap), elemSize))
 	return saturatingAdd(headerSize, bufferSize)
 }
 
