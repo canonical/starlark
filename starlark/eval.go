@@ -39,8 +39,7 @@ type Thread struct {
 	done         chan struct{}
 
 	// stack is the stack of (internal) call frames.
-	stack         []*frame
-	maxStackDepth uint
+	stack []*frame
 
 	// Print is the client-supplied implementation of the Starlark
 	// 'print' function. If nil, fmt.Fprintln(os.Stderr, msg) is
@@ -150,12 +149,6 @@ func (tc *threadContext) cause() error {
 // If Context is called, Cancel must also be called.
 func (thread *Thread) Context() context.Context {
 	return (*threadContext)(thread)
-}
-
-// SetMaxStackDepth sets a limit on the depth of Starlark's stack. If the
-// passed depth is zero, Starlark does not limit its stack.
-func (thread *Thread) SetMaxStackDepth(depth uint) {
-	thread.maxStackDepth = depth
 }
 
 // Steps returns the current value of Steps.
@@ -2137,6 +2130,10 @@ func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 	return String(strings.Repeat(string(s), i)), nil
 }
 
+// Max depth of a Starlark stack. This is significantly less than Go's own hard
+// limit.
+const maxStackDepth = 1 << 16
+
 // Call calls the function fn with the specified positional and keyword arguments.
 func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	c, ok := fn.(Callable)
@@ -2159,8 +2156,8 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		return nil, fmt.Errorf("cannot call value of type '%s': %w", c.Type(), err)
 	}
 
-	if thread.maxStackDepth > 0 && uint(len(thread.stack)+1) >= thread.maxStackDepth {
-		return nil, fmt.Errorf("call stack too deep")
+	if len(thread.stack)+1 >= maxStackDepth {
+		return nil, fmt.Errorf("stack overflow")
 	}
 
 	// Allocate and push a new frame.

@@ -55,6 +55,8 @@ func (thread *Thread) FrameAt(depth int) StackFrameCapture {
 	}
 }
 
+const MaxStackDepth = maxStackDepth
+
 func StringElems(s String, ords bool) Value {
 	return stringElems{s, ords}
 }
