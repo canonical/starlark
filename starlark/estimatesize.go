@@ -114,8 +114,8 @@ func estimateMakeSliceSize(template reflect.Value, n int) uintptr {
 
 	size := roundAllocSize(satMul(uintptr(n), template.Type().Elem().Size()))
 	if len > 0 {
-		indirectSize := estimateSizeIndirect(template.Index(0), make(map[uintptr]struct{}))
-		size = satAdd(size, satMul(uintptr(n), indirectSize))
+		elemSize := estimateSizeIndirect(template.Index(0), make(map[uintptr]struct{}))
+		size = satAdd(size, satMul(uintptr(n), elemSize))
 	}
 	return size
 }
@@ -325,12 +325,12 @@ func getMapKVPairSize(k, v uintptr) uintptr {
 	// There is a little complexity here: if the key and the
 	// value are too big they get allocated separately and only
 	// the pointer is stored.
-	const maxElementSize = 128
-	if k < maxElementSize && v < maxElementSize {
+	const maxElemSize = 128
+	if k < maxElemSize && v < maxElemSize {
 		return (k+v+1)*4 + unsafe.Sizeof(uintptr(0))
-	} else if k < maxElementSize {
+	} else if k < maxElemSize {
 		return satAdd(getMapKVPairSize(k, 8), v)
-	} else if v < maxElementSize {
+	} else if v < maxElemSize {
 		return satAdd(getMapKVPairSize(8, v), k)
 	} else {
 		return satAdd(getMapKVPairSize(8, 8), satAdd(k, v))
