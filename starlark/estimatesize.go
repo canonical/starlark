@@ -40,24 +40,27 @@ import (
 var StringTypeOverhead = EstimateSize("")
 var SliceTypeOverhead = EstimateSize([]struct{}{})
 
-func saturatingAdd(a, b uintptr) uintptr {
+// During estimation, some operations may overflow.
+// To avoid wrapping, satAdd, satMul and capAllocs are used.
+
+func satAdd(a, b uintptr) uintptr {
 	sum, carry := bits.Add(uint(a), uint(b), 0)
 	if carry != 0 {
-		return math.MaxUint64
+		return math.MaxUint
 	}
 	return uintptr(sum)
 }
 
-func saturatingMul(a, b uintptr) uintptr {
+func satMul(a, b uintptr) uintptr {
 	hi, lo := bits.Mul(uint(a), uint(b))
 	if hi != 0 {
-		return uintptr(math.MaxUint64)
+		return math.MaxUint
 	}
 	return uintptr(lo)
 }
 
 func capAllocs(allocs uintptr) int64 {
-	if allocs > math.MaxInt64 {
+	if uint64(allocs) > math.MaxInt64 {
 		return math.MaxInt64
 	}
 	return int64(allocs)
@@ -109,10 +112,10 @@ func estimateMakeSliceSize(template reflect.Value, n int) uintptr {
 		panic(fmt.Sprintf(templateTooLong, len))
 	}
 
-	size := roundAllocSize(saturatingMul(uintptr(n), template.Type().Elem().Size()))
+	size := roundAllocSize(satMul(uintptr(n), template.Type().Elem().Size()))
 	if len > 0 {
-		elementsSize := saturatingMul(uintptr(n), estimateSizeIndirect(template.Index(0), make(map[uintptr]struct{})))
-		size = saturatingAdd(size, elementsSize)
+		elementsSize := satMul(uintptr(n), estimateSizeIndirect(template.Index(0), make(map[uintptr]struct{})))
+		size = satAdd(size, elementsSize)
 	}
 	return size
 }
@@ -129,10 +132,10 @@ func estimateMakeMapSize(template reflect.Value, n int) uintptr {
 		iter.Next()
 
 		seen := map[uintptr]struct{}{}
-		keysSize := saturatingMul(uintptr(n), estimateSizeIndirect(iter.Key(), seen))
-		valuesSize := saturatingMul(uintptr(n), estimateSizeIndirect(iter.Value(), seen))
-		elementsSize := saturatingAdd(keysSize, valuesSize)
-		size = saturatingAdd(size, elementsSize)
+		keysSize := satMul(uintptr(n), estimateSizeIndirect(iter.Key(), seen))
+		valuesSize := satMul(uintptr(n), estimateSizeIndirect(iter.Value(), seen))
+		elementsSize := satAdd(keysSize, valuesSize)
+		size = satAdd(size, elementsSize)
 	}
 	return size
 }
@@ -153,7 +156,7 @@ func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	case reflect.Map:
 		return estimateMapAll(v, seen)
 	default:
-		return saturatingAdd(estimateSizeDirect(v), estimateSizeIndirect(v, seen))
+		return satAdd(estimateSizeDirect(v), estimateSizeIndirect(v, seen))
 	}
 }
 
@@ -230,7 +233,7 @@ func estimateStringAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	// it is not possible to get the capacity of the buffer
 	// holding the string.
 
-	return saturatingAdd(estimateSizeDirect(v), estimateStringIndirect(v, seen))
+	return satAdd(estimateSizeDirect(v), estimateStringIndirect(v, seen))
 }
 
 func estimateStringIndirect(v reflect.Value, _ map[uintptr]struct{}) uintptr {
@@ -267,8 +270,8 @@ func estimateChanDirectWithCap(t reflect.Type, cap int) uintptr {
 	// will be allocated in a single bigger block (leading
 	// to a single getAllocSize call).
 	headerSize := roundAllocSize(chanHeaderSize)
-	bufferSize := roundAllocSize(saturatingMul(uintptr(cap), elemSize))
-	return saturatingAdd(headerSize, bufferSize)
+	bufferSize := roundAllocSize(satMul(uintptr(cap), elemSize))
+	return satAdd(headerSize, bufferSize)
 }
 
 func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -282,7 +285,7 @@ func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	}
 
 	seen[ptr] = struct{}{}
-	return saturatingAdd(estimateMapDirect(v), estimateMapIndirect(v, seen))
+	return satAdd(estimateMapDirect(v), estimateMapIndirect(v, seen))
 }
 
 func estimateMapDirect(v reflect.Value) uintptr {
@@ -317,8 +320,8 @@ func estimateMapDirectWithLen(t reflect.Type, len int) uintptr {
 
 	const k2 = 204*unsafe.Sizeof(uintptr(0)) + 280
 
-	elementsSize := roundAllocSize(saturatingMul(uintptr(len), k1))
-	return saturatingAdd(elementsSize, k2)
+	elementsSize := roundAllocSize(satMul(uintptr(len), k1))
+	return satAdd(elementsSize, k2)
 }
 
 // getMapKVPairSize returns the estimated size a key-value pair
@@ -331,12 +334,12 @@ func getMapKVPairSize(k, v uintptr) uintptr {
 	if k < maxElementSize && v < maxElementSize {
 		return (k+v+1)*4 + unsafe.Sizeof(uintptr(0))
 	} else if k < maxElementSize {
-		return saturatingAdd(getMapKVPairSize(k, 8), v)
+		return satAdd(getMapKVPairSize(k, 8), v)
 	} else if v < maxElementSize {
-		return saturatingAdd(getMapKVPairSize(8, v), k)
+		return satAdd(getMapKVPairSize(8, v), k)
 	} else {
-		kvSize := saturatingAdd(k, v)
-		return saturatingAdd(getMapKVPairSize(8, 8), kvSize)
+		kvSize := satAdd(k, v)
+		return satAdd(getMapKVPairSize(8, 8), kvSize)
 	}
 }
 
@@ -347,8 +350,8 @@ func estimateMapIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	for iter.Next() {
 		keySize := estimateSizeIndirect(iter.Key(), seen)
 		valueSize := estimateSizeIndirect(iter.Value(), seen)
-		elementSize := saturatingAdd(keySize, valueSize)
-		result = saturatingAdd(result, elementSize)
+		elementSize := satAdd(keySize, valueSize)
+		result = satAdd(result, elementSize)
 	}
 
 	return result
@@ -369,18 +372,18 @@ func estimateSliceAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	// as "seen" while visiting b[0] will make the function miss all the
 	// memory pointed by b. It is better in this case to just be pessimistic
 	// and estimate more memory than it actually is allocated.
-	return saturatingAdd(estimateSliceDirect(v), estimateSliceIndirect(v, seen))
+	return satAdd(estimateSliceDirect(v), estimateSliceIndirect(v, seen))
 }
 
 func estimateSliceDirect(v reflect.Value) uintptr {
-	return roundAllocSize(saturatingMul(v.Type().Elem().Size(), uintptr(v.Cap())))
+	return roundAllocSize(satMul(v.Type().Elem().Size(), uintptr(v.Cap())))
 }
 
 func estimateSliceIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 
 	for i := 0; i < v.Len(); i++ {
-		result = saturatingAdd(result, estimateSizeIndirect(v.Index(i), seen))
+		result = satAdd(result, estimateSizeIndirect(v.Index(i), seen))
 	}
 
 	return result
@@ -390,7 +393,7 @@ func estimateArrayIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	result := uintptr(0)
 
 	for i := 0; i < v.Len(); i++ {
-		result = saturatingAdd(result, estimateSizeIndirect(v.Index(i), seen))
+		result = satAdd(result, estimateSizeIndirect(v.Index(i), seen))
 	}
 
 	return result
@@ -400,7 +403,7 @@ func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr 
 	result := uintptr(0)
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
-		result = saturatingAdd(result, estimateSizeIndirect(field, seen))
+		result = satAdd(result, estimateSizeIndirect(field, seen))
 	}
 	return result
 }

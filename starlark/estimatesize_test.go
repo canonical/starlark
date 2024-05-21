@@ -337,6 +337,16 @@ func TestEstimateString(t *testing.T) {
 }
 
 func TestEstimateMakeSize(t *testing.T) {
+	t.Run("overflow", func(t *testing.T) {
+		if starlark.EstimateMakeSize([]interface{}{}, math.MaxInt) < 0 {
+			t.Errorf("unexpected overflow")
+		}
+
+		if starlark.EstimateMakeSize([]interface{}{byte(0)}, math.MaxInt) < 0 {
+			t.Errorf("unexpected overflow")
+		}
+	})
+
 	t.Run("slice", func(t *testing.T) {
 		t.Run("empty", func(t *testing.T) {
 			t.Run("with-len", func(t *testing.T) {
