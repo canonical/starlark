@@ -114,8 +114,8 @@ func estimateMakeSliceSize(template reflect.Value, n int) uintptr {
 
 	size := roundAllocSize(satMul(uintptr(n), template.Type().Elem().Size()))
 	if len > 0 {
-		elementsSize := satMul(uintptr(n), estimateSizeIndirect(template.Index(0), make(map[uintptr]struct{})))
-		size = satAdd(size, elementsSize)
+		indirectSize := estimateSizeIndirect(template.Index(0), make(map[uintptr]struct{}))
+		size = satAdd(size, satMul(uintptr(n), indirectSize))
 	}
 	return size
 }
@@ -134,8 +134,7 @@ func estimateMakeMapSize(template reflect.Value, n int) uintptr {
 		seen := map[uintptr]struct{}{}
 		keysSize := satMul(uintptr(n), estimateSizeIndirect(iter.Key(), seen))
 		valuesSize := satMul(uintptr(n), estimateSizeIndirect(iter.Value(), seen))
-		elementsSize := satAdd(keysSize, valuesSize)
-		size = satAdd(size, elementsSize)
+		size = satAdd(size, satAdd(keysSize, valuesSize))
 	}
 	return size
 }
@@ -261,17 +260,14 @@ func estimateChanDirect(v reflect.Value) uintptr {
 func estimateChanDirectWithCap(t reflect.Type, cap int) uintptr {
 	// This is a very rough approximation of the size of
 	// the chan header.
-	const chanHeaderSize = 10 * unsafe.Sizeof(int(0))
-
+	headerSize := roundAllocSize(10 * unsafe.Sizeof(int(0)))
 	elemSize := t.Elem().Size()
 
 	// The two calls provide a pessimistic view since in case of
 	// an elementType that doesn't contain any pointer it
 	// will be allocated in a single bigger block (leading
 	// to a single getAllocSize call).
-	headerSize := roundAllocSize(chanHeaderSize)
-	bufferSize := roundAllocSize(satMul(uintptr(cap), elemSize))
-	return satAdd(headerSize, bufferSize)
+	return satAdd(headerSize, roundAllocSize(satMul(uintptr(cap), elemSize)))
 }
 
 func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) uintptr {
@@ -320,8 +316,7 @@ func estimateMapDirectWithLen(t reflect.Type, len int) uintptr {
 
 	const k2 = 204*unsafe.Sizeof(uintptr(0)) + 280
 
-	elementsSize := roundAllocSize(satMul(uintptr(len), k1))
-	return satAdd(elementsSize, k2)
+	return satAdd(roundAllocSize(satMul(uintptr(len), k1)), k2)
 }
 
 // getMapKVPairSize returns the estimated size a key-value pair
@@ -338,8 +333,7 @@ func getMapKVPairSize(k, v uintptr) uintptr {
 	} else if v < maxElementSize {
 		return satAdd(getMapKVPairSize(8, v), k)
 	} else {
-		kvSize := satAdd(k, v)
-		return satAdd(getMapKVPairSize(8, 8), kvSize)
+		return satAdd(getMapKVPairSize(8, 8), satAdd(k, v))
 	}
 }
 
@@ -350,8 +344,7 @@ func estimateMapIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr {
 	for iter.Next() {
 		keySize := estimateSizeIndirect(iter.Key(), seen)
 		valueSize := estimateSizeIndirect(iter.Value(), seen)
-		elementSize := satAdd(keySize, valueSize)
-		result = satAdd(result, elementSize)
+		result = satAdd(result, satAdd(keySize, valueSize))
 	}
 
 	return result
