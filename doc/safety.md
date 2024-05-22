@@ -57,8 +57,8 @@ NB: the first two are implicit!
 
 Counting the exact amount of memory in use by a program at one time is both prohibitively complex and little better than a good approximation. To this end, we partition declarations into two categories:
 
- - Persistent allocations - those still reachable after a builtin terminates.
- - Transient allocations - those which may be freed when the builtin terminates.
+ - Persistent allocations---those still reachable after a builtin terminates.
+ - Transient allocations---those which may be freed when the builtin terminates.
 
 Persistent allocations must be counted. Transient allocations need only be counted if they are significantly large (small memory spikes are generally not worth the complication of counting).
 
@@ -265,11 +265,11 @@ Roughly speaking, if a ‘significant’ amount of work is done, some steps must
 The exact meaning of ‘significant’ here may depend on the context, for example tasks which take more than 1ms of CPU time may be considered significant.
 
 Two methods are provided to account for steps:
-- `thread.AddSteps`: add the parameter to the step-counter. If the operation would go over the budget, this method returns an error.
-- `thread.CheckSteps`: returns an error if a call to `AddSteps` with the same amount would fail. This method doesn’t update the used-memory counter.
+ - `thread.AddSteps`: add the parameter to the step-counter. If the operation would go over the budget, this method returns an error.
+ - `thread.CheckSteps`: returns an error if a call to `AddSteps` with the same amount would fail. This method doesn’t update the used-memory counter.
 
 When a significant amount of work is done, declare a number of steps proportional to the amount of that work.
-As steps are arbitrary units, the conversion between ‘work’ and steps does not need to be perfectly consistent—a runaway script will use lots of steps in any case.
+As steps are arbitrary units, the conversion between ‘work’ and steps does not need to be perfectly consistent---a runaway script will use lots of steps in any case.
 
 Say we have a function which, if present, strips some prefix from a string:
 
@@ -292,7 +292,7 @@ if err := thread.AddSteps(int64(len(prefix))); err != nil {
 
 When `prefix` is non-empty, this will add a non-zero number of steps to the step counter, but what about when `prefix` is the empty string?
 In this case, although some work will be done, the amount is insignificant so can be safely ignored as the Starlark interpreter will implicitly add at least one step every time a builtin is called.
-Note that the number of steps is proportional to the work done and not the actual CPU usage—if some optimisation were to make this run significantly faster, the same number of steps would still be sufficient.
+Note that the number of steps is proportional to the work done and not the actual CPU usage---if some optimisation were to make this run significantly faster, the same number of steps would still be sufficient.
 
 Constructs are provided to trivialise step-counting when using [common cases](#common-patterns).
 
@@ -317,8 +317,8 @@ Soon, a test case which uses exactly one step per `st.N` will be created.
 
 Then, declare the workload to benchmark using the `st.RunThread` method.
 Note that unlike the memory tests above:
-- `st.KeepAlive` is not required
-- the amount of work done by the test is scaled by constructing an input of length `st.N`
+ - `st.KeepAlive` is not required
+ - the amount of work done by the test is scaled by constructing an input of length `st.N`
 The latter removes the need for a `for` loop which runs `st.N` times.
 ```go
     st.RunThread(func(thread *starlark.Thread) {
