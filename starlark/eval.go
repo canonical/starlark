@@ -175,7 +175,7 @@ func (thread *Thread) CheckSteps(deltas ...int64) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
-	_, err := thread.simulateSteps(deltas)
+	_, err := thread.simulateSteps(deltas...)
 	return err
 }
 
@@ -189,7 +189,7 @@ func (thread *Thread) AddSteps(deltas ...int64) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
-	nextSteps, err := thread.simulateSteps(deltas)
+	nextSteps, err := thread.simulateSteps(deltas...)
 	thread.steps = nextSteps
 	if err != nil {
 		thread.cancel(err)
@@ -201,15 +201,14 @@ func (thread *Thread) AddSteps(deltas ...int64) error {
 // simulateSteps simulates a call to AddSteps returning the
 // new total step-count and any error this would entail. No change is
 // recorded.
-func (thread *Thread) simulateSteps(deltas []int64) (uint64, error) {
+func (thread *Thread) simulateSteps(deltas ...int64) (uint64, error) {
 	if err := thread.cancelled(); err != nil {
 		return thread.steps, err
 	}
 
 	nextSteps := thread.steps
-
 	for _, delta := range deltas {
-		nextSteps = satAdd64(nextSteps, delta)
+		nextSteps = addResourceDelta(nextSteps, delta)
 
 		if thread.maxSteps != 0 && nextSteps > thread.maxSteps {
 			return nextSteps, &StepsSafetyError{
@@ -218,7 +217,6 @@ func (thread *Thread) simulateSteps(deltas []int64) (uint64, error) {
 			}
 		}
 	}
-
 	return nextSteps, nil
 }
 
@@ -2670,7 +2668,7 @@ func (thread *Thread) CheckAllocs(deltas ...int64) error {
 	thread.allocsLock.Lock()
 	defer thread.allocsLock.Unlock()
 
-	_, err := thread.simulateAllocs(deltas)
+	_, err := thread.simulateAllocs(deltas...)
 	return err
 }
 
@@ -2684,7 +2682,7 @@ func (thread *Thread) AddAllocs(deltas ...int64) error {
 	thread.allocsLock.Lock()
 	defer thread.allocsLock.Unlock()
 
-	next, err := thread.simulateAllocs(deltas)
+	next, err := thread.simulateAllocs(deltas...)
 	thread.allocs = next
 	if err != nil {
 		thread.cancel(err)
@@ -2696,11 +2694,10 @@ func (thread *Thread) AddAllocs(deltas ...int64) error {
 // simulateAllocs simulates a call to AddAllocs returning the new total
 // allocations associated with this thread and any error this would entail. No
 // change is recorded.
-func (thread *Thread) simulateAllocs(deltas []int64) (uint64, error) {
+func (thread *Thread) simulateAllocs(deltas ...int64) (uint64, error) {
 	nextAllocs := thread.allocs
-
 	for _, delta := range deltas {
-		nextAllocs = satAdd64(nextAllocs, delta)
+		nextAllocs = addResourceDelta(nextAllocs, delta)
 
 		if thread.maxAllocs != 0 && nextAllocs > thread.maxAllocs {
 			return nextAllocs, &AllocsSafetyError{
@@ -2709,11 +2706,10 @@ func (thread *Thread) simulateAllocs(deltas []int64) (uint64, error) {
 			}
 		}
 	}
-
 	return nextAllocs, nil
 }
 
-func satAdd64(a uint64, b int64) uint64 {
+func addResourceDelta(a uint64, b int64) uint64 {
 	if a == math.MaxUint64 {
 		return math.MaxUint64
 	}

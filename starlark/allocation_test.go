@@ -129,43 +129,41 @@ func TestOverflowingPositiveDeltaAllocation(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
 
-	// One-line addition is fine on overflow if the result is not overflowing
 	if err := thread.AddAllocs(math.MaxInt64, -math.MaxInt64, math.MaxInt64, -math.MaxInt64, 10); err != nil {
 		t.Errorf("unexpected error when declaring allocation increase: %v", err)
 	}
 	if allocs := thread.Allocs(); allocs != 10 {
 		t.Errorf("incorrect allocations stored: expected %d but got %d", 10, allocs)
 	}
-	if err := thread.AddAllocs(math.MaxInt64, -math.MaxInt64, math.MaxInt64, -math.MaxInt64, -10); err != nil {
-		t.Errorf("unexpected error when declaring allocation increase: %v", err)
+	if err := thread.AddAllocs(math.MinInt64); err != nil {
+		t.Errorf("unexpected error when declaring allocation decrease: %v", err)
 	}
 	if allocs := thread.Allocs(); allocs != 0 {
 		t.Errorf("incorrect allocations stored: expected %d but got %d", 0, allocs)
 	}
 
 	// Increase so that the next allocation will cause an overflow
-	if err := thread.AddAllocs(math.MaxInt64); err != nil {
+	if err := thread.AddAllocs(math.MaxInt64, math.MaxInt64); err != nil {
 		t.Errorf("unexpected error when declaring allocation increase: %v", err)
-	}
-	if err := thread.AddAllocs(math.MaxInt64); err != nil {
-		t.Errorf("unexpected error when declaring allocation increase: %v", err)
+	} else if allocs := thread.Allocs(); allocs != math.MaxUint64-1 {
+		t.Errorf("incorrect allocations stored: expected %d but got %d", uint64(math.MaxUint64), allocs)
 	}
 
 	// Check overflow detected
-	if err := thread.AddAllocs(math.MaxInt64); err != nil {
+	if err := thread.AddAllocs(2); err != nil {
 		t.Errorf("unexpected error when overflowing allocations: %v", err)
 	} else if allocs := thread.Allocs(); allocs != math.MaxUint64 {
 		t.Errorf("incorrect allocations stored: expected %d but got %d", uint64(math.MaxUint64), allocs)
 	}
 
 	// Check repeated overflow
-	if err := thread.AddAllocs(math.MaxInt64, math.MaxInt64); err != nil {
+	if err := thread.AddAllocs(100); err != nil {
 		t.Errorf("unexpected error when repeatedly overflowing allocations: %v", err)
 	} else if allocs := thread.Allocs(); allocs != math.MaxUint64 {
 		t.Errorf("incorrect allocations stored: expected %d but got %d", uint64(math.MaxUint64), allocs)
 	}
 
-	// Check sticky overflow
+	// Check overflow is sticky
 	if err := thread.AddAllocs(math.MinInt64, math.MinInt64); err != nil {
 		t.Errorf("unexpected error when repeatedly overflowing allocations: %v", err)
 	} else if allocs := thread.Allocs(); allocs != math.MaxUint64 {

@@ -1123,36 +1123,35 @@ func TestOverflowingPositiveDeltaStep(t *testing.T) {
 	if steps := thread.Steps(); steps != 10 {
 		t.Errorf("incorrect steps stored: expected %d but got %d", 10, steps)
 	}
-	if err := thread.AddSteps(math.MaxInt64, -math.MaxInt64, math.MaxInt64, -math.MaxInt64, -10); err != nil {
-		t.Errorf("unexpected error when declaring steps increase: %v", err)
+	if err := thread.AddSteps(-math.MaxInt64); err != nil {
+		t.Errorf("unexpected error when declaring steps decrease: %v", err)
 	}
 	if steps := thread.Steps(); steps != 0 {
 		t.Errorf("incorrect steps stored: expected %d but got %d", 0, steps)
 	}
 
-	// Increase so that the next allocation will cause an overflow
-	if err := thread.AddSteps(math.MaxInt64); err != nil {
+	// Increase so that the next steps will cause an overflow
+	if err := thread.AddSteps(math.MaxInt64, math.MaxInt64); err != nil {
 		t.Errorf("unexpected error when declaring steps increase: %v", err)
-	}
-	if err := thread.AddSteps(math.MaxInt64); err != nil {
-		t.Errorf("unexpected error when declaring steps increase: %v", err)
+	} else if steps := thread.Steps(); steps != math.MaxUint64-1 {
+		t.Errorf("incorrect steps stored: expected %d but got %d", uint64(math.MaxUint64), steps)
 	}
 
 	// Check overflow detected
-	if err := thread.AddSteps(math.MaxInt64); err != nil {
+	if err := thread.AddSteps(2); err != nil {
 		t.Errorf("unexpected error when overflowing steps: %v", err)
 	} else if steps := thread.Steps(); steps != math.MaxUint64 {
 		t.Errorf("incorrect steps stored: expected %d but got %d", uint64(math.MaxUint64), steps)
 	}
 
 	// Check repeated overflow
-	if err := thread.AddSteps(math.MaxInt64, math.MaxInt64); err != nil {
+	if err := thread.AddSteps(100); err != nil {
 		t.Errorf("unexpected error when repeatedly overflowing steps: %v", err)
 	} else if steps := thread.Steps(); steps != math.MaxUint64 {
 		t.Errorf("incorrect steps stored: expected %d but got %d", uint64(math.MaxUint64), steps)
 	}
 
-	// Check sticky overflow
+	// Check overflow is sticky
 	if err := thread.AddSteps(math.MinInt64, math.MinInt64); err != nil {
 		t.Errorf("unexpected error when repeatedly overflowing steps: %v", err)
 	} else if steps := thread.Steps(); steps != math.MaxUint64 {
