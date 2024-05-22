@@ -3,10 +3,10 @@
 Starlark's capabilities are enhanced by exposing new builtins (functions callable from Starlark, written in Go) or new types (types implementing Starlark interfaces, written in Go). Clearly, allowing users unlimited access to run code on the host can be problematic, hence safety constraints must be enforced. Unfortunately, the Go interpreter doesn't offer a good basis for such hard enforcement of constraints, so what is implemented is a best effort system via a contract: the host declares the safety properties it cares about and all code run on it must then respect these properties. The contract is upheld through testing.
 
 Safety properties are specified through the use of starlark.SafetyFlags. These are:
- - `CPUSafe` - when significant work is done, such a function will count the number of arbitrary 'steps' and compare this to its budget.
- - `MemSafe` - when persistent or significant transient allocations are made, such a function will count the number of bytes used and compare this to its budget
- - `TimeSafe` - when the executing thread is cancelled, such a function will stop within a reasonable amount of time
- - `IOSafe` - such a function does not access any IO resource outside of confinement requirements.
+ - `CPUSafe`: when significant work is done, such a function will count the number of arbitrary 'steps' and compare this to its budget.
+ - `MemSafe`: when persistent or significant transient allocations are made, such a function will count the number of bytes used and compare this to its budget
+ - `TimeSafe`: when the executing thread is cancelled, such a function will stop within a reasonable amount of time
+ - `IOSafe`: such a function does not access any IO resource outside of confinement requirements.
 
 Starlark execution is always performed with respect to a `starlark.Thread` which acts as an *execution context*. This contains the safety constraints for a given execution, including:
  - required safety flags;
@@ -39,8 +39,8 @@ func init() {
 ## How to count memory usage
 
 Two methods are provided to account for memory:
- - `thread.AddAllocs`—add the parameter to the used-memory counter. If the operation would go over the budget, this method returns an error.
- - `thread.CheckAllocs`—returns an error if a call to `AddAllocs` with the same amount would fail. This method doesn't update the used-memory counter.
+ - `thread.AddAllocs`: add the parameter to the used-memory counter. If the operation would go over the budget, this method returns an error.
+ - `thread.CheckAllocs`: returns an error if a call to `AddAllocs` with the same amount would fail. This method doesn't update the used-memory counter.
 
 Normally, it is difficult to understand when and if Go allocates memory by just reading the code as inlining and escape analysis can drastically change the memory layout. However, when used in the Starlark interpreter, it can be assumed that:
  - the function will never be inlined;
@@ -265,13 +265,13 @@ Roughly speaking, if a ‘significant’ amount of work is done, some steps must
 The exact meaning of ‘significant’ here may depend on the context, for example tasks which take more than 1ms of CPU time may be considered significant.
 
 Two methods are provided to account for steps:
-- `thread.AddSteps`—add the parameter to the step-counter. If the operation would go over the budget, this method returns an error.
-- `thread.CheckSteps`—returns an error if a call to `AddSteps` with the same amount would fail. This method doesn’t update the used-memory counter.
+- `thread.AddSteps`: add the parameter to the step-counter. If the operation would go over the budget, this method returns an error.
+- `thread.CheckSteps`: returns an error if a call to `AddSteps` with the same amount would fail. This method doesn’t update the used-memory counter.
 
 When a significant amount of work is done, declare a number of steps proportional to the amount of that work.
 As steps are arbitrary units, the conversion between ‘work’ and steps does not need to be perfectly consistent—a runaway script will use lots of steps in any case.
 
-Say we have a function which, if present, strips some prefix from a string—
+Say we have a function which, if present, strips some prefix from a string:
 
 ```go
 if !strings.HasPrefix(toBeStripped, prefix) {
@@ -282,7 +282,7 @@ return toStrip[len(prefix):], nil
 
 It is clear that the `strings.HasPrefix` function must iterate through the string to check whether the prefix is present.
 In the worst case, this will check `len(prefix)` characters which, if `prefix` is extremely long, may require a lot of work.
-To count CPU usage here, the following lines are added before the `strings.HasPrefix` call—
+To count CPU usage here, the following lines are added before the `strings.HasPrefix` call:
 
 ```go
 if err := thread.AddSteps(int64(len(prefix))); err != nil {
@@ -369,7 +369,7 @@ The `SafeStringBuilder` will both count the allocations for the string it constr
 To safely iterate over a `Value` use `SafeIterate`, which functions as a safe replacement for `Iterate`.
 When using it, always remember to call the `Err()` method once iteration is complete.
 
-For example, to safely iterate over a structure, use the following snippet—
+For example, to safely iterate over a structure, use the following snippet:
 
 ```go
 iter, err := SafeIterate(thread, iterableValue)
@@ -392,7 +392,7 @@ return True, nil
 To safely append to a slice, wrap it in a `SafeAppender` and use its `Append` method.
 When using it, note that the `SafeAppender` modifies the slice in-place.
 
-For example, to safely perform `mySlice = append(mySlice, value)`, use the following snippet—
+For example, to safely perform `mySlice = append(mySlice, value)`, use the following snippet:
 
 ```go
 mySliceAppender := NewSafeAppender(thread, &mySlice)
@@ -406,7 +406,7 @@ if err := mySliceAppender.Append(value); err != nil {
 To safely concatenate one slice to another, wrap it in a `SafeAppender` and use its `AppendSlice` method.
 When using it, note that the `SafeAppender` modifies the slice in-place.
 
-For example, to safely perform `mySlice = append(mySlice, other...)`, use the following snippet—
+For example, to safely perform `mySlice = append(mySlice, other...)`, use the following snippet:
 
 ```go
 mySliceAppender := NewSafeAppender(thread, &mySlice)
