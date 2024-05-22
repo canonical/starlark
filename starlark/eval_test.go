@@ -1082,26 +1082,22 @@ func TestMaxStackDepth(t *testing.T) {
 	opts := &syntax.FileOptions{
 		Recursion: true,
 	}
-	stackExerciser := func(depthTarget int) string {
-		code, err := startest.Reindent(fmt.Sprintf(
-			`
-				def recurse(i):
-					if i != 0:
-						recurse(i - 1)
-				recurse(%d)
-			`,
-			depthTarget,
-		))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return code
+	stackExerciser, err := startest.Reindent(`
+		def recurse(i):
+			if i != 0:
+				recurse(i - 1)
+		recurse(depthTarget)
+	`)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	t.Run("within-limits", func(t *testing.T) {
 		thread := &starlark.Thread{}
-		code := stackExerciser(starlark.MaxStackDepth * 2 / 3)
-		_, err := starlark.ExecFileOptions(opts, thread, "test.star", code, nil)
+		predeclared := starlark.StringDict{
+			"depthTarget": starlark.MakeInt(starlark.MaxStackDepth * 2 / 3),
+		}
+		_, err := starlark.ExecFileOptions(opts, thread, "test.star", stackExerciser, predeclared)
 		if err != nil {
 			t.Error(err)
 		}
@@ -1111,10 +1107,12 @@ func TestMaxStackDepth(t *testing.T) {
 		const expected = "stack overflow"
 
 		thread := &starlark.Thread{}
-		code := stackExerciser(starlark.MaxStackDepth + 1)
-		_, err := starlark.ExecFileOptions(opts, thread, "test.star", code, nil)
+		predeclared := starlark.StringDict{
+			"depthTarget": starlark.MakeInt(1 + starlark.MaxStackDepth),
+		}
+		_, err := starlark.ExecFileOptions(opts, thread, "test.star", stackExerciser, predeclared)
 		if err == nil {
-			t.Error(err)
+			t.Error("expected excessive recursion to result in an error")
 		} else if err.Error() != expected {
 			t.Errorf("unexpected error: %v", err)
 		}
