@@ -2131,8 +2131,8 @@ func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 }
 
 // Max depth of a Starlark stack. This is significantly less than Go's own hard
-// limit and a little above startest's maximum st.N.
-const maxStackDepth = 110_000
+// limit and greater than startest's maximum st.N.
+const maxStackDepth = 200_000
 
 // Call calls the function fn with the specified positional and keyword arguments.
 func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
