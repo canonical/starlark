@@ -9,7 +9,7 @@ import _ "unsafe"
 func runtime_roundupsize(size uintptr, noscan bool) (reqSize uintptr)
 
 func roundupsize(size uintptr) uintptr {
-	// Go 1.22 adds a padding of 8 bytes for 'scan' values (those containing
+	// Go 1.22 adds 8 bytes of padding for 'scan' values (those containing
 	// pointers). For simplicity, we always assume this overhead is present.
 	return runtime_roundupsize(size, false)
 }
