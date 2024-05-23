@@ -401,9 +401,6 @@ func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) uintptr 
 	return result
 }
 
-//go:linkname roundupsize runtime.roundupsize
-func roundupsize(size uintptr) uintptr
-
 // roundAllocSize rounds an intended allocation amount to an allocation
 // amount which can be made by Go. This function returns at least 16
 // bytes due to how small allocations are grouped.
