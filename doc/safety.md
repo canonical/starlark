@@ -268,9 +268,6 @@ Two methods are provided to account for steps:
  - `thread.AddSteps`: add the parameter to the step counter. If the operation would go over the budget, this method returns an error.
  - `thread.CheckSteps`: check whether adding the parameter to the step counter would return an error. This method doesn’t update the step counter.
 
-When a significant amount of work is done, declare a number of steps proportional to the amount of that work.
-As steps are arbitrary units, the conversion between ‘work’ and steps does not need to be perfectly consistent---a runaway script will use lots of steps in any case.
-
 Say we have a function which, if present, strips some prefix from a string:
 
 ```go
@@ -284,7 +281,8 @@ func stripPrefix(thread *starlark.Thread, toBeStripped, prefix string) (string, 
 
 It is clear that the `strings.HasPrefix` function must iterate through the string to check whether the prefix is present.
 In the worst case, this will check `len(prefix)` characters which, if `prefix` is extremely long, may require a lot of work.
-To count CPU usage here, the following lines are added before the `strings.HasPrefix` call:
+To prevent too much work being done, declare a number of steps proportional to the amount of work to be done just before doing it.
+In this case, we may add the following lines are added before the `strings.HasPrefix` call:
 
 ```go
     if err := thread.AddSteps(int64(len(prefix))); err != nil {
@@ -295,6 +293,7 @@ To count CPU usage here, the following lines are added before the `strings.HasPr
 When `prefix` is non-empty, this will add a non-zero number of steps to the step counter, but what about when `prefix` is the empty string?
 In this case, although some work will be done, the amount is insignificant so can be safely ignored as the Starlark interpreter will implicitly add at least one step every time a builtin is called.
 Note that the number of steps is proportional to the work done and not the actual CPU usage---if some optimisation were to make this run significantly faster, the same number of steps would still be sufficient.
+Our goal here is to stop runaway scripts, rather than to achieve extremely precise limitation, hence some approximation is fine.
 
 Constructs are provided to trivialise step-counting when using [common cases](#common-patterns).
 
