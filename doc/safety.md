@@ -40,7 +40,7 @@ func init() {
 
 Two methods are provided to account for memory:
  - `thread.AddAllocs`: add the parameter to the used-memory counter. If the operation would go over the budget, this method returns an error.
- - `thread.CheckAllocs`: returns an error if a call to `AddAllocs` with the same amount would fail. This method doesn't update the used-memory counter.
+ - `thread.CheckAllocs`: check whether adding the parameter to the used-memory counter would return an error. This method doesn't update the used-memory counter.
 
 Normally, it is difficult to understand when and if Go allocates memory by just reading the code as inlining and escape analysis can drastically change the memory layout. However, when used in the Starlark interpreter, it can be assumed that:
  - the function will never be inlined;
@@ -265,8 +265,8 @@ Roughly speaking, if a significant amount of work is done, some steps must be co
 The exact meaning of ‘significant’ here may depend on the context, for example tasks which take more than 1ms of CPU time may be considered significant.
 
 Two methods are provided to account for steps:
- - `thread.AddSteps`: add the parameter to the step-counter. If the operation would go over the budget, this method returns an error.
- - `thread.CheckSteps`: returns an error if a call to `AddSteps` with the same amount would fail. This method doesn’t update the used-memory counter.
+ - `thread.AddSteps`: add the parameter to the step counter. If the operation would go over the budget, this method returns an error.
+ - `thread.CheckSteps`: check whether adding the parameter to the step counter would return an error. This method doesn’t update the step counter.
 
 When a significant amount of work is done, declare a number of steps proportional to the amount of that work.
 As steps are arbitrary units, the conversion between ‘work’ and steps does not need to be perfectly consistent---a runaway script will use lots of steps in any case.
