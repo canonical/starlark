@@ -274,10 +274,12 @@ As steps are arbitrary units, the conversion between ‘work’ and steps does n
 Say we have a function which, if present, strips some prefix from a string:
 
 ```go
-if !strings.HasPrefix(toBeStripped, prefix) {
-    return str, nil
+func stripPrefix(thread *starlark.Thread, toBeStripped, prefix string) (string, error) {
+    if !strings.HasPrefix(toBeStripped, prefix) {
+        return str, nil
+    }
+    return toStrip[len(prefix):], nil
 }
-return toStrip[len(prefix):], nil
 ```
 
 It is clear that the `strings.HasPrefix` function must iterate through the string to check whether the prefix is present.
@@ -285,9 +287,9 @@ In the worst case, this will check `len(prefix)` characters which, if `prefix` i
 To count CPU usage here, the following lines are added before the `strings.HasPrefix` call:
 
 ```go
-if err := thread.AddSteps(int64(len(prefix))); err != nil {
-    return "", err
-}
+    if err := thread.AddSteps(int64(len(prefix))); err != nil {
+        return "", err
+    }
 ```
 
 When `prefix` is non-empty, this will add a non-zero number of steps to the step counter, but what about when `prefix` is the empty string?
@@ -298,8 +300,7 @@ Constructs are provided to trivialise step-counting when using [common cases](#c
 
 ## How to test for CPU safety
 
-Let’s say that all of the above code is written into some builtin `stripPrefix`.
-To test its CPU usage, use the `startest` package, create a new instance as detailed below and *require* the `CPUSafe` flag to tell the instance to test for CPU usage.
+To test the CPU usage of `stripPrefix`, use the `startest` package, create a new instance as detailed below and *require* the `CPUSafe` flag to tell the instance to test for CPU usage.
 
 ```go
 func TestStripPrefixSteps(t *testing.T) {
