@@ -260,8 +260,8 @@ func TestIdentityAllocs(t *testing.T) starlark.Tuple {
 
 ## How to count CPU usage
 
-CPU usage is measured in terms of arbitrary ‘steps.’
-Roughly speaking, if a ‘significant’ amount of work is done, some steps must be counted.
+CPU usage is measured in terms of arbitrary steps.
+Roughly speaking, if a significant amount of work is done, some steps must be counted.
 The exact meaning of ‘significant’ here may depend on the context, for example tasks which take more than 1ms of CPU time may be considered significant.
 
 Two methods are provided to account for steps:
