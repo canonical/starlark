@@ -336,7 +336,8 @@ The latter removes the need for a `for` loop which runs `st.N` times.
 
 ## Common patterns
 
-Every safety-application is different, but many common patterns may be found.
+The following recurring patterns have been observed when adding safety bounds.
+Helper functions and types are provided for each.
 
 ### How to safely build a string
 
