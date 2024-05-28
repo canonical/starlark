@@ -402,7 +402,7 @@ if err := mySliceAppender.Append(value); err != nil {
 }
 ```
 
-### How to safely concatenate a slice and a slice
+### How to safely concatenate two slices
 
 To safely concatenate one slice to another, wrap it in a `SafeAppender` and use its `AppendSlice` method.
 When using it, note that the `SafeAppender` modifies the slice in-place.
