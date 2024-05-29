@@ -146,7 +146,7 @@ func TestOverflowingPositiveDeltaAllocation(t *testing.T) {
 	if err := thread.AddAllocs(math.MaxInt64, math.MaxInt64); err != nil {
 		t.Errorf("unexpected error when declaring allocation increase: %v", err)
 	} else if allocs := thread.Allocs(); allocs != math.MaxUint64-1 {
-		t.Errorf("incorrect allocations stored: expected %d but got %d", uint64(math.MaxUint64), allocs)
+		t.Errorf("incorrect allocations stored: expected %d but got %d", uint64(math.MaxUint64-1), allocs)
 	}
 
 	// Check overflow detected
@@ -194,6 +194,7 @@ func TestOverzealousNegativeDeltaDeclaration(t *testing.T) {
 	const allocGreatest = 1000
 	const allocReduction = 2 * allocGreatest
 	const expectedFinalAllocs = 0
+
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
 
