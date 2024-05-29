@@ -1078,6 +1078,47 @@ func TestContext(t *testing.T) {
 	}
 }
 
+func TestMaxStackDepth(t *testing.T) {
+	opts := &syntax.FileOptions{
+		Recursion: true,
+	}
+	stackExerciser, err := startest.Reindent(`
+		def recurse(i):
+			if i != 0:
+				recurse(i - 1)
+		recurse(depthTarget)
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("within-limits", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		predeclared := starlark.StringDict{
+			"depthTarget": starlark.MakeInt(starlark.MaxStackDepth * 2 / 3),
+		}
+		_, err := starlark.ExecFileOptions(opts, thread, "test.star", stackExerciser, predeclared)
+		if err != nil {
+			t.Error(err)
+		}
+	})
+
+	t.Run("exceeding-limits", func(t *testing.T) {
+		const expected = "stack overflow"
+
+		thread := &starlark.Thread{}
+		predeclared := starlark.StringDict{
+			"depthTarget": starlark.MakeInt(1 + starlark.MaxStackDepth),
+		}
+		_, err := starlark.ExecFileOptions(opts, thread, "test.star", stackExerciser, predeclared)
+		if err == nil {
+			t.Error("expected excessive recursion to result in an error")
+		} else if err.Error() != expected {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+}
+
 func TestCancelConsistency(t *testing.T) {
 	thread := &starlark.Thread{}
 	ctx := thread.Context()

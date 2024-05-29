@@ -2130,6 +2130,10 @@ func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 	return String(strings.Repeat(string(s), i)), nil
 }
 
+// Max depth of a Starlark stack. This is significantly less than Go's own hard
+// limit and greater than startest's maximum st.N.
+const maxStackDepth = 200_000
+
 // Call calls the function fn with the specified positional and keyword arguments.
 func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	c, ok := fn.(Callable)
@@ -2150,6 +2154,10 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 			return nil, fmt.Errorf("cannot call builtin '%s': %w", b.Name(), err)
 		}
 		return nil, fmt.Errorf("cannot call value of type '%s': %w", c.Type(), err)
+	}
+
+	if len(thread.stack)+1 >= maxStackDepth {
+		return nil, fmt.Errorf("stack overflow")
 	}
 
 	// Allocate and push a new frame.
