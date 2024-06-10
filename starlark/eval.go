@@ -2709,20 +2709,20 @@ func (thread *Thread) simulateAllocs(deltas ...int64) (uint64, error) {
 	return nextAllocs, nil
 }
 
-func addResourceDelta(a uint64, b int64) uint64 {
-	if a == math.MaxUint64 {
+func addResourceDelta(resource uint64, delta int64) uint64 {
+	if resource == math.MaxUint64 {
 		return math.MaxUint64
 	}
 
-	if b >= 0 {
-		sum, carry := bits.Add64(a, uint64(b), 0)
+	if delta >= 0 {
+		sum, carry := bits.Add64(resource, uint64(delta), 0)
 		if carry != 0 {
 			return math.MaxUint64
 		}
 		return sum
 	}
 
-	diff, borrow := bits.Sub64(a, uint64(-b), 0)
+	diff, borrow := bits.Sub64(resource, uint64(-delta), 0)
 	if borrow != 0 {
 		return 0
 	}
