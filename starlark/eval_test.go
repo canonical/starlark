@@ -1153,6 +1153,77 @@ func TestCancelConsistency(t *testing.T) {
 	}
 }
 
+func TestOverflowingPositiveDeltaStep(t *testing.T) {
+	thread := &starlark.Thread{}
+	thread.SetMaxSteps(0)
+
+	// One-line addition is fine on overflow if the result is not overflowing
+	if err := thread.AddSteps(math.MaxInt64, -math.MaxInt64, math.MaxInt64, -math.MaxInt64, 10); err != nil {
+		t.Errorf("unexpected error when declaring steps increase: %v", err)
+	}
+	if steps := thread.Steps(); steps != 10 {
+		t.Errorf("incorrect steps stored: expected %d but got %d", 10, steps)
+	}
+	if err := thread.AddSteps(-math.MaxInt64); err != nil {
+		t.Errorf("unexpected error when declaring steps decrease: %v", err)
+	}
+	if steps := thread.Steps(); steps != 0 {
+		t.Errorf("incorrect steps stored: expected %d but got %d", 0, steps)
+	}
+
+	// Increase so that the next steps will cause an overflow
+	if err := thread.AddSteps(math.MaxInt64, math.MaxInt64); err != nil {
+		t.Errorf("unexpected error when declaring steps increase: %v", err)
+	} else if steps := thread.Steps(); steps != math.MaxUint64-1 {
+		t.Errorf("incorrect steps stored: expected %d but got %d", uint64(math.MaxUint64), steps)
+	}
+
+	// Check overflow detected
+	if err := thread.AddSteps(2); err != nil {
+		t.Errorf("unexpected error when overflowing steps: %v", err)
+	} else if steps := thread.Steps(); steps != math.MaxUint64 {
+		t.Errorf("incorrect steps stored: expected %d but got %d", uint64(math.MaxUint64), steps)
+	}
+
+	// Check repeated overflow
+	if err := thread.AddSteps(100); err != nil {
+		t.Errorf("unexpected error when repeatedly overflowing steps: %v", err)
+	} else if steps := thread.Steps(); steps != math.MaxUint64 {
+		t.Errorf("incorrect steps stored: expected %d but got %d", uint64(math.MaxUint64), steps)
+	}
+
+	// Check overflow is sticky
+	if err := thread.AddSteps(math.MinInt64, math.MinInt64); err != nil {
+		t.Errorf("unexpected error when repeatedly overflowing steps: %v", err)
+	} else if steps := thread.Steps(); steps != math.MaxUint64 {
+		t.Errorf("incorrect steps stored: expected %d but got %d", uint64(math.MaxUint64), steps)
+	}
+}
+
+func TestDefaultStepMaxIsUnbounded(t *testing.T) {
+	thread := &starlark.Thread{}
+
+	if err := thread.CheckSteps(1); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if _, err := starlark.ExecFile(thread, "default_allocs_test", "", nil); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if err := thread.AddSteps(math.MaxInt64, math.MaxInt64, math.MaxInt64); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if thread.Steps() != math.MaxUint64 {
+		t.Errorf("wrong step count: expected %v got %v", uint64(math.MaxUint64), thread.Allocs())
+	}
+	if err := thread.AddSteps(math.MinInt64); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if thread.Steps() != math.MaxUint64 {
+		t.Errorf("wrong step count: expected %v got %v", uint64(math.MaxUint64), thread.Allocs())
+	}
+}
+
 func TestCheckSteps(t *testing.T) {
 	const maxSteps = 10000
 
