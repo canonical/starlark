@@ -88,7 +88,8 @@ func init() {
 
 // NowFunc is a function that generates the current time. Intentionally exported
 // so that it can be overridden, for example by applications that require their
-// Starlark scripts to be fully deterministic.
+// Starlark scripts to be fully deterministic. This function must be completely
+// safe as defined by all existing safety flags requirements.
 var NowFunc = time.Now
 
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
