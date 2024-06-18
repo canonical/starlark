@@ -219,7 +219,6 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	thread.Print = func(_ *starlark.Thread, msg string) {
 		st.Log(msg)
 	}
-	thread.PrintSafety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
 	for k, v := range st.locals {
 		thread.SetLocal(k, v)
 	}

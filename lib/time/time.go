@@ -88,9 +88,9 @@ func init() {
 
 // NowFunc is a function that generates the current time. Intentionally exported
 // so that it can be overridden, for example by applications that require their
-// Starlark scripts to be fully deterministic.
+// Starlark scripts to be fully deterministic. This function must be completely
+// safe as defined by all existing safety flags requirements.
 var NowFunc = time.Now
-var NowFuncSafety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
 
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	sdu := SafeDurationUnpacker{}
@@ -174,9 +174,6 @@ func fromTimestamp(thread *starlark.Thread, _ *starlark.Builtin, args starlark.T
 }
 
 func now(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	if err := thread.CheckPermits(NowFuncSafety); err != nil {
-		return nil, err
-	}
 	if err := thread.AddAllocs(starlark.EstimateSize(Time{})); err != nil {
 		return nil, err
 	}

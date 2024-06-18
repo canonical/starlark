@@ -1,7 +1,6 @@
 package time_test
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -46,68 +45,6 @@ func TestMethodSafetiesExist(t *testing.T) {
 		if _, ok := time.TimeMethods[name]; !ok {
 			t.Errorf("no method for safety declaration time.%s", name)
 		}
-	}
-}
-
-func TestTimeNowSafety(t *testing.T) {
-	now, ok := time.Module.Members["now"]
-	if !ok {
-		t.Fatal("no such builtin: now")
-	}
-
-	nowSafety, ok := time.Safeties["now"]
-	if !ok {
-		t.Fatal("no safety for builtin: now")
-	}
-	if nowSafety == starlark.NotSafe {
-		t.Fatal("now builtin is not safe")
-	}
-
-	safeThreadSafety := nowSafety
-	safeThread := &starlark.Thread{}
-	safeThread.RequireSafety(safeThreadSafety)
-
-	tests := []struct {
-		name          string
-		thread        *starlark.Thread
-		nowFuncSafety starlark.SafetyFlags
-		expectError   bool
-	}{{
-		name:          "default",
-		thread:        &starlark.Thread{},
-		nowFuncSafety: time.NowFuncSafety,
-	}, {
-		name:          "no-safety-required",
-		thread:        &starlark.Thread{},
-		nowFuncSafety: starlark.NotSafe,
-	}, {
-		name:          "not-safe",
-		thread:        safeThread,
-		nowFuncSafety: starlark.NotSafe,
-		expectError:   true,
-	}, {
-		name:          "safe",
-		thread:        safeThread,
-		nowFuncSafety: safeThreadSafety,
-	}}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			originalNowFuncSafety := time.NowFuncSafety
-			time.NowFuncSafety = test.nowFuncSafety
-			defer func() { time.NowFuncSafety = originalNowFuncSafety }()
-
-			_, err := starlark.Call(test.thread, now, nil, nil)
-			if err == nil {
-				if test.expectError {
-					t.Error("expected error")
-				}
-			} else {
-				expected := &starlark.SafetyFlagsError{}
-				if !test.expectError || !errors.As(err, &expected) {
-					t.Errorf("unexpected error: %v", err)
-				}
-			}
-		})
 	}
 }
 

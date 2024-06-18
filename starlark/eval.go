@@ -43,9 +43,9 @@ type Thread struct {
 
 	// Print is the client-supplied implementation of the Starlark
 	// 'print' function. If nil, fmt.Fprintln(os.Stderr, msg) is
-	// used instead.
-	Print       func(thread *Thread, msg string)
-	PrintSafety SafetyFlags
+	// used instead. This function must be completely safe as defined
+	// by all existing safety flags requirements.
+	Print func(thread *Thread, msg string)
 
 	// Load is the client-supplied implementation of module loading.
 	// Repeated calls with the same module name must return the same

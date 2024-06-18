@@ -1780,7 +1780,6 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 		thread.Print = func(thread *starlark.Thread, msg string) {
 			// Do nothing.
 		}
-		thread.PrintSafety = starlark.Safe
 		thread.RequireSafety(starlark.CPUSafe)
 
 		stringer := &unsafeTestStringer{t: t}
@@ -1919,7 +1918,6 @@ func testWriteValueSteps(t *testing.T, name string, overhead uint64, shouldFail 
 				thread.Print = func(thread *starlark.Thread, msg string) {
 					// Do nothing.
 				}
-				thread.PrintSafety = starlark.Safe
 				for i := 0; i < st.N; i++ {
 					_, err := starlark.Call(thread, builtin, starlark.Tuple{test.input}, nil)
 					if shouldFail && err == nil {
@@ -1944,7 +1942,6 @@ func testWriteValueCancellation(t *testing.T, name string) {
 		thread.Print = func(thread *starlark.Thread, msg string) {
 			// Do nothing.
 		}
-		thread.PrintSafety = starlark.Safe
 		thread.RequireSafety(starlark.TimeSafe)
 
 		stringer := &unsafeTestStringer{t: t}
@@ -2077,7 +2074,6 @@ func testWriteValueCancellation(t *testing.T, name string) {
 				thread.Print = func(thread *starlark.Thread, msg string) {
 					// Do nothing.
 				}
-				thread.PrintSafety = starlark.Safe
 				_, err := starlark.Call(thread, builtin, starlark.Tuple{test.input(st.N)}, nil)
 				if err == nil {
 					st.Error("expected cancellation")
@@ -3483,7 +3479,6 @@ func TestPrintAllocs(t *testing.T) {
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		thread.Print = printFn
-		thread.PrintSafety = starlark.Safe
 		for i := 0; i < st.N; i++ {
 			res, err := starlark.Call(thread, print, args, nil)
 			if err != nil {
@@ -3496,39 +3491,6 @@ func TestPrintAllocs(t *testing.T) {
 
 func TestPrintCancellation(t *testing.T) {
 	testWriteValueCancellation(t, "print")
-}
-
-func TestPrintSafety(t *testing.T) {
-	print, ok := starlark.Universe["print"]
-	if !ok {
-		t.Fatalf("no such builtin: print")
-	}
-
-	t.Run("default", func(t *testing.T) {
-		thread := &starlark.Thread{}
-		thread.RequireSafety(starlark.IOSafe)
-
-		_, err := starlark.Call(thread, print, starlark.Tuple{starlark.String("foo")}, nil)
-		if err == nil {
-			t.Error("expected error")
-		} else if !errors.Is(err, starlark.ErrSafety) {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("custom", func(t *testing.T) {
-		thread := &starlark.Thread{}
-		thread.Print = func(thread *starlark.Thread, msg string) {
-			// Do nothing.
-		}
-		thread.PrintSafety = starlark.Safe
-		thread.RequireSafety(starlark.IOSafe)
-
-		_, err := starlark.Call(thread, print, starlark.Tuple{starlark.String("foo")}, nil)
-		if err != nil {
-			t.Error(err)
-		}
-	})
 }
 
 func TestRangeSteps(t *testing.T) {
@@ -7721,7 +7683,6 @@ func TestStringFormatSteps(t *testing.T) {
 		thread.Print = func(thread *starlark.Thread, msg string) {
 			// Do nothing.
 		}
-		thread.PrintSafety = starlark.Safe
 
 		stringer := &unsafeTestStringer{t}
 		_, err := starlark.Call(thread, string_format, starlark.Tuple{stringer}, nil)
@@ -7932,7 +7893,6 @@ func TestStringFormatCancellation(t *testing.T) {
 		thread.Print = func(thread *starlark.Thread, msg string) {
 			// Do nothing.
 		}
-		thread.PrintSafety = starlark.Safe
 
 		stringer := &unsafeTestStringer{t}
 		_, err := starlark.Call(thread, string_format, starlark.Tuple{stringer}, nil)
