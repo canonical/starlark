@@ -90,7 +90,6 @@ func init() {
 // so that it can be overridden, for example by applications that require their
 // Starlark scripts to be fully deterministic.
 var NowFunc = time.Now
-var NowFuncSafety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
 
 func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	sdu := SafeDurationUnpacker{}
@@ -174,9 +173,6 @@ func fromTimestamp(thread *starlark.Thread, _ *starlark.Builtin, args starlark.T
 }
 
 func now(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	if err := thread.CheckPermits(NowFuncSafety); err != nil {
-		return nil, err
-	}
 	if err := thread.AddAllocs(starlark.EstimateSize(Time{})); err != nil {
 		return nil, err
 	}
