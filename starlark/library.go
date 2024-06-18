@@ -1184,15 +1184,9 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 
 	s := buf.String()
 	if thread.Print != nil {
-		if err := CheckSafety(thread, thread.PrintSafety); err != nil {
-			return nil, err
-		}
 		thread.Print(thread, s)
 	} else {
 		thread.AddAllocs(-int64(buf.Allocs()))
-		if err := CheckSafety(thread, MemSafe|CPUSafe|TimeSafe); err != nil {
-			return nil, err
-		}
 		fmt.Fprintln(os.Stderr, s)
 	}
 	return None, nil
