@@ -381,10 +381,13 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	// it adds a new level of indentation every 2 characters. Clearly, this is
 	// a quadratic growth as the increment grows linearly.
 
-	n := strings.Count(str, "[") + strings.Count(str, "{")
+	n := int64(strings.Count(str, "[")) + int64(strings.Count(str, "{"))
 	// Taking into account tabs and newlines and working out the algebra, the
 	// worst case can be compacted in the quadratic formula:
 	worstCase := n*n + 2*n - 1
+	if n >= 3037000499 { // Handle overflow
+		worstCase = math.MaxInt64
+	}
 
 	// This worst case makes this function most likely unusable in the context
 	// of a script, but there are only two other approaches to tackle this part:
@@ -398,7 +401,7 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	if err := thread.CheckSteps(int64(worstCase)); err != nil {
 		return nil, err
 	}
-	if err := thread.CheckAllocs(int64(len(str) + worstCase*2)); err != nil {
+	if err := thread.CheckAllocs(int64(len(str)), worstCase, worstCase); err != nil {
 		return nil, err
 	}
 	if err := json.Indent(buf, []byte(str), prefix, indent); err != nil {
@@ -407,7 +410,7 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	if err := thread.AddSteps(int64(buf.Len())); err != nil {
 		return nil, err
 	}
-	if err := thread.AddAllocs(int64(buf.Cap()) + starlark.StringTypeOverhead); err != nil {
+	if err := thread.AddAllocs(int64(buf.Cap()), starlark.StringTypeOverhead); err != nil {
 		return nil, err
 	}
 	return starlark.String(buf.String()), nil
