@@ -222,6 +222,9 @@ func (thread *Thread) simulateSteps(deltas ...int64) (uint64, error) {
 
 // Allocs returns the total allocations reported to this thread via AddAllocs.
 func (thread *Thread) Allocs() uint64 {
+	thread.allocsLock.Lock()
+	defer thread.allocsLock.Unlock()
+
 	return thread.allocs
 }
 
