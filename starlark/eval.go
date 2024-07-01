@@ -1025,7 +1025,7 @@ func getAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
 			}
 			attr, err = x.Attr(name)
 			if attr == nil && err == nil {
-				err = ErrNoSuchAttr
+				err = ErrNoAttr
 			}
 		}
 
@@ -1033,7 +1033,7 @@ func getAttr(thread *Thread, x Value, name string, hint bool) (Value, error) {
 			var errmsg string
 			if nsa, ok := err.(NoSuchAttrError); ok {
 				errmsg = string(nsa)
-			} else if err == ErrNoSuchAttr {
+			} else if err == ErrNoAttr {
 				errmsg = fmt.Sprintf("%s has no .%s field or method", x.Type(), name)
 			} else {
 				return nil, err // return error as is
