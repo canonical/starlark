@@ -2304,7 +2304,7 @@ func TestGetattrSteps(t *testing.T) {
 			safety: starlark.NotSafe,
 			attr: func(thread *starlark.Thread, s string) (starlark.Value, error) {
 				t.Error("SafeAttr called")
-				return nil, starlark.ErrNoSuchAttr
+				return nil, starlark.ErrNoAttr
 			},
 		}
 		_, err := starlark.Call(thread, getattr, starlark.Tuple{value, starlark.String("test")}, nil)
@@ -2396,7 +2396,7 @@ func TestGetattrAllocs(t *testing.T) {
 			safety: starlark.NotSafe,
 			attr: func(thread *starlark.Thread, s string) (starlark.Value, error) {
 				t.Error("SafeAttr called")
-				return nil, starlark.ErrNoSuchAttr
+				return nil, starlark.ErrNoAttr
 			},
 		}
 		_, err := starlark.Call(thread, getattr, starlark.Tuple{input, starlark.String("test")}, nil)
@@ -2614,7 +2614,7 @@ func TestHasattrAllocs(t *testing.T) {
 			safety: starlark.NotSafe,
 			attr: func(thread *starlark.Thread, s string) (starlark.Value, error) {
 				t.Error("SafeAttr called")
-				return nil, starlark.ErrNoSuchAttr
+				return nil, starlark.ErrNoAttr
 			},
 		}
 		_, err := starlark.Call(thread, hasattr, starlark.Tuple{input, starlark.String("test")}, nil)

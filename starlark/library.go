@@ -35,7 +35,7 @@ var Universe StringDict
 var universeSafeties map[string]SafetyFlags
 
 var ErrUnsupported = errors.New("unsupported operation")
-var ErrNoSuchAttr = errors.New("no such attribute")
+var ErrNoAttr = errors.New("no such attribute")
 
 func init() {
 	// https://github.com/google/starlark-go/blob/master/doc/spec.md#built-in-constants-and-functions
@@ -316,7 +316,7 @@ func safeBuiltinAttr(thread *Thread, recv Value, name string, methods map[string
 	}
 	b := methods[name]
 	if b == nil {
-		return nil, ErrNoSuchAttr
+		return nil, ErrNoAttr
 	}
 	if thread != nil {
 		if err := thread.AddAllocs(EstimateSize(&Builtin{})); err != nil {
@@ -762,7 +762,7 @@ func hasattr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, err
 
 	if object, ok := object.(HasAttrs); ok {
 		if object2, ok := object.(HasSafeAttrs); ok {
-			if _, err := object2.SafeAttr(thread, name); err == ErrNoSuchAttr {
+			if _, err := object2.SafeAttr(thread, name); err == ErrNoAttr {
 				return False, nil
 			} else if _, ok := err.(NoSuchAttrError); ok {
 				return False, nil

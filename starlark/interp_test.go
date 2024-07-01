@@ -384,7 +384,7 @@ func (utsf *unsafeTestSetField) Hash() (uint32, error) {
 }
 
 func (utsf *unsafeTestSetField) Attr(name string) (starlark.Value, error) {
-	return nil, starlark.ErrNoSuchAttr
+	return nil, starlark.ErrNoAttr
 }
 
 func (utsf *unsafeTestSetField) SetField(name string, val starlark.Value) error {
@@ -409,7 +409,7 @@ func (tsf *testSetField) Hash() (uint32, error) {
 }
 
 func (tsf *testSetField) Attr(name string) (starlark.Value, error) {
-	return nil, starlark.ErrNoSuchAttr
+	return nil, starlark.ErrNoAttr
 
 }
 func (tsf *testSetField) SetField(name string, val starlark.Value) error {

@@ -42,7 +42,7 @@ func (m *Module) SafeAttr(thread *starlark.Thread, name string) (starlark.Value,
 	}
 	member, ok := m.Members[name]
 	if !ok {
-		return nil, starlark.ErrNoSuchAttr
+		return nil, starlark.ErrNoAttr
 	}
 	return member, nil
 }

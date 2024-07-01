@@ -650,7 +650,7 @@ type builtinMethod func(thread *starlark.Thread, b *starlark.Builtin, args starl
 func safeBuiltinAttr(thread *starlark.Thread, recv starlark.Value, name string, methods map[string]builtinMethod) (starlark.Value, error) {
 	method := methods[name]
 	if method == nil {
-		return nil, starlark.ErrNoSuchAttr
+		return nil, starlark.ErrNoAttr
 	}
 	if thread != nil {
 		if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
