@@ -72,8 +72,8 @@ func (sa *SafeAppender) Append(values ...interface{}) error {
 		}
 	}
 	if slice.Cap() != cap && sa.thread != nil {
-		oldSize := int64(roundAllocSize(uintptr(cap) * sa.elemType.Size()))
-		newSize := int64(roundAllocSize(uintptr(slice.Cap()) * sa.elemType.Size()))
+		oldSize := roundAllocSize(int64(cap) * int64(sa.elemType.Size()))
+		newSize := roundAllocSize(int64(slice.Cap()) * int64(sa.elemType.Size()))
 		delta := newSize - oldSize
 		sa.allocs += uint64(delta)
 		if err := sa.thread.AddAllocs(delta); err != nil {
@@ -109,8 +109,8 @@ func (sa *SafeAppender) AppendSlice(values interface{}) error {
 	}
 	slice := reflect.AppendSlice(sa.slice, toAppend)
 	if slice.Cap() != cap && sa.thread != nil {
-		oldSize := int64(roundAllocSize(uintptr(cap) * sa.elemType.Size()))
-		newSize := int64(roundAllocSize(uintptr(slice.Cap()) * sa.elemType.Size()))
+		oldSize := int64(roundAllocSize(int64(cap) * int64(sa.elemType.Size())))
+		newSize := int64(roundAllocSize(int64(slice.Cap()) * int64(sa.elemType.Size())))
 		delta := newSize - oldSize
 		sa.allocs += uint64(delta)
 		if err := sa.thread.AddAllocs(delta); err != nil {
