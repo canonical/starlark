@@ -233,7 +233,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	meanDeclaredAllocs := mean(thread.Allocs())
 	meanSteps := mean(thread.Steps())
 
-	if st.maxAllocs > 0 && meanMeasuredAllocs > st.maxAllocs {
+	if st.maxAllocs >= 0 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
 	}
 	if st.requiredSafety.Contains(starlark.MemSafe) {
@@ -247,7 +247,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		}
 	}
 
-	if st.maxSteps > 0 && meanSteps > st.maxSteps {
+	if st.maxSteps >= 0 && meanSteps > st.maxSteps {
 		st.Errorf("steps are above maximum (%d > %d)", meanSteps, st.maxSteps)
 	}
 	if meanSteps < st.minSteps {
