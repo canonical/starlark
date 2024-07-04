@@ -297,7 +297,7 @@ func TestSafeUnary(t *testing.T) {
 		name  string
 		input func(thread *starlark.Thread, n int) (starlark.Value, error)
 		op    syntax.Token
-		steps uint64
+		steps int64
 	}{{
 		name:  "+Int",
 		input: makeInt,

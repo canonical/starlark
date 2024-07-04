@@ -2728,14 +2728,14 @@ func addResourceDelta(resource int64, delta int64) int64 {
 
 	if delta >= 0 {
 		sum, carry := bits.Add64(uint64(resource), uint64(delta), 0)
-		if sum < 0 || carry != 0 {
+		if int64(sum) < 0 || carry != 0 {
 			return math.MaxInt64
 		}
 		return int64(sum)
 	}
 
 	diff, borrow := bits.Sub64(uint64(resource), uint64(-delta), 0)
-	if diff < 0 || borrow != 0 {
+	if int64(diff) < 0 || borrow != 0 {
 		return 0
 	}
 	return int64(diff)
