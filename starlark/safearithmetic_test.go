@@ -116,7 +116,7 @@ func TestSafeMul(t *testing.T) {
 	}, {
 		a:      -100,
 		b:      math.MaxInt,
-		expect: math.MaxInt,
+		expect: math.MinInt,
 	}}
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%d + %d", test.a, test.b), func(t *testing.T) {
@@ -157,7 +157,7 @@ func TestSafeMul64(t *testing.T) {
 	}, {
 		a:      -100,
 		b:      math.MaxInt64,
-		expect: math.MaxInt64,
+		expect: math.MinInt64,
 	}}
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%d + %d", test.a, test.b), func(t *testing.T) {

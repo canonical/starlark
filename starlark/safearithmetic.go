@@ -57,9 +57,9 @@ func SafeMul(a, b int) int {
 	expectPositive := (a > 0) == (b > 0)
 	if expectPositive != (lo > 0) || hi != 0 {
 		if expectPositive {
-			return math.MinInt
+			return math.MaxInt
 		}
-		return math.MaxInt
+		return math.MinInt
 	}
 
 	return int(lo)
@@ -71,9 +71,9 @@ func SafeMul64(a, b int64) int64 {
 	expectPositive := (a > 0) == (b > 0)
 	if expectPositive != (lo > 0) || hi != 0 {
 		if expectPositive {
-			return math.MinInt
+			return math.MaxInt
 		}
-		return math.MaxInt
+		return math.MinInt
 	}
 
 	return int64(lo)
