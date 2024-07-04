@@ -984,7 +984,7 @@ func TestBytesAllocs(t *testing.T) {
 	t.Run("small-valid-string", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(int64(starlark.StringTypeOverhead))
+		st.SetMaxAllocs(starlark.StringTypeOverhead)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("hello, world!")
 			for i := 0; i < st.N; i++ {
@@ -8042,12 +8042,12 @@ func TestStringIndexAllocs(t *testing.T) {
 	testStringFindMethodAllocs(t, "index")
 }
 
-func testStringIsSteps(t *testing.T, methodName, trueExample string, trueSteps int, falseExample string, falseSteps int) {
+func testStringIsSteps(t *testing.T, methodName, trueExample string, trueSteps int64, falseExample string, falseSteps int64) {
 	t.Run("true return", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinSteps(int64(trueSteps))
-		st.SetMaxSteps(int64(trueSteps))
+		st.SetMinSteps(trueSteps)
+		st.SetMaxSteps(trueSteps)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat(trueExample, st.N))
 			method, _ := str.Attr(methodName)
@@ -8069,8 +8069,8 @@ func testStringIsSteps(t *testing.T, methodName, trueExample string, trueSteps i
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinSteps(int64(falseSteps))
-		st.SetMaxSteps(int64(falseSteps))
+		st.SetMinSteps(falseSteps)
+		st.SetMaxSteps(falseSteps)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, method, nil, nil)
@@ -8687,17 +8687,17 @@ func testStringPartitionMethodSteps(t *testing.T, name string, fromLeft bool) {
 	})
 
 	t.Run("present", func(t *testing.T) {
-		var expectedSteps int
+		var expectedSteps int64
 		if fromLeft {
-			expectedSteps = len("don't communicate by sharing memory")
+			expectedSteps = int64(len("don't communicate by sharing memory"))
 		} else {
-			expectedSteps = len("memory by communicating.")
+			expectedSteps = int64(len("memory by communicating."))
 		}
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.CPUSafe)
-		st.SetMinSteps(int64(expectedSteps))
-		st.SetMaxSteps(int64(expectedSteps))
+		st.SetMinSteps(expectedSteps)
+		st.SetMaxSteps(expectedSteps)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, string_partition, starlark.Tuple{starlark.String("memory")}, nil)
