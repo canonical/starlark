@@ -284,7 +284,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		if nSum != 0 {
 			n = prevN * 2
 
-			allocsPerN := int64(allocSum / nSum)
+			allocsPerN := allocSum / nSum
 			if allocsPerN <= 0 {
 				allocsPerN = 1
 			}

@@ -415,7 +415,7 @@ func (tb *SafeStringBuilder) safeGrow(n int) error {
 		// target capacity, so that every allocated byte
 		// is available to the user.
 		tb.builder.Grow(n + int(newBufferSize) - newCap)
-		tb.allocs = int64(newBufferSize)
+		tb.allocs = newBufferSize
 	}
 	return nil
 }
