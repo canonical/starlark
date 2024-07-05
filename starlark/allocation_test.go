@@ -129,7 +129,9 @@ func TestOverflowingPositiveDeltaAllocation(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
 
-	if err := thread.AddAllocs(math.MaxInt64-1, -math.MaxInt64+1, math.MaxInt64-1, -math.MaxInt64+1, 10); err != nil {
+	const maxNonInfiniteAllocs = math.MaxInt64 - 1
+
+	if err := thread.AddAllocs(maxNonInfiniteAllocs, -maxNonInfiniteAllocs, maxNonInfiniteAllocs, -maxNonInfiniteAllocs, 10); err != nil {
 		t.Errorf("unexpected error when declaring allocation increase: %v", err)
 	}
 	if allocs := thread.Allocs(); allocs != 10 {
@@ -143,7 +145,7 @@ func TestOverflowingPositiveDeltaAllocation(t *testing.T) {
 	}
 
 	// Increase so that the next allocation will cause an overflow
-	if err := thread.AddAllocs(math.MaxInt64 - 1); err != nil {
+	if err := thread.AddAllocs(maxNonInfiniteAllocs); err != nil {
 		t.Errorf("unexpected error when declaring allocation increase: %v", err)
 	} else if allocs := thread.Allocs(); allocs != math.MaxInt64-1 {
 		t.Errorf("incorrect allocations stored: expected %d but got %d", int64(math.MaxInt64-1), allocs)
@@ -210,7 +212,7 @@ func TestOverzealousNegativeDeltaDeclaration(t *testing.T) {
 }
 
 func TestConcurrentCheckAllocsUsage(t *testing.T) {
-	const allocPeak = math.MaxInt64 ^ (math.MaxInt64 >> 1)
+	const allocPeak = 1 << 62
 	const maxAllocs = allocPeak + 1
 	const repetitions = 1_000_000
 
