@@ -399,14 +399,15 @@ func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) int64 {
 // bytes due to how small allocations are grouped.
 func roundAllocSize(size int64) int64 {
 	const tinyAllocMaxSize = 16
+	const maxSafeUintptr = uintptr(math.MaxInt64 & uint64(^uintptr(0)))
 
 	if size == 0 {
 		return 0
 	} else if size < tinyAllocMaxSize {
 		return tinyAllocMaxSize
-	} else if rounded := int64(roundupsize(uintptr(size))); rounded < 0 {
+	} else if rounded := roundupsize(uintptr(size)); rounded > maxSafeUintptr {
 		return math.MaxInt64
 	} else {
-		return rounded
+		return int64(rounded)
 	}
 }
