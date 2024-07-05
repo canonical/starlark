@@ -15,16 +15,16 @@ func SafeAdd(a, b int) int {
 
 	if b >= 0 {
 		sum, carry := bits.Add(uint(a), uint(b), 0)
-		if int(sum) < 0 || carry != 0 {
+		if sum > math.MaxInt || carry != 0 {
 			return math.MaxInt
 		}
 		return int(sum)
 	}
 
-	diff, carry := bits.Sub(uint(a), uint(-b), 0)
-	if int(diff) < 0 || carry != 0 {
+	if uint(a) < uint(-b) {
 		return math.MinInt
 	}
+	diff, _ := bits.Sub(uint(a), uint(-b), 0)
 	return int(diff)
 }
 
@@ -38,16 +38,16 @@ func SafeAdd64(a, b int64) int64 {
 
 	if b >= 0 {
 		sum, carry := bits.Add64(uint64(a), uint64(b), 0)
-		if int64(sum) < 0 || carry != 0 {
+		if sum > math.MaxInt || carry != 0 {
 			return math.MaxInt64
 		}
 		return int64(sum)
 	}
 
-	diff, carry := bits.Sub64(uint64(a), uint64(-b), 0)
-	if int(diff) < 0 || carry != 0 {
+	if uint64(a) < uint64(b) {
 		return math.MinInt64
 	}
+	diff, _ := bits.Sub64(uint64(a), uint64(-b), 0)
 	return int64(diff)
 }
 
