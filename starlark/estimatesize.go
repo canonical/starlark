@@ -45,7 +45,7 @@ var SliceTypeOverhead = EstimateSize([]struct{}{})
 
 func satAdd(a, b int64) int64 {
 	sum, carry := bits.Add64(uint64(a), uint64(b), 0)
-	if int64(sum) < 0 || carry != 0 {
+	if sum > math.MaxInt64 || carry != 0 {
 		return math.MaxInt64 // Wrapping occurred, saturate.
 	}
 	return int64(sum)
@@ -53,7 +53,7 @@ func satAdd(a, b int64) int64 {
 
 func satMul(a, b int64) int64 {
 	hi, lo := bits.Mul64(uint64(a), uint64(b))
-	if int64(lo) < 0 || hi != 0 {
+	if lo > math.MaxInt64 || hi != 0 {
 		return math.MaxInt64 // Wrapping occurred, saturate.
 	}
 	return int64(lo)
