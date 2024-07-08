@@ -239,8 +239,8 @@ func TestSafeAppenderAppendSlice(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
 			st.SetMaxAllocs(0)
-			st.SetMinSteps(uint64(len(toAppend)))
-			st.SetMaxSteps(uint64(len(toAppend)))
+			st.SetMinSteps(int64(len(toAppend)))
+			st.SetMaxSteps(int64(len(toAppend)))
 			st.RunThread(func(thread *starlark.Thread) {
 				appender := starlark.NewSafeAppender(thread, &storage)
 				for i := 0; i < st.N; i++ {
@@ -257,8 +257,8 @@ func TestSafeAppenderAppendSlice(t *testing.T) {
 			toAppend := []int{-1, -1}
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
-			st.SetMinSteps(uint64(len(toAppend)))
-			st.SetMaxSteps(uint64(len(toAppend)))
+			st.SetMinSteps(int64(len(toAppend)))
+			st.SetMaxSteps(int64(len(toAppend)))
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					slice := []int{1, 3, 5}
@@ -319,8 +319,8 @@ func TestSafeAppenderAppendSlice(t *testing.T) {
 			toAppend := []interface{}{0.0, rune(0)}
 			st := startest.From(t)
 			st.RequireSafety(starlark.CPUSafe | starlark.MemSafe)
-			st.SetMinSteps(uint64(len(toAppend)))
-			st.SetMaxSteps(uint64(len(toAppend)))
+			st.SetMinSteps(int64(len(toAppend)))
+			st.SetMaxSteps(int64(len(toAppend)))
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					slice := []interface{}{false, 0, ""}

@@ -57,9 +57,9 @@ type TestBase interface {
 }
 
 type ST struct {
-	maxAllocs      uint64
-	maxSteps       uint64
-	minSteps       uint64
+	maxAllocs      int64
+	maxSteps       int64
+	minSteps       int64
 	alive          []interface{}
 	N              int
 	requiredSafety starlark.SafetyFlags
@@ -82,25 +82,25 @@ var _ TestBase = &check.C{}
 func From(base TestBase) *ST {
 	return &ST{
 		TestBase:  base,
-		maxAllocs: math.MaxUint64,
-		maxSteps:  math.MaxUint64,
+		maxAllocs: math.MaxInt64,
+		maxSteps:  math.MaxInt64,
 	}
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per unit of st.N.
-func (st *ST) SetMaxAllocs(maxAllocs uint64) {
+func (st *ST) SetMaxAllocs(maxAllocs int64) {
 	st.maxAllocs = maxAllocs
 }
 
 // SetMaxSteps optionally sets the max steps allowed per unit
 // of st.N.
-func (st *ST) SetMaxSteps(maxSteps uint64) {
+func (st *ST) SetMaxSteps(maxSteps int64) {
 	st.maxSteps = maxSteps
 }
 
 // SetMinSteps optionally sets the min steps allowed per unit
 // of st.N.
-func (st *ST) SetMinSteps(minSteps uint64) {
+func (st *ST) SetMinSteps(minSteps int64) {
 	st.minSteps = minSteps
 }
 
@@ -228,12 +228,12 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		return
 	}
 
-	mean := func(x uint64) uint64 { return (x + stats.nSum/2) / stats.nSum }
+	mean := func(x int64) int64 { return (x + stats.nSum/2) / stats.nSum }
 	meanMeasuredAllocs := mean(stats.allocSum)
 	meanDeclaredAllocs := mean(thread.Allocs())
 	meanSteps := mean(thread.Steps())
 
-	if st.maxAllocs != math.MaxUint64 && meanMeasuredAllocs > st.maxAllocs {
+	if st.maxAllocs != math.MaxInt64 && st.maxAllocs >= 0 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
 	}
 	if st.requiredSafety.Contains(starlark.MemSafe) {
@@ -247,7 +247,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		}
 	}
 
-	if st.maxSteps != math.MaxUint64 && meanSteps > st.maxSteps {
+	if st.maxSteps != math.MaxInt64 && st.maxSteps >= 0 && meanSteps > st.maxSteps {
 		st.Errorf("steps are above maximum (%d > %d)", meanSteps, st.maxSteps)
 	}
 	if meanSteps < st.minSteps {
@@ -266,7 +266,7 @@ func (st *ST) KeepAlive(values ...interface{}) {
 }
 
 type runStats struct {
-	nSum, allocSum uint64
+	nSum, allocSum int64
 	stepsRequired  bool
 }
 
@@ -275,7 +275,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	const memoryMax = 200 * (1 << 20)
 	const timeMax = time.Second
 
-	nSum, allocSum, valueTrackerAllocs := uint64(0), uint64(0), uint64(0)
+	nSum, allocSum, valueTrackerAllocs := int64(0), int64(0), int64(0)
 
 	startTime := time.Now()
 	prevN, elapsed := int64(0), time.Duration(0)
@@ -284,11 +284,11 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		if nSum != 0 {
 			n = prevN * 2
 
-			allocsPerN := int64(uint64(allocSum) / nSum)
+			allocsPerN := allocSum / nSum
 			if allocsPerN <= 0 {
 				allocsPerN = 1
 			}
-			memoryLimitN := (memoryMax - int64(allocSum)) / allocsPerN
+			memoryLimitN := (memoryMax - allocSum) / allocsPerN
 			if n > memoryLimitN {
 				n = memoryLimitN
 			}
@@ -330,14 +330,14 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		// included in the measurement. This overhead must be discounted
 		// when reasoning about the measurement.
 		if cap(st.alive) != cap(alive) {
-			valueTrackerAllocs += uint64(starlark.EstimateMakeSize([]interface{}{}, cap(st.alive)))
+			valueTrackerAllocs += starlark.EstimateMakeSize([]interface{}{}, cap(st.alive))
 		}
 		if afterAllocs > beforeAllocs {
 			allocSum += afterAllocs - beforeAllocs
 		}
 
-		nSum += uint64(n)
-		prevN = int64(n)
+		nSum += n
+		prevN = n
 		elapsed = time.Since(startTime)
 		st.alive = nil
 	}
@@ -359,7 +359,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 
 // readMemoryUsage returns the number of bytes in use by the Go runtime. If
 // precise measurement is required, a full GC will be performed.
-func readMemoryUsage(precise bool) uint64 {
+func readMemoryUsage(precise bool) int64 {
 	if precise {
 		// Run the GC twice to account for finalizers.
 		runtime.GC()
@@ -367,7 +367,7 @@ func readMemoryUsage(precise bool) uint64 {
 
 		var stats runtime.MemStats
 		runtime.ReadMemStats(&stats)
-		return stats.Alloc
+		return int64(stats.Alloc)
 	}
 
 	sample := []metrics.Sample{
@@ -377,7 +377,7 @@ func readMemoryUsage(precise bool) uint64 {
 	if sample[0].Value.Kind() == metrics.KindBad {
 		return 0
 	}
-	return sample[0].Value.Uint64()
+	return int64(sample[0].Value.Uint64())
 }
 
 func (st *ST) String() string        { return "<startest.ST>" }

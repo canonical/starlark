@@ -159,35 +159,35 @@ func TestJsonEncodeSteps(t *testing.T) {
 	tests := []struct {
 		name  string
 		input starlark.Value
-		steps uint64
+		steps int64
 	}{{
 		name:  "Int (small)",
 		input: starlark.MakeInt(0xbeef),
-		steps: uint64(len(fmt.Sprintf("%d", 0xbeef))),
+		steps: int64(len(fmt.Sprintf("%d", 0xbeef))),
 	}, {
 		name:  "Int (big)",
 		input: starlark.MakeInt64(0xdeadbeef << 10),
-		steps: uint64(len(fmt.Sprintf("%d", int64(0xdeadbeef<<10)))),
+		steps: int64(len(fmt.Sprintf("%d", int64(0xdeadbeef<<10)))),
 	}, {
 		name:  "Float",
 		input: starlark.Float(1.4218e-1),
-		steps: uint64(len("0.14218")),
+		steps: int64(len("0.14218")),
 	}, {
 		name:  "Bool",
 		input: starlark.True,
-		steps: uint64(len("True")),
+		steps: int64(len("True")),
 	}, {
 		name:  "None",
 		input: starlark.None,
-		steps: uint64(len("null")),
+		steps: int64(len("null")),
 	}, {
 		name:  "String",
 		input: starlark.String(`"tnetennba"`),
-		steps: uint64(len(`"\"tnetennba\""`)),
+		steps: int64(len(`"\"tnetennba\""`)),
 	}, {
 		name:  "Tuple",
 		input: starlark.Tuple{starlark.MakeInt(1), starlark.MakeInt(2)},
-		steps: uint64(len("[1,2]")) + 2,
+		steps: int64(len("[1,2]")) + 2,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -227,8 +227,8 @@ func TestJsonEncodeSteps(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.CPUSafe)
 				const listOverheadSteps = 2 // iteration + writing ','
-				st.SetMinSteps(test.steps + uint64(len(`,"000000000000":`)+1))
-				st.SetMaxSteps(test.steps + uint64(len(`,"000000000000":`)+1))
+				st.SetMinSteps(test.steps + int64(len(`,"000000000000":`)+1))
+				st.SetMaxSteps(test.steps + int64(len(`,"000000000000":`)+1))
 				st.RunThread(func(thread *starlark.Thread) {
 					dict := starlark.NewDict(st.N)
 					for i := 0; i < st.N; i++ {
@@ -366,8 +366,8 @@ func TestJsonDecodeSteps(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		minSteps uint64
-		maxSteps uint64
+		minSteps int64
+		maxSteps int64
 	}{{
 		name:  "int",
 		input: "48879",
@@ -500,8 +500,8 @@ func TestJsonDecodeCancellation(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		minSteps uint64
-		maxSteps uint64
+		minSteps int64
+		maxSteps int64
 	}{{
 		name:  "int",
 		input: "48879",

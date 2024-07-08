@@ -958,7 +958,7 @@ func TestCancel(t *testing.T) {
 func TestSteps(t *testing.T) {
 	// A Thread records the number of computation steps.
 	thread := new(starlark.Thread)
-	countSteps := func(n int) (uint64, error) {
+	countSteps := func(n int) (int64, error) {
 		predeclared := starlark.StringDict{"n": starlark.MakeInt(n)}
 		steps0 := thread.Steps()
 		_, err := starlark.ExecFile(thread, "steps.star", `squares = [x*x for x in range(n)]`, predeclared)
@@ -1157,14 +1157,16 @@ func TestOverflowingPositiveDeltaStep(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxSteps(0)
 
+	const maxNonInfiniteSteps = math.MaxInt64 - 1
+
 	// One-line addition is fine on overflow if the result is not overflowing
-	if err := thread.AddSteps(math.MaxInt64, -math.MaxInt64, math.MaxInt64, -math.MaxInt64, 10); err != nil {
+	if err := thread.AddSteps(maxNonInfiniteSteps, -maxNonInfiniteSteps, maxNonInfiniteSteps, -maxNonInfiniteSteps, 10); err != nil {
 		t.Errorf("unexpected error when declaring steps increase: %v", err)
 	}
 	if steps := thread.Steps(); steps != 10 {
 		t.Errorf("incorrect steps stored: expected %d but got %d", 10, steps)
 	}
-	if err := thread.AddSteps(-math.MaxInt64); err != nil {
+	if err := thread.AddSteps(math.MinInt64 + 1); err != nil {
 		t.Errorf("unexpected error when declaring steps decrease: %v", err)
 	}
 	if steps := thread.Steps(); steps != 0 {
@@ -1172,30 +1174,30 @@ func TestOverflowingPositiveDeltaStep(t *testing.T) {
 	}
 
 	// Increase so that the next steps will cause an overflow
-	if err := thread.AddSteps(math.MaxInt64, math.MaxInt64); err != nil {
+	if err := thread.AddSteps(maxNonInfiniteSteps); err != nil {
 		t.Errorf("unexpected error when declaring steps increase: %v", err)
-	} else if steps := thread.Steps(); steps != math.MaxUint64-1 {
-		t.Errorf("incorrect steps stored: expected %d but got %d", uint64(math.MaxUint64), steps)
+	} else if steps := thread.Steps(); steps != math.MaxInt64-1 {
+		t.Errorf("incorrect steps stored: expected %d but got %d", int64(math.MaxInt64-1), steps)
 	}
 
 	// Check overflow detected
 	if err := thread.AddSteps(2); err != nil {
 		t.Errorf("unexpected error when overflowing steps: %v", err)
-	} else if steps := thread.Steps(); steps != math.MaxUint64 {
-		t.Errorf("incorrect steps stored: expected %d but got %d", uint64(math.MaxUint64), steps)
+	} else if steps := thread.Steps(); steps != math.MaxInt64 {
+		t.Errorf("incorrect steps stored: expected %d but got %d", int64(math.MaxInt64), steps)
 	}
 
 	// Check repeated overflow
 	if err := thread.AddSteps(100); err != nil {
 		t.Errorf("unexpected error when repeatedly overflowing steps: %v", err)
-	} else if steps := thread.Steps(); steps != math.MaxUint64 {
+	} else if steps := thread.Steps(); steps != math.MaxInt64 {
 		t.Errorf("incorrect steps stored: expected %d but got %d", uint64(math.MaxUint64), steps)
 	}
 
 	// Check overflow is sticky
 	if err := thread.AddSteps(math.MinInt64, math.MinInt64); err != nil {
 		t.Errorf("unexpected error when repeatedly overflowing steps: %v", err)
-	} else if steps := thread.Steps(); steps != math.MaxUint64 {
+	} else if steps := thread.Steps(); steps != math.MaxInt64 {
 		t.Errorf("incorrect steps stored: expected %d but got %d", uint64(math.MaxUint64), steps)
 	}
 }
@@ -1213,13 +1215,13 @@ func TestDefaultStepMaxIsUnbounded(t *testing.T) {
 	if err := thread.AddSteps(math.MaxInt64, math.MaxInt64, math.MaxInt64); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if thread.Steps() != math.MaxUint64 {
+	if thread.Steps() != math.MaxInt64 {
 		t.Errorf("wrong step count: expected %v got %v", uint64(math.MaxUint64), thread.Allocs())
 	}
 	if err := thread.AddSteps(math.MinInt64); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if thread.Steps() != math.MaxUint64 {
+	if thread.Steps() != math.MaxInt64 {
 		t.Errorf("wrong step count: expected %v got %v", uint64(math.MaxUint64), thread.Allocs())
 	}
 }
@@ -1294,7 +1296,7 @@ func TestAddStepsOk(t *testing.T) {
 
 func TestAddStepsFail(t *testing.T) {
 	const maxValidSteps = 10000
-	expectedSteps := uint64(0)
+	expectedSteps := int64(0)
 
 	thread := new(starlark.Thread)
 	thread.SetMaxSteps(maxValidSteps)
@@ -1467,8 +1469,8 @@ type safeBinaryTest struct {
 	op          syntax.Token
 	noInplace   bool
 	left, right func(*starlark.Thread, int) (starlark.Value, error)
-	minSteps    uint64
-	maxSteps    uint64
+	minSteps    int64
+	maxSteps    int64
 }
 
 func (sbt *safeBinaryTest) st(t *testing.T) *startest.ST {
@@ -1512,7 +1514,7 @@ func (sbt *safeBinaryTest) Run(t *testing.T) {
 				t.Error(err)
 			}
 			st := sbt.st(t)
-			st.SetMaxSteps(math.MaxUint64) // Relax test.
+			st.SetMaxSteps(math.MaxInt64) // Relax test.
 			st.AddValue("left", left)
 			st.AddValue("right", right)
 			st.RunString(fmt.Sprintf(`
@@ -2060,15 +2062,15 @@ func TestSafeBinary(t *testing.T) {
 			op:       syntax.PERCENT,
 			left:     constant(starlark.String("[%r]")),
 			right:    makeString,
-			minSteps: uint64(len(`x`)),
-			maxSteps: uint64(len(`["x"]`)),
+			minSteps: int64(len(`x`)),
+			maxSteps: int64(len(`["x"]`)),
 		}, {
 			name:     "string % list",
 			op:       syntax.PERCENT,
 			left:     constant(starlark.String("[%r]")),
 			right:    makeList,
-			minSteps: uint64(len(`None, `)) + 1,
-			maxSteps: uint64(len(`[[None]]`)) + 1,
+			minSteps: int64(len(`None, `)) + 1,
+			maxSteps: int64(len(`[[None]]`)) + 1,
 		}, {
 			name: "string % mapping",
 			op:   syntax.PERCENT,
@@ -2088,8 +2090,8 @@ func TestSafeBinary(t *testing.T) {
 				result.SetKey(starlark.String("k"), starlark.True)
 				return result
 			}()),
-			minSteps: uint64(len(`True`)) + 1,
-			maxSteps: uint64(len(`True`)) + 1,
+			minSteps: int64(len(`True`)) + 1,
+			maxSteps: int64(len(`True`)) + 1,
 		}, {
 			name: "string % tuple",
 			op:   syntax.PERCENT,
@@ -2106,8 +2108,8 @@ func TestSafeBinary(t *testing.T) {
 				}
 				return starlark.Tuple{s, s}, nil
 			},
-			minSteps: 2 * uint64(len(`x`)),
-			maxSteps: uint64(len(`["x", "x"]`)),
+			minSteps: 2 * int64(len(`x`)),
+			maxSteps: int64(len(`["x", "x"]`)),
 		}}
 		for _, test := range tests {
 			test.Run(t)

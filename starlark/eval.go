@@ -61,11 +61,11 @@ type Thread struct {
 	// computing the difference in its value before and after a computation.
 	//
 	// The precise meaning of "step" is not specified and may change.
-	steps, maxSteps uint64
+	steps, maxSteps int64
 	stepsLock       sync.Mutex
 
 	// allocs counts the abstract memory units claimed by this resource pool
-	allocs, maxAllocs uint64
+	allocs, maxAllocs int64
 	allocsLock        sync.Mutex
 
 	// locals holds arbitrary "thread-local" Go values belonging to the client.
@@ -152,17 +152,18 @@ func (thread *Thread) Context() context.Context {
 }
 
 // Steps returns the current value of Steps.
-func (thread *Thread) Steps() uint64 {
+func (thread *Thread) Steps() int64 {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
 	return thread.steps
 }
 
-// SetMaxSteps sets a limit on the number of Starlark
-// computation steps that may be executed by this thread. If the
-// thread's step counter exceeds this limit, the thread is cancelled.
-func (thread *Thread) SetMaxSteps(max uint64) {
+// SetMaxSteps sets a limit on the number of Starlark computation steps that
+// may be executed by this thread. If the thread's step counter exceeds this
+// limit, the thread is cancelled. If max is zero, negative or MaxInt64, the
+// thread will not be cancelled.
+func (thread *Thread) SetMaxSteps(max int64) {
 	thread.maxSteps = max
 }
 
@@ -201,7 +202,7 @@ func (thread *Thread) AddSteps(deltas ...int64) error {
 // simulateSteps simulates a call to AddSteps returning the
 // new total step-count and any error this would entail. No change is
 // recorded.
-func (thread *Thread) simulateSteps(deltas ...int64) (uint64, error) {
+func (thread *Thread) simulateSteps(deltas ...int64) (int64, error) {
 	if err := thread.cancelled(); err != nil {
 		return thread.steps, err
 	}
@@ -210,7 +211,7 @@ func (thread *Thread) simulateSteps(deltas ...int64) (uint64, error) {
 	for _, delta := range deltas {
 		nextSteps = addResourceDelta(nextSteps, delta)
 
-		if thread.maxSteps != 0 && nextSteps > thread.maxSteps {
+		if thread.maxSteps > 0 && nextSteps > thread.maxSteps {
 			return nextSteps, &StepsSafetyError{
 				Current: thread.steps,
 				Max:     thread.maxSteps,
@@ -221,17 +222,17 @@ func (thread *Thread) simulateSteps(deltas ...int64) (uint64, error) {
 }
 
 // Allocs returns the total allocations reported to this thread via AddAllocs.
-func (thread *Thread) Allocs() uint64 {
+func (thread *Thread) Allocs() int64 {
 	thread.allocsLock.Lock()
 	defer thread.allocsLock.Unlock()
 
 	return thread.allocs
 }
 
-// SetMaxAllocs sets the maximum allocations that may be reported to this thread
-// via AddAllocs before Cancel is internally called. If max is zero or MaxUint64,
-// the thread will not be cancelled.
-func (thread *Thread) SetMaxAllocs(max uint64) {
+// SetMaxAllocs sets the maximum allocations that may be reported to this
+// thread via AddAllocs before Cancel is internally called. If max is zero,
+// negative or MaxInt64, the thread will not be cancelled.
+func (thread *Thread) SetMaxAllocs(max int64) {
 	thread.maxAllocs = max
 }
 
@@ -370,7 +371,7 @@ type StringBuilder interface {
 type SafeStringBuilder struct {
 	builder       strings.Builder
 	thread        *Thread
-	allocs, steps uint64
+	allocs, steps int64
 	err           error
 }
 
@@ -384,12 +385,12 @@ func NewSafeStringBuilder(thread *Thread) *SafeStringBuilder {
 
 // Allocs returns the total allocations reported to this SafeStringBuilder's
 // thread.
-func (tb *SafeStringBuilder) Allocs() uint64 {
+func (tb *SafeStringBuilder) Allocs() int64 {
 	return tb.allocs
 }
 
 // Steps returns the total steps reported to this SafeStringBuilder's thread.
-func (tb *SafeStringBuilder) Steps() uint64 {
+func (tb *SafeStringBuilder) Steps() int64 {
 	return tb.steps
 }
 
@@ -414,7 +415,7 @@ func (tb *SafeStringBuilder) safeGrow(n int) error {
 		// target capacity, so that every allocated byte
 		// is available to the user.
 		tb.builder.Grow(n + int(newBufferSize) - newCap)
-		tb.allocs = uint64(newBufferSize)
+		tb.allocs = newBufferSize
 	}
 	return nil
 }
@@ -2647,7 +2648,7 @@ func interpolate(thread *Thread, format string, x Value) (Value, error) {
 }
 
 type AllocsSafetyError struct {
-	Current, Max uint64
+	Current, Max int64
 }
 
 func (e *AllocsSafetyError) Error() string {
@@ -2659,7 +2660,7 @@ func (e *AllocsSafetyError) Is(err error) bool {
 }
 
 type StepsSafetyError struct {
-	Current, Max uint64
+	Current, Max int64
 }
 
 func (e *StepsSafetyError) Error() string {
@@ -2705,12 +2706,12 @@ func (thread *Thread) AddAllocs(deltas ...int64) error {
 // simulateAllocs simulates a call to AddAllocs returning the new total
 // allocations associated with this thread and any error this would entail. No
 // change is recorded.
-func (thread *Thread) simulateAllocs(deltas ...int64) (uint64, error) {
+func (thread *Thread) simulateAllocs(deltas ...int64) (int64, error) {
 	nextAllocs := thread.allocs
 	for _, delta := range deltas {
 		nextAllocs = addResourceDelta(nextAllocs, delta)
 
-		if thread.maxAllocs != 0 && nextAllocs > thread.maxAllocs {
+		if thread.maxAllocs > 0 && nextAllocs > thread.maxAllocs {
 			return nextAllocs, &AllocsSafetyError{
 				Current: thread.allocs,
 				Max:     thread.maxAllocs,
@@ -2720,22 +2721,22 @@ func (thread *Thread) simulateAllocs(deltas ...int64) (uint64, error) {
 	return nextAllocs, nil
 }
 
-func addResourceDelta(resource uint64, delta int64) uint64 {
-	if resource == math.MaxUint64 {
-		return math.MaxUint64
+func addResourceDelta(resource int64, delta int64) int64 {
+	if resource < 0 || resource == math.MaxInt64 {
+		return math.MaxInt64
 	}
 
 	if delta >= 0 {
-		sum, carry := bits.Add64(resource, uint64(delta), 0)
-		if carry != 0 {
-			return math.MaxUint64
+		sum, carry := bits.Add64(uint64(resource), uint64(delta), 0)
+		if sum > math.MaxInt64 || carry != 0 {
+			return math.MaxInt64
 		}
-		return sum
+		return int64(sum)
 	}
 
-	diff, borrow := bits.Sub64(resource, uint64(-delta), 0)
-	if borrow != 0 {
+	if resource < -delta {
 		return 0
 	}
-	return diff
+	diff, _ := bits.Sub64(uint64(resource), uint64(-delta), 0)
+	return int64(diff)
 }

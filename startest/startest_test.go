@@ -891,7 +891,7 @@ func TestRunStringMemSafety(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(uint64(allocateResultSize))
+		st.SetMaxAllocs(allocateResultSize)
 		st.AddBuiltin(allocate)
 		ok := st.RunString(`
 			for _ in st.ntimes():
@@ -913,7 +913,7 @@ func TestRunStringMemSafety(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
-		st.SetMaxAllocs(uint64(overallocateResultSize * 2)) // test correct error when within max
+		st.SetMaxAllocs(overallocateResultSize * 2) // test correct error when within max
 		st.AddBuiltin(overallocate)
 		ok := st.RunString(`
 			for _ in st.ntimes():
