@@ -54,9 +54,8 @@ func SafeAdd64(a, b int64) int64 {
 func SafeMul(a, b int) int {
 	hi, lo := bits.Mul(uint(a), uint(b))
 
-	expectPositive := (a > 0) == (b > 0)
-	if expectPositive != (lo > 0) || hi != 0 {
-		if expectPositive {
+	if lo > math.MaxInt || hi != 0 {
+		if (a > 0) == (b > 0) {
 			return math.MaxInt
 		}
 		return math.MinInt
@@ -68,12 +67,11 @@ func SafeMul(a, b int) int {
 func SafeMul64(a, b int64) int64 {
 	hi, lo := bits.Mul64(uint64(a), uint64(b))
 
-	expectPositive := (a > 0) == (b > 0)
-	if expectPositive != (lo > 0) || hi != 0 {
-		if expectPositive {
-			return math.MaxInt
+	if lo > math.MaxInt64 || hi != 0 {
+		if (a > 0) == (b > 0) {
+			return math.MaxInt64
 		}
-		return math.MinInt
+		return math.MinInt64
 	}
 
 	return int64(lo)
