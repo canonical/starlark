@@ -38,7 +38,7 @@ func SafeAdd64(a, b int64) int64 {
 
 	if b >= 0 {
 		sum, carry := bits.Add64(uint64(a), uint64(b), 0)
-		if sum > math.MaxInt || carry != 0 {
+		if sum > math.MaxInt64 || carry != 0 {
 			return math.MaxInt64
 		}
 		return int64(sum)
