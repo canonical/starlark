@@ -116,6 +116,16 @@ func TestSafeMul(t *testing.T) {
 		b:      25,
 		expect: 100,
 	}, {
+		name:   "100*-100",
+		a:      100,
+		b:      -100,
+		expect: -10000,
+	}, {
+		name:   "8 * MinInt64/16",
+		a:      8,
+		b:      math.MinInt / 16,
+		expect: math.MinInt / 2,
+	}, {
 		name:   "MaxInt+MaxInt",
 		a:      math.MaxInt,
 		b:      math.MaxInt,
@@ -164,6 +174,16 @@ func TestSafeMul64(t *testing.T) {
 		a:      4,
 		b:      25,
 		expect: 100,
+	}, {
+		name:   "100*-100",
+		a:      100,
+		b:      -100,
+		expect: -10000,
+	}, {
+		name:   "8 * MinInt64/16",
+		a:      8,
+		b:      math.MinInt64 / 16,
+		expect: math.MinInt64 / 2,
 	}, {
 		name:   "MaxInt64+MaxInt64",
 		a:      math.MaxInt64,
