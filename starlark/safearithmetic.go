@@ -6,11 +6,24 @@ import (
 )
 
 func SafeAdd(a, b int) int {
-	if a == math.MinInt || a == math.MaxInt {
+	switch a {
+	case math.MinInt, math.MaxInt:
 		return a
 	}
-	if b == math.MinInt || b == math.MaxInt {
+	switch b {
+	case math.MinInt, math.MaxInt:
 		return b
+	}
+
+	if a < 0 {
+		negatedRet := SafeAdd(-a, -b)
+		switch negatedRet {
+		case math.MaxInt:
+			return math.MinInt
+		case math.MinInt:
+			return math.MaxInt
+		}
+		return -negatedRet
 	}
 
 	if b >= 0 {
@@ -29,11 +42,24 @@ func SafeAdd(a, b int) int {
 }
 
 func SafeAdd64(a, b int64) int64 {
-	if a == math.MinInt64 || a == math.MaxInt64 {
+	switch a {
+	case math.MinInt64, math.MaxInt64:
 		return a
 	}
-	if b == math.MinInt64 || b == math.MaxInt64 {
+	switch b {
+	case math.MinInt64, math.MaxInt64:
 		return b
+	}
+
+	if a < 0 {
+		negatedRet := SafeAdd64(-a, -b)
+		switch negatedRet {
+		case math.MaxInt64:
+			return math.MinInt64
+		case math.MinInt64:
+			return math.MaxInt64
+		}
+		return -negatedRet
 	}
 
 	if b >= 0 {

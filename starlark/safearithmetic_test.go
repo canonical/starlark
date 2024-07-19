@@ -18,6 +18,16 @@ func TestSafeAdd(t *testing.T) {
 		b:      0,
 		expect: 0,
 	}, {
+		name:   "-100+-100",
+		a:      -100,
+		b:      -100,
+		expect: -200,
+	}, {
+		name:   "0x80...01+-10",
+		a:      math.MinInt + 1,
+		b:      -10,
+		expect: math.MinInt,
+	}, {
 		name:   "MaxInt+MaxInt",
 		a:      math.MaxInt,
 		b:      math.MaxInt,
@@ -66,6 +76,16 @@ func TestSafeAdd64(t *testing.T) {
 		a:      9,
 		b:      16,
 		expect: 25,
+	}, {
+		name:   "-100+-100",
+		a:      -100,
+		b:      -100,
+		expect: -200,
+	}, {
+		name:   "0x80...01+-10",
+		a:      math.MinInt64 + 1,
+		b:      -10,
+		expect: math.MinInt64,
 	}, {
 		name:   "MaxInt64+MaxInt64",
 		a:      math.MaxInt64,
