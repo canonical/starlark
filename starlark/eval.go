@@ -12,7 +12,6 @@ import (
 	"log"
 	"math"
 	"math/big"
-	"math/bits"
 	"sort"
 	"strings"
 	"sync"
@@ -209,7 +208,7 @@ func (thread *Thread) simulateSteps(deltas ...int64) (int64, error) {
 
 	nextSteps := thread.steps
 	for _, delta := range deltas {
-		nextSteps = addResourceDelta(nextSteps, delta)
+		nextSteps = SafeAdd64(nextSteps, delta)
 
 		if thread.maxSteps > 0 && nextSteps > thread.maxSteps {
 			return nextSteps, &StepsSafetyError{
@@ -217,6 +216,9 @@ func (thread *Thread) simulateSteps(deltas ...int64) (int64, error) {
 				Max:     thread.maxSteps,
 			}
 		}
+	}
+	if nextSteps < 0 {
+		return 0, nil
 	}
 	return nextSteps, nil
 }
@@ -2709,7 +2711,7 @@ func (thread *Thread) AddAllocs(deltas ...int64) error {
 func (thread *Thread) simulateAllocs(deltas ...int64) (int64, error) {
 	nextAllocs := thread.allocs
 	for _, delta := range deltas {
-		nextAllocs = addResourceDelta(nextAllocs, delta)
+		nextAllocs = SafeAdd64(nextAllocs, delta)
 
 		if thread.maxAllocs > 0 && nextAllocs > thread.maxAllocs {
 			return nextAllocs, &AllocsSafetyError{
@@ -2718,25 +2720,8 @@ func (thread *Thread) simulateAllocs(deltas ...int64) (int64, error) {
 			}
 		}
 	}
+	if nextAllocs < 0 {
+		return 0, nil
+	}
 	return nextAllocs, nil
-}
-
-func addResourceDelta(resource int64, delta int64) int64 {
-	if resource < 0 || resource == math.MaxInt64 {
-		return math.MaxInt64
-	}
-
-	if delta >= 0 {
-		sum, carry := bits.Add64(uint64(resource), uint64(delta), 0)
-		if sum > math.MaxInt64 || carry != 0 {
-			return math.MaxInt64
-		}
-		return int64(sum)
-	}
-
-	if resource < -delta {
-		return 0
-	}
-	diff, _ := bits.Sub64(uint64(resource), uint64(-delta), 0)
-	return int64(diff)
 }
