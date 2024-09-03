@@ -87,3 +87,23 @@ func sameSign(a, b int) bool {
 func sameSign64(a, b int64) bool {
 	return a^b >= 0
 }
+
+func SafeDiv(a, b int) int {
+	if a == math.MinInt || a == math.MaxInt {
+		return a
+	}
+	if b == math.MinInt || b == math.MaxInt {
+		return b
+	}
+	return a / b
+}
+
+func SafeDiv64(a, b int64) int64 {
+	if a == math.MinInt64 || a == math.MaxInt64 {
+		return a
+	}
+	if b == math.MinInt64 || b == math.MaxInt64 {
+		return b
+	}
+	return a / b
+}

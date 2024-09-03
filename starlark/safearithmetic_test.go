@@ -266,3 +266,81 @@ func TestSafeMul64(t *testing.T) {
 		})
 	}
 }
+
+func TestSafeDiv(t *testing.T) {
+	tests := []struct {
+		name         string
+		a, b, expect int
+	}{{
+		name:   "typical",
+		a:      1000,
+		b:      100,
+		expect: 10,
+	}, {
+		name:   "MinInt / _",
+		a:      math.MinInt,
+		b:      100,
+		expect: math.MinInt,
+	}, {
+		name:   "MaxInt / _",
+		a:      math.MaxInt,
+		b:      100,
+		expect: math.MaxInt,
+	}, {
+		name:   "_ / MinInt",
+		a:      100,
+		b:      math.MinInt,
+		expect: math.MinInt,
+	}, {
+		name:   "_ / MaxInt",
+		a:      100,
+		b:      math.MaxInt,
+		expect: math.MaxInt,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if actual := starlark.SafeDiv(test.a, test.b); actual != test.expect {
+				t.Errorf("incorrect result: expected %d but got %d", test.expect, actual)
+			}
+		})
+	}
+}
+
+func TestSafeDiv64(t *testing.T) {
+	tests := []struct {
+		name         string
+		a, b, expect int64
+	}{{
+		name:   "typical",
+		a:      1000,
+		b:      100,
+		expect: 10,
+	}, {
+		name:   "MinInt64 / _",
+		a:      math.MinInt64,
+		b:      100,
+		expect: math.MinInt64,
+	}, {
+		name:   "MaxInt64 / _",
+		a:      math.MaxInt64,
+		b:      100,
+		expect: math.MaxInt64,
+	}, {
+		name:   "_ / MinInt",
+		a:      100,
+		b:      math.MinInt64,
+		expect: math.MinInt64,
+	}, {
+		name:   "_ / MaxInt",
+		a:      100,
+		b:      math.MaxInt64,
+		expect: math.MaxInt64,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if actual := starlark.SafeDiv64(test.a, test.b); actual != test.expect {
+				t.Errorf("incorrect result: expected %d but got %d", test.expect, actual)
+			}
+		})
+	}
+}
