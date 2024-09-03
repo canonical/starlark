@@ -1644,7 +1644,10 @@ func TestSafeBinary(t *testing.T) {
 	}
 	makeString := func(thread *starlark.Thread, n int) (starlark.Value, error) {
 		if thread != nil {
-			resultSize := starlark.EstimateMakeSize([]byte{}, n) + starlark.StringTypeOverhead
+			resultSize := starlark.SafeAdd64(
+				starlark.EstimateMakeSize([]byte{}, n),
+				starlark.StringTypeOverhead,
+			)
 			if err := thread.AddAllocs(resultSize); err != nil {
 				return nil, err
 			}
@@ -1687,8 +1690,10 @@ func TestSafeBinary(t *testing.T) {
 	}
 	makeTuple := func(thread *starlark.Thread, n int) (starlark.Value, error) {
 		if thread != nil {
-			resultSize := starlark.EstimateMakeSize([]starlark.Value{}, n) +
-				starlark.EstimateSize(&starlark.List{})
+			resultSize := starlark.SafeAdd64(
+				starlark.EstimateMakeSize([]starlark.Value{}, n),
+				starlark.EstimateSize(&starlark.List{}),
+			)
 			if err := thread.AddAllocs(resultSize); err != nil {
 				return nil, err
 			}
@@ -2077,8 +2082,10 @@ func TestSafeBinary(t *testing.T) {
 			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 				const format = "%(k)r"
 				if thread != nil {
-					resultSize := starlark.EstimateMakeSize([]byte{}, len(format)*n) +
-						starlark.StringTypeOverhead
+					resultSize := starlark.SafeAdd64(
+						starlark.EstimateMakeSize([]byte{}, len(format)*n),
+						starlark.StringTypeOverhead,
+					)
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
