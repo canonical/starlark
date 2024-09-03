@@ -1255,11 +1255,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case String:
 			if y, ok := y.(String); ok {
 				if thread != nil {
-					resultLen := len(x) + len(y)
+					resultLen := SafeAdd(len(x), len(y))
 					if err := thread.AddSteps(int64(resultLen)); err != nil {
 						return nil, err
 					}
-					resultSize := EstimateMakeSize([]byte{}, resultLen) + StringTypeOverhead
+					resultSize := SafeAdd64(EstimateMakeSize([]byte{}, resultLen), StringTypeOverhead)
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
@@ -1318,12 +1318,12 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *List:
 			if y, ok := y.(*List); ok {
-				resultLen := x.Len() + y.Len()
+				resultLen := SafeAdd(x.Len(), y.Len())
 				if thread != nil {
 					if err := thread.AddSteps(int64(resultLen)); err != nil {
 						return nil, err
 					}
-					resultSize := EstimateMakeSize([]Value{}, x.Len()+y.Len()) + EstimateSize(&List{})
+					resultSize := SafeAdd64(EstimateMakeSize([]Value{}, SafeAdd(x.Len(), y.Len())), EstimateSize(&List{}))
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
@@ -1335,12 +1335,12 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			}
 		case Tuple:
 			if y, ok := y.(Tuple); ok {
-				resultLen := len(x) + len(y)
+				resultLen := SafeAdd(len(x), len(y))
 				if thread != nil {
 					if err := thread.AddSteps(int64(resultLen)); err != nil {
 						return nil, err
 					}
-					zSize := EstimateMakeSize(Tuple{}, len(x)+len(y)) + SliceTypeOverhead
+					zSize := SafeAdd64(EstimateMakeSize(Tuple{}, resultLen), SliceTypeOverhead)
 					if err := thread.AddAllocs(zSize); err != nil {
 						return nil, err
 					}
@@ -1429,11 +1429,15 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			case Int:
 				if thread != nil {
 					// In the worse case, Karatsuba's algorithm is used.
-					resultSteps := int64(math.Pow(float64(max(intLenSteps(x), intLenSteps(y))), 1.58))
+					const maxNonOverflowingSteps = 1007151407079 // The least integer x such that x^1.58 <= math.MaxInt64
+					resultSteps := int64(math.MaxInt64)
+					if inputLenSteps := max(intLenSteps(x), intLenSteps(y)); inputLenSteps <= maxNonOverflowingSteps {
+						resultSteps = int64(math.Pow(float64(inputLenSteps), 1.58))
+					}
 					if err := thread.AddSteps(resultSteps); err != nil {
 						return nil, err
 					}
-					if err := thread.CheckAllocs(EstimateSize(x) + EstimateSize(y)); err != nil {
+					if err := thread.CheckAllocs(SafeAdd64(EstimateSize(x), EstimateSize(y))); err != nil {
 						return nil, err
 					}
 					result := Value(x.Mul(y))
@@ -1627,7 +1631,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					// multiplication, making this cost same as `STAR` operator,
 					// Go does not yet do this.
 					resultSteps := max(intLenSteps(x), intLenSteps(y))
-					resultSteps *= resultSteps
+					resultSteps = SafeMul64(resultSteps, resultSteps)
 					if err := thread.AddSteps(resultSteps); err != nil {
 						return nil, err
 					}
@@ -1702,7 +1706,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					// multiplication, making this cost same as `STAR` operator,
 					// Go does not yet do this.
 					resultSteps := max(intLenSteps(x), intLenSteps(y))
-					resultSteps *= resultSteps
+					resultSteps = SafeMul64(resultSteps, resultSteps)
 					if err := thread.AddSteps(resultSteps); err != nil {
 						return nil, err
 					}
@@ -1988,7 +1992,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					return nil, fmt.Errorf("shift count too large: %v", y)
 				}
 				if thread != nil {
-					if err := thread.AddSteps(intLenSteps(x) + int64(y/32)); err != nil {
+					if err := thread.AddSteps(SafeAdd64(intLenSteps(x), int64(y/32))); err != nil {
 						return nil, err
 					}
 					if err := thread.CheckAllocs(EstimateSize(x)); err != nil {
