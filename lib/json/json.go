@@ -384,7 +384,12 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	n := int64(strings.Count(str, "[") + strings.Count(str, "{"))
 	// Taking into account tabs and newlines and working out the algebra, the
 	// worst case can be compacted in the quadratic formula:
-	worstCase := n*n + 2*n - 1
+	// n*n + 2*n - 1 == (n + 1)*(n + 1) - 2
+	var worstCase int64
+	tmp := starlark.SafeAdd64(n, 1)
+	tmp = starlark.SafeMul64(tmp, tmp)
+	tmp = starlark.SafeAdd64(tmp, -2)
+	worstCase = tmp
 
 	// This worst case makes this function most likely unusable in the context
 	// of a script, but there are only two other approaches to tackle this part:
@@ -407,7 +412,7 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	if err := thread.AddSteps(int64(buf.Len())); err != nil {
 		return nil, err
 	}
-	if err := thread.AddAllocs(int64(buf.Cap()) + starlark.StringTypeOverhead); err != nil {
+	if err := thread.AddAllocs(starlark.SafeAdd64(int64(buf.Cap()), starlark.StringTypeOverhead)); err != nil {
 		return nil, err
 	}
 	return starlark.String(buf.String()), nil
