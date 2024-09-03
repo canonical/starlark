@@ -305,7 +305,7 @@ loop:
 			if nkvpairs := int(arg & 0xff); nkvpairs > 0 {
 				kvpairsSize := EstimateMakeSize([]Tuple{}, nkvpairs) +
 					EstimateMakeSize(Tuple{}, 2*nkvpairs)
-				argsAllocs += kvpairsSize
+				argsAllocs = SafeAdd64(argsAllocs, kvpairsSize)
 				if err2 := thread.AddAllocs(kvpairsSize); err2 != nil {
 					err = err2
 					break loop
@@ -329,8 +329,8 @@ loop:
 					break loop
 				}
 				items := dict.Items()
-				tuplesSize := EstimateMakeSize([]Value{}, 2) * int64(len(items))
-				argsAllocs += tuplesSize
+				tuplesSize := SafeMul64(EstimateMakeSize([]Value{}, 2), int64(len(items)))
+				argsAllocs = SafeAdd64(argsAllocs, tuplesSize)
 				if err2 := thread.AddAllocs(tuplesSize); err2 != nil {
 					err = err2
 					break loop
@@ -343,7 +343,7 @@ loop:
 				}
 				if len(kvpairs) == 0 {
 					itemsSize := EstimateMakeSize([]Tuple{}, len(items))
-					argsAllocs += itemsSize
+					argsAllocs = SafeAdd64(argsAllocs, itemsSize)
 					if err2 := thread.AddAllocs(itemsSize); err2 != nil {
 						err = err2
 						break loop
@@ -355,7 +355,7 @@ loop:
 						err = err2
 						break loop
 					}
-					argsAllocs += int64(kvpairsAppender.Allocs())
+					argsAllocs = SafeAdd64(argsAllocs, kvpairsAppender.Allocs())
 				}
 			}
 
@@ -376,7 +376,7 @@ loop:
 						break loop
 					}
 					positional = append(Tuple(nil), positional...)
-					argsAllocs += positionalSize
+					argsAllocs = SafeAdd64(argsAllocs, positionalSize)
 				}
 			}
 			if args != nil {
@@ -402,7 +402,7 @@ loop:
 					err = err2
 					break loop
 				}
-				argsAllocs += int64(positionalAppender.Allocs())
+				argsAllocs = SafeAdd64(argsAllocs, positionalAppender.Allocs())
 			}
 
 			function := stack[sp-1]
@@ -604,8 +604,11 @@ loop:
 
 		case compile.MAKETUPLE:
 			n := int(arg)
-			tupleSize := EstimateMakeSize(Tuple{}, n) + SliceTypeOverhead
-			if err2 := thread.AddAllocs(tupleSize); err2 != nil {
+			delta := SafeAdd64(
+				EstimateMakeSize(Tuple{}, n),
+				SliceTypeOverhead,
+			)
+			if err2 := thread.AddAllocs(delta); err2 != nil {
 				err = err2
 				break loop
 			}
@@ -617,9 +620,11 @@ loop:
 
 		case compile.MAKELIST:
 			n := int(arg)
-			elemsSize := EstimateMakeSize([]Value{}, n)
-			listSize := EstimateSize(&List{})
-			if err2 := thread.AddAllocs(elemsSize + listSize); err2 != nil {
+			delta := SafeAdd64(
+				EstimateMakeSize([]Value{}, n),
+				EstimateSize(&List{}),
+			)
+			if err2 := thread.AddAllocs(delta); err2 != nil {
 				err = err2
 				break loop
 			}
