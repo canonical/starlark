@@ -405,6 +405,8 @@ func roundAllocSize(size int64) int64 {
 		return 0
 	} else if size < tinyAllocMaxSize {
 		return tinyAllocMaxSize
+	} else if size == math.MaxInt64 {
+		return math.MaxInt64
 	} else if rounded := roundupsize(uintptr(size)); rounded > maxSafeUintptr {
 		return math.MaxInt64
 	} else {
