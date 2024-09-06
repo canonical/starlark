@@ -102,13 +102,14 @@ func (sa *SafeAppender) AppendSlice(values interface{}) error {
 	len := sa.slice.Len()
 	cap := sa.slice.Cap()
 	toAppendLen := toAppend.Len()
-	if len+toAppendLen > cap && sa.thread != nil {
+	if newLen := SafeAdd(len, toAppendLen); newLen > cap && sa.thread != nil {
 		// Consider up to twice the size for the allocation overshoot
-		allocation := SafeAdd64(SafeAdd64(int64(len), int64(-cap)), SafeMul64(int64(toAppendLen), 2))
+		allocation := SafeAdd64(SafeMul64(int64(newLen), 2), -int64(cap))
 		if err := sa.thread.CheckAllocs(int64(SafeMul64(allocation, int64(sa.elemType.Size())))); err != nil {
 			return err
 		}
 	}
+
 	slice := reflect.AppendSlice(sa.slice, toAppend)
 	if slice.Cap() != cap && sa.thread != nil {
 		oldSize := roundAllocSize(SafeMul64(int64(cap), int64(sa.elemType.Size())))
