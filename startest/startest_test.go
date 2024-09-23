@@ -880,8 +880,10 @@ func (iter *dummyRangeIterator) Err() error { return nil }
 
 func TestRunStringMemSafety(t *testing.T) {
 	t.Run("safety=safe", func(t *testing.T) {
-		allocateResultSize := starlark.EstimateSize(starlark.Tuple{}) +
-			starlark.EstimateMakeSize(starlark.Tuple{}, 100)
+		allocateResultSize := starlark.SafeAdd64(
+			starlark.EstimateSize(starlark.Tuple{}),
+			starlark.EstimateMakeSize(starlark.Tuple{}, 100),
+		)
 		allocate := starlark.NewBuiltinWithSafety("allocate", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			if err := thread.AddAllocs(allocateResultSize); err != nil {
 				return nil, err
