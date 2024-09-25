@@ -33,9 +33,10 @@ type Thread struct {
 	Name string
 
 	// contextLock synchronises access to fields required to implement context.
-	contextLock  sync.Mutex
-	cancelReason error
-	done         chan struct{}
+	contextLock   sync.Mutex
+	parentContext context.Context
+	cancelReason  error
+	done          chan struct{}
 
 	// stack is the stack of (internal) call frames.
 	stack []*frame
@@ -125,11 +126,12 @@ func (tc *threadContext) Err() error {
 
 func (tc *threadContext) Value(key interface{}) interface{} {
 	thread := (*Thread)(tc)
-	stringKey, ok := key.(string)
-	if !ok {
-		return nil
+	if stringKey, ok := key.(string); ok {
+		if local, ok := thread.locals[stringKey]; ok {
+			return local
+		}
 	}
-	return thread.locals[stringKey]
+	return tc.parentContext.Value(key)
 }
 
 func (tc *threadContext) cause() error {
@@ -141,12 +143,33 @@ func (tc *threadContext) cause() error {
 	return thread.cancelReason
 }
 
+func (thread *Thread) SetParentContext(ctx context.Context) {
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
+
+	if thread.parentContext != nil {
+		panic("parent context can only be set once")
+	}
+	thread.parentContext = ctx
+
+	afterFunc(ctx, func() {
+		thread.cancel(ctx.Err())
+	})
+}
+
 // Context returns a context which gets cancelled when this thread is
 // cancelled. Calling Value on the returned context with a string key is
 // equivalent to calling thread.Local with that key.
 //
 // If Context is called, Cancel must also be called.
 func (thread *Thread) Context() context.Context {
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
+
+	if thread.parentContext == nil {
+		thread.parentContext = context.Background()
+	}
+
 	return (*threadContext)(thread)
 }
 
