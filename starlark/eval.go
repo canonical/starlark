@@ -85,7 +85,8 @@ type threadContext Thread
 var _ context.Context = &threadContext{}
 
 func (tc *threadContext) Deadline() (deadline time.Time, ok bool) {
-	return time.Time{}, false
+	thread := (*Thread)(tc)
+	return thread.parentContext.Deadline()
 }
 
 var closedChannel chan struct{}
@@ -134,15 +135,6 @@ func (tc *threadContext) Value(key interface{}) interface{} {
 	return tc.parentContext.Value(key)
 }
 
-func (tc *threadContext) cause() error {
-	thread := (*Thread)(tc)
-
-	thread.contextLock.Lock()
-	defer thread.contextLock.Unlock()
-
-	return thread.cancelReason
-}
-
 func (thread *Thread) SetParentContext(ctx context.Context) {
 	thread.contextLock.Lock()
 	defer thread.contextLock.Unlock()
@@ -153,7 +145,7 @@ func (thread *Thread) SetParentContext(ctx context.Context) {
 	thread.parentContext = ctx
 
 	afterFunc(ctx, func() {
-		thread.cancel(ctx.Err())
+		thread.cancel(cause(ctx))
 	})
 }
 
