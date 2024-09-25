@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	gotime "time"
 
 	"github.com/canonical/starlark/internal/chunkedfile"
 	"github.com/canonical/starlark/lib/json"
@@ -1057,25 +1058,159 @@ main()
 }
 
 func TestContext(t *testing.T) {
-	const key = "E major"
-	const value = "The Four Seasons, Spring"
+	key := "E major"
+	value := "The Four Seasons, Spring"
 
-	thread := &starlark.Thread{}
-	thread.SetLocal(key, value)
+	t.Run("without-parent", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.SetLocal(key, value)
 
-	ctx := thread.Context()
-	if _, ok := ctx.Deadline(); ok {
-		t.Errorf("thread context has deadline")
-	}
-	if v := ctx.Value(key); v != value {
-		t.Errorf("retreived incorrect value: expected %v but got %v", value, v)
-	}
+		ctx := thread.Context()
+		if _, ok := ctx.Deadline(); ok {
+			t.Errorf("thread context has deadline")
+		}
+		if v := ctx.Value(key); v != value {
+			t.Errorf("retreived incorrect value: expected %v but got %v", value, v)
+		}
 
-	thread.Cancel("done")
-	ctx2 := thread.Context()
-	if ctx != ctx2 {
-		t.Error("context changed")
-	}
+		select {
+		case <-ctx.Done():
+			t.Error("thread is already cancelled")
+		default:
+		}
+
+		thread.Cancel("done")
+		ctx2 := thread.Context()
+		if ctx != ctx2 {
+			t.Error("context changed")
+		}
+		select {
+		case <-ctx.Done():
+		default:
+			t.Error("thread is not cancelled")
+		}
+	})
+
+	t.Run("multiple-parent", func(t *testing.T) {
+		defer func() {
+			if recover() == nil {
+				t.Error("expected panic")
+			}
+		}()
+		thread := &starlark.Thread{}
+		thread.SetParentContext(context.Background())
+		thread.SetParentContext(context.Background())
+	})
+
+	t.Run("context-before-parent", func(t *testing.T) {
+		defer func() {
+			if recover() == nil {
+				t.Error("expected panic")
+			}
+		}()
+		thread := &starlark.Thread{}
+		thread.Context()
+		thread.SetParentContext(context.Background())
+	})
+
+	t.Run("empty-parent", func(t *testing.T) {
+		thread := &starlark.Thread{}
+		thread.SetParentContext(context.Background())
+		ctx := thread.Context()
+
+		if _, ok := ctx.Deadline(); ok {
+			t.Errorf("thread context has deadline")
+		}
+
+		select {
+		case <-ctx.Done():
+			t.Error("thread is already cancelled")
+		default:
+		}
+
+		thread.Cancel("done")
+		select {
+		case <-ctx.Done():
+		default:
+			t.Error("thread is not cancelled")
+		}
+	})
+
+	t.Run("with-value", func(t *testing.T) {
+		parentCtx := context.WithValue(context.Background(), key, value)
+		parentCtx = context.WithValue(parentCtx, &key, value)
+		thread := &starlark.Thread{}
+		thread.SetParentContext(parentCtx)
+		ctx := thread.Context()
+
+		if actual := ctx.Value(key); actual != value {
+			t.Errorf("expected %v, got %v", value, actual)
+		}
+		if actual := ctx.Value(&key); actual != value {
+			t.Errorf("expected %v, got %v", value, actual)
+		}
+
+		thread.SetLocal(key, 1)
+		if actual := ctx.Value(key); actual != 1 {
+			t.Errorf("expected %v, got %v", 1, actual)
+		}
+
+		thread.SetLocal(key, nil)
+		if actual := ctx.Value(key); actual != nil {
+			t.Errorf("expected nil, got %v", actual)
+		}
+	})
+
+	t.Run("with-deadline", func(t *testing.T) {
+		expectedDeadline := gotime.Now().Add(gotime.Hour)
+		parentCtx, cancel := context.WithDeadline(context.Background(), expectedDeadline)
+		thread := &starlark.Thread{}
+		thread.SetParentContext(parentCtx)
+		ctx := thread.Context()
+
+		if deadline, ok := ctx.Deadline(); !ok || deadline != expectedDeadline {
+			t.Errorf("invalid deadline: expected %v, got %v", expectedDeadline, deadline)
+		}
+
+		select {
+		case <-ctx.Done():
+			t.Error("thread is already cancelled")
+		default:
+		}
+
+		cancel()
+
+		select {
+		case <-ctx.Done():
+		case <-gotime.After(gotime.Second):
+			t.Error("thread was not cancelled within reasonable time")
+		}
+	})
+
+	t.Run("with-cancel", func(t *testing.T) {
+		parentCtx, cancel := context.WithCancel(context.Background())
+		thread := &starlark.Thread{}
+		thread.SetParentContext(parentCtx)
+		ctx := thread.Context()
+
+		if _, ok := ctx.Deadline(); ok {
+			t.Errorf("thread context has deadline")
+		}
+
+		select {
+		case <-ctx.Done():
+			t.Error("thread is already cancelled")
+		default:
+		}
+
+		cancel()
+
+		select {
+		case <-ctx.Done():
+		case <-gotime.After(gotime.Second):
+			t.Error("thread was not cancelled within reasonable time")
+		}
+	})
 }
 
 func TestMaxStackDepth(t *testing.T) {
