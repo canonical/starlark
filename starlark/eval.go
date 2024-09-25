@@ -119,6 +119,9 @@ func (tc *threadContext) Err() error {
 	thread.contextLock.Lock()
 	defer thread.contextLock.Unlock()
 
+	if errors.Is(thread.cancelReason, context.DeadlineExceeded) {
+		return context.DeadlineExceeded
+	}
 	if thread.cancelReason != nil {
 		return context.Canceled
 	}
