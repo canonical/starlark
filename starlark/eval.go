@@ -119,10 +119,10 @@ func (tc *threadContext) Err() error {
 	thread.contextLock.Lock()
 	defer thread.contextLock.Unlock()
 
-	if errors.Is(thread.cancelReason, context.DeadlineExceeded) {
-		return context.DeadlineExceeded
-	}
 	if thread.cancelReason != nil {
+		if errors.Is(thread.cancelReason, context.DeadlineExceeded) {
+			return context.DeadlineExceeded
+		}
 		return context.Canceled
 	}
 	return nil
@@ -138,12 +138,20 @@ func (tc *threadContext) Value(key interface{}) interface{} {
 	return tc.parentContext.Value(key)
 }
 
+// SetParentContext ties the thread to ctx in terms of lifetime
+// and in terms of values. As such, the context returned by
+// thread.Context() will have Values from the parent and will
+// be cancelled when the parent is. In the last case, if possible,
+// the Cause will be propagated as well.
+//
+// It must not be called after execution begins or after the
+// first call to thread.Context().
 func (thread *Thread) SetParentContext(ctx context.Context) {
 	thread.contextLock.Lock()
 	defer thread.contextLock.Unlock()
 
 	if thread.parentContext != nil {
-		panic("parent context can only be set once")
+		panic("cannot set parent context: already set")
 	}
 	thread.parentContext = ctx
 

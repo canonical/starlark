@@ -2,7 +2,6 @@ package starlark_test
 
 import (
 	"context"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -12,39 +11,45 @@ import (
 func TestAfterFuncCanceledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	c := make(chan struct{})
+	done := make(chan struct{})
 	stop := starlark.AfterFunc(ctx, func() {
-		close(c)
+		close(done)
 	})
-	if stop() != false {
+	if stop() {
 		t.Errorf("function should run immediately, stop should have no effect")
 	}
-	<-c
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Errorf("channel was not closed within reasonable time")
+	}
 }
 
 func TestAfterFuncUncancelableContext(t *testing.T) {
 	starlark.AfterFunc(context.Background(), func() {
-		t.Fatal("should never run")
+		t.Fatal("function unexpectedly called")
 	})
 	time.Sleep(time.Millisecond * 200)
 }
 
 func TestAfterFuncNormalOperation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	var run atomic.Bool
 	done := make(chan struct{})
 	starlark.AfterFunc(ctx, func() {
-		run.Store(true)
 		close(done)
 	})
-	time.Sleep(time.Millisecond * 200)
-	if run.Load() == true {
-		t.Errorf("function ran prior to context cancelation")
+	select {
+	case <-done:
+		t.Errorf("after func ran before context was cancelled")
+	case <-time.After(time.Millisecond * 200):
 	}
+
 	cancel()
-	<-done
-	if run.Load() == false {
-		t.Errorf("function did not run on context cancelation")
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Errorf("after func not called within reasonable time")
 	}
 }
 
@@ -54,8 +59,8 @@ func TestAfterFuncStop(t *testing.T) {
 	stop := starlark.AfterFunc(ctx, func() {
 		t.Fatal("should never run")
 	})
-	if stop() == false {
-		t.Errorf("stop should return true when function did not run")
+	if !stop() {
+		t.Errorf("unexpected stop result: false")
 	}
 }
 
@@ -66,8 +71,13 @@ func TestAfterFuncStopAlreadyRun(t *testing.T) {
 		close(done)
 	})
 	cancel()
-	<-done
-	if stop() == true {
-		t.Errorf("stop should return false when function already run")
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Errorf("after func not called within reasonable time")
+	}
+	if stop() {
+		t.Errorf("unexpected stop result: true")
 	}
 }

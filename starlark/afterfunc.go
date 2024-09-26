@@ -14,12 +14,12 @@ func afterFunc(ctx context.Context, f func()) (stop func() bool) {
 		return func() bool { return false }
 	}
 
-	var run atomic.Bool
+	var run uint32
 	done := make(chan struct{})
 	go func() {
 		select {
 		case <-ctx.Done():
-			if run.CompareAndSwap(false, true) {
+			if atomic.CompareAndSwapUint32(&run, 0, 1) {
 				close(done)
 				f()
 			}
@@ -28,7 +28,7 @@ func afterFunc(ctx context.Context, f func()) (stop func() bool) {
 	}()
 
 	return func() bool {
-		if run.CompareAndSwap(false, true) {
+		if atomic.CompareAndSwapUint32(&run, 0, 1) {
 			close(done)
 			return true
 		}

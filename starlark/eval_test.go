@@ -1080,8 +1080,7 @@ func TestContext(t *testing.T) {
 		}
 
 		thread.Cancel("done")
-		ctx2 := thread.Context()
-		if ctx != ctx2 {
+		if ctx != thread.Context() {
 			t.Error("context changed")
 		}
 
