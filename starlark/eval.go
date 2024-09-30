@@ -150,6 +150,9 @@ func (thread *Thread) SetParentContext(ctx context.Context) {
 	thread.contextLock.Lock()
 	defer thread.contextLock.Unlock()
 
+	if ctx == nil {
+		panic("parent context cannot be nil")
+	}
 	if thread.parentContext != nil {
 		panic("cannot set parent context: already set")
 	}
