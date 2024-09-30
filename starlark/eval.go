@@ -138,21 +138,13 @@ func (tc *threadContext) Value(key interface{}) interface{} {
 	return tc.parentContext.Value(key)
 }
 
-// SetParentContext ties the thread to ctx in terms of lifetime
-// and in terms of values. As such, the context returned by
-// thread.Context() will have Values from the parent and will
-// be cancelled when the parent is. In the last case, if possible,
-// the Cause will be propagated as well.
-//
-// It must not be called after execution begins or after the
-// first call to thread.Context().
+// SetParentContext sets the parent for this thread's context. It
+// can only be called once, before execution begins or any
+// thread.Context() calls.
 func (thread *Thread) SetParentContext(ctx context.Context) {
 	thread.contextLock.Lock()
 	defer thread.contextLock.Unlock()
 
-	if ctx == nil {
-		panic("parent context cannot be nil")
-	}
 	if thread.parentContext != nil {
 		panic("cannot set parent context: already set")
 	}

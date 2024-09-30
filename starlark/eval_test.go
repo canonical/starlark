@@ -1098,16 +1098,6 @@ func TestThreadSetParent(t *testing.T) {
 	key := "E major"
 	value := "The Four Seasons, Spring"
 
-	t.Run("no-empty-parent", func(t *testing.T) {
-		defer func() {
-			if recover() == nil {
-				t.Error("expected panic")
-			}
-		}()
-		thread := &starlark.Thread{}
-		thread.SetParentContext(nil)
-	})
-
 	t.Run("no-multiple-parents", func(t *testing.T) {
 		defer func() {
 			if recover() == nil {
