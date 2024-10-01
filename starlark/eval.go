@@ -35,6 +35,7 @@ type Thread struct {
 	// contextLock synchronises access to fields required to implement context.
 	contextLock   sync.Mutex
 	parentContext context.Context
+	cancelCleanup func()
 	cancelReason  error
 	done          chan struct{}
 
@@ -140,7 +141,7 @@ func (tc *threadContext) Value(key interface{}) interface{} {
 
 // SetParentContext sets the parent for this thread's context. It
 // can only be called once, before execution begins or any
-// thread.Context() calls.
+// thread.Context calls.
 func (thread *Thread) SetParentContext(ctx context.Context) {
 	thread.contextLock.Lock()
 	defer thread.contextLock.Unlock()
@@ -150,9 +151,11 @@ func (thread *Thread) SetParentContext(ctx context.Context) {
 	}
 	thread.parentContext = ctx
 
-	afterFunc(ctx, func() {
+	stop := afterFunc(ctx, func() {
 		thread.cancel(cause(ctx))
 	})
+
+	thread.cancelCleanup = func() { stop() }
 }
 
 // Context returns a context which gets cancelled when this thread is
@@ -313,6 +316,11 @@ func (thread *Thread) cancel(err error) {
 
 	if thread.done != nil {
 		close(thread.done)
+	}
+
+	if thread.cancelCleanup != nil {
+		thread.cancelCleanup()
+		thread.cancelCleanup = nil
 	}
 }
 
