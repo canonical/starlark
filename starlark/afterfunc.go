@@ -36,3 +36,8 @@ func afterFunc(ctx context.Context, f func()) (stop func() bool) {
 		return false
 	}
 }
+
+// cause implements context.Cause for releases before Go 1.21.
+func cause(ctx context.Context) error {
+	return ctx.Err()
+}
