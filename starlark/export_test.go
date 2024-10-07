@@ -4,6 +4,8 @@ import (
 	"fmt"
 )
 
+var AfterFunc = afterFunc
+
 func ThreadSafety(thread *Thread) SafetyFlags {
 	return thread.requiredSafety
 }

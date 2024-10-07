@@ -33,9 +33,11 @@ type Thread struct {
 	Name string
 
 	// contextLock synchronises access to fields required to implement context.
-	contextLock  sync.Mutex
-	cancelReason error
-	done         chan struct{}
+	contextLock   sync.Mutex
+	parentContext context.Context
+	cancelCleanup func()
+	cancelReason  error
+	done          chan struct{}
 
 	// stack is the stack of (internal) call frames.
 	stack []*frame
@@ -84,7 +86,8 @@ type threadContext Thread
 var _ context.Context = &threadContext{}
 
 func (tc *threadContext) Deadline() (deadline time.Time, ok bool) {
-	return time.Time{}, false
+	thread := (*Thread)(tc)
+	return thread.parentContext.Deadline()
 }
 
 var closedChannel chan struct{}
@@ -118,6 +121,9 @@ func (tc *threadContext) Err() error {
 	defer thread.contextLock.Unlock()
 
 	if thread.cancelReason != nil {
+		if errors.Is(thread.cancelReason, context.DeadlineExceeded) {
+			return context.DeadlineExceeded
+		}
 		return context.Canceled
 	}
 	return nil
@@ -125,20 +131,31 @@ func (tc *threadContext) Err() error {
 
 func (tc *threadContext) Value(key interface{}) interface{} {
 	thread := (*Thread)(tc)
-	stringKey, ok := key.(string)
-	if !ok {
-		return nil
+	if stringKey, ok := key.(string); ok {
+		if local, ok := thread.locals[stringKey]; ok {
+			return local
+		}
 	}
-	return thread.locals[stringKey]
+	return tc.parentContext.Value(key)
 }
 
-func (tc *threadContext) cause() error {
-	thread := (*Thread)(tc)
-
+// SetParentContext sets the parent for this thread's context. It
+// can only be called once, before execution begins or any
+// thread.Context calls.
+func (thread *Thread) SetParentContext(ctx context.Context) {
 	thread.contextLock.Lock()
 	defer thread.contextLock.Unlock()
 
-	return thread.cancelReason
+	if thread.parentContext != nil {
+		panic("cannot set parent context: already set")
+	}
+	thread.parentContext = ctx
+
+	stop := afterFunc(ctx, func() {
+		thread.cancel(cause(ctx))
+	})
+
+	thread.cancelCleanup = func() { stop() }
 }
 
 // Context returns a context which gets cancelled when this thread is
@@ -147,6 +164,13 @@ func (tc *threadContext) cause() error {
 //
 // If Context is called, Cancel must also be called.
 func (thread *Thread) Context() context.Context {
+	thread.contextLock.Lock()
+	defer thread.contextLock.Unlock()
+
+	if thread.parentContext == nil {
+		thread.parentContext = context.Background()
+	}
+
 	return (*threadContext)(thread)
 }
 
@@ -292,6 +316,11 @@ func (thread *Thread) cancel(err error) {
 
 	if thread.done != nil {
 		close(thread.done)
+	}
+
+	if thread.cancelCleanup != nil {
+		thread.cancelCleanup()
+		thread.cancelCleanup = nil
 	}
 }
 
