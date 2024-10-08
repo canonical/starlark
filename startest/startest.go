@@ -31,6 +31,7 @@
 package startest
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -57,6 +58,7 @@ type TestBase interface {
 }
 
 type ST struct {
+	ctx            context.Context
 	maxAllocs      int64
 	maxSteps       int64
 	minSteps       int64
@@ -82,9 +84,15 @@ var _ TestBase = &check.C{}
 func From(base TestBase) *ST {
 	return &ST{
 		TestBase:  base,
+		ctx:       context.Background(),
 		maxAllocs: math.MaxInt64,
 		maxSteps:  math.MaxInt64,
 	}
+}
+
+// SetParentContext optionally sets the parent context of startest threads.
+func (st *ST) SetParentContext(ctx context.Context) {
+	st.ctx = ctx
 }
 
 // SetMaxAllocs optionally sets the max allocations allowed per unit of st.N.
@@ -214,6 +222,7 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	}
 
 	thread := &starlark.Thread{}
+	thread.SetParentContext(st.ctx)
 	thread.EnsureStack(100)
 	thread.RequireSafety(st.requiredSafety)
 	thread.Print = func(_ *starlark.Thread, msg string) {
