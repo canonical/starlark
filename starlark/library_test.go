@@ -1168,6 +1168,7 @@ func TestChrAllocs(t *testing.T) {
 
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
+	st.SetMaxAllocs(32)
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			args := starlark.Tuple{starlark.MakeInt(97)}
@@ -2716,6 +2717,7 @@ func TestHashAllocs(t *testing.T) {
 	t.Run("input=string", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(16)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.String("foo")}
@@ -2731,6 +2733,7 @@ func TestHashAllocs(t *testing.T) {
 	t.Run("input=bytes", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
+		st.SetMaxAllocs(16)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				args := starlark.Tuple{starlark.String("bar")}
