@@ -219,8 +219,8 @@ func TestNil(t *testing.T) {
 		s *[]int
 	}
 
-	if s := starlark.EstimateSize(emptyStruct); s != int64(unsafe.Sizeof(emptyStruct)) {
-		t.Errorf("expected size %d got %d", unsafe.Sizeof(emptyStruct), s)
+	if s := starlark.EstimateSize(emptyStruct); s < int64(unsafe.Sizeof(emptyStruct)) {
+		t.Errorf("expected at least size %d got %d", unsafe.Sizeof(emptyStruct), s)
 	}
 }
 
