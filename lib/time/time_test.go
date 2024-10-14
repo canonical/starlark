@@ -1,6 +1,7 @@
 package time_test
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -13,6 +14,79 @@ import (
 
 func isStarlarkCancellation(err error) bool {
 	return strings.Contains(err.Error(), "Starlark computation cancelled:")
+}
+
+func TestPerThreadNowReturnsCorrectTime(t *testing.T) {
+	th := &starlark.Thread{}
+	date := gotime.Date(1, 2, 3, 4, 5, 6, 7, gotime.UTC)
+	time.SetNow(th, func() (gotime.Time, error) {
+		return date, nil
+	})
+
+	res, err := starlark.Call(th, time.Module.Members["now"], nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	retTime := gotime.Time(res.(time.Time))
+
+	if !retTime.Equal(date) {
+		t.Fatal("Expected time to be equal", retTime, date)
+	}
+}
+
+func TestPerThreadNowReturnsError(t *testing.T) {
+	th := &starlark.Thread{}
+	e := errors.New("no time")
+	time.SetNow(th, func() (gotime.Time, error) {
+		return gotime.Time{}, e
+	})
+
+	_, err := starlark.Call(th, time.Module.Members["now"], nil, nil)
+	if !errors.Is(err, e) {
+		t.Fatal("Expected equal error", e, err)
+	}
+}
+
+func TestGlobalNowReturnsCorrectTime(t *testing.T) {
+	th := &starlark.Thread{}
+
+	oldNow := time.NowFunc
+	defer func() {
+		time.NowFunc = oldNow
+	}()
+
+	date := gotime.Date(1, 2, 3, 4, 5, 6, 7, gotime.UTC)
+	time.NowFunc = func() gotime.Time {
+		return date
+	}
+
+	res, err := starlark.Call(th, time.Module.Members["now"], nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	retTime := gotime.Time(res.(time.Time))
+
+	if !retTime.Equal(date) {
+		t.Fatal("Expected time to be equal", retTime, date)
+	}
+}
+
+func TestGlobalNowReturnsErrorWhenNil(t *testing.T) {
+	th := &starlark.Thread{}
+
+	oldNow := time.NowFunc
+	defer func() {
+		time.NowFunc = oldNow
+	}()
+
+	time.NowFunc = nil
+
+	_, err := starlark.Call(th, time.Module.Members["now"], nil, nil)
+	if err == nil {
+		t.Fatal("Expected to get an error")
+	}
 }
 
 func TestModuleSafeties(t *testing.T) {
