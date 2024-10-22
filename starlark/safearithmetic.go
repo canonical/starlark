@@ -12,7 +12,7 @@ func SafeAdd(a, b int) int {
 		return b
 	}
 
-	if ret := int(uint(a) + uint(b)); !sameSign(a, b) || sameSign(ret, a) {
+	if ret := int(uint(a) + uint(b)); !sameSignInt(a, b) || sameSignInt(ret, a) {
 		// no overflow possible
 		return ret
 	}
@@ -54,7 +54,7 @@ func SafeMul(a, b int) int {
 		}
 	}
 
-	if sameSign(a, b) {
+	if sameSignInt(a, b) {
 		return math.MaxInt
 	}
 	return math.MinInt
@@ -79,7 +79,7 @@ func SafeMul64(a, b int64) int64 {
 }
 
 //go:inline
-func sameSign(a, b int) bool {
+func sameSignInt(a, b int) bool {
 	return a^b >= 0
 }
 
