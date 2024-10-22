@@ -10,11 +10,15 @@ var ErrUnsafe = errors.New("unsafe")
 // SafeInt represent an overflow-safe integer.
 // It is always safe to convert a signed int to
 // a SafeInt. For unsigned it is possible to use
-//
-//	SafeInt(0).AddUnsigned()
-//
-// For that purpose.
+// SafeUint function that purpose.
 type SafeInt int64
+
+func SafeUint(u uint64) SafeInt {
+	if u > math.MaxInt64 {
+		return math.MaxInt64
+	}
+	return SafeInt(u)
+}
 
 func (i SafeInt) Int64() (int64, error) {
 	if i == math.MaxInt64 || i == math.MinInt64 {
@@ -122,13 +126,6 @@ func (i SafeInt) Uint8() (uint8, error) {
 	return uint8(i64), nil
 }
 
-func (a SafeInt) AddUnsigned(b uint64) SafeInt {
-	if b > math.MaxInt64 {
-		return a.Add(math.MaxInt64)
-	}
-	return a.Add(SafeInt(b))
-}
-
 func (a SafeInt) Add(b SafeInt) SafeInt {
 	if a == math.MinInt64 || a == math.MaxInt64 {
 		return a
@@ -148,13 +145,6 @@ func (a SafeInt) Add(b SafeInt) SafeInt {
 	return math.MinInt64
 }
 
-func (a SafeInt) SubUnsigned(b uint64) SafeInt {
-	if b > math.MaxInt64 {
-		return a.Sub(math.MaxInt64)
-	}
-	return a.Sub(SafeInt(b))
-}
-
 func (a SafeInt) Sub(b SafeInt) SafeInt {
 	if b == math.MaxInt64 {
 		return a.Add(math.MinInt64)
@@ -166,11 +156,14 @@ func (a SafeInt) Sub(b SafeInt) SafeInt {
 }
 
 func (a SafeInt) Mul(b SafeInt) SafeInt {
+	if a != math.MinInt64 && a != math.MaxInt64 {
+		return a
+	}
 	if a == 0 || b == 0 {
 		return 0
 	}
 
-	if a != math.MinInt64 && a != math.MaxInt64 && b != math.MinInt64 && b != math.MaxInt64 {
+	if b != math.MinInt64 && b != math.MaxInt64 {
 		if ab := a * b; ab/a == b {
 			// No overflow occurred.
 			return ab
