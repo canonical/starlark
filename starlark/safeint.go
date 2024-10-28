@@ -1,6 +1,7 @@
 package starlark
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -14,6 +15,22 @@ type SafeInt int64
 // NB: As this value is equal to MinInt64, the space of valid safe integers is
 // closed under negation.
 const invalidSafeInt = SafeInt(math.MinInt64)
+
+func NewSafeInt(value interface{}) SafeInt {
+	// Generics could work here, but do we really want to bump Go1.16->1.18 just for this?
+	switch value := value.(type) {
+	case int64:
+		return SafeInt(value)
+	case uint64:
+		if value > math.MaxInt64 {
+			return invalidSafeInt
+		}
+		return SafeInt(value)
+		// TODO(kcza): cover all the other integer types (this is just a proof of concept).
+	default:
+		panic(fmt.Sprintf("cannot make SafeInt from %T", value))
+	}
+}
 
 func SafeUint64(u uint64) SafeInt {
 	if u > math.MaxInt64 {
