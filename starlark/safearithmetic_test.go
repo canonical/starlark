@@ -60,7 +60,7 @@ func TestSafeAdd(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%d + %d", test.a, test.b), func(t *testing.T) {
-			if actual := starlark.SafeAdd(test.a, test.b); actual != test.expect {
+			if actual := starlark.SafeAddInt(test.a, test.b); actual != test.expect {
 				t.Errorf("incorrect result: expected %d but got %d", test.expect, actual)
 			}
 		})
@@ -195,7 +195,7 @@ func TestSafeMul(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if actual := starlark.SafeMul(test.a, test.b); actual != test.expect {
+			if actual := starlark.SafeMulInt(test.a, test.b); actual != test.expect {
 				t.Errorf("incorrect result: expected %d but got %d", test.expect, actual)
 			}
 		})

@@ -1,53 +1,75 @@
 package starlark
 
 import (
-	"fmt"
 	"math"
 )
 
-// SafeInt represent an overflow-safe integer.
-// It is always safe to convert a signed int to
-// a SafeInt. For unsigned it is possible to use
-// the SafeUint64 function that purpose.
-type SafeInt int64
+// SafeInteger represent an overflow-safe integer.
+type SafeInteger struct {
+	value int64
+}
 
 // Marker value to indicate that an overflow has occurred,
-// NB: As this value is equal to MinInt64, the space of valid safe integers is
-// closed under negation.
-const invalidSafeInt = SafeInt(math.MinInt64)
+// NB: As this value is equal to MinInt64, the space of valid
+// safe integers is closed under negation.
+const invalidSafeInt = math.MinInt64
 
-func NewSafeInt(value interface{}) SafeInt {
-	// Generics could work here, but do we really want to bump Go1.16->1.18 just for this?
-	switch value := value.(type) {
+type Signed interface {
+	int | int8 | int16 | int32 | int64
+}
+
+type Unsigned interface {
+	uint | uint8 | uint16 | uint32 | uint64
+}
+
+type Integer interface {
+	Signed | Unsigned
+}
+
+func SafeInt[Int Integer | SafeInteger](i Int) SafeInteger {
+	switch i := any(i).(type) {
+	case SafeInteger:
+		return i
+	case int:
+		return SafeInteger{int64(i)}
+	case int8:
+		return SafeInteger{int64(i)}
+	case int16:
+		return SafeInteger{int64(i)}
+	case int32:
+		return SafeInteger{int64(i)}
 	case int64:
-		return SafeInt(value)
-	case uint64:
-		if value > math.MaxInt64 {
-			return invalidSafeInt
+		return SafeInteger{i}
+	case uint8:
+		return SafeInteger{int64(i)}
+	case uint16:
+		return SafeInteger{int64(i)}
+	case uint32:
+		return SafeInteger{int64(i)}
+	case uint:
+		if uint64(i) > math.MaxInt64 {
+			return SafeInteger{invalidSafeInt}
 		}
-		return SafeInt(value)
-		// TODO(kcza): cover all the other integer types (this is just a proof of concept).
+		return SafeInteger{int64(i)}
+	case uint64:
+		if i > math.MaxInt64 {
+			return SafeInteger{invalidSafeInt}
+		}
+		return SafeInteger{int64(i)}
 	default:
-		panic(fmt.Sprintf("cannot make SafeInt from %T", value))
+		panic("unreachable")
 	}
 }
 
-func SafeUint64(u uint64) SafeInt {
-	if u > math.MaxInt64 {
-		return invalidSafeInt
-	}
-	return SafeInt(u)
-}
-
-func (i SafeInt) Int64() (int64, bool) {
-	if i == invalidSafeInt {
+func (si SafeInteger) Int64() (int64, bool) {
+	if si.value == invalidSafeInt {
 		return 0, false
 	}
-	return int64(i), true
+	return si.value, true
 }
 
-func (i SafeInt) Uint64() (uint64, bool) {
-	i64, ok := i.Int64()
+func (si SafeInteger) Uint64() (uint64, bool) {
+	i64, ok := si.Int64()
 	if !ok {
 		return 0, false
 	}
@@ -57,8 +79,8 @@ func (i SafeInt) Uint64() (uint64, bool) {
 	return uint64(i64), true
 }
 
-func (i SafeInt) Int() (int, bool) {
-	i64, ok := i.Int64()
+func (si SafeInteger) Int() (int, bool) {
+	i64, ok := si.Int64()
 	if !ok {
 		return 0, false
 	}
@@ -68,8 +90,8 @@ func (i SafeInt) Int() (int, bool) {
 	return int(i64), true
 }
 
-func (i SafeInt) Uint() (uint, bool) {
-	i64, ok := i.Int64()
+func (si SafeInteger) Uint() (uint, bool) {
+	i64, ok := si.Int64()
 	if !ok {
 		return 0, false
 	}
@@ -79,8 +101,8 @@ func (i SafeInt) Uint() (uint, bool) {
 	return uint(i64), true
 }
 
-func (i SafeInt) Int32() (int32, bool) {
-	i64, ok := i.Int64()
+func (si SafeInteger) Int32() (int32, bool) {
+	i64, ok := si.Int64()
 	if !ok {
 		return 0, false
 	}
@@ -90,8 +112,8 @@ func (i SafeInt) Int32() (int32, bool) {
 	return int32(i64), true
 }
 
-func (i SafeInt) Uint32() (uint32, bool) {
-	i64, ok := i.Int64()
+func (si SafeInteger) Uint32() (uint32, bool) {
+	i64, ok := si.Int64()
 	if !ok {
 		return 0, false
 	}
@@ -101,8 +123,8 @@ func (i SafeInt) Uint32() (uint32, bool) {
 	return uint32(i64), true
 }
 
-func (i SafeInt) Int16() (int16, bool) {
-	i64, ok := i.Int64()
+func (si SafeInteger) Int16() (int16, bool) {
+	i64, ok := si.Int64()
 	if !ok {
 		return 0, false
 	}
@@ -112,7 +134,7 @@ func (i SafeInt) Int16() (int16, bool) {
 	return int16(i64), true
 }
 
-func (i SafeInt) Uint16() (uint16, bool) {
+func (i SafeInteger) Uint16() (uint16, bool) {
 	i64, ok := i.Int64()
 	if !ok {
 		return 0, false
@@ -123,7 +145,7 @@ func (i SafeInt) Uint16() (uint16, bool) {
 	return uint16(i64), true
 }
 
-func (i SafeInt) Int8() (int8, bool) {
+func (i SafeInteger) Int8() (int8, bool) {
 	i64, ok := i.Int64()
 	if !ok {
 		return 0, false
@@ -134,7 +156,7 @@ func (i SafeInt) Int8() (int8, bool) {
 	return int8(i64), true
 }
 
-func (i SafeInt) Uint8() (uint8, bool) {
+func (i SafeInteger) Uint8() (uint8, bool) {
 	i64, ok := i.Int64()
 	if !ok {
 		return 0, false
@@ -145,47 +167,65 @@ func (i SafeInt) Uint8() (uint8, bool) {
 	return uint8(i64), true
 }
 
-func (a SafeInt) Add(b SafeInt) SafeInt {
-	if a == invalidSafeInt || b == invalidSafeInt {
-		return invalidSafeInt
-	}
-
-	ret := a + b
-	if sameSign(a, b) && !sameSign(ret, a) {
-		return invalidSafeInt
-	}
-	return ret
+func SafeNeg[Int Integer | SafeInteger](i Int) SafeInteger {
+	si := SafeInt(i)
+	// Note: math.MinInt64 == -math.MinInt64, so
+	// no need to check as the invalid value
+	// remains stable on sign change.
+	return SafeInteger{-si.value}
 }
 
-func (a SafeInt) Sub(b SafeInt) SafeInt {
-	if b == invalidSafeInt || b == invalidSafeInt {
-		return invalidSafeInt
+func SafeAdd[Int Integer | SafeInteger](a SafeInteger, b Int) SafeInteger {
+	sb := SafeInt(b)
+	if !bitwiseCheck(a, sb) {
+		return SafeInteger{invalidSafeInt}
 	}
-	return a.Add(-b)
+	return SafeInteger{safeAdd(a.value, sb.value)}
 }
 
-func (a SafeInt) Mul(b SafeInt) SafeInt {
-	if a == invalidSafeInt || b == invalidSafeInt {
-		return invalidSafeInt
+func safeAdd(a, b int64) int64 {
+	if ret := a + b; !sameSign64(a, b) || sameSign64(ret, a) {
+		// no overflow possible
+		return ret
 	}
-	if a == 0 || b == 0 {
-		return 0
-	}
-
-	ab := a * b
-	if ab/a != b {
-		return invalidSafeInt
-	}
-	return ab
+	return invalidSafeInt
 }
 
-func (a SafeInt) Div(b SafeInt) SafeInt {
-	if a == invalidSafeInt || b == invalidSafeInt {
+func SafeSub[Int Integer | SafeInteger](a SafeInteger, b Int) SafeInteger {
+	return SafeAdd(a, SafeNeg(b))
+}
+
+func SafeMul[Int Integer | SafeInteger](a SafeInteger, b Int) SafeInteger {
+	sb := SafeInt(b)
+	if !bitwiseCheck(a, sb) {
+		return SafeInteger{invalidSafeInt}
+	}
+	return SafeInteger{safeMul(a.value, sb.value)}
+}
+
+func safeMul(a, b int64) int64 {
+	if ab := a * b; ab/a == b {
+		// No overflow occurred.
+		return ab
+	}
+	return invalidSafeInt
+}
+
+func SafeDiv[Int Integer | SafeInteger](a SafeInteger, b Int) SafeInteger {
+	sb := SafeInt(b)
+	if !bitwiseCheck(a, sb) {
+		return SafeInteger{invalidSafeInt}
+	}
+	return SafeInteger{safeDiv(a.value, sb.value)}
+}
+
+func safeDiv(a, b int64) int64 {
+	if b == 0 {
 		return invalidSafeInt
 	}
 	return a / b
 }
 
-func sameSign(a, b SafeInt) bool {
-	return a^b >= 0
+func bitwiseCheck(a, b SafeInteger) bool {
+	return a.value == invalidSafeInt || b.value == invalidSafeInt
 }
