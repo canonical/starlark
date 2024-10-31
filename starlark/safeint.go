@@ -4,11 +4,6 @@ import (
 	"math"
 )
 
-// SafeInteger represent an overflow-safe integer.
-type SafeInteger struct {
-	value int64
-}
-
 // Marker value to indicate that an overflow has occurred,
 // NB: As this value is equal to MinInt64, the space of valid
 // safe integers is closed under negation.
@@ -24,6 +19,11 @@ type Unsigned interface {
 
 type Integer interface {
 	Signed | Unsigned
+}
+
+// SafeInteger represent an overflow-safe integer.
+type SafeInteger struct {
+	value int64
 }
 
 func SafeInt[Int Integer | SafeInteger](i Int) SafeInteger {
@@ -175,12 +175,12 @@ func SafeNeg[Int Integer | SafeInteger](i Int) SafeInteger {
 	return SafeInteger{-si.value}
 }
 
-func SafeAdd[Int Integer | SafeInteger](a SafeInteger, b Int) SafeInteger {
-	sb := SafeInt(b)
-	if !bitwiseCheck(a, sb) {
+func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
+	sa, sb := SafeInt(a), SafeInt(b)
+	if invalid(sa, sb) {
 		return SafeInteger{invalidSafeInt}
 	}
-	return SafeInteger{safeAdd(a.value, sb.value)}
+	return SafeInteger{safeAdd(sa.value, sb.value)}
 }
 
 func safeAdd(a, b int64) int64 {
@@ -191,16 +191,16 @@ func safeAdd(a, b int64) int64 {
 	return invalidSafeInt
 }
 
-func SafeSub[Int Integer | SafeInteger](a SafeInteger, b Int) SafeInteger {
+func SafeSub[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	return SafeAdd(a, SafeNeg(b))
 }
 
-func SafeMul[Int Integer | SafeInteger](a SafeInteger, b Int) SafeInteger {
-	sb := SafeInt(b)
-	if !bitwiseCheck(a, sb) {
+func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
+	sa, sb := SafeInt(a), SafeInt(b)
+	if invalid(sa, sb) {
 		return SafeInteger{invalidSafeInt}
 	}
-	return SafeInteger{safeMul(a.value, sb.value)}
+	return SafeInteger{safeMul(sa.value, sb.value)}
 }
 
 func safeMul(a, b int64) int64 {
@@ -211,12 +211,12 @@ func safeMul(a, b int64) int64 {
 	return invalidSafeInt
 }
 
-func SafeDiv[Int Integer | SafeInteger](a SafeInteger, b Int) SafeInteger {
-	sb := SafeInt(b)
-	if !bitwiseCheck(a, sb) {
+func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
+	sa, sb := SafeInt(a), SafeInt(b)
+	if invalid(sa, sb) {
 		return SafeInteger{invalidSafeInt}
 	}
-	return SafeInteger{safeDiv(a.value, sb.value)}
+	return SafeInteger{safeDiv(sa.value, sb.value)}
 }
 
 func safeDiv(a, b int64) int64 {
@@ -226,6 +226,11 @@ func safeDiv(a, b int64) int64 {
 	return a / b
 }
 
-func bitwiseCheck(a, b SafeInteger) bool {
-	return a.value == invalidSafeInt || b.value == invalidSafeInt
+func invalid(ints ...SafeInteger) bool {
+	for _, i := range ints {
+		if i.value == invalidSafeInt {
+			return true
+		}
+	}
+	return false
 }

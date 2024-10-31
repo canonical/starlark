@@ -276,3 +276,159 @@ func TestSafeIntConversion(t *testing.T) {
 		}})
 	})
 }
+
+func TestSafeIntNeg(t *testing.T) {
+	runSafeIntConversionTest(t, starlark.SafeInteger.Int64, []safeIntTest{{
+		name:     "positive constant",
+		input:    starlark.SafeNeg(int64(100)),
+		expected: int64(-100),
+	}, {
+		name:     "negative constant",
+		input:    starlark.SafeNeg(int64(-100)),
+		expected: int64(100),
+	}, {
+		name:     "positive SafeInt",
+		input:    starlark.SafeNeg(starlark.SafeInt(int64(100))),
+		expected: int64(-100),
+	}, {
+		name:     "negative SafeInt",
+		input:    starlark.SafeNeg(starlark.SafeInt(int64(-100))),
+		expected: int64(100),
+	}, {
+		name:       "ovefrlow",
+		input:      starlark.SafeNeg(uint64(math.MaxInt64 + 200)),
+		shouldFail: true,
+	}, {
+		name:       "invalid constant",
+		input:      starlark.SafeNeg(int64(math.MinInt64)),
+		shouldFail: true,
+	}})
+}
+
+func TestSafeIntAdd(t *testing.T) {
+	runSafeIntConversionTest(t, starlark.SafeInteger.Int64, []safeIntTest{{
+		name:     "constant+constant",
+		input:    starlark.SafeAdd(int64(100), int64(200)),
+		expected: int64(300),
+	}, {
+		name:     "SafeInt+constant",
+		input:    starlark.SafeAdd(starlark.SafeInt(int64(100)), int64(200)),
+		expected: int64(300),
+	}, {
+		name:     "constants+SafeInt",
+		input:    starlark.SafeAdd(int64(100), starlark.SafeInt(int64(200))),
+		expected: int64(300),
+	}, {
+		name:     "SafeInt+SafeInt",
+		input:    starlark.SafeAdd(starlark.SafeInt(int64(100)), starlark.SafeInt(int64(200))),
+		expected: int64(300),
+	}, {
+		name:       "positive overflow",
+		input:      starlark.SafeAdd(int64(math.MaxInt64), int64(math.MaxInt64)),
+		shouldFail: true,
+	}, {
+		name:       "negative overflow",
+		input:      starlark.SafeAdd(int64(-math.MaxInt64), int64(-math.MaxInt64)),
+		shouldFail: true,
+	}, {
+		name:       "positive invalid constant",
+		input:      starlark.SafeAdd(int64(math.MaxInt64), int64(math.MinInt64)),
+		shouldFail: true,
+	}, {
+		name:       "negative invalid constant",
+		input:      starlark.SafeAdd(uint64(math.MaxInt64+100), int64(-200)),
+		shouldFail: true,
+	}})
+}
+
+func TestSafeIntSub(t *testing.T) {
+	runSafeIntConversionTest(t, starlark.SafeInteger.Int64, []safeIntTest{{
+		name:     "constant+constant",
+		input:    starlark.SafeSub(int64(100), int64(200)),
+		expected: int64(-100),
+	}, {
+		name:     "SafeInt+constant",
+		input:    starlark.SafeSub(starlark.SafeInt(int64(100)), int64(200)),
+		expected: int64(-100),
+	}, {
+		name:     "constants+SafeInt",
+		input:    starlark.SafeSub(int64(100), starlark.SafeInt(int64(200))),
+		expected: int64(-100),
+	}, {
+		name:     "SafeInt+SafeInt",
+		input:    starlark.SafeSub(starlark.SafeInt(int64(100)), starlark.SafeInt(int64(200))),
+		expected: int64(-100),
+	}, {
+		name:       "positive overflow",
+		input:      starlark.SafeSub(int64(math.MaxInt64), int64(-math.MaxInt64)),
+		shouldFail: true,
+	}, {
+		name:       "negative overflow",
+		input:      starlark.SafeSub(int64(-math.MaxInt64), int64(math.MaxInt64)),
+		shouldFail: true,
+	}, {
+		name:       "positive invalid constant",
+		input:      starlark.SafeSub(int64(math.MinInt64), int64(math.MaxInt64)),
+		shouldFail: true,
+	}, {
+		name:       "negative invalid constant",
+		input:      starlark.SafeSub(uint64(math.MaxInt64+100), int64(200)),
+		shouldFail: true,
+	}})
+}
+
+func TestSafeIntMul(t *testing.T) {
+	runSafeIntConversionTest(t, starlark.SafeInteger.Int64, []safeIntTest{{
+		name:     "positive*positive",
+		input:    starlark.SafeMul(int64(100), int64(200)),
+		expected: int64(20000),
+	}, {
+		name:     "positive*negative",
+		input:    starlark.SafeMul(starlark.SafeInt(int64(100)), int64(-200)),
+		expected: int64(-20000),
+	}, {
+		name:       "positive overflow",
+		input:      starlark.SafeMul(int64(math.MaxInt64), int64(100)),
+		shouldFail: true,
+	}, {
+		name:       "negative overflow",
+		input:      starlark.SafeMul(int64(-math.MaxInt64), int64(100)),
+		shouldFail: true,
+	}, {
+		name:       "positive wrapping overflow",
+		input:      starlark.SafeMul(int64(274177), int64(67280421310721)), // 2^64+1 factorization
+		shouldFail: true,
+	}, {
+		name:       "negative wrapping overflow",
+		input:      starlark.SafeMul(int64(-274177), int64(67280421310721)), // 2^64+1 factorization
+		shouldFail: true,
+	}, {
+		name:       "invalid",
+		input:      starlark.SafeMul(uint64(math.MaxInt64+100), int64(0)), // 2^64+1 factorization
+		shouldFail: true,
+	}})
+}
+
+func TestSafeIntDiv(t *testing.T) {
+	runSafeIntConversionTest(t, starlark.SafeInteger.Int64, []safeIntTest{{
+		name:     "positive/positive",
+		input:    starlark.SafeDiv(int64(200), uint64(100)),
+		expected: int64(2),
+	}, {
+		name:     "positive/negative",
+		input:    starlark.SafeDiv(starlark.SafeInt(uint64(200)), int64(-100)),
+		expected: int64(-2),
+	}, {
+		name:       "positive/0",
+		input:      starlark.SafeDiv(int64(100), int64(0)),
+		shouldFail: true,
+	}, {
+		name:       "negative/0",
+		input:      starlark.SafeDiv(int64(-100), int64(0)),
+		shouldFail: true,
+	}, {
+		name:       "invalid",
+		input:      starlark.SafeMul(uint64(math.MaxInt64+100), int64(1000)),
+		shouldFail: true,
+	}})
+}
