@@ -383,7 +383,7 @@ func roundAllocSize(size int64) int64 {
 
 	if size == 0 {
 		return 0
-	} else if size < tinyAllocMaxSize {
+	} else if size <= tinyAllocMaxSize {
 		return tinyAllocMaxSize
 	} else if size == math.MaxInt64 {
 		return math.MaxInt64

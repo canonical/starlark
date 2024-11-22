@@ -12,6 +12,7 @@ import (
 	"log"
 	"math"
 	"math/big"
+	"math/bits"
 	"sort"
 	"strings"
 	"sync"
@@ -731,7 +732,9 @@ func (prog *Program) Write(out io.Writer) error {
 }
 
 // ExecFile calls [ExecFileOptions] using [syntax.LegacyFileOptions].
-// Deprecated: relies on legacy global variables.
+//
+// Deprecated: use [ExecFileOptions] with [syntax.FileOptions] instead,
+// because this function relies on legacy global variables.
 func ExecFile(thread *Thread, filename string, src interface{}, predeclared StringDict) (StringDict, error) {
 	return ExecFileOptions(syntax.LegacyFileOptions(), thread, filename, src, predeclared)
 }
@@ -766,7 +769,9 @@ func ExecFileOptions(opts *syntax.FileOptions, thread *Thread, filename string, 
 }
 
 // SourceProgram calls [SourceProgramOptions] using [syntax.LegacyFileOptions].
-// Deprecated: relies on legacy global variables.
+//
+// Deprecated: use [SourceProgramOptions] with [syntax.FileOptions] instead,
+// because this function relies on legacy global variables.
 func SourceProgram(filename string, src interface{}, isPredeclared func(string) bool) (*syntax.File, *Program, error) {
 	return SourceProgramOptions(syntax.LegacyFileOptions(), filename, src, isPredeclared)
 }
@@ -930,7 +935,9 @@ func makeToplevelFunction(prog *compile.Program, predeclared StringDict) *Functi
 }
 
 // Eval calls [EvalOptions] using [syntax.LegacyFileOptions].
-// Deprecated: relies on legacy global variables.
+//
+// Deprecated: use [EvalOptions] with [syntax.FileOptions] instead,
+// because this function relies on legacy global variables.
 func Eval(thread *Thread, filename string, src interface{}, env StringDict) (Value, error) {
 	return EvalOptions(syntax.LegacyFileOptions(), thread, filename, src, env)
 }
@@ -958,7 +965,9 @@ func EvalOptions(opts *syntax.FileOptions, thread *Thread, filename string, src 
 }
 
 // EvalExpr calls [EvalExprOptions] using [syntax.LegacyFileOptions].
-// Deprecated: relies on legacy global variables.
+//
+// Deprecated: use [EvalExprOptions] with [syntax.FileOptions] instead,
+// because this function relies on legacy global variables.
 func EvalExpr(thread *Thread, expr syntax.Expr, env StringDict) (Value, error) {
 	return EvalExprOptions(syntax.LegacyFileOptions(), thread, expr, env)
 }
@@ -984,7 +993,9 @@ func EvalExprOptions(opts *syntax.FileOptions, thread *Thread, expr syntax.Expr,
 }
 
 // ExprFunc calls [ExprFuncOptions] using [syntax.LegacyFileOptions].
-// Deprecated: relies on legacy global variables.
+//
+// Deprecated: use [ExprFuncOptions] with [syntax.FileOptions] instead,
+// because this function relies on legacy global variables.
 func ExprFunc(filename string, src interface{}, env StringDict) (*Function, error) {
 	return ExprFuncOptions(syntax.LegacyFileOptions(), filename, src, env)
 }
@@ -2095,8 +2106,8 @@ func tupleRepeat(thread *Thread, elems Tuple, n Int) (Tuple, error) {
 		return nil, nil
 	}
 	// Inv: i > 0, len > 0
-	sz := len(elems) * i
-	if sz < 0 || sz >= maxAlloc { // sz < 0 => overflow
+	of, sz := bits.Mul(uint(len(elems)), uint(i))
+	if of != 0 || sz >= maxAlloc { // of != 0 => overflow
 		// Don't print sz.
 		return nil, fmt.Errorf("excessive repeat (%d * %d elements)", len(elems), i)
 	}
@@ -2104,7 +2115,7 @@ func tupleRepeat(thread *Thread, elems Tuple, n Int) (Tuple, error) {
 		if err := thread.AddSteps(int64(sz)); err != nil {
 			return nil, err
 		}
-		if err := thread.AddAllocs(EstimateMakeSize([]Value{}, sz)); err != nil {
+		if err := thread.AddAllocs(EstimateMakeSize([]Value{}, int(sz))); err != nil {
 			return nil, err
 		}
 	}
@@ -2135,8 +2146,8 @@ func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 		return "", nil
 	}
 	// Inv: i > 0, len > 0
-	sz := len(s) * i
-	if sz < 0 || sz >= maxAlloc { // sz < 0 => overflow
+	of, sz := bits.Mul(uint(len(s)), uint(i))
+	if of != 0 || sz >= maxAlloc { // of != 0 => overflow
 		// Don't print sz.
 		return "", fmt.Errorf("excessive repeat (%d * %d elements)", len(s), i)
 	}
@@ -2144,7 +2155,7 @@ func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 		if err := thread.AddSteps(int64(sz)); err != nil {
 			return "", err
 		}
-		if err := thread.AddAllocs(EstimateMakeSize([]byte{}, sz)); err != nil {
+		if err := thread.AddAllocs(EstimateMakeSize([]byte{}, int(sz))); err != nil {
 			return "", err
 		}
 	}
@@ -2667,7 +2678,9 @@ func interpolate(thread *Thread, format string, x Value) (Value, error) {
 	}
 
 	if index < nargs {
-		return nil, fmt.Errorf("too many arguments for format string")
+		if _, ok := x.(Mapping); !ok {
+			return nil, fmt.Errorf("too many arguments for format string")
+		}
 	}
 
 	if thread != nil {
