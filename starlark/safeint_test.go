@@ -2,6 +2,7 @@ package starlark_test
 
 import (
 	"math"
+	"reflect"
 	"testing"
 
 	"github.com/canonical/starlark/starlark"
@@ -29,12 +30,10 @@ func (test *safeIntRoundtripTest[_]) Run(t *testing.T) {
 
 func TestSafeIntRoundtrip(t *testing.T) {
 	t.Run("SafeInteger", func(t *testing.T) {
-		const expected = 1234
-		safeInt := starlark.SafeInt(starlark.SafeInt(expected))
-		if converted, ok := safeInt.Int(); !ok {
-			t.Error("unexpected converson failure")
-		} else if converted != expected {
-			t.Errorf("value not preserved: expected %d but got %d", expected, converted)
+		safeInt1 := starlark.SafeInt(1234)
+		safeInt2 := starlark.SafeInt(safeInt1)
+		if !reflect.DeepEqual(safeInt1, safeInt2) {
+			t.Errorf("value not preserved: expected %d but got %d", safeInt1, safeInt2)
 		}
 	})
 
@@ -83,11 +82,6 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			name:      "min",
 			value:     math.MinInt8,
 			converter: starlark.SafeInteger.Int8,
-			// }, {
-			// 	name:       "invalid",
-			// 	input:      math.MinInt64,
-			// 	extractor:  starlark.SafeInteger.Int8,
-			// 	shouldFail: true,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -111,11 +105,6 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			name:      "min",
 			value:     math.MinInt16,
 			converter: starlark.SafeInteger.Int16,
-			// }, {
-			// 	name:       "invalid",
-			// 	input:      starlark.SafeInt(int64(math.MinInt64)),
-			// 	extractor: staralrk.SafeInteger.Int16,
-			// 	shouldFail: true,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -139,11 +128,6 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			name:      "min",
 			value:     math.MinInt32,
 			converter: starlark.SafeInteger.Int32,
-			// }, {
-			// 	name:       "invalid",
-			// 	input:      math.MinInt64,
-			// 	extractor:  starlark.SafeInteger.Int32,
-			// 	shouldFail: true,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -183,11 +167,6 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			name:      "positive",
 			value:     100,
 			converter: starlark.SafeInteger.Uint,
-			// }, {
-			// 	name:       "negative",
-			// 	input:      -100,
-			// 	extractor:  starlark.SafeInteger.Uint,
-			// 	shouldFail: true,
 		}, {
 			name:       "max",
 			value:      math.MaxUint,
@@ -197,11 +176,6 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			name:      "zero",
 			value:     0,
 			converter: starlark.SafeInteger.Uint,
-			// }, {
-			// 	name:       "invalid",
-			// 	input:      math.MinInt64,
-			// 	extractor:  starlark.SafeInteger.Uint,
-			// 	shouldFail: true,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -213,11 +187,6 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			name:      "positive",
 			value:     100,
 			converter: starlark.SafeInteger.Uint8,
-			// }, {
-			// 	name:       "negative",
-			// 	input:      -100,
-			// 	extractor:  starlark.SafeInteger.Uint8,
-			// 	shouldFail: true,
 		}, {
 			name:      "max",
 			value:     math.MaxUint8,
@@ -226,11 +195,6 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			name:      "zero",
 			value:     0,
 			converter: starlark.SafeInteger.Uint8,
-			// }, {
-			// 	name:       "invalid",
-			// 	input:      math.MinInt64,
-			// 	extractor:  starlark.SafeInteger.Uint8,
-			// 	shouldFail: true,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -242,11 +206,6 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			name:      "positive",
 			value:     100,
 			converter: starlark.SafeInteger.Uint16,
-			// }, {
-			// 	name:       "negative",
-			// 	input:      -100,
-			// 	extractor:  starlark.SafeInteger.Uint16,
-			// 	shouldFail: true,
 		}, {
 			name:      "max",
 			value:     math.MaxUint16,
@@ -255,11 +214,6 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			name:      "zero",
 			value:     0,
 			converter: starlark.SafeInteger.Uint16,
-			// }, {
-			// 	name:       "invalid",
-			// 	input:      math.MinInt64,
-			// 	extractor:  starlark.SafeInteger.Uint16,
-			// 	shouldFail: true,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -271,11 +225,6 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			name:      "positive",
 			value:     100,
 			converter: starlark.SafeInteger.Uint32,
-			// }, {
-			// 	name:       "negative",
-			// 	input:      -100,
-			// 	extractor:  starlark.SafeInteger.Uint32,
-			// 	shouldFail: true,
 		}, {
 			name:      "max",
 			value:     math.MaxUint32,
@@ -284,11 +233,6 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			name:      "zero",
 			value:     0,
 			converter: starlark.SafeInteger.Uint32,
-			// }, {
-			// 	name:       "invalid",
-			// 	input:      math.MinInt64,
-			// 	extractor:  starlark.SafeInteger.Uint32,
-			// 	shouldFail: true,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -300,11 +244,6 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			name:      "positive",
 			value:     100,
 			converter: starlark.SafeInteger.Uint64,
-			// }, {
-			// 	name:       "negative",
-			// 	input:      -100,
-			// 	extractor:  starlark.SafeInteger.Uint64,
-			// 	shouldFail: true,
 		}, {
 			name:       "max",
 			value:      math.MaxUint64,
@@ -314,11 +253,6 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			name:      "zero",
 			value:     0,
 			converter: starlark.SafeInteger.Uint64,
-			// }, {
-			// 	name:       "invalid",
-			// 	input:      math.MinInt64,
-			// 	extractor:  starlark.SafeInteger.Uint64,
-			// 	shouldFail: true,
 		}}
 		for _, test := range tests {
 			test.Run(t)
@@ -326,14 +260,14 @@ func TestSafeIntRoundtrip(t *testing.T) {
 	})
 }
 
-type safeIntConversionBoundTest[I starlark.Integer] struct {
+type safeIntInvalidConversionTest[I starlark.Integer] struct {
 	name          string
 	value         starlark.SafeInteger
 	converter     func(starlark.SafeInteger) (I, bool)
 	shouldSucceed bool
 }
 
-func (test *safeIntConversionBoundTest[_]) Run(t *testing.T) {
+func (test *safeIntInvalidConversionTest[_]) Run(t *testing.T) {
 	t.Run(test.name, func(t *testing.T) {
 		value, ok := test.converter(test.value)
 		if !test.shouldSucceed && ok {
@@ -344,9 +278,9 @@ func (test *safeIntConversionBoundTest[_]) Run(t *testing.T) {
 	})
 }
 
-func TestSafeIntConversionBounds(t *testing.T) {
+func TestSafeIntInvalidConversions(t *testing.T) {
 	t.Run("int", func(t *testing.T) {
-		tests := []safeIntConversionBoundTest[int]{{
+		tests := []safeIntInvalidConversionTest[int]{{
 			name:          "too-large",
 			value:         starlark.SafeInt(int64(math.MaxInt64)),
 			converter:     starlark.SafeInteger.Int,
@@ -363,7 +297,7 @@ func TestSafeIntConversionBounds(t *testing.T) {
 	})
 
 	t.Run("int8", func(t *testing.T) {
-		tests := []safeIntConversionBoundTest[int8]{{
+		tests := []safeIntInvalidConversionTest[int8]{{
 			name:      "too-large",
 			value:     starlark.SafeInt(math.MaxInt8 + 1),
 			converter: starlark.SafeInteger.Int8,
@@ -378,7 +312,7 @@ func TestSafeIntConversionBounds(t *testing.T) {
 	})
 
 	t.Run("int16", func(t *testing.T) {
-		tests := []safeIntConversionBoundTest[int16]{{
+		tests := []safeIntInvalidConversionTest[int16]{{
 			name:      "too-large",
 			value:     starlark.SafeInt(math.MaxInt16 + 1),
 			converter: starlark.SafeInteger.Int16,
@@ -393,7 +327,7 @@ func TestSafeIntConversionBounds(t *testing.T) {
 	})
 
 	t.Run("int32", func(t *testing.T) {
-		tests := []safeIntConversionBoundTest[int32]{{
+		tests := []safeIntInvalidConversionTest[int32]{{
 			name:      "too-large",
 			value:     starlark.SafeInt(int64(math.MaxInt32 + 1)),
 			converter: starlark.SafeInteger.Int32,
@@ -408,7 +342,7 @@ func TestSafeIntConversionBounds(t *testing.T) {
 	})
 
 	t.Run("uint", func(t *testing.T) {
-		tests := []safeIntConversionBoundTest[uint]{{
+		tests := []safeIntInvalidConversionTest[uint]{{
 			name:      "too-large",
 			value:     starlark.SafeInt(uint64(math.MaxUint64)),
 			converter: starlark.SafeInteger.Uint,
@@ -423,7 +357,7 @@ func TestSafeIntConversionBounds(t *testing.T) {
 	})
 
 	t.Run("uint8", func(t *testing.T) {
-		tests := []safeIntConversionBoundTest[uint8]{{
+		tests := []safeIntInvalidConversionTest[uint8]{{
 			name:      "too-large",
 			value:     starlark.SafeInt(math.MaxUint8 + 1),
 			converter: starlark.SafeInteger.Uint8,
@@ -438,7 +372,7 @@ func TestSafeIntConversionBounds(t *testing.T) {
 	})
 
 	t.Run("uint16", func(t *testing.T) {
-		tests := []safeIntConversionBoundTest[uint16]{{
+		tests := []safeIntInvalidConversionTest[uint16]{{
 			name:      "too-large",
 			value:     starlark.SafeInt(math.MaxUint16 + 1),
 			converter: starlark.SafeInteger.Uint16,
@@ -453,7 +387,7 @@ func TestSafeIntConversionBounds(t *testing.T) {
 	})
 
 	t.Run("uint32", func(t *testing.T) {
-		tests := []safeIntConversionBoundTest[uint32]{{
+		tests := []safeIntInvalidConversionTest[uint32]{{
 			name:      "too-large",
 			value:     starlark.SafeInt(int64(math.MaxUint32 + 1)),
 			converter: starlark.SafeInteger.Uint32,
@@ -468,7 +402,7 @@ func TestSafeIntConversionBounds(t *testing.T) {
 	})
 
 	t.Run("uint64", func(t *testing.T) {
-		tests := []safeIntConversionBoundTest[uint64]{{
+		tests := []safeIntInvalidConversionTest[uint64]{{
 			name:      "negative",
 			value:     starlark.SafeInt(-1),
 			converter: starlark.SafeInteger.Uint64,
