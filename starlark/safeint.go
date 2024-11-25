@@ -177,27 +177,27 @@ func (si SafeInteger) Uint64() (uint64, bool) {
 	return uint64(i64), true
 }
 
-func SafeNeg[I Integer | SafeInteger](i I) {
+func SafeNeg[I Integer | SafeInteger](i I) SafeInteger {
 	// TODO(kcza): implement this
 	panic("unimplemented")
 }
 
-func SafeAdd[A, B Integer | SafeInteger](a A, b B) {
+func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	// TODO(kcza): implement this
 	panic("unimplemented")
 }
 
-func SafeSub[A, B Integer | SafeInteger](a A, b B) {
+func SafeSub[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	// TODO(kcza): implement this
 	panic("unimplemented")
 }
 
-func SafeMul[A, B Integer | SafeInteger](a A, b B) {
+func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	// TODO(kcza): implement this
 	panic("unimplemented")
 }
 
-func SafeDiv[A, B Integer | SafeInteger](a A, b B) {
+func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	// TODO(kcza): implement this
 	panic("unimplemented")
 }
