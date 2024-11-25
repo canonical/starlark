@@ -171,8 +171,10 @@ func (si SafeInteger) Uint64() (uint64, bool) {
 }
 
 func SafeNeg[I Integer | SafeInteger](i I) SafeInteger {
-	// TODO(kcza): implement this
-	panic("unimplemented")
+	si := SafeInt(i)
+	// Note: as invalidSafeInt == math.MinInt64 and as -math.MinInt64 ==
+	// math.MinInt64 within the space of int64s, negation is always valid.
+	return SafeInteger{-si.value}
 }
 
 func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
