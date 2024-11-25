@@ -503,7 +503,7 @@ func TestAnyAllocs(t *testing.T) {
 			args := starlark.Tuple{&testIterable{
 				maxN: st.N,
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					overheadSize := starlark.SafeAdd64(
+					overheadSize := starlark.SafeAdd64_(
 						starlark.EstimateMakeSize([]starlark.Value{}, 16),
 						starlark.EstimateSize(starlark.List{}),
 					)
@@ -2453,7 +2453,7 @@ func TestGetattrAllocs(t *testing.T) {
 			safety: starlark.Safe,
 			attr: func(thread *starlark.Thread, attr string) (starlark.Value, error) {
 				const repetitions = 5
-				resultSize := starlark.SafeAdd64(
+				resultSize := starlark.SafeAdd64_(
 					starlark.EstimateMakeSize([]byte{}, len(attr)*repetitions),
 					starlark.StringTypeOverhead,
 				)
@@ -3745,7 +3745,7 @@ func TestReversedAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			const tupleCount = 100
-			itemSize := starlark.SafeAdd64(
+			itemSize := starlark.SafeAdd64_(
 				starlark.EstimateMakeSize(starlark.Tuple{}, tupleCount),
 				starlark.EstimateSize(starlark.Tuple{}),
 			)
@@ -6700,7 +6700,7 @@ func TestListExtendAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-					resultSize := starlark.SafeAdd64(
+					resultSize := starlark.SafeAdd64_(
 						starlark.EstimateSize(&starlark.List{}),
 						starlark.EstimateMakeSize([]starlark.Value{}, 16),
 					)
@@ -6745,7 +6745,7 @@ func TestListExtendAllocs(t *testing.T) {
 			}
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-					resultSize := starlark.SafeAdd64(
+					resultSize := starlark.SafeAdd64_(
 						starlark.EstimateSize(&starlark.List{}),
 						starlark.EstimateMakeSize([]starlark.Value{}, 16),
 					)
@@ -11386,7 +11386,7 @@ func TestSafeIterateAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			allocating := &testIterable{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					tupleSize := starlark.SafeAdd64(
+					tupleSize := starlark.SafeAdd64_(
 						starlark.EstimateMakeSize(starlark.Tuple{}, 16),
 						starlark.SliceTypeOverhead,
 					)

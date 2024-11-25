@@ -85,10 +85,10 @@ func estimateMakeSliceSize(template reflect.Value, n int) int64 {
 		panic(fmt.Sprintf(templateTooLong, len))
 	}
 
-	size := roundAllocSize(SafeMul64(int64(n), int64(template.Type().Elem().Size())))
+	size := roundAllocSize(SafeMul64_(int64(n), int64(template.Type().Elem().Size())))
 	if len > 0 {
 		elemSize := estimateSizeIndirect(template.Index(0), make(map[uintptr]struct{}))
-		size = SafeAdd64(size, SafeMul64(int64(n), elemSize))
+		size = SafeAdd64_(size, SafeMul64_(int64(n), elemSize))
 	}
 	return size
 }
@@ -105,9 +105,9 @@ func estimateMakeMapSize(template reflect.Value, n int) int64 {
 		iter.Next()
 
 		seen := map[uintptr]struct{}{}
-		keysSize := SafeMul64(int64(n), estimateSizeIndirect(iter.Key(), seen))
-		valuesSize := SafeMul64(int64(n), estimateSizeIndirect(iter.Value(), seen))
-		size = SafeAdd64(size, SafeAdd64(keysSize, valuesSize))
+		keysSize := SafeMul64_(int64(n), estimateSizeIndirect(iter.Key(), seen))
+		valuesSize := SafeMul64_(int64(n), estimateSizeIndirect(iter.Value(), seen))
+		size = SafeAdd64_(size, SafeAdd64_(keysSize, valuesSize))
 	}
 	return size
 }
@@ -128,7 +128,7 @@ func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) int64 {
 	case reflect.Map:
 		return estimateMapAll(v, seen)
 	default:
-		return SafeAdd64(estimateSizeDirect(v), estimateSizeIndirect(v, seen))
+		return SafeAdd64_(estimateSizeDirect(v), estimateSizeIndirect(v, seen))
 	}
 }
 
@@ -205,7 +205,7 @@ func estimateStringAll(v reflect.Value, seen map[uintptr]struct{}) int64 {
 	// it is not possible to get the capacity of the buffer
 	// holding the string.
 
-	return SafeAdd64(estimateSizeDirect(v), estimateStringIndirect(v, seen))
+	return SafeAdd64_(estimateSizeDirect(v), estimateStringIndirect(v, seen))
 }
 
 func estimateStringIndirect(v reflect.Value, _ map[uintptr]struct{}) int64 {
@@ -240,7 +240,7 @@ func estimateChanDirectWithCap(t reflect.Type, cap int) int64 {
 	// an elementType that doesn't contain any pointer it
 	// will be allocated in a single bigger block (leading
 	// to a single getAllocSize call).
-	return SafeAdd64(headerSize, roundAllocSize(SafeMul64(int64(cap), elemSize)))
+	return SafeAdd64_(headerSize, roundAllocSize(SafeMul64_(int64(cap), elemSize)))
 }
 
 func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) int64 {
@@ -254,7 +254,7 @@ func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) int64 {
 	}
 
 	seen[ptr] = struct{}{}
-	return SafeAdd64(estimateMapDirect(v), estimateMapIndirect(v, seen))
+	return SafeAdd64_(estimateMapDirect(v), estimateMapIndirect(v, seen))
 }
 
 func estimateMapDirect(v reflect.Value) int64 {
@@ -289,7 +289,7 @@ func estimateMapDirectWithLen(t reflect.Type, len int) int64 {
 
 	const k2 = int64(204*unsafe.Sizeof(uintptr(0)) + 280)
 
-	return SafeAdd64(roundAllocSize(SafeMul64(int64(len), k1)), k2)
+	return SafeAdd64_(roundAllocSize(SafeMul64_(int64(len), k1)), k2)
 }
 
 // getMapKVPairSize returns the estimated size a key-value pair
@@ -302,11 +302,11 @@ func getMapKVPairSize(k, v int64) int64 {
 	if k < maxElemSize && v < maxElemSize {
 		return (k+v+1)*4 + int64(unsafe.Sizeof(uintptr(0)))
 	} else if k < maxElemSize {
-		return SafeAdd64(getMapKVPairSize(k, 8), v)
+		return SafeAdd64_(getMapKVPairSize(k, 8), v)
 	} else if v < maxElemSize {
-		return SafeAdd64(getMapKVPairSize(8, v), k)
+		return SafeAdd64_(getMapKVPairSize(8, v), k)
 	} else {
-		return SafeAdd64(getMapKVPairSize(8, 8), SafeAdd64(k, v))
+		return SafeAdd64_(getMapKVPairSize(8, 8), SafeAdd64_(k, v))
 	}
 }
 
@@ -317,7 +317,7 @@ func estimateMapIndirect(v reflect.Value, seen map[uintptr]struct{}) int64 {
 	for iter.Next() {
 		keySize := estimateSizeIndirect(iter.Key(), seen)
 		valueSize := estimateSizeIndirect(iter.Value(), seen)
-		result = SafeAdd64(result, SafeAdd64(keySize, valueSize))
+		result = SafeAdd64_(result, SafeAdd64_(keySize, valueSize))
 	}
 
 	return result
@@ -338,18 +338,18 @@ func estimateSliceAll(v reflect.Value, seen map[uintptr]struct{}) int64 {
 	// as "seen" while visiting b[0] will make the function miss all the
 	// memory pointed by b. It is better in this case to just be pessimistic
 	// and estimate more memory than it actually is allocated.
-	return SafeAdd64(estimateSliceDirect(v), estimateSliceIndirect(v, seen))
+	return SafeAdd64_(estimateSliceDirect(v), estimateSliceIndirect(v, seen))
 }
 
 func estimateSliceDirect(v reflect.Value) int64 {
-	return roundAllocSize(SafeMul64(int64(v.Type().Elem().Size()), int64(v.Cap())))
+	return roundAllocSize(SafeMul64_(int64(v.Type().Elem().Size()), int64(v.Cap())))
 }
 
 func estimateSliceIndirect(v reflect.Value, seen map[uintptr]struct{}) int64 {
 	result := int64(0)
 
 	for i := 0; i < v.Len(); i++ {
-		result = SafeAdd64(result, estimateSizeIndirect(v.Index(i), seen))
+		result = SafeAdd64_(result, estimateSizeIndirect(v.Index(i), seen))
 	}
 
 	return result
@@ -359,7 +359,7 @@ func estimateArrayIndirect(v reflect.Value, seen map[uintptr]struct{}) int64 {
 	result := int64(0)
 
 	for i := 0; i < v.Len(); i++ {
-		result = SafeAdd64(result, estimateSizeIndirect(v.Index(i), seen))
+		result = SafeAdd64_(result, estimateSizeIndirect(v.Index(i), seen))
 	}
 
 	return result
@@ -369,7 +369,7 @@ func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) int64 {
 	result := int64(0)
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
-		result = SafeAdd64(result, estimateSizeIndirect(field, seen))
+		result = SafeAdd64_(result, estimateSizeIndirect(field, seen))
 	}
 	return result
 }
