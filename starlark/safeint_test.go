@@ -508,7 +508,7 @@ func TestSafeNeg(t *testing.T) {
 	}, {
 		name:     "valid-non-zero",
 		input:    100,
-		expected: starlark.SafeInt(100),
+		expected: starlark.SafeInt(-100),
 	}, {
 		name:     "invalid",
 		input:    starlark.InvalidSafeInt,
