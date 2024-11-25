@@ -416,37 +416,37 @@ func TestSafeIntInvalidConversions(t *testing.T) {
 func TestInvalidSafeIntConversions(t *testing.T) {
 	tests := []struct {
 		name      string
-		converter func(si *starlark.SafeInteger) (any, bool)
+		converter func(si starlark.SafeInteger) (any, bool)
 	}{{
 		name:      "int",
-		converter: func(si *starlark.SafeInteger) (any, bool) { return si.Int() },
+		converter: func(si starlark.SafeInteger) (any, bool) { return si.Int() },
 	}, {
 		name:      "int8",
-		converter: func(si *starlark.SafeInteger) (any, bool) { return si.Int8() },
+		converter: func(si starlark.SafeInteger) (any, bool) { return si.Int8() },
 	}, {
 		name:      "int16",
-		converter: func(si *starlark.SafeInteger) (any, bool) { return si.Int16() },
+		converter: func(si starlark.SafeInteger) (any, bool) { return si.Int16() },
 	}, {
 		name:      "int32",
-		converter: func(si *starlark.SafeInteger) (any, bool) { return si.Int32() },
+		converter: func(si starlark.SafeInteger) (any, bool) { return si.Int32() },
 	}, {
 		name:      "int64",
-		converter: func(si *starlark.SafeInteger) (any, bool) { return si.Int64() },
+		converter: func(si starlark.SafeInteger) (any, bool) { return si.Int64() },
 	}, {
 		name:      "uint",
-		converter: func(si *starlark.SafeInteger) (any, bool) { return si.Uint() },
+		converter: func(si starlark.SafeInteger) (any, bool) { return si.Uint() },
 	}, {
 		name:      "uint8",
-		converter: func(si *starlark.SafeInteger) (any, bool) { return si.Uint8() },
+		converter: func(si starlark.SafeInteger) (any, bool) { return si.Uint8() },
 	}, {
 		name:      "uint16",
-		converter: func(si *starlark.SafeInteger) (any, bool) { return si.Uint16() },
+		converter: func(si starlark.SafeInteger) (any, bool) { return si.Uint16() },
 	}, {
 		name:      "uint32",
-		converter: func(si *starlark.SafeInteger) (any, bool) { return si.Uint32() },
+		converter: func(si starlark.SafeInteger) (any, bool) { return si.Uint32() },
 	}, {
 		name:      "uint64",
-		converter: func(si *starlark.SafeInteger) (any, bool) { return si.Uint64() },
+		converter: func(si starlark.SafeInteger) (any, bool) { return si.Uint64() },
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

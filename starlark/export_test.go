@@ -84,4 +84,4 @@ func (s String) Elems(ords bool) Value {
 	return stringElems{s, ords}
 }
 
-var InvalidSafeInt = &SafeInteger{invalidSafeInt}
+var InvalidSafeInt = SafeInteger{invalidSafeInt}
