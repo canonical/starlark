@@ -579,8 +579,38 @@ func TestSafeAdd(t *testing.T) {
 }
 
 func TestSafeSub(t *testing.T) {
-	// TODO(kcza): implement this.
-	t.Skip()
+	tests := []struct {
+		name       string
+		difference starlark.SafeInteger
+		expected   starlark.SafeInteger
+	}{{
+		name:       "valid",
+		difference: starlark.SafeSub(100, 100),
+		expected:   starlark.SafeInt(0),
+	}, {
+		name:       "invalid-first",
+		difference: starlark.SafeSub(starlark.InvalidSafeInt, 100),
+		expected:   starlark.InvalidSafeInt,
+	}, {
+		name:       "invalid-second",
+		difference: starlark.SafeSub(100, starlark.InvalidSafeInt),
+		expected:   starlark.InvalidSafeInt,
+	}, {
+		name:       "overflow",
+		difference: starlark.SafeSub(math.MaxInt64, -math.MaxInt64),
+		expected:   starlark.InvalidSafeInt,
+	}, {
+		name:       "underflow",
+		difference: starlark.SafeSub(math.MinInt64, math.MaxInt64),
+		expected:   starlark.InvalidSafeInt,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.difference != test.expected {
+				t.Errorf("incorrect sum: expected %v but got %v", test.expected, test.difference)
+			}
+		})
+	}
 }
 
 func TestSafeMul(t *testing.T) {

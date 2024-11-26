@@ -196,8 +196,7 @@ func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 }
 
 func SafeSub[A, B Integer | SafeInteger](a A, b B) SafeInteger {
-	// TODO(kcza): implement this
-	panic("unimplemented")
+	return SafeAdd(a, SafeNeg(b))
 }
 
 func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
