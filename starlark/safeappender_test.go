@@ -169,7 +169,7 @@ func TestSafeAppenderAppend(t *testing.T) {
 			st.SetMinSteps(1)
 			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.SafeMul64_(starlark.EstimateSize(0), int64(st.N))); err != nil {
+				if err := thread.AddAllocs(starlark.OldSafeMul64(starlark.EstimateSize(0), int64(st.N))); err != nil {
 					st.Error(err)
 				}
 				toAppend := make([]interface{}, st.N)
@@ -286,7 +286,7 @@ func TestSafeAppenderAppendSlice(t *testing.T) {
 			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
 				slice := []int{1, 3, 5}
-				if err := thread.AddAllocs(starlark.SafeAdd64_(starlark.EstimateSize(slice), starlark.SliceTypeOverhead)); err != nil {
+				if err := thread.AddAllocs(starlark.OldSafeAdd64(starlark.EstimateSize(slice), starlark.SliceTypeOverhead)); err != nil {
 					st.Error(err)
 				}
 				st.KeepAlive(slice)
@@ -348,7 +348,7 @@ func TestSafeAppenderAppendSlice(t *testing.T) {
 			st.SetMinSteps(1)
 			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.SafeMul64_(starlark.EstimateSize(0), int64(st.N))); err != nil {
+				if err := thread.AddAllocs(starlark.OldSafeMul64(starlark.EstimateSize(0), int64(st.N))); err != nil {
 					st.Error(err)
 				}
 				toAppend := make([]interface{}, st.N)

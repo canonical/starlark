@@ -60,7 +60,7 @@ func TestOldSafeAdd(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%d + %d", test.a, test.b), func(t *testing.T) {
-			if actual := starlark.SafeAdd_(test.a, test.b); actual != test.expect {
+			if actual := starlark.OldSafeAdd(test.a, test.b); actual != test.expect {
 				t.Errorf("incorrect result: expected %d but got %d", test.expect, actual)
 			}
 		})
@@ -119,7 +119,7 @@ func TestOldSafeAdd64(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%d + %d", test.a, test.b), func(t *testing.T) {
-			if actual := starlark.SafeAdd64_(test.a, test.b); actual != test.expect {
+			if actual := starlark.OldSafeAdd64(test.a, test.b); actual != test.expect {
 				t.Errorf("incorrect result: expected %d but got %d", test.expect, actual)
 			}
 		})
@@ -195,7 +195,7 @@ func TestOldSafeMul(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if actual := starlark.SafeMul_(test.a, test.b); actual != test.expect {
+			if actual := starlark.OldSafeMul(test.a, test.b); actual != test.expect {
 				t.Errorf("incorrect result: expected %d but got %d", test.expect, actual)
 			}
 		})
@@ -260,7 +260,7 @@ func TestOldSafeMul64(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%d + %d", test.a, test.b), func(t *testing.T) {
-			if actual := starlark.SafeMul64_(test.a, test.b); actual != test.expect {
+			if actual := starlark.OldSafeMul64(test.a, test.b); actual != test.expect {
 				t.Errorf("incorrect result: expected %d but got %d", test.expect, actual)
 			}
 		})

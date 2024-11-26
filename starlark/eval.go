@@ -232,7 +232,7 @@ func (thread *Thread) simulateSteps(deltas ...int64) (int64, error) {
 
 	nextSteps := thread.steps
 	for _, delta := range deltas {
-		nextSteps = SafeAdd64_(nextSteps, delta)
+		nextSteps = OldSafeAdd64(nextSteps, delta)
 
 		if thread.maxSteps > 0 && nextSteps > thread.maxSteps {
 			return nextSteps, &StepsSafetyError{
@@ -2740,7 +2740,7 @@ func (thread *Thread) AddAllocs(deltas ...int64) error {
 func (thread *Thread) simulateAllocs(deltas ...int64) (int64, error) {
 	nextAllocs := thread.allocs
 	for _, delta := range deltas {
-		nextAllocs = SafeAdd64_(nextAllocs, delta)
+		nextAllocs = OldSafeAdd64(nextAllocs, delta)
 
 		if thread.maxAllocs > 0 && nextAllocs > thread.maxAllocs {
 			return nextAllocs, &AllocsSafetyError{
