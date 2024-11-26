@@ -192,8 +192,19 @@ func SafeSub[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 }
 
 func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
-	// TODO(kcza): implement this
-	panic("unimplemented")
+	sa, sb := SafeInt(a), SafeInt(b)
+	if !sa.Valid() || !sb.Valid() {
+		return SafeInteger{invalidSafeInt}
+	}
+	return SafeInteger{safeMul(sa.value, sb.value)}
+}
+
+func safeMul(a, b int64) int64 {
+	if ab := a * b; ab/a == b {
+		// No overflow occurred.
+		return ab
+	}
+	return invalidSafeInt
 }
 
 func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
