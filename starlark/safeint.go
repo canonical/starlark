@@ -182,8 +182,19 @@ func SafeNeg[I Integer | SafeInteger](i I) SafeInteger {
 }
 
 func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
-	// TODO(kcza): implement this
-	panic("unimplemented")
+	sa, sb := SafeInt(a), SafeInt(b)
+	if sa.invalid() || sb.invalid() {
+		return SafeInteger{invalidSafeInt}
+	}
+	return SafeInteger{safeAdd(sa.value, sb.value)}
+}
+
+func safeAdd(a, b int64) int64 {
+	if ret := a + b; !sameSign64(a, b) || sameSign64(ret, a) {
+		// no overflow possible
+		return ret
+	}
+	return invalidSafeInt
 }
 
 func SafeSub[A, B Integer | SafeInteger](a A, b B) SafeInteger {
@@ -199,4 +210,14 @@ func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	// TODO(kcza): implement this
 	panic("unimplemented")
+}
+
+//go:inline
+func (si SafeInteger) invalid() bool {
+	return si.value == invalidSafeInt
+}
+
+//go:inline
+func sameSign64(a, b int64) bool {
+	return a^b >= 0
 }
