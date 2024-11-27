@@ -14,9 +14,9 @@ var _ fmt.Stringer = &SafeInteger{}
 
 func (si *SafeInteger) String() string {
 	if si.value == invalidSafeInt {
-		return "SafeInteger(invalid)"
+		return "SafeInt(invalid)"
 	}
-	return fmt.Sprintf("SafeInteger(%d)", si.value)
+	return fmt.Sprintf("SafeInt(%d)", si.value)
 }
 
 // Marker value to indicate that an overflow has occurred,

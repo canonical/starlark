@@ -8,6 +8,29 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
+func TestSafeIntString(t *testing.T) {
+	tests := []struct {
+		name     string
+		safeInt  starlark.SafeInteger
+		expected string
+	}{{
+		name:     "valid",
+		safeInt:  starlark.SafeInt(10),
+		expected: "SafeInt(10)",
+	}, {
+		name:     "invalid",
+		safeInt:  starlark.InvalidSafeInt,
+		expected: "SafeInt(invalid)",
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if repr := test.safeInt.String(); repr != test.expected {
+				t.Errorf("incorrect string representation: expected %q but got %q", test.expected, repr)
+			}
+		})
+	}
+}
+
 type safeIntRoundtripTest[I starlark.Integer] struct {
 	name       string
 	value      I
