@@ -559,6 +559,36 @@ func TestSafeMul(t *testing.T) {
 }
 
 func TestSafeDiv(t *testing.T) {
-	// TODO(kcza): implement this.
-	t.Skip()
+	tests := []struct {
+		name     string
+		quotient starlark.SafeInteger
+		expected starlark.SafeInteger
+	}{{
+		name:     "positive/positive",
+		quotient: starlark.SafeDiv(1000, 100),
+		expected: starlark.SafeInt(10),
+	}, {
+		name:     "positive/negative",
+		quotient: starlark.SafeDiv(1000, -100),
+		expected: starlark.SafeInt(-10),
+	}, {
+		name:     "divide-by-zero",
+		quotient: starlark.SafeDiv(1000, 0),
+		expected: starlark.InvalidSafeInt,
+	}, {
+		name:     "invalid-first",
+		quotient: starlark.SafeDiv(starlark.InvalidSafeInt, 100),
+		expected: starlark.InvalidSafeInt,
+	}, {
+		name:     "invalid-second",
+		quotient: starlark.SafeDiv(1000, starlark.InvalidSafeInt),
+		expected: starlark.InvalidSafeInt,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.quotient != test.expected {
+				t.Errorf("incorrect result: expected %v but got %v", test.expected, test.quotient)
+			}
+		})
+	}
 }
