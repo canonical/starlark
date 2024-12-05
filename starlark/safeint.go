@@ -142,7 +142,7 @@ func (i SafeInteger) Uint16() (uint16, bool) {
 	if !ok {
 		return 0, false
 	}
-	if i64 < 0 || i64 > math.MaxUint16 {
+	if i64 < 0 || math.MaxUint16 < i64 {
 		return 0, false
 	}
 	return uint16(i64), true
