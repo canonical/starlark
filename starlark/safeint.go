@@ -120,7 +120,7 @@ func (si SafeInteger) Uint() (uint, bool) {
 	if !ok {
 		return 0, false
 	}
-	if i64 < 0 || math.MaxUint < uint(i64) {
+	if i64 < 0 || math.MaxUint < uint64(i64) {
 		return 0, false
 	}
 	return uint(i64), true

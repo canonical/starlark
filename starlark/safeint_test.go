@@ -283,6 +283,22 @@ func TestSafeIntRoundtrip(t *testing.T) {
 	})
 }
 
+func TestSafeIntUintTruncation32(t *testing.T) {
+	if math.MaxUint == math.MaxUint64 {
+		// The issue this test checks is not possible on 64-bit platforms.
+		return
+	}
+
+	// input is a value which would cause .Uint() to return !ok, unless first
+	// truncated to an int/uint on a 32-bit machine.
+	const input = uint64(math.MaxInt64 &^ (1 << 31))
+
+	_, ok := starlark.SafeInt(input).Uint()
+	if ok {
+		t.Errorf("expected conversion to fail")
+	}
+}
+
 type safeIntInvalidConversionTest[I starlark.Integer] struct {
 	name          string
 	value         starlark.SafeInteger
