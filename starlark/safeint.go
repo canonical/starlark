@@ -43,16 +43,16 @@ func SafeInt[I Integer | SafeInteger](i I) SafeInteger {
 		return SafeInteger{int64(i)}
 	case int64:
 		return SafeInteger{i}
+	case uint:
+		if uint64(i) > math.MaxInt64 {
+			return SafeInteger{invalidSafeInt}
+		}
+		return SafeInteger{int64(i)}
 	case uint8:
 		return SafeInteger{int64(i)}
 	case uint16:
 		return SafeInteger{int64(i)}
 	case uint32:
-		return SafeInteger{int64(i)}
-	case uint:
-		if uint64(i) > math.MaxInt64 {
-			return SafeInteger{invalidSafeInt}
-		}
 		return SafeInteger{int64(i)}
 	case uint64:
 		if i > math.MaxInt64 {
