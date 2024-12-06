@@ -1045,53 +1045,63 @@ func TestAssertModuleIntegration(t *testing.T) {
 
 func TestRunStringErrorPositions(t *testing.T) {
 	type test struct {
-		name        string
-		src         string
-		expect_line int
+		name                    string
+		src                     string
+		expect_line, expect_col int
 	}
 
 	tests := []test{{
 		name:        "beginning of sole line",
 		src:         "=1",
 		expect_line: 1,
+		expect_col:  1,
 	}, {
 		name:        "middle of sole line",
 		src:         "a=1=1",
 		expect_line: 1,
+		expect_col:  5,
 	}, {
 		name:        "end of sole line",
 		src:         "a=",
 		expect_line: 1,
+		expect_col:  3,
 	}, {
 		name:        "beginning of sole line after blanks",
 		src:         "{}{}{}{}{}{}{}=1",
 		expect_line: 7,
+		expect_col:  1,
 	}}
 
 	multiLineTests := []test{{
 		name:        "beginning of multi-line",
 		src:         "=1{}b=2",
 		expect_line: 1,
+		expect_col:  1,
 	}, {
 		name:        "beginning of later line",
 		src:         "a=1{}b=2{}=3{}d=4",
 		expect_line: 3,
+		expect_col:  1,
 	}, {
 		name:        "middle of later line",
 		src:         "a=1{}b=2=2{}c=3",
 		expect_line: 2,
+		expect_col:  5,
 	}, {
 		name:        "end of later line",
 		src:         "a=1{}b={}c=3",
-		expect_line: 3,
+		expect_line: 2,
+		expect_col:  3,
 	}, {
 		name:        "missing indent",
 		src:         "if True:{}a=1",
 		expect_line: 2,
+		expect_col:  2,
 	}, {
 		name:        "in block",
 		src:         "if True:{}\t=2",
 		expect_line: 2,
+		expect_col:  2,
 	}}
 
 	for _, test := range multiLineTests {
@@ -1115,7 +1125,7 @@ func TestRunStringErrorPositions(t *testing.T) {
 				t.Errorf("%s: RunString returned true", name)
 			}
 
-			expectedLoc := fmt.Sprintf("startest.RunString:%d:", test.expect_line)
+			expectedLoc := fmt.Sprintf("startest.RunString:%d:%d:", test.expect_line, test.expect_col)
 			if errLog := dummy.Errors(); !strings.HasPrefix(errLog, expectedLoc) {
 				t.Errorf("%s: expected error at %s but got %#v", name, expectedLoc, errLog)
 			}

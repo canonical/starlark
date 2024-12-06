@@ -8,6 +8,29 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
+func TestSafeIntString(t *testing.T) {
+	tests := []struct {
+		name     string
+		safeInt  starlark.SafeInteger
+		expected string
+	}{{
+		name:     "valid",
+		safeInt:  starlark.SafeInt(10),
+		expected: "SafeInt(10)",
+	}, {
+		name:     "invalid",
+		safeInt:  starlark.InvalidSafeInt,
+		expected: "SafeInt(invalid)",
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if repr := test.safeInt.String(); repr != test.expected {
+				t.Errorf("incorrect string representation: expected %q but got %q", test.expected, repr)
+			}
+		})
+	}
+}
+
 type safeIntRoundtripTest[I starlark.Integer] struct {
 	name       string
 	value      I
@@ -258,6 +281,22 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			test.Run(t)
 		}
 	})
+}
+
+func TestSafeIntUintTruncation(t *testing.T) {
+	if math.MaxUint == math.MaxUint64 {
+		// The truncation issue does not occur on 64-bit platforms.
+		return
+	}
+
+	// input is a value which would cause .Uint() to return !ok, unless while
+	// running on a 32-bit machine, it is first truncated to an int/uint.
+	const input = uint64(math.MaxInt64 &^ (1 << 31))
+
+	_, ok := starlark.SafeInt(input).Uint()
+	if ok {
+		t.Errorf("expected conversion to fail")
+	}
 }
 
 type safeIntInvalidConversionTest[I starlark.Integer] struct {

@@ -14,9 +14,9 @@ var _ fmt.Stringer = &SafeInteger{}
 
 func (si *SafeInteger) String() string {
 	if si.value == invalidSafeInt {
-		return "SafeInteger(invalid)"
+		return "SafeInt(invalid)"
 	}
-	return fmt.Sprintf("SafeInteger(%d)", si.value)
+	return fmt.Sprintf("SafeInt(%d)", si.value)
 }
 
 // Marker value to indicate that an overflow has occurred,
@@ -24,16 +24,9 @@ func (si *SafeInteger) String() string {
 // safe integers is closed under negation.
 const invalidSafeInt = math.MinInt64
 
-type SignedInteger interface {
-	int | int8 | int16 | int32 | int64
-}
-
-type UnsignedInteger interface {
-	uint | uint8 | uint16 | uint32 | uint64
-}
-
 type Integer interface {
-	SignedInteger | UnsignedInteger
+	int | int8 | int16 | int32 | int64 |
+		uint | uint8 | uint16 | uint32 | uint64
 }
 
 func SafeInt[I Integer | SafeInteger](i I) SafeInteger {
@@ -50,16 +43,16 @@ func SafeInt[I Integer | SafeInteger](i I) SafeInteger {
 		return SafeInteger{int64(i)}
 	case int64:
 		return SafeInteger{i}
+	case uint:
+		if uint64(i) > math.MaxInt64 {
+			return SafeInteger{invalidSafeInt}
+		}
+		return SafeInteger{int64(i)}
 	case uint8:
 		return SafeInteger{int64(i)}
 	case uint16:
 		return SafeInteger{int64(i)}
 	case uint32:
-		return SafeInteger{int64(i)}
-	case uint:
-		if uint64(i) > math.MaxInt64 {
-			return SafeInteger{invalidSafeInt}
-		}
 		return SafeInteger{int64(i)}
 	case uint64:
 		if i > math.MaxInt64 {
@@ -127,7 +120,7 @@ func (si SafeInteger) Uint() (uint, bool) {
 	if !ok {
 		return 0, false
 	}
-	if i64 < 0 || math.MaxUint < uint(i64) {
+	if i64 < 0 || math.MaxUint < uint64(i64) {
 		return 0, false
 	}
 	return uint(i64), true
@@ -149,7 +142,7 @@ func (i SafeInteger) Uint16() (uint16, bool) {
 	if !ok {
 		return 0, false
 	}
-	if i64 < 0 || i64 > math.MaxUint16 {
+	if i64 < 0 || math.MaxUint16 < i64 {
 		return 0, false
 	}
 	return uint16(i64), true
