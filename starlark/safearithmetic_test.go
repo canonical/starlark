@@ -8,7 +8,7 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
-func TestSafeAdd(t *testing.T) {
+func TestOldSafeAdd(t *testing.T) {
 	tests := []struct {
 		name         string
 		a, b, expect int
@@ -60,14 +60,14 @@ func TestSafeAdd(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%d + %d", test.a, test.b), func(t *testing.T) {
-			if actual := starlark.SafeAdd(test.a, test.b); actual != test.expect {
+			if actual := starlark.OldSafeAdd(test.a, test.b); actual != test.expect {
 				t.Errorf("incorrect result: expected %d but got %d", test.expect, actual)
 			}
 		})
 	}
 }
 
-func TestSafeAdd64(t *testing.T) {
+func TestOldSafeAdd64(t *testing.T) {
 	tests := []struct {
 		name         string
 		a, b, expect int64
@@ -119,14 +119,14 @@ func TestSafeAdd64(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%d + %d", test.a, test.b), func(t *testing.T) {
-			if actual := starlark.SafeAdd64(test.a, test.b); actual != test.expect {
+			if actual := starlark.OldSafeAdd64(test.a, test.b); actual != test.expect {
 				t.Errorf("incorrect result: expected %d but got %d", test.expect, actual)
 			}
 		})
 	}
 }
 
-func TestSafeMul(t *testing.T) {
+func TestOldSafeMul(t *testing.T) {
 	// This value has been identified by klee to be representative of many codepaths.
 	var limitIdentityOrNegator int
 	const intSize = 32 << (^uint(0) >> 63) // 32 or 64
@@ -195,14 +195,14 @@ func TestSafeMul(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if actual := starlark.SafeMul(test.a, test.b); actual != test.expect {
+			if actual := starlark.OldSafeMul(test.a, test.b); actual != test.expect {
 				t.Errorf("incorrect result: expected %d but got %d", test.expect, actual)
 			}
 		})
 	}
 }
 
-func TestSafeMul64(t *testing.T) {
+func TestOldSafeMul64(t *testing.T) {
 	const limitIdentityOrNegator = -1 // TODO(kcza): get the magic constant.
 	tests := []struct {
 		name         string
@@ -260,7 +260,7 @@ func TestSafeMul64(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%d + %d", test.a, test.b), func(t *testing.T) {
-			if actual := starlark.SafeMul64(test.a, test.b); actual != test.expect {
+			if actual := starlark.OldSafeMul64(test.a, test.b); actual != test.expect {
 				t.Errorf("incorrect result: expected %d but got %d", test.expect, actual)
 			}
 		})

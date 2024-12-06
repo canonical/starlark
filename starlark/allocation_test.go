@@ -64,7 +64,7 @@ func TestAllocDeclAndCheckBoundary(t *testing.T) {
 
 	if err := thread.CheckAllocs(allocCap); err != nil {
 		t.Errorf("unexpected error: %v", err)
-	} else if err := thread.CheckAllocs(starlark.SafeAdd64(allocCap, 1)); err == nil {
+	} else if err := thread.CheckAllocs(starlark.OldSafeAdd64(allocCap, 1)); err == nil {
 		t.Errorf("expected error checking too-many allocations")
 	}
 
@@ -72,7 +72,7 @@ func TestAllocDeclAndCheckBoundary(t *testing.T) {
 		t.Errorf("could not allocate entire quota: %v", err)
 	} else {
 		thread.AddAllocs(-allocCap)
-		if err := thread.AddAllocs(starlark.SafeAdd64(allocCap, 1)); err == nil {
+		if err := thread.AddAllocs(starlark.OldSafeAdd64(allocCap, 1)); err == nil {
 			t.Errorf("expected error when exceeding quota")
 		}
 	}

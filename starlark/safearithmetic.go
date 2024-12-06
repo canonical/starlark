@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-func SafeAdd(a, b int) int {
+func OldSafeAdd(a, b int) int {
 	if a == math.MinInt || a == math.MaxInt {
 		return a
 	}
@@ -23,7 +23,7 @@ func SafeAdd(a, b int) int {
 	return math.MinInt
 }
 
-func SafeAdd64(a, b int64) int64 {
+func OldSafeAdd64(a, b int64) int64 {
 	if a == math.MinInt64 || a == math.MaxInt64 {
 		return a
 	}
@@ -42,7 +42,7 @@ func SafeAdd64(a, b int64) int64 {
 	return math.MinInt64
 }
 
-func SafeMul(a, b int) int {
+func OldSafeMul(a, b int) int {
 	if a == 0 || b == 0 {
 		return 0
 	}
@@ -60,7 +60,7 @@ func SafeMul(a, b int) int {
 	return math.MinInt
 }
 
-func SafeMul64(a, b int64) int64 {
+func OldSafeMul64(a, b int64) int64 {
 	if a == 0 || b == 0 {
 		return 0
 	}

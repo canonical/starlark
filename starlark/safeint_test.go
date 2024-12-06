@@ -495,3 +495,28 @@ func TestInvalidSafeIntConversions(t *testing.T) {
 		})
 	}
 }
+
+func TestSafeNeg(t *testing.T) {
+	// TODO(kcza): implement this.
+	t.Skip()
+}
+
+func TestSafeAdd(t *testing.T) {
+	// TODO(kcza): implement this.
+	t.Skip()
+}
+
+func TestSafeSub(t *testing.T) {
+	// TODO(kcza): implement this.
+	t.Skip()
+}
+
+func TestSafeMul(t *testing.T) {
+	// TODO(kcza): implement this.
+	t.Skip()
+}
+
+func TestSafeDiv(t *testing.T) {
+	// TODO(kcza): implement this.
+	t.Skip()
+}
