@@ -216,8 +216,3 @@ func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 func (si SafeInteger) invalid() bool {
 	return si.value == invalidSafeInt
 }
-
-//go:inline
-func sameSign64(a, b int64) bool {
-	return a^b >= 0
-}

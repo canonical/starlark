@@ -82,3 +82,8 @@ func OldSafeMul64(a, b int64) int64 {
 func sameSign(a, b int) bool {
 	return a^b >= 0
 }
+
+//go:inline
+func sameSign64(a, b int64) bool {
+	return a^b >= 0
+}
