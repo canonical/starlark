@@ -170,6 +170,10 @@ func (si SafeInteger) Uint64() (uint64, bool) {
 	return uint64(i64), true
 }
 
+func (si SafeInteger) Valid() bool {
+	return si.value != invalidSafeInt
+}
+
 func SafeNeg[I Integer | SafeInteger](i I) SafeInteger {
 	si := SafeInt(i)
 	// Note: as invalidSafeInt == math.MinInt64 and as -math.MinInt64 ==

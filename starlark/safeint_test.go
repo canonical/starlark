@@ -496,6 +496,17 @@ func TestInvalidSafeIntConversions(t *testing.T) {
 	}
 }
 
+func TestSafeIntValid(t *testing.T) {
+	validSafeInt := starlark.SafeInt(10)
+	if !validSafeInt.Valid() {
+		t.Error("valid SafeInteger reported as invalid")
+	}
+
+	if starlark.InvalidSafeInt.Valid() {
+		t.Error("invalid SafeInteger reported as valid")
+	}
+}
+
 func TestSafeNeg(t *testing.T) {
 	tests := []struct {
 		name     string
