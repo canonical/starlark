@@ -497,8 +497,39 @@ func TestInvalidSafeIntConversions(t *testing.T) {
 }
 
 func TestSafeNeg(t *testing.T) {
-	// TODO(kcza): implement this.
-	t.Skip()
+	tests := []struct {
+		name     string
+		input    any
+		expected starlark.SafeInteger
+	}{{
+		name:     "zero",
+		input:    0,
+		expected: starlark.SafeInt(0),
+	}, {
+		name:     "valid-non-zero",
+		input:    100,
+		expected: starlark.SafeInt(-100),
+	}, {
+		name:     "invalid",
+		input:    starlark.InvalidSafeInt,
+		expected: starlark.InvalidSafeInt,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var negated starlark.SafeInteger
+			switch input := test.input.(type) {
+			case int:
+				negated = starlark.SafeNeg(input)
+			case starlark.SafeInteger:
+				negated = starlark.SafeNeg(input)
+			default:
+				panic("unreachable")
+			}
+			if !reflect.DeepEqual(negated, test.expected) {
+				t.Errorf("incorrect value: expected %v but got %v", test.expected, negated)
+			}
+		})
+	}
 }
 
 func TestSafeAdd(t *testing.T) {
