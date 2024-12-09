@@ -572,16 +572,16 @@ func TestSafeDiv(t *testing.T) {
 		quotient: starlark.SafeDiv(1000, -100),
 		expected: starlark.SafeInt(-10),
 	}, {
-		name:     "divide-by-zero",
-		quotient: starlark.SafeDiv(1000, 0),
-		expected: starlark.InvalidSafeInt,
-	}, {
 		name:     "invalid-first",
 		quotient: starlark.SafeDiv(starlark.InvalidSafeInt, 100),
 		expected: starlark.InvalidSafeInt,
 	}, {
 		name:     "invalid-second",
 		quotient: starlark.SafeDiv(1000, starlark.InvalidSafeInt),
+		expected: starlark.InvalidSafeInt,
+	}, {
+		name:     "divide-by-zero",
+		quotient: starlark.SafeDiv(1000, 0),
 		expected: starlark.InvalidSafeInt,
 	}}
 	for _, test := range tests {
