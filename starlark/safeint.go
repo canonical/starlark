@@ -197,8 +197,8 @@ func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 		return SafeInteger{invalidSafeInt}
 	}
 
-	if sb.value == 0 {
-		return SafeInteger{invalidSafeInt}
+	if sa.value == 0 {
+		return SafeInteger{0}
 	}
 	if ab := sa.value * sb.value; ab/sa.value == sb.value {
 		// No overflow occurred.
