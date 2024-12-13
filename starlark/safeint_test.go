@@ -550,8 +550,8 @@ func TestSafeAdd(t *testing.T) {
 		expected starlark.SafeInteger
 	}{{
 		name:     "valid",
-		sum:      starlark.SafeAdd(100, 100),
-		expected: starlark.SafeInt(200),
+		sum:      starlark.SafeAdd(100, -200),
+		expected: starlark.SafeInt(-100),
 	}, {
 		name:     "invalid-first",
 		sum:      starlark.SafeAdd(starlark.InvalidSafeInt, 100),
