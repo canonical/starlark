@@ -189,6 +189,8 @@ func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 
 	ret := sa.value + sb.value
 	if sameSign64(sa.value, sb.value) && !sameSign64(ret, sa.value) {
+		// An overflow can only occur if the two operands have the same sign
+		// and a magnitude greater than zero.
 		return SafeInteger{invalidSafeInt}
 	}
 	return SafeInteger{ret}
