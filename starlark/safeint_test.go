@@ -563,6 +563,10 @@ func TestSafeMul(t *testing.T) {
 		product:  starlark.SafeMul(100, 100),
 		expected: starlark.SafeInt(10000),
 	}, {
+		name:     "by-zero",
+		product:  starlark.SafeMul(100, 0),
+		expected: starlark.InvalidSafeInt,
+	}, {
 		name:     "invalid-first",
 		product:  starlark.SafeMul(starlark.InvalidSafeInt, 100),
 		expected: starlark.InvalidSafeInt,
