@@ -134,7 +134,7 @@ func (st *ST) AddValue(name string, value starlark.Value) {
 func (st *ST) AddBuiltin(fn starlark.Value) {
 	builtin, ok := fn.(*starlark.Builtin)
 	if !ok {
-		st.Errorf("AddBuiltin expected a builtin: got %v", fn)
+		st.Errorf("AddBuiltin expected a builtin: got %T", fn)
 		return
 	}
 
