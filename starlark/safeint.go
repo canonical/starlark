@@ -196,15 +196,12 @@ func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	if !sa.Valid() || !sb.Valid() {
 		return SafeInteger{invalidSafeInt}
 	}
-	return SafeInteger{safeMul(sa.value, sb.value)}
-}
 
-func safeMul(a, b int64) int64 {
-	if ab := a * b; ab/a == b {
+	if ab := sa.value * sb.value; ab/sa.value == sb.value {
 		// No overflow occurred.
-		return ab
+		return SafeInteger{ab}
 	}
-	return invalidSafeInt
+	return SafeInteger{invalidSafeInt}
 }
 
 func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
