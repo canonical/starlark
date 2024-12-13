@@ -197,6 +197,13 @@ func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 }
 
 func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
-	// TODO(kcza): implement this
-	panic("unimplemented")
+	sa, sb := SafeInt(a), SafeInt(b)
+	if !sa.Valid() || !sb.Valid() {
+		return SafeInteger{invalidSafeInt}
+	}
+
+	if sb.value == 0 {
+		return SafeInteger{invalidSafeInt}
+	}
+	return SafeInteger{sa.value / sb.value}
 }
