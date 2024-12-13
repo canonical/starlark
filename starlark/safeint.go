@@ -201,12 +201,9 @@ func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	if !sa.Valid() || !sb.Valid() {
 		return SafeInteger{invalidSafeInt}
 	}
-	return SafeInteger{safeDiv(sa.value, sb.value)}
-}
 
-func safeDiv(a, b int64) int64 {
-	if b == 0 {
-		return invalidSafeInt
+	if sb.value == 0 {
+		return SafeInteger{invalidSafeInt}
 	}
-	return a / b
+	return SafeInteger{sa.value / sb.value}
 }
