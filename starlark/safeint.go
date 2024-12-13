@@ -186,6 +186,7 @@ func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	if !sa.Valid() || !sb.Valid() {
 		return SafeInteger{invalidSafeInt}
 	}
+
 	ret := sa.value + sb.value
 	if sameSign64(sa.value, sb.value) && !sameSign64(ret, sa.value) {
 		return SafeInteger{invalidSafeInt}
