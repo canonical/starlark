@@ -186,11 +186,11 @@ func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	if sa.invalid() || sb.invalid() {
 		return SafeInteger{invalidSafeInt}
 	}
-	if ret := sa.value + sb.value; !sameSign64(sa.value, sb.value) || sameSign64(ret, sa.value) {
-		// no overflow possible
-		return SafeInteger{ret}
+	ret := sa.value + sb.value
+	if sameSign64(sa.value, sb.value) && !sameSign64(ret, sa.value) {
+		return SafeInteger{invalidSafeInt}
 	}
-	return SafeInteger{invalidSafeInt}
+	return SafeInteger{ret}
 }
 
 func SafeSub[A, B Integer | SafeInteger](a A, b B) SafeInteger {
