@@ -183,7 +183,7 @@ func SafeNeg[I Integer | SafeInteger](i I) SafeInteger {
 
 func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	sa, sb := SafeInt(a), SafeInt(b)
-	if sa.invalid() || sb.invalid() {
+	if !sa.Valid() || !sb.Valid() {
 		return SafeInteger{invalidSafeInt}
 	}
 	ret := sa.value + sb.value
@@ -206,9 +206,4 @@ func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	// TODO(kcza): implement this
 	panic("unimplemented")
-}
-
-//go:inline
-func (si SafeInteger) invalid() bool {
-	return si.value == invalidSafeInt
 }
