@@ -584,8 +584,46 @@ func TestSafeSub(t *testing.T) {
 }
 
 func TestSafeMul(t *testing.T) {
-	// TODO(kcza): implement this.
-	t.Skip()
+	tests := []struct {
+		name     string
+		product  starlark.SafeInteger
+		expected starlark.SafeInteger
+	}{{
+		name:     "valid",
+		product:  starlark.SafeMul(100, 100),
+		expected: starlark.SafeInt(10000),
+	}, {
+		name:     "by-zero-first",
+		product:  starlark.SafeMul(100, 0),
+		expected: starlark.SafeInt(0),
+	}, {
+		name:     "by-zero-second",
+		product:  starlark.SafeMul(0, 100),
+		expected: starlark.SafeInt(0),
+	}, {
+		name:     "invalid-first",
+		product:  starlark.SafeMul(starlark.InvalidSafeInt, 100),
+		expected: starlark.InvalidSafeInt,
+	}, {
+		name:     "invalid-second",
+		product:  starlark.SafeMul(100, starlark.InvalidSafeInt),
+		expected: starlark.InvalidSafeInt,
+	}, {
+		name:     "overflow",
+		product:  starlark.SafeMul(math.MaxInt64/2, 4),
+		expected: starlark.InvalidSafeInt,
+	}, {
+		name:     "underflow",
+		product:  starlark.SafeMul(math.MinInt64/2, 4),
+		expected: starlark.InvalidSafeInt,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.product != test.expected {
+				t.Errorf("incorrect sum: expected %v but got %v", test.expected, test.product)
+			}
+		})
+	}
 }
 
 func TestSafeDiv(t *testing.T) {
