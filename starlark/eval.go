@@ -63,8 +63,9 @@ type Thread struct {
 	// computing the difference in its value before and after a computation.
 	//
 	// The precise meaning of "step" is not specified and may change.
-	steps, maxSteps int64
-	stepsLock       sync.Mutex
+	steps     SafeInteger
+	maxSteps  int64
+	stepsLock sync.Mutex
 
 	// allocs counts the abstract memory units claimed by this resource pool
 	allocs, maxAllocs int64
@@ -176,11 +177,11 @@ func (thread *Thread) Context() context.Context {
 }
 
 // Steps returns the current value of Steps.
-func (thread *Thread) Steps() int64 {
+func (thread *Thread) Steps() (int64, bool) {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
-	return thread.steps
+	return thread.steps.Int64()
 }
 
 // SetMaxSteps sets a limit on the number of Starlark computation steps that
@@ -226,24 +227,26 @@ func (thread *Thread) AddSteps(deltas ...int64) error {
 // simulateSteps simulates a call to AddSteps returning the
 // new total step-count and any error this would entail. No change is
 // recorded.
-func (thread *Thread) simulateSteps(deltas ...int64) (int64, error) {
+func (thread *Thread) simulateSteps(deltas ...int64) (SafeInteger, error) {
 	if err := thread.cancelled(); err != nil {
 		return thread.steps, err
 	}
 
 	nextSteps := thread.steps
 	for _, delta := range deltas {
-		nextSteps = OldSafeAdd64(nextSteps, delta)
+		nextSteps = SafeAdd(nextSteps, delta)
 
-		if thread.maxSteps > 0 && nextSteps > thread.maxSteps {
+		nextSteps64, ok := nextSteps.Int64()
+		if ok && thread.maxSteps > 0 && nextSteps64 > thread.maxSteps {
 			return nextSteps, &StepsSafetyError{
 				Current: thread.steps,
 				Max:     thread.maxSteps,
 			}
 		}
 	}
-	if nextSteps < 0 {
-		return 0, nil
+	if nextSteps64, ok := nextSteps.Int64(); ok && nextSteps64 < 0 {
+		// TODO(kcza): return invalid int.
+		return SafeInteger{0}, nil
 	}
 	return nextSteps, nil
 }
@@ -2704,7 +2707,8 @@ func (e *AllocsSafetyError) Is(err error) bool {
 }
 
 type StepsSafetyError struct {
-	Current, Max int64
+	Current SafeInteger
+	Max     int64
 }
 
 func (e *StepsSafetyError) Error() string {

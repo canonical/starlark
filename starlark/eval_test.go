@@ -962,9 +962,16 @@ func TestSteps(t *testing.T) {
 	thread := new(starlark.Thread)
 	countSteps := func(n int) (int64, error) {
 		predeclared := starlark.StringDict{"n": starlark.MakeInt(n)}
-		steps0 := thread.Steps()
+		steps0, ok := thread.Steps()
+		if !ok {
+			t.Fatal("step count invalidated")
+		}
 		_, err := starlark.ExecFile(thread, "steps.star", `squares = [x*x for x in range(n)]`, predeclared)
-		return thread.Steps() - steps0, err
+		steps1, ok := thread.Steps()
+		if !ok {
+			t.Fatal("step count invalidated")
+		}
+		return steps1 - steps0, err
 	}
 	steps100, err := countSteps(1000)
 	if err != nil {
@@ -1421,42 +1428,48 @@ func TestOverflowingPositiveDeltaStep(t *testing.T) {
 	if err := thread.AddSteps(maxNonInfiniteSteps, -maxNonInfiniteSteps, maxNonInfiniteSteps, -maxNonInfiniteSteps, 10); err != nil {
 		t.Errorf("unexpected error when declaring steps increase: %v", err)
 	}
-	if steps := thread.Steps(); steps != 10 {
+	if steps, ok := thread.Steps(); !ok {
+		t.Fatal("step count invalidated")
+	} else if steps != 10 {
 		t.Errorf("incorrect steps stored: expected %d but got %d", 10, steps)
 	}
 	if err := thread.AddSteps(math.MinInt64 + 1); err != nil {
 		t.Errorf("unexpected error when declaring steps decrease: %v", err)
 	}
-	if steps := thread.Steps(); steps != 0 {
+	if steps, ok := thread.Steps(); !ok {
+		t.Fatal("step count invalidated")
+	} else if steps != 0 {
 		t.Errorf("incorrect steps stored: expected %d but got %d", 0, steps)
 	}
 
 	// Increase so that the next steps will cause an overflow
 	if err := thread.AddSteps(maxNonInfiniteSteps); err != nil {
 		t.Errorf("unexpected error when declaring steps increase: %v", err)
-	} else if steps := thread.Steps(); steps != math.MaxInt64-1 {
+	} else if steps, ok := thread.Steps(); !ok {
+		t.Fatal("step count invalidated")
+	} else if steps != math.MaxInt64-1 {
 		t.Errorf("incorrect steps stored: expected %d but got %d", int64(math.MaxInt64-1), steps)
 	}
 
 	// Check overflow detected
 	if err := thread.AddSteps(2); err != nil {
 		t.Errorf("unexpected error when overflowing steps: %v", err)
-	} else if steps := thread.Steps(); steps != math.MaxInt64 {
-		t.Errorf("incorrect steps stored: expected %d but got %d", int64(math.MaxInt64), steps)
+	} else if _, ok := thread.Steps(); ok {
+		t.Error("step count unexpectedly valid")
 	}
 
 	// Check repeated overflow
 	if err := thread.AddSteps(100); err != nil {
 		t.Errorf("unexpected error when repeatedly overflowing steps: %v", err)
-	} else if steps := thread.Steps(); steps != math.MaxInt64 {
-		t.Errorf("incorrect steps stored: expected %d but got %d", uint64(math.MaxUint64), steps)
+	} else if _, ok := thread.Steps(); ok {
+		t.Error("step count unexpectedly valid")
 	}
 
 	// Check overflow is sticky
 	if err := thread.AddSteps(math.MinInt64, math.MinInt64); err != nil {
 		t.Errorf("unexpected error when repeatedly overflowing steps: %v", err)
-	} else if steps := thread.Steps(); steps != math.MaxInt64 {
-		t.Errorf("incorrect steps stored: expected %d but got %d", uint64(math.MaxUint64), steps)
+	} else if _, ok := thread.Steps(); ok {
+		t.Fatal("step count invalidated")
 	}
 }
 
@@ -1473,14 +1486,14 @@ func TestDefaultStepMaxIsUnbounded(t *testing.T) {
 	if err := thread.AddSteps(math.MaxInt64, math.MaxInt64, math.MaxInt64); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if thread.Steps() != math.MaxInt64 {
-		t.Errorf("wrong step count: expected %v got %v", uint64(math.MaxUint64), thread.Allocs())
+	if _, ok := thread.Steps(); ok {
+		t.Error("step count unexpectedly valid")
 	}
 	if err := thread.AddSteps(math.MinInt64); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if thread.Steps() != math.MaxInt64 {
-		t.Errorf("wrong step count: expected %v got %v", uint64(math.MaxUint64), thread.Allocs())
+	if _, ok := thread.Steps(); ok {
+		t.Error("step count unexpectedly valid")
 	}
 }
 
@@ -1543,7 +1556,9 @@ func TestAddStepsOk(t *testing.T) {
 
 	if err := thread.AddSteps(expectedDelta); err != nil {
 		t.Errorf("unexpected error: %v", err)
-	} else if actualDelta := thread.Steps(); actualDelta != expectedDelta {
+	} else if actualDelta, ok := thread.Steps(); !ok {
+		t.Fatal("step count invalidated")
+	} else if actualDelta != expectedDelta {
 		t.Errorf("incorrect number of steps added: expected %d but got %d", expectedDelta, actualDelta)
 	}
 
@@ -1564,7 +1579,9 @@ func TestAddStepsFail(t *testing.T) {
 		t.Errorf("expected error")
 	} else if err.Error() != "too many steps" {
 		t.Errorf("unexpected error: %v", err)
-	} else if steps := thread.Steps(); steps != expectedSteps {
+	} else if steps, ok := thread.Steps(); !ok {
+		t.Fatal("step count invalidated")
+	} else if steps != expectedSteps {
 		t.Errorf("incorrect number of steps recorded: expected %v but got %v", expectedSteps, steps)
 	}
 
@@ -1578,7 +1595,9 @@ func TestAddStepsFail(t *testing.T) {
 		t.Errorf("expected error")
 	} else if !errors.Is(err, starlark.ErrSafety) {
 		t.Errorf("unexpected error: %v", err)
-	} else if steps := thread.Steps(); steps != expectedSteps {
+	} else if steps, ok := thread.Steps(); !ok {
+		t.Fatal("step count invalidated")
+	} else if steps != expectedSteps {
 		t.Errorf("incorrect number of steps recorded: expected %v but got %v", expectedSteps, steps)
 	}
 }
@@ -1607,7 +1626,9 @@ func TestConcurrentAddStepsUsage(t *testing.T) {
 
 	wg.Wait()
 
-	if steps := thread.Steps(); steps != expectedSteps {
+	if steps, ok := thread.Steps(); !ok {
+		t.Fatal("step count invalidated")
+	} else if steps != expectedSteps {
 		t.Errorf("concurrent thread.AddSteps contains a race, expected %d steps recorded but got %d", expectedSteps, steps)
 	}
 }

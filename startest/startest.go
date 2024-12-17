@@ -240,7 +240,12 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	mean := func(x int64) int64 { return (x + stats.nSum/2) / stats.nSum }
 	meanMeasuredAllocs := mean(stats.allocSum)
 	meanDeclaredAllocs := mean(thread.Allocs())
-	meanSteps := mean(thread.Steps())
+	steps64, ok := thread.Steps()
+	if !ok {
+		st.Error("step counter invalidated")
+		return
+	}
+	meanSteps := mean(steps64)
 
 	if st.maxAllocs != math.MaxInt64 && st.maxAllocs >= 0 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
