@@ -2776,11 +2776,15 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		}
 		return b
 	}
-	maxResultSize := int64((len(recv) + 1) * len(new) / max(len(old), 1))
+	maxResultSize := SafeDiv(SafeMul(len(recv)+1, len(new)), max(len(old), 1))
 	if err := thread.CheckSteps(maxResultSize); err != nil {
 		return nil, err
 	}
-	if err := thread.CheckAllocs(maxResultSize); err != nil {
+	maxResultSize64, ok := maxResultSize.Int64()
+	if !ok {
+		return nil, errors.New("max result size invalidated")
+	}
+	if err := thread.CheckAllocs(maxResultSize64); err != nil {
 		return nil, err
 	}
 	replaced := strings.Replace(recv, old, new, count)
@@ -2863,7 +2867,7 @@ func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
-	if err := thread.CheckSteps(int64(len(recv))); err != nil {
+	if err := thread.CheckSteps(SafeInt(len(recv))); err != nil {
 		return nil, err
 	}
 	var s string
@@ -3348,7 +3352,7 @@ func string_find_impl(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple, al
 		slice = s[start:end]
 	}
 
-	if err := thread.CheckSteps(int64(len(slice))); err != nil {
+	if err := thread.CheckSteps(SafeInt(len(slice))); err != nil {
 		return nil, err
 	}
 

@@ -10,6 +10,7 @@ package json // import "github.com/canonical/starlark/lib/json"
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -384,7 +385,8 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	n := int64(strings.Count(str, "[") + strings.Count(str, "{"))
 	// Taking into account tabs and newlines and working out the algebra, the
 	// worst case can be compacted in the quadratic formula:
-	worstCase := n*n + 2*n - 1
+	// n^2 + 2n - 1 = (n - 1)(n - 1) + 2n
+	worstCase := starlark.SafeAdd(starlark.SafeMul(n-1, n-1), starlark.SafeMul(2, n))
 
 	// This worst case makes this function most likely unusable in the context
 	// of a script, but there are only two other approaches to tackle this part:
@@ -395,10 +397,14 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	// The second approach has the potential of actually reduce the
 	// transient allocation and speed up the execution, but it's probably
 	// not worth it for a "pretty print" function.
-	if err := thread.CheckSteps(int64(worstCase)); err != nil {
+	if err := thread.CheckSteps(worstCase); err != nil {
 		return nil, err
 	}
-	if err := thread.CheckAllocs(int64(len(str)) + worstCase*2); err != nil {
+	worstCaseBound64, ok := starlark.SafeMul(2, worstCase).Int64()
+	if !ok {
+		return nil, errors.New("worst case bound invalidated")
+	}
+	if err := thread.CheckAllocs(int64(len(str)) + worstCaseBound64); err != nil {
 		return nil, err
 	}
 	if err := json.Indent(buf, []byte(str), prefix, indent); err != nil {
@@ -426,7 +432,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	}
 
 	// Avoid hanging on inputs containing many padding characters.
-	if err := thread.CheckSteps(int64(len(s) / 64)); err != nil {
+	if err := thread.CheckSteps(starlark.SafeDiv(len(s), 64)); err != nil {
 		return nil, err
 	}
 
