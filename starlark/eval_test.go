@@ -1422,7 +1422,7 @@ func TestOverflowingPositiveDeltaStep(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxSteps(0)
 
-	const maxNonInfiniteSteps = math.MaxInt64 - 1
+	const maxNonInfiniteSteps = math.MaxInt64
 
 	// One-line addition is fine on overflow if the result is not overflowing
 	if err := thread.AddSteps(maxNonInfiniteSteps, -maxNonInfiniteSteps, maxNonInfiniteSteps, -maxNonInfiniteSteps, 10); err != nil {
@@ -1433,7 +1433,7 @@ func TestOverflowingPositiveDeltaStep(t *testing.T) {
 	} else if steps != 10 {
 		t.Errorf("incorrect steps stored: expected %d but got %d", 10, steps)
 	}
-	if err := thread.AddSteps(math.MinInt64 + 1); err != nil {
+	if err := thread.AddSteps(-10); err != nil {
 		t.Errorf("unexpected error when declaring steps decrease: %v", err)
 	}
 	if steps, ok := thread.Steps(); !ok {
@@ -1447,12 +1447,12 @@ func TestOverflowingPositiveDeltaStep(t *testing.T) {
 		t.Errorf("unexpected error when declaring steps increase: %v", err)
 	} else if steps, ok := thread.Steps(); !ok {
 		t.Fatal("step count invalidated")
-	} else if steps != math.MaxInt64-1 {
+	} else if steps != maxNonInfiniteSteps {
 		t.Errorf("incorrect steps stored: expected %d but got %d", int64(math.MaxInt64-1), steps)
 	}
 
 	// Check overflow detected
-	if err := thread.AddSteps(2); err != nil {
+	if err := thread.AddSteps(1); err != nil {
 		t.Errorf("unexpected error when overflowing steps: %v", err)
 	} else if _, ok := thread.Steps(); ok {
 		t.Error("step count unexpectedly valid")

@@ -245,8 +245,7 @@ func (thread *Thread) simulateSteps(deltas ...int64) (SafeInteger, error) {
 		}
 	}
 	if nextSteps64, ok := nextSteps.Int64(); ok && nextSteps64 < 0 {
-		// TODO(kcza): return invalid int.
-		return SafeInteger{0}, nil
+		return SafeInteger{invalidSafeInt}, errors.New("step count invalidated")
 	}
 	return nextSteps, nil
 }
