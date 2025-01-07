@@ -147,7 +147,7 @@ func parseTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple
 	if formatLen := len(format); formatLen < stepDelta {
 		stepDelta = formatLen
 	}
-	if err := thread.AddSteps(int64(stepDelta)); err != nil {
+	if err := thread.AddSteps(starlark.SafeInt(stepDelta)); err != nil {
 		return nil, err
 	}
 
@@ -419,7 +419,7 @@ func (sdu *SafeDurationUnpacker) Unpack(v starlark.Value) error {
 		return nil
 	case starlark.String:
 		if sdu.thread != nil {
-			if err := sdu.thread.AddSteps(int64(len(string(x)))); err != nil {
+			if err := sdu.thread.AddSteps(starlark.SafeInt(len(string(x)))); err != nil {
 				return err
 			}
 		}
@@ -638,7 +638,7 @@ func timeFormat(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tupl
 		return nil, err
 	}
 
-	if err := thread.AddSteps(int64(len(x))); err != nil {
+	if err := thread.AddSteps(starlark.SafeInt(len(x))); err != nil {
 		return nil, err
 	}
 	if err := thread.CheckAllocs(int64(len(x))); err != nil {

@@ -424,7 +424,7 @@ func (tsf *testSetField) SafeSetField(thread *starlark.Thread, name string, val 
 		if err := thread.AddAllocs(tsf.allocs); err != nil {
 			return err
 		}
-		if err := thread.AddSteps(tsf.steps); err != nil {
+		if err := thread.AddSteps(starlark.SafeInt(tsf.steps)); err != nil {
 			return err
 		}
 	}

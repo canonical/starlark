@@ -129,7 +129,8 @@ loop:
 			compile.PrintOp(f, fr.pc, op, arg)
 		}
 
-		if cost := instuctionSteps(op, arg); cost > 0 {
+		cost := instuctionSteps(op, arg)
+		if cost64, ok := cost.Int64(); ok || cost64 > 0 {
 			if err = thread.AddSteps(cost); err != nil {
 				break loop
 			}
@@ -756,13 +757,13 @@ loop:
 	return result, err
 }
 
-func instuctionSteps(op compile.Opcode, arg uint32) int64 {
+func instuctionSteps(op compile.Opcode, arg uint32) SafeInteger {
 	switch op {
 	case compile.NOP, compile.DUP, compile.DUP2, compile.POP, compile.EXCH:
 		// Ignore stack management ops as these are setup for other instructions.
-		return 0
+		return SafeInteger{0}
 	default:
-		return 1
+		return SafeInteger{1}
 	}
 }
 
