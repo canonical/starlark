@@ -361,7 +361,9 @@ func TestSafeUnary(t *testing.T) {
 						}
 						_, err = starlark.SafeUnary(thread, test.op, input)
 						if err == nil {
-							if thread.Steps() > 0 {
+							if steps, ok := thread.Steps(); !ok {
+								t.Fatal("step count invalidated")
+							} else if steps > 0 {
 								st.Error("expected cancellation")
 							}
 						} else if !isStarlarkCancellation(err) {

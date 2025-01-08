@@ -240,7 +240,12 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 	mean := func(x int64) int64 { return (x + stats.nSum/2) / stats.nSum }
 	meanMeasuredAllocs := mean(stats.allocSum)
 	meanDeclaredAllocs := mean(thread.Allocs())
-	meanSteps := mean(thread.Steps())
+	steps64, ok := thread.Steps()
+	if !ok {
+		st.Error("step counter invalidated")
+		return
+	}
+	meanSteps := mean(steps64)
 
 	if st.maxAllocs != math.MaxInt64 && st.maxAllocs >= 0 && meanMeasuredAllocs > st.maxAllocs {
 		st.Errorf("measured memory is above maximum (%d > %d)", meanMeasuredAllocs, st.maxAllocs)
@@ -536,33 +541,53 @@ func (it *ntimes_iterable) Iterate() starlark.Iterator {
 }
 
 type ntimes_iterator struct {
-	n      int
-	thread *starlark.Thread
-	err    error
+	n             int
+	thread        *starlark.Thread
+	err           error
+	stepsToRemove starlark.SafeInteger
 }
 
 var _ starlark.SafeIterator = &ntimes_iterator{}
 
 func (it *ntimes_iterator) Safety() starlark.SafetyFlags       { return stSafe }
 func (it *ntimes_iterator) BindThread(thread *starlark.Thread) { it.thread = thread }
-func (it *ntimes_iterator) Done()                              {}
 func (it *ntimes_iterator) Err() error                         { return it.err }
+
 func (it *ntimes_iterator) Next(p *starlark.Value) bool {
 	if it.n > 0 {
-		if it.thread != nil {
-			// Counted loop iteration steps comprise:
-			// - 1 for the ITERJMP;
-			// - 1 for guardedIterator's Next;
-			// - 1 for the SET{LOCAL,GLOBAL} to record the result;
-			// - 1 for the JMP back to the loop's ITERJMP.
-			if err := it.thread.AddSteps(-4); err != nil {
-				it.err = err
-				return false
-			}
-		}
+		// Counted loop iteration steps comprise:
+		// - 1 for the ITERJMP;
+		// - 1 for guardedIterator's Next;
+		// - 1 for the SET{LOCAL,GLOBAL} to record the result;
+		// - 1 for the JMP back to the loop's ITERJMP.
+		it.stepsToRemove = starlark.SafeAdd(it.stepsToRemove, 4)
+
 		it.n--
 		*p = starlark.None
 		return true
 	}
 	return false
+}
+
+func (it *ntimes_iterator) Done() {
+	if it.thread == nil {
+		return
+	}
+
+	stepsToRemove64, ok := starlark.SafeNeg(it.stepsToRemove).Int64()
+	if !ok && it.err == nil {
+		it.err = errors.New("steps-to-remove count invalidated")
+	}
+	err := it.thread.AddSteps(stepsToRemove64)
+	if err != nil && it.err == nil {
+		it.err = err
+	}
+}
+
+func (it *ntimes_iterator) removeIterationSteps() (ok bool) {
+	if err := it.thread.AddSteps(-4); err != nil {
+		it.err = err
+		return false
+	}
+	return true
 }
