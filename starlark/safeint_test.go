@@ -31,7 +31,7 @@ func TestSafeIntString(t *testing.T) {
 	}
 }
 
-type safeIntRoundtripTest[I starlark.Integer] struct {
+type safeIntRoundtripTest[I starlark.Integer | starlark.Floating] struct {
 	name       string
 	value      I
 	converter  func(starlark.SafeInteger) (I, bool)
@@ -42,11 +42,11 @@ func (test *safeIntRoundtripTest[_]) Run(t *testing.T) {
 	t.Run(test.name, func(t *testing.T) {
 		value, ok := test.converter(starlark.SafeInt(test.value))
 		if test.shouldFail && ok {
-			t.Errorf("expected failure, got %d", value)
+			t.Errorf("expected failure, got %v", value)
 		} else if !test.shouldFail && !ok {
 			t.Errorf("expected success, got failure")
 		} else if !test.shouldFail && value != test.value {
-			t.Errorf("unexpected value: want %d, got %d", test.value, value)
+			t.Errorf("unexpected value: want %v, got %v", test.value, value)
 		}
 	})
 }
@@ -281,6 +281,165 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			test.Run(t)
 		}
 	})
+
+	t.Run("float32", func(t *testing.T) {
+		const (
+			qNaN = 0x7FF80001
+			sNaN = 0x7ff00001
+		)
+
+		asFloat := func(si starlark.SafeInteger) (float32, bool) {
+			if i, ok := si.Int64(); ok {
+				return float32(i), ok
+			}
+			return 0, false
+		}
+		tests := []safeIntRoundtripTest[float32]{{
+			name:      "positive",
+			value:     100,
+			converter: asFloat,
+		}, {
+			name:      "negative",
+			value:     -100,
+			converter: asFloat,
+		}, {
+			name:      "zero",
+			value:     0,
+			converter: asFloat,
+		}, {
+			name:       "int-max",
+			value:      math.MaxUint64,
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "int-min",
+			value:      -math.MaxUint64,
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "float-max",
+			value:      math.MaxFloat32,
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "float-min",
+			value:      -math.MaxFloat32,
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "+inf",
+			value:      float32(math.Inf(1)),
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "-inf",
+			value:      float32(math.Inf(-1)),
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "NaN",
+			value:      float32(math.NaN()),
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "qNaN",
+			value:      math.Float32frombits(qNaN),
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "sNaN",
+			value:      math.Float32frombits(sNaN),
+			converter:  asFloat,
+			shouldFail: true,
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
+
+	t.Run("float64", func(t *testing.T) {
+		const (
+			qNaN = 0x7FF8000000000001
+			sNaN = 0x7ff0000000000001
+		)
+
+		asFloat := func(si starlark.SafeInteger) (float64, bool) {
+			if i, ok := si.Int64(); ok {
+				return float64(i), ok
+			}
+			return 0, false
+		}
+		tests := []safeIntRoundtripTest[float64]{{
+			name:      "positive",
+			value:     100,
+			converter: asFloat,
+		}, {
+			name:      "negative",
+			value:     -100,
+			converter: asFloat,
+		}, {
+			name:      "zero",
+			value:     0,
+			converter: asFloat,
+		}, {
+			name:       "int-max",
+			value:      math.MaxUint64,
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "int-min",
+			value:      -math.MaxUint64,
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "float-max",
+			value:      math.MaxFloat64,
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "float-min",
+			value:      -math.MaxFloat64,
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "+inf",
+			value:      math.Inf(1),
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "-inf",
+			value:      math.Inf(-1),
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "NaN",
+			value:      math.NaN(),
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "qNaN",
+			value:      math.Float64frombits(qNaN),
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "sNaN",
+			value:      math.Float64frombits(sNaN),
+			converter:  asFloat,
+			shouldFail: true,
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
+}
+
+func TestSafeIntFloatTruncation(t *testing.T) {
+	safeInt := starlark.SafeInt(1.2)
+	if value, ok := safeInt.Int64(); !ok {
+		t.Errorf("expected success, got failure")
+	} else if value != 1 {
+		t.Errorf("unexpected value: want %v, got %v", 1, value)
+	}
 }
 
 func TestSafeIntUintTruncation(t *testing.T) {
