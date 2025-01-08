@@ -294,7 +294,6 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			}
 			return 0, false
 		}
-
 		tests := []safeIntRoundtripTest[float32]{{
 			name:      "positive",
 			value:     100,
@@ -363,13 +362,13 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			qNaN = 0x7FF8000000000001
 			sNaN = 0x7ff0000000000001
 		)
+
 		asFloat := func(si starlark.SafeInteger) (float64, bool) {
 			if i, ok := si.Int64(); ok {
 				return float64(i), ok
 			}
 			return 0, false
 		}
-
 		tests := []safeIntRoundtripTest[float64]{{
 			name:      "positive",
 			value:     100,
