@@ -33,6 +33,13 @@ type Floating interface {
 	float32 | float64
 }
 
+var (
+	minValidFloat32 = math.Nextafter32(math.MinInt64, 0)
+	maxValidFloat32 = math.Nextafter32(math.MaxInt64, 0)
+	minValidFloat64 = math.Nextafter(math.MinInt64, 0)
+	maxValidFloat64 = math.Nextafter(math.MaxInt64, 0)
+)
+
 func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 	switch i := any(i).(type) {
 	case SafeInteger:
@@ -64,19 +71,15 @@ func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 		}
 		return SafeInteger{int64(i)}
 	case float32:
-		if math.IsNaN(float64(i)) ||
-			i < math.Nextafter32(math.MinInt64, 0) ||
-			i > math.Nextafter32(math.MaxInt64, 0) {
-			return SafeInteger{invalidSafeInt}
+		if minValidFloat32 <= i && i <= maxValidFloat32 {
+			return SafeInteger{int64(i)}
 		}
-		return SafeInteger{int64(i)}
+		return SafeInteger{invalidSafeInt}
 	case float64:
-		if math.IsNaN(i) ||
-			i < math.Nextafter(math.MinInt64, 0) ||
-			i > math.Nextafter(math.MaxInt64, 0) {
-			return SafeInteger{invalidSafeInt}
+		if minValidFloat64 <= i && i <= maxValidFloat64 {
+			return SafeInteger{int64(i)}
 		}
-		return SafeInteger{int64(i)}
+		return SafeInteger{invalidSafeInt}
 	default:
 		panic("unreachable")
 	}
