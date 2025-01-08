@@ -793,7 +793,7 @@ func TestRunStringPredecls(t *testing.T) {
 			}, {
 				name:   "string",
 				input:  starlark.String("spanner"),
-				expect: `AddBuiltin expected a builtin: got "spanner"`,
+				expect: `AddBuiltin expected a builtin: got starlark.String`,
 			}}
 
 			for _, test := range tests {
