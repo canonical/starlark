@@ -31,7 +31,7 @@ func TestSafeIntString(t *testing.T) {
 	}
 }
 
-type safeIntRoundtripTest[I starlark.Integer | float64] struct {
+type safeIntRoundtripTest[I starlark.Integer | starlark.Floating] struct {
 	name       string
 	value      I
 	converter  func(starlark.SafeInteger) (I, bool)
@@ -276,6 +276,82 @@ func TestSafeIntRoundtrip(t *testing.T) {
 			name:      "zero",
 			value:     0,
 			converter: starlark.SafeInteger.Uint64,
+		}}
+		for _, test := range tests {
+			test.Run(t)
+		}
+	})
+
+	t.Run("float32", func(t *testing.T) {
+		const (
+			qNaN = 0x7FF80001
+			sNaN = 0x7ff00001
+		)
+
+		asFloat := func(si starlark.SafeInteger) (float32, bool) {
+			if i, ok := si.Int64(); ok {
+				return float32(i), ok
+			}
+			return 0, false
+		}
+
+		tests := []safeIntRoundtripTest[float32]{{
+			name:      "positive",
+			value:     100,
+			converter: asFloat,
+		}, {
+			name:      "negative",
+			value:     -100,
+			converter: asFloat,
+		}, {
+			name:      "zero",
+			value:     0,
+			converter: asFloat,
+		}, {
+			name:       "int-max",
+			value:      math.MaxUint64,
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "int-min",
+			value:      -math.MaxUint64,
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "float-max",
+			value:      math.MaxFloat32,
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "float-min",
+			value:      -math.MaxFloat32,
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "+inf",
+			value:      float32(math.Inf(1)),
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "-inf",
+			value:      float32(math.Inf(-1)),
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "NaN",
+			value:      float32(math.NaN()),
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "qNaN",
+			value:      math.Float32frombits(qNaN),
+			converter:  asFloat,
+			shouldFail: true,
+		}, {
+			name:       "sNaN",
+			value:      math.Float32frombits(sNaN),
+			converter:  asFloat,
+			shouldFail: true,
 		}}
 		for _, test := range tests {
 			test.Run(t)

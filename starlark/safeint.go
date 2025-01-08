@@ -29,7 +29,11 @@ type Integer interface {
 		uint | uint8 | uint16 | uint32 | uint64
 }
 
-func SafeInt[I Integer | SafeInteger | float64](i I) SafeInteger {
+type Floating interface {
+	float32 | float64
+}
+
+func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 	switch i := any(i).(type) {
 	case SafeInteger:
 		return i
@@ -56,6 +60,13 @@ func SafeInt[I Integer | SafeInteger | float64](i I) SafeInteger {
 		return SafeInteger{int64(i)}
 	case uint64:
 		if i > math.MaxInt64 {
+			return SafeInteger{invalidSafeInt}
+		}
+		return SafeInteger{int64(i)}
+	case float32:
+		if math.IsNaN(float64(i)) ||
+			i < math.Nextafter32(math.MinInt64, 0) ||
+			i > math.Nextafter32(math.MaxInt64, 0) {
 			return SafeInteger{invalidSafeInt}
 		}
 		return SafeInteger{int64(i)}
