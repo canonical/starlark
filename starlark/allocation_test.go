@@ -37,7 +37,9 @@ func TestCheckAllocs(t *testing.T) {
 
 	if err := thread.CheckAllocs(500); err != nil {
 		t.Errorf("unexpected error: %v", err)
-	} else if allocs := thread.Allocs(); allocs != 0 {
+	} else if allocs, ok := thread.Allocs(); !ok {
+		t.Errorf("invalidated allocation count")
+	} else if allocs != 0 {
 		t.Errorf("CheckAllocs recorded allocations: expected 0 but got %v", allocs)
 	}
 
@@ -47,7 +49,9 @@ func TestCheckAllocs(t *testing.T) {
 		expected := &starlark.AllocsSafetyError{}
 		if !errors.As(err, &expected) {
 			t.Errorf("unexpected error: %v", err)
-		} else if allocs := thread.Allocs(); allocs != 0 {
+		} else if allocs, ok := thread.Allocs(); !ok {
+			t.Errorf("invalidated allocation count")
+		} else if allocs != 0 {
 			t.Errorf("CheckAllocs recorded allocations: expected 0 but got %v", allocs)
 		}
 	}
@@ -85,11 +89,12 @@ func TestPositiveDeltaDeclaration(t *testing.T) {
 	thread.SetMaxAllocs(0)
 
 	// Accept and correctly store reasonable size increase
-	allocs0 := thread.Allocs()
+	allocs0, _ := thread.Allocs()
 	if err := thread.AddAllocs(intendedAllocIncrease); err != nil {
 		t.Errorf("unexpected cancellation: %v", err)
 	}
-	delta := thread.Allocs() - allocs0
+	allocs1, _ := thread.Allocs()
+	delta := allocs1 - allocs0
 	if delta != intendedAllocIncrease {
 		t.Errorf("incorrect size increase: expected %d but got %d", intendedAllocIncrease, delta)
 	}
@@ -111,7 +116,7 @@ func TestPositiveDeltaDeclarationExceedingMax(t *testing.T) {
 		t.Errorf("expected allocation failure!")
 	}
 
-	if allocs := thread.Allocs(); allocs != allocationIncrease {
+	if allocs, _ := thread.Allocs(); allocs != allocationIncrease {
 		t.Errorf("extra allocations were not recorded on an allocation failure: expected %d but %d were recorded", allocationIncrease, allocs)
 	}
 
@@ -129,47 +134,39 @@ func TestOverflowingPositiveDeltaAllocation(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
 
-	const maxNonInfiniteAllocs = math.MaxInt64 - 1
+	const maxNonInfiniteAllocs = math.MaxInt64 - 11
 
 	if err := thread.AddAllocs(maxNonInfiniteAllocs, -maxNonInfiniteAllocs, maxNonInfiniteAllocs, -maxNonInfiniteAllocs, 10); err != nil {
 		t.Errorf("unexpected error when declaring allocation increase: %v", err)
 	}
-	if allocs := thread.Allocs(); allocs != 10 {
+	if allocs, _ := thread.Allocs(); allocs != 10 {
 		t.Errorf("incorrect allocations stored: expected %d but got %d", 10, allocs)
-	}
-	if err := thread.AddAllocs(math.MinInt64 + 1); err != nil {
-		t.Errorf("unexpected error when declaring allocation decrease: %v", err)
-	}
-	if allocs := thread.Allocs(); allocs != 0 {
-		t.Errorf("incorrect allocations stored: expected %d but got %d", 0, allocs)
 	}
 
 	// Increase so that the next allocation will cause an overflow
 	if err := thread.AddAllocs(maxNonInfiniteAllocs); err != nil {
 		t.Errorf("unexpected error when declaring allocation increase: %v", err)
-	} else if allocs := thread.Allocs(); allocs != math.MaxInt64-1 {
-		t.Errorf("incorrect allocations stored: expected %d but got %d", int64(math.MaxInt64-1), allocs)
 	}
 
 	// Check overflow detected
 	if err := thread.AddAllocs(2); err != nil {
 		t.Errorf("unexpected error when overflowing allocations: %v", err)
-	} else if allocs := thread.Allocs(); allocs != math.MaxInt64 {
-		t.Errorf("incorrect allocations stored: expected %d but got %d", int64(math.MaxInt64), allocs)
+	} else if allocs, ok := thread.Allocs(); ok {
+		t.Errorf("incorrect allocations stored: expected invalid but got %d", allocs)
 	}
 
 	// Check repeated overflow
 	if err := thread.AddAllocs(100); err != nil {
 		t.Errorf("unexpected error when repeatedly overflowing allocations: %v", err)
-	} else if allocs := thread.Allocs(); allocs != math.MaxInt64 {
-		t.Errorf("incorrect allocations stored: expected %d but got %d", int64(math.MaxInt64), allocs)
+	} else if allocs, ok := thread.Allocs(); ok {
+		t.Errorf("incorrect allocations stored: expected invalid but got %d", allocs)
 	}
 
 	// Check overflow is sticky
 	if err := thread.AddAllocs(math.MinInt64); err != nil {
 		t.Errorf("unexpected error when repeatedly overflowing allocations: %v", err)
-	} else if allocs := thread.Allocs(); allocs != math.MaxInt64 {
-		t.Errorf("incorrect allocations stored: expected %d but got %d", int64(math.MaxInt64), allocs)
+	} else if allocs, ok := thread.Allocs(); ok {
+		t.Errorf("incorrect allocations stored: expected invalid but got %d", allocs)
 	}
 }
 
@@ -187,7 +184,9 @@ func TestNegativeDeltaDeclaration(t *testing.T) {
 	if err := thread.AddAllocs(-allocReduction); err != nil {
 		t.Errorf("unexpected error when declaring allocation reduction: %v", err)
 	}
-	if allocs := thread.Allocs(); allocs != expectedFinalAllocs {
+	if allocs, ok := thread.Allocs(); !ok {
+		t.Errorf("invalidated allocation count")
+	} else if allocs != expectedFinalAllocs {
 		t.Errorf("increase and reduction of allocations lead to incorrect value: expected %v but got %v", expectedFinalAllocs, allocs)
 	}
 }
@@ -203,11 +202,11 @@ func TestOverzealousNegativeDeltaDeclaration(t *testing.T) {
 	if err := thread.AddAllocs(allocGreatest); err != nil {
 		t.Errorf("unexpected error when declaring allocation increase: %v", err)
 	}
-	if err := thread.AddAllocs(-allocReduction); err != nil {
-		t.Errorf("unexpected error when declaring allocation reduction: %v", err)
+	if err := thread.AddAllocs(-allocReduction); err == nil {
+		t.Errorf("unexpected success when declaring allocation reduction")
 	}
-	if allocs := thread.Allocs(); allocs != 0 {
-		t.Errorf("expected overzealous alloc reduction to cap allocations at zero: recorded %d allocs instead", allocs)
+	if allocs, ok := thread.Allocs(); ok {
+		t.Errorf("expected overzealous alloc reduction to be invalid: recorded %d allocs instead", allocs)
 	}
 }
 
@@ -266,7 +265,7 @@ func TestConcurrentAddAllocsUsage(t *testing.T) {
 
 	wg.Wait()
 
-	if allocs := thread.Allocs(); allocs != expectedAllocs {
+	if allocs, _ := thread.Allocs(); allocs != expectedAllocs {
 		t.Errorf("concurrent thread.AddAlloc contains a race, expected %d allocs recorded but got %d", expectedAllocs, allocs)
 	}
 }
@@ -370,14 +369,15 @@ func TestSafeStringBuilder(t *testing.T) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.MemSafe)
 			st.RunThread(func(thread *starlark.Thread) {
-				allocs := thread.Allocs()
+				allocsBefore, _ := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
 				builder.Grow(st.N)
 				if err := builder.Err(); err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
-				if int64(builder.Cap()) != (thread.Allocs() - allocs) {
-					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
+				allocsAfter, _ := thread.Allocs()
+				if int64(builder.Cap()) != (allocsAfter - allocsBefore) {
+					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
 				}
 				st.KeepAlive(builder.String())
 			})
@@ -389,13 +389,14 @@ func TestSafeStringBuilder(t *testing.T) {
 			st.SetMinSteps(1)
 			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
-				allocs := thread.Allocs()
+				allocsBefore, _ := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
 				if _, err := builder.Write(make([]byte, st.N)); err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
-				if int64(builder.Cap()) != (thread.Allocs() - allocs) {
-					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
+				allocsAfter, _ := thread.Allocs()
+				if int64(builder.Cap()) != (allocsAfter - allocsBefore) {
+					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
 				}
 				st.KeepAlive(builder.String())
 			})
@@ -407,13 +408,14 @@ func TestSafeStringBuilder(t *testing.T) {
 			st.SetMinSteps(int64(len("a🥩")))
 			st.SetMaxSteps(int64(len("a🥩")))
 			st.RunThread(func(thread *starlark.Thread) {
-				allocs := thread.Allocs()
+				allocsBefore, _ := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
 				if _, err := builder.WriteString(strings.Repeat("a🥩", st.N)); err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
-				if int64(builder.Cap()) != (thread.Allocs() - allocs) {
-					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
+				allocsAfter, _ := thread.Allocs()
+				if int64(builder.Cap()) != (allocsAfter - allocsBefore) {
+					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
 				}
 				st.KeepAlive(builder.String())
 			})
@@ -425,15 +427,16 @@ func TestSafeStringBuilder(t *testing.T) {
 			st.SetMinSteps(1)
 			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
-				allocs := thread.Allocs()
+				allocsBefore, _ := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
 				for i := 0; i < st.N; i++ {
 					if err := builder.WriteByte(97); err != nil {
 						t.Errorf("unexpected error: %v", err)
 					}
 				}
-				if int64(builder.Cap()) != (thread.Allocs() - allocs) {
-					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
+				allocsAfter, _ := thread.Allocs()
+				if int64(builder.Cap()) != (allocsAfter - allocsBefore) {
+					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
 				}
 				st.KeepAlive(builder.String())
 			})
@@ -445,7 +448,7 @@ func TestSafeStringBuilder(t *testing.T) {
 			st.SetMinSteps(int64(len("a🥩")))
 			st.SetMaxSteps(int64(len("a🥩")))
 			st.RunThread(func(thread *starlark.Thread) {
-				allocs := thread.Allocs()
+				allocsBefore, _ := thread.Allocs()
 				builder := starlark.NewSafeStringBuilder(thread)
 				for i := 0; i < st.N; i++ {
 					if _, err := builder.WriteRune('a'); err != nil {
@@ -455,8 +458,9 @@ func TestSafeStringBuilder(t *testing.T) {
 						t.Errorf("unexpected error: %v", err)
 					}
 				}
-				if int64(builder.Cap()) != (thread.Allocs() - allocs) {
-					t.Errorf("allocation size mismatch: expected %v got %v", thread.Allocs(), builder.Cap())
+				allocsAfter, _ := thread.Allocs()
+				if int64(builder.Cap()) != (allocsAfter - allocsBefore) {
+					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
 				}
 				st.KeepAlive(builder.String())
 			})
@@ -468,17 +472,18 @@ func TestSafeStringBuilder(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			sb := starlark.NewSafeStringBuilder(thread)
-			initialAllocs := thread.Allocs()
+			allocsBefore, _ := thread.Allocs()
 
 			if _, err := sb.WriteString("foo bar baz qux"); err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
 
-			if thread.Allocs() == initialAllocs {
+			allocsAfter, _ := thread.Allocs()
+			if allocsAfter == allocsBefore {
 				t.Error("SafeStringBuilder did not allocate")
 			}
 
-			expected := thread.Allocs() - initialAllocs
+			expected := allocsAfter - allocsBefore
 			if actual := sb.Allocs(); actual != expected {
 				t.Errorf("incorrect number of allocs reported: expected %d but got %d", expected, actual)
 			}
