@@ -382,11 +382,12 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	// it adds a new level of indentation every 2 characters. Clearly, this is
 	// a quadratic growth as the increment grows linearly.
 
-	n := int64(strings.Count(str, "[") + strings.Count(str, "{"))
+	n := starlark.SafeAdd(strings.Count(str, "["), strings.Count(str, "{"))
 	// Taking into account tabs and newlines and working out the algebra, the
 	// worst case can be compacted in the quadratic formula:
 	// n^2 + 2n - 1 = (n - 1)(n - 1) + 2n
-	worstCase := starlark.SafeAdd(starlark.SafeMul(n-1, n-1), starlark.SafeMul(2, n))
+	nMinus1 := starlark.SafeSub(n, 1)
+	worstCase := starlark.SafeAdd(starlark.SafeMul(nMinus1, nMinus1), starlark.SafeMul(2, n))
 
 	// This worst case makes this function most likely unusable in the context
 	// of a script, but there are only two other approaches to tackle this part:

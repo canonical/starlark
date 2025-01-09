@@ -2776,7 +2776,7 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		}
 		return b
 	}
-	maxResultSize := SafeDiv(SafeMul(len(recv)+1, len(new)), max(len(old), 1))
+	maxResultSize := SafeDiv(SafeMul(SafeAdd(len(recv), 1), len(new)), max(len(old), 1))
 	if err := thread.CheckSteps(maxResultSize); err != nil {
 		return nil, err
 	}
