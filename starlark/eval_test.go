@@ -1476,7 +1476,7 @@ func TestOverflowingPositiveDeltaStep(t *testing.T) {
 func TestDefaultStepMaxIsUnbounded(t *testing.T) {
 	thread := &starlark.Thread{}
 
-	if err := thread.CheckSteps(1); err != nil {
+	if err := thread.CheckSteps(starlark.SafeInt(1)); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -1503,11 +1503,11 @@ func TestCheckSteps(t *testing.T) {
 	thread := new(starlark.Thread)
 	thread.SetMaxSteps(maxSteps)
 
-	if err := thread.CheckSteps(maxSteps / 2); err != nil {
+	if err := thread.CheckSteps(starlark.SafeDiv(maxSteps, 2)); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	if err := thread.CheckSteps(2 * maxSteps); err == nil {
+	if err := thread.CheckSteps(starlark.SafeMul(2, maxSteps)); err == nil {
 		t.Errorf("expected error")
 	} else if err.Error() != "too many steps" {
 		t.Errorf("unexpected error: %v", err)
@@ -1537,7 +1537,7 @@ func TestConcurrentCheckStepsUsage(t *testing.T) {
 	go func() {
 		for i := 0; i < repetitions; i++ {
 			// Check 1000...01 not exceeded
-			if err := thread.CheckSteps(1); err != nil {
+			if err := thread.CheckSteps(starlark.SafeInt(1)); err != nil {
 				t.Errorf("unexpected error: %v", err)
 				break
 			}

@@ -198,7 +198,7 @@ func (thread *Thread) SetMaxSteps(max int64) {
 //
 // It is safe to call CheckSteps from any goroutine, even if the thread
 // is actively executing.
-func (thread *Thread) CheckSteps(deltas ...int64) error {
+func (thread *Thread) CheckSteps(deltas ...SafeInteger) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
@@ -216,7 +216,11 @@ func (thread *Thread) AddSteps(deltas ...int64) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
-	nextSteps, err := thread.simulateSteps(deltas...)
+	deltas2 := make([]SafeInteger, len(deltas))
+	for i, delta := range deltas {
+		deltas2[i] = SafeInt(delta)
+	}
+	nextSteps, err := thread.simulateSteps(deltas2...)
 	thread.steps = nextSteps
 	if err != nil {
 		thread.cancel(err)
@@ -228,7 +232,7 @@ func (thread *Thread) AddSteps(deltas ...int64) error {
 // simulateSteps simulates a call to AddSteps returning the
 // new total step-count and any error this would entail. No change is
 // recorded.
-func (thread *Thread) simulateSteps(deltas ...int64) (SafeInteger, error) {
+func (thread *Thread) simulateSteps(deltas ...SafeInteger) (SafeInteger, error) {
 	if err := thread.cancelled(); err != nil {
 		return thread.steps, err
 	}
@@ -506,7 +510,7 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 		growAmount = utf8.UTFMax
 	}
 	if tb.thread != nil {
-		if err := tb.thread.CheckSteps(int64(growAmount)); err != nil {
+		if err := tb.thread.CheckSteps(SafeInt(growAmount)); err != nil {
 			return 0, err
 		}
 	}
