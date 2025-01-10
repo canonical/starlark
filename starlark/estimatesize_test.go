@@ -24,7 +24,7 @@ func runEstimateTest(t *testing.T, createObj func() interface{}) {
 	st.RunThread(func(thread *starlark.Thread) {
 		for i := 0; i < st.N; i++ {
 			obj := createObj()
-			thread.AddAllocs(starlark.EstimateSizeOld(obj))
+			thread.AddAllocs(starlark.EstimateSize(obj))
 			st.KeepAlive(obj)
 		}
 	})
@@ -235,7 +235,7 @@ func TestEstimateMap(t *testing.T) {
 				value[i] = i
 			}
 
-			thread.AddAllocs(starlark.EstimateSizeOld(value))
+			thread.AddAllocs(starlark.EstimateSize(value))
 			st.KeepAlive(value)
 		})
 	})
@@ -250,7 +250,7 @@ func TestEstimateMap(t *testing.T) {
 				value[i] = [64]int{}
 			}
 
-			thread.AddAllocs(starlark.EstimateSizeOld(value))
+			thread.AddAllocs(starlark.EstimateSize(value))
 			st.KeepAlive(value)
 		})
 	})
@@ -266,11 +266,11 @@ func TestEstimateMap(t *testing.T) {
 				dict[value] = struct{}{}
 				// I count here directly the value, so that I
 				// can use `EstimateSize` instead of `EstimateSizeDeep`
-				thread.AddAllocs(starlark.EstimateSizeOld(value))
+				thread.AddAllocs(starlark.EstimateSize(value))
 				st.KeepAlive(value)
 			}
 
-			thread.AddAllocs(starlark.EstimateSizeOld(dict))
+			thread.AddAllocs(starlark.EstimateSize(dict))
 			st.KeepAlive(dict)
 		})
 	})
@@ -287,7 +287,7 @@ func TestEstimateChan(t *testing.T) {
 				value <- i
 			}
 
-			thread.AddAllocs(starlark.EstimateSizeOld(value))
+			thread.AddAllocs(starlark.EstimateSize(value))
 			st.KeepAlive(value)
 		})
 	})
@@ -304,7 +304,7 @@ func TestTinyAllocator(t *testing.T) {
 
 			value := int64(i) * 0xcc9e2d51
 
-			thread.AddAllocs(starlark.EstimateSizeOld(value))
+			thread.AddAllocs(starlark.EstimateSize(value))
 			st.KeepAlive(value)
 		}
 	})
@@ -318,7 +318,7 @@ func TestEstimateString(t *testing.T) {
 			for i := 0; i < st.N; i++ {
 				value := string([]byte("Hello World!"))
 
-				thread.AddAllocs(starlark.EstimateSizeOld(value))
+				thread.AddAllocs(starlark.EstimateSize(value))
 				st.KeepAlive(value)
 			}
 		})
@@ -330,7 +330,7 @@ func TestEstimateString(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			value := strings.Repeat("Hello World!", st.N)
 
-			thread.AddAllocs(starlark.EstimateSizeOld(value))
+			thread.AddAllocs(starlark.EstimateSize(value))
 			st.KeepAlive(value)
 		})
 	})
@@ -353,7 +353,7 @@ func TestEstimateMakeSize(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
-					if err := thread.AddAllocs(starlark.EstimateMakeSizeOld([]starlark.Value{}, st.N)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize([]starlark.Value{}, st.N)); err != nil {
 						st.Error(err)
 					}
 					st.KeepAlive(make([]starlark.Value, st.N))
@@ -364,7 +364,7 @@ func TestEstimateMakeSize(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
-					if err := thread.AddAllocs(starlark.EstimateMakeSizeOld([]starlark.Value{}, st.N)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize([]starlark.Value{}, st.N)); err != nil {
 						st.Error(err)
 					}
 					st.KeepAlive(make([]starlark.Value, 0, st.N))
@@ -375,7 +375,7 @@ func TestEstimateMakeSize(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
-					if err := thread.AddAllocs(starlark.EstimateMakeSizeOld([][2]starlark.Value{}, st.N)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize([][2]starlark.Value{}, st.N)); err != nil {
 						st.Error(err)
 					}
 					st.KeepAlive(make([][2]starlark.Value, st.N))
@@ -389,7 +389,7 @@ func TestEstimateMakeSize(t *testing.T) {
 				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
 					const str = "foo"
-					if err := thread.AddAllocs(starlark.EstimateMakeSizeOld([]string{str}, st.N)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize([]string{str}, st.N)); err != nil {
 						st.Error(err)
 					}
 
@@ -406,7 +406,7 @@ func TestEstimateMakeSize(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
-					if err := thread.AddAllocs(starlark.EstimateMakeSizeOld([]map[int][64]int{{}}, st.N)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize([]map[int][64]int{{}}, st.N)); err != nil {
 						st.Error(err)
 					}
 
@@ -427,7 +427,7 @@ func TestEstimateMakeSize(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
-					if err := thread.AddAllocs(starlark.EstimateMakeSizeOld(map[int]int{}, st.N)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[int]int{}, st.N)); err != nil {
 						st.Error(err)
 					}
 
@@ -439,7 +439,7 @@ func TestEstimateMakeSize(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
-					if err := thread.AddAllocs(starlark.EstimateMakeSizeOld(map[[16]int64][256]byte{}, st.N)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[[16]int64][256]byte{}, st.N)); err != nil {
 						st.Error(err)
 					}
 
@@ -453,7 +453,7 @@ func TestEstimateMakeSize(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
-					if err := thread.AddAllocs(starlark.EstimateMakeSizeOld(map[string]int{"kxxxxxxxx": 1}, st.N)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[string]int{"kxxxxxxxx": 1}, st.N)); err != nil {
 						st.Error(err)
 					}
 
@@ -471,7 +471,7 @@ func TestEstimateMakeSize(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
-					if err := thread.AddAllocs(starlark.EstimateMakeSizeOld(map[int][]int{0: {0}}, st.N)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(map[int][]int{0: {0}}, st.N)); err != nil {
 						st.Error(err)
 					}
 
@@ -494,7 +494,7 @@ func TestEstimateMakeSize(t *testing.T) {
 				st.RunThread(func(thread *starlark.Thread) {
 					for i := 0; i < st.N; i++ {
 						var channel chan int
-						if err := thread.AddAllocs(starlark.EstimateMakeSizeOld(channel, st.N)); err != nil {
+						if err := thread.AddAllocs(starlark.EstimateMakeSize(channel, st.N)); err != nil {
 							st.Error(err)
 						}
 						st.KeepAlive(channel)
@@ -508,7 +508,7 @@ func TestEstimateMakeSize(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
-					if err := thread.AddAllocs(starlark.EstimateMakeSizeOld(make(chan int, 4*st.N), st.N)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(make(chan int, 4*st.N), st.N)); err != nil {
 						st.Error(err)
 					}
 					st.KeepAlive(make(chan int, st.N))
@@ -519,7 +519,7 @@ func TestEstimateMakeSize(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
-					if err := thread.AddAllocs(starlark.EstimateMakeSizeOld(make(chan int), st.N)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize(make(chan int), st.N)); err != nil {
 						st.Error(err)
 					}
 
