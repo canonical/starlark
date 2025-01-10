@@ -36,14 +36,22 @@ import (
 // EstimateSizeShallow has been removed for now since there was no agreement of how
 // to make it consistent.
 
-var StringTypeOverhead = EstimateSize("")
-var SliceTypeOverhead = EstimateSize([]struct{}{})
+var StringTypeOverhead = EstimateSizeOld("")
+var SliceTypeOverhead = EstimateSizeOld([]struct{}{})
 
 // EstimateSize returns the estimated size of the value pointed to by obj, taking
 // into account the whole object tree. Where necessary to avoid estimating the
 // size of values not controlled by Starlark, objects should implement the
 // optional SizeAware interface to override the default exploration.
-func EstimateSize(obj interface{}) int64 {
+func EstimateSize(obj interface{}) SafeInteger {
+	size := EstimateSizeOld(obj)
+	if size == math.MaxInt64 {
+		return SafeInteger{invalidSafeInt}
+	}
+	return SafeInteger{size}
+}
+
+func EstimateSizeOld(obj interface{}) int64 {
 	if obj == nil {
 		return 0
 	}
@@ -63,7 +71,15 @@ func EstimateSize(obj interface{}) int64 {
 
 // EstimateMakeSize estimates the cost of calling make to build a slice, map or
 // chan of n elements as specified by template.
-func EstimateMakeSize(template interface{}, n int) int64 {
+func EstimateMakeSize(template interface{}, n int) SafeInteger {
+	size := EstimateMakeSizeOld(template, n)
+	if size == math.MaxInt64 {
+		return SafeInteger{invalidSafeInt}
+	}
+	return SafeInteger{size}
+}
+
+func EstimateMakeSizeOld(template interface{}, n int) int64 {
 	v := reflect.ValueOf(template)
 	switch v.Kind() {
 	case reflect.Slice:

@@ -118,7 +118,7 @@ func parseDuration(thread *starlark.Thread, _ *starlark.Builtin, args starlark.T
 		return nil, err
 	}
 	d := sdu.Duration()
-	if err := thread.AddAllocs(starlark.EstimateSize(Duration(0))); err != nil {
+	if err := thread.AddAllocs(starlark.EstimateSizeOld(Duration(0))); err != nil {
 		return nil, err
 	}
 	return d, nil
@@ -157,7 +157,7 @@ func parseTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple
 			return nil, err
 		}
 		res := Time(t)
-		if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+		if err := thread.AddAllocs(starlark.EstimateSizeOld(res)); err != nil {
 			return nil, err
 		}
 		return res, nil
@@ -172,7 +172,7 @@ func parseTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple
 		return nil, err
 	}
 	res := Time(t)
-	if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+	if err := thread.AddAllocs(starlark.EstimateSizeOld(res)); err != nil {
 		return nil, err
 	}
 	return res, nil
@@ -186,7 +186,7 @@ func fromTimestamp(thread *starlark.Thread, _ *starlark.Builtin, args starlark.T
 	if err := starlark.UnpackPositionalArgs("from_timestamp", args, kwargs, 1, &sec, &nsec); err != nil {
 		return nil, err
 	}
-	if err := thread.AddAllocs(starlark.EstimateSize(Time{})); err != nil {
+	if err := thread.AddAllocs(starlark.EstimateSizeOld(Time{})); err != nil {
 		return nil, err
 	}
 	return Time(time.Unix(sec, nsec)), nil
@@ -205,7 +205,7 @@ func now(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwar
 	if nowFunc == nil {
 		return nil, errors.New("time.now() is not available")
 	}
-	if err := thread.AddAllocs(starlark.EstimateSize(Time{})); err != nil {
+	if err := thread.AddAllocs(starlark.EstimateSizeOld(Time{})); err != nil {
 		return nil, err
 	}
 	return Time(nowFunc()), nil
@@ -291,7 +291,7 @@ func (d Duration) SafeAttr(thread *starlark.Thread, name string) (starlark.Value
 		return nil, fmt.Errorf("unrecognized %s attribute %q", d.Type(), name)
 	}
 	if thread != nil {
-		if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+		if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 			return nil, err
 		}
 	}
@@ -473,11 +473,11 @@ func newTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, 
 		return nil, err
 	}
 	if location != time.UTC && location != time.Local {
-		if err := thread.AddAllocs(starlark.EstimateSize(location)); err != nil {
+		if err := thread.AddAllocs(starlark.EstimateSizeOld(location)); err != nil {
 			return nil, err
 		}
 	}
-	if err := thread.AddAllocs(starlark.EstimateSize(time.Time{})); err != nil {
+	if err := thread.AddAllocs(starlark.EstimateSizeOld(time.Time{})); err != nil {
 		return nil, err
 	}
 	res := starlark.Value(Time(time.Date(year, time.Month(month), day, hour, min, sec, nsec, location)))
@@ -545,14 +545,14 @@ func (t Time) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, er
 		result = starlark.MakeInt64(time.Time(t).UnixNano())
 	default:
 		if thread != nil {
-			if err := thread.AddAllocs(starlark.EstimateSize(&time.Time{})); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateSizeOld(&time.Time{})); err != nil {
 				return nil, err
 			}
 		}
 		return safeBuiltinAttr(thread, t, name, timeMethods)
 	}
 	if thread != nil {
-		if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+		if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 			return nil, err
 		}
 	}
@@ -646,7 +646,7 @@ func timeFormat(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tupl
 	}
 	recv := time.Time(b.Receiver().(Time))
 	result := starlark.Value(starlark.String(recv.Format(x)))
-	if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+	if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -662,11 +662,11 @@ func timeIn(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 		return nil, err
 	}
 	if loc != time.UTC && loc != time.Local {
-		if err := thread.AddAllocs(starlark.EstimateSize(loc)); err != nil {
+		if err := thread.AddAllocs(starlark.EstimateSizeOld(loc)); err != nil {
 			return nil, err
 		}
 	}
-	if err := thread.AddAllocs(starlark.EstimateSize(time.Time{})); err != nil {
+	if err := thread.AddAllocs(starlark.EstimateSizeOld(time.Time{})); err != nil {
 		return nil, err
 	}
 	recv := time.Time(b.Receiver().(Time))
@@ -681,7 +681,7 @@ func safeBuiltinAttr(thread *starlark.Thread, recv starlark.Value, name string, 
 		return nil, starlark.ErrNoAttr
 	}
 	if thread != nil {
-		if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
+		if err := thread.AddAllocs(starlark.EstimateSizeOld(&starlark.Builtin{})); err != nil {
 			return nil, err
 		}
 	}

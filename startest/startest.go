@@ -353,7 +353,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		// included in the measurement. This overhead must be discounted
 		// when reasoning about the measurement.
 		if cap(st.alive) != cap(alive) {
-			valueTrackerAllocs += starlark.EstimateMakeSize([]interface{}{}, cap(st.alive))
+			valueTrackerAllocs += starlark.EstimateMakeSizeOld([]interface{}{}, cap(st.alive))
 		}
 		if afterAllocs > beforeAllocs {
 			allocSum += afterAllocs - beforeAllocs
@@ -503,7 +503,7 @@ func st_keep_alive(thread *starlark.Thread, b *starlark.Builtin, args starlark.T
 	// keep_alive does not capture the backing array for args. Hence
 	// the allocation is removed aligning declared allocations with
 	// user expectations.
-	argsSize := starlark.EstimateMakeSize(starlark.Tuple{}, cap(args))
+	argsSize := starlark.EstimateMakeSizeOld(starlark.Tuple{}, cap(args))
 	if err := thread.AddAllocs(-argsSize); err != nil {
 		return nil, err
 	}

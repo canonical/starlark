@@ -319,7 +319,7 @@ func safeBuiltinAttr(thread *Thread, recv Value, name string, methods map[string
 		return nil, ErrNoAttr
 	}
 	if thread != nil {
-		if err := thread.AddAllocs(EstimateSize(&Builtin{})); err != nil {
+		if err := thread.AddAllocs(EstimateSizeOld(&Builtin{})); err != nil {
 			return nil, err
 		}
 	}
@@ -350,7 +350,7 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		}
 
 		result := Value(Float(math.Abs(float64(tx))))
-		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
 			return nil, err
 		}
 		return result, nil
@@ -365,7 +365,7 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			}
 		}
 		result := Value(zero.Sub(tx))
-		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
 			return nil, err
 		}
 		return result, nil
@@ -510,7 +510,7 @@ func chr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		return nil, fmt.Errorf("chr: Unicode code point U+%X out of range (>0x10FFFF)", i)
 	}
 	ret := Value(String(string(rune(i))))
-	if err := thread.AddAllocs(EstimateSize(ret)); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(ret)); err != nil {
 		return nil, err
 	}
 	return ret, nil
@@ -522,7 +522,7 @@ func dict(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		return nil, fmt.Errorf("dict: got %d arguments, want at most 1", len(args))
 	}
 	dict := new(Dict)
-	if err := thread.AddAllocs(EstimateSize(dict)); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(dict)); err != nil {
 		return nil, err
 	}
 	if err := updateDict(thread, dict, args, kwargs); err != nil {
@@ -553,7 +553,7 @@ func dir(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		elems[i] = String(name)
 	}
 	res := Value(NewList(elems))
-	if err := thread.AddAllocs(EstimateSize(res)); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(res)); err != nil {
 		return nil, err
 	}
 	return res, nil
@@ -581,8 +581,8 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		if err := thread.AddSteps(int64(n)); err != nil {
 			return nil, err
 		}
-		overhead := EstimateMakeSize([]Value{Tuple{}}, n) +
-			EstimateMakeSize([][2]Value{{MakeInt(0), nil}}, n)
+		overhead := EstimateMakeSizeOld([]Value{Tuple{}}, n) +
+			EstimateMakeSizeOld([][2]Value{{MakeInt(0), nil}}, n)
 		if err := thread.AddAllocs(overhead); err != nil {
 			return nil, err
 		}
@@ -598,7 +598,7 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		}
 	} else {
 		// non-sequence (unknown length)
-		pairCost := EstimateSize(Tuple{MakeInt(0), nil})
+		pairCost := EstimateSizeOld(Tuple{MakeInt(0), nil})
 		pairsAppender := NewSafeAppender(thread, &pairs)
 		for i := 0; iter.Next(&x); i++ {
 			if err := thread.AddAllocs(pairCost); err != nil {
@@ -614,7 +614,7 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 
-	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(List{})); err != nil {
 		return nil, err
 	}
 	return NewList(pairs), nil
@@ -676,7 +676,7 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		if err != nil {
 			return nil, err
 		}
-		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
 			return nil, err
 		}
 		return result, nil
@@ -719,7 +719,7 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 			return nil, fmt.Errorf("invalid float literal: %s", s)
 		}
 		var result Value = Float(f)
-		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
 			return nil, err
 		}
 		return result, nil
@@ -820,7 +820,7 @@ func hash(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		return nil, fmt.Errorf("hash: got %s, want string or bytes", x.Type())
 	}
 	ret := Value(MakeInt64(h))
-	if err := thread.AddAllocs(EstimateSize(ret)); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(ret)); err != nil {
 		return nil, err
 	}
 	return ret, nil
@@ -853,7 +853,7 @@ func int_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (res Value, er
 
 	defer func() {
 		if res != nil && res != x {
-			if err2 := thread.AddAllocs(EstimateSize(res)); err2 != nil {
+			if err2 := thread.AddAllocs(EstimateSizeOld(res)); err2 != nil {
 				res = nil
 				err = err2
 			}
@@ -993,7 +993,7 @@ func len_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		return nil, fmt.Errorf("len: value of type %s has no len", x.Type())
 	}
 	result := Value(MakeInt(len))
-	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -1013,7 +1013,7 @@ func list(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		}
 		defer iter.Done()
 		if n := Len(iterable); n > 0 {
-			if err := thread.AddAllocs(EstimateMakeSize([]Value{}, n)); err != nil {
+			if err := thread.AddAllocs(EstimateMakeSizeOld([]Value{}, n)); err != nil {
 				return nil, err
 			}
 			elems = make([]Value, 0, n) // preallocate if length known
@@ -1029,7 +1029,7 @@ func list(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 			return nil, err
 		}
 	}
-	if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(&List{})); err != nil {
 		return nil, err
 	}
 	return NewList(elems), nil
@@ -1133,7 +1133,7 @@ func ord(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			return nil, fmt.Errorf("ord: string encodes %d Unicode code points, want 1", n)
 		}
 		res := Value(MakeInt(int(r)))
-		if err := thread.AddAllocs(EstimateSize(res)); err != nil {
+		if err := thread.AddAllocs(EstimateSizeOld(res)); err != nil {
 			return nil, err
 		}
 		return res, nil
@@ -1144,7 +1144,7 @@ func ord(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			return nil, fmt.Errorf("ord: bytes has length %d, want 1", len(x))
 		}
 		res := Value(MakeInt(int(x[0])))
-		if err := thread.AddAllocs(EstimateSize(res)); err != nil {
+		if err := thread.AddAllocs(EstimateSizeOld(res)); err != nil {
 			return nil, err
 		}
 		return res, nil
@@ -1210,7 +1210,7 @@ func range_(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	}
 
 	result := Value(rangeValue{start: start, stop: stop, step: step, len: rangeLen(start, stop, step)})
-	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -1237,7 +1237,7 @@ func (r rangeValue) SafeIndex(thread *Thread, i int) (Value, error) {
 	}
 	result := Value(MakeInt(r.start + i*r.step))
 	if thread != nil {
-		if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+		if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
 			return nil, err
 		}
 	}
@@ -1413,7 +1413,7 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	defer iter.Done()
 	var elems []Value
 	if n := Len(args[0]); n >= 0 {
-		if err := thread.AddAllocs(EstimateMakeSize([]Value{}, n)); err != nil {
+		if err := thread.AddAllocs(EstimateMakeSizeOld([]Value{}, n)); err != nil {
 			return nil, err
 		}
 		elems = make([]Value, 0, n) // preallocate if length known
@@ -1432,7 +1432,7 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	for i := 0; i < n>>1; i++ {
 		elems[i], elems[n-1-i] = elems[n-1-i], elems[i]
 	}
-	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(List{})); err != nil {
 		return nil, err
 	}
 	return NewList(elems), nil
@@ -1444,7 +1444,7 @@ func set(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if err := UnpackPositionalArgs("set", args, kwargs, 0, &iterable); err != nil {
 		return nil, err
 	}
-	if err := thread.AddAllocs(EstimateSize(&Set{})); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(&Set{})); err != nil {
 		return nil, err
 	}
 	set := new(Set)
@@ -1488,7 +1488,7 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (l Value, er
 	defer iter.Done()
 	var values []Value
 	if n := Len(iterable); n > 0 {
-		if err := thread.AddAllocs(EstimateMakeSize(Tuple{}, n)); err != nil {
+		if err := thread.AddAllocs(EstimateMakeSizeOld(Tuple{}, n)); err != nil {
 			return nil, err
 		}
 		values = make(Tuple, 0, n) // preallocate if length is known
@@ -1532,7 +1532,7 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (l Value, er
 	} else {
 		sort.Stable(slice)
 	}
-	if err := thread.AddAllocs(EstimateSize(List{})); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(List{})); err != nil {
 		return nil, err
 	}
 	return NewList(slice.values), nil
@@ -1651,7 +1651,7 @@ func tuple(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	defer iter.Done()
 	var elems Tuple
 	if n := Len(iterable); n > 0 {
-		if err := thread.AddAllocs(EstimateMakeSize(Tuple{}, n)); err != nil {
+		if err := thread.AddAllocs(EstimateMakeSizeOld(Tuple{}, n)); err != nil {
 			return nil, err
 		}
 		elems = make(Tuple, 0, n) // preallocate if length is known
@@ -1667,7 +1667,7 @@ func tuple(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		return nil, err
 	}
 
-	if err := thread.AddAllocs(EstimateSize(Tuple{})); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(Tuple{})); err != nil {
 		return nil, err
 	}
 	return elems, nil
@@ -1682,7 +1682,7 @@ func type_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		return nil, fmt.Errorf("type: got %d arguments, want exactly 1", len(args))
 	}
 	result := Value(String(args[0].Type()))
-	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -1724,8 +1724,8 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		if err := thread.AddSteps(int64(rows)); err != nil {
 			return nil, err
 		}
-		resultSize := EstimateMakeSize([]Value{Tuple{}}, rows)
-		arraySize := EstimateMakeSize(Tuple{}, cols*rows)
+		resultSize := EstimateMakeSizeOld([]Value{Tuple{}}, rows)
+		arraySize := EstimateMakeSizeOld(Tuple{}, cols*rows)
 		if err := thread.AddAllocs(resultSize + arraySize); err != nil {
 			return nil, err
 		}
@@ -1746,7 +1746,7 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		}
 	} else {
 		// length not known
-		tupleSize := EstimateMakeSize(Tuple{}, cols) + SliceTypeOverhead
+		tupleSize := EstimateMakeSizeOld(Tuple{}, cols) + SliceTypeOverhead
 		appender := NewSafeAppender(thread, &result)
 	outer:
 		for {
@@ -1768,7 +1768,7 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		}
 	}
 
-	if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(&List{})); err != nil {
 		return nil, err
 	}
 	return NewList(result), nil
@@ -1820,13 +1820,13 @@ func dict_items(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		return nil, err
 	}
 	// dict.Items() allocates a single backing array for the tuples.
-	arraySize := EstimateMakeSize([]Value{}, len*2)
-	itemSize := EstimateMakeSize([]Value{Tuple{}}, len)
-	resultSize := EstimateSize(&List{})
+	arraySize := EstimateMakeSizeOld([]Value{}, len*2)
+	itemSize := EstimateMakeSizeOld([]Value{Tuple{}}, len)
+	resultSize := EstimateSizeOld(&List{})
 	if err := thread.AddAllocs(itemSize + arraySize + resultSize); err != nil {
 		return nil, err
 	}
-	tupleItemsSize := EstimateMakeSize([]Tuple{}, len)
+	tupleItemsSize := EstimateMakeSizeOld([]Tuple{}, len)
 	if err := thread.CheckAllocs(tupleItemsSize); err != nil {
 		return nil, err
 	}
@@ -1848,8 +1848,8 @@ func dict_keys(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	if err := thread.AddSteps(int64(len)); err != nil {
 		return nil, err
 	}
-	keysSize := EstimateMakeSize([]Value{}, len)
-	resultSize := EstimateSize(&List{})
+	keysSize := EstimateMakeSizeOld([]Value{}, len)
+	resultSize := EstimateSizeOld(&List{})
 	if err := thread.AddAllocs(resultSize + keysSize); err != nil {
 		return nil, err
 	}
@@ -1887,7 +1887,7 @@ func dict_popitem(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if err != nil {
 		return nil, nameErr(b, err) // dict is frozen
 	}
-	resultSize := EstimateMakeSize(Tuple{}, 2) + SliceTypeOverhead
+	resultSize := EstimateMakeSizeOld(Tuple{}, 2) + SliceTypeOverhead
 	if err := thread.AddAllocs(resultSize); err != nil {
 		return nil, err
 	}
@@ -1935,8 +1935,8 @@ func dict_values(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	if err := thread.AddSteps(int64(len)); err != nil {
 		return nil, err
 	}
-	valuesSize := EstimateMakeSize([]Value{}, len)
-	resultSize := EstimateSize(&List{})
+	valuesSize := EstimateMakeSizeOld([]Value{}, len)
+	resultSize := EstimateSizeOld(&List{})
 	if err := thread.AddAllocs(resultSize + valuesSize); err != nil {
 		return nil, err
 	}
@@ -2017,7 +2017,7 @@ func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 			if err := thread.AddSteps(-int64(end - i - 1)); err != nil {
 				return nil, err
 			}
-			if err := thread.AddAllocs(EstimateSize(res)); err != nil {
+			if err := thread.AddAllocs(EstimateSizeOld(res)); err != nil {
 				return nil, err
 			}
 			return res, nil
@@ -2158,12 +2158,12 @@ func string_iterable(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Va
 	ords := b.Name()[len(b.Name())-2] == 'd'
 	codepoints := b.Name()[0] == 'c'
 	if codepoints {
-		if err := thread.AddAllocs(EstimateSize(stringCodepoints{})); err != nil {
+		if err := thread.AddAllocs(EstimateSizeOld(stringCodepoints{})); err != nil {
 			return nil, err
 		}
 		return stringCodepoints{s, ords}, nil
 	} else {
-		if err := thread.AddAllocs(EstimateSize(stringElems{})); err != nil {
+		if err := thread.AddAllocs(EstimateSizeOld(stringElems{})); err != nil {
 			return nil, err
 		}
 		return stringElems{s, ords}, nil
@@ -2176,7 +2176,7 @@ func bytes_elems(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	if err := thread.AddAllocs(EstimateSize(bytesIterable{})); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(bytesIterable{})); err != nil {
 		return nil, err
 	}
 	return bytesIterable{b.Receiver().(Bytes)}, nil
@@ -2229,7 +2229,7 @@ func (it *bytesIterator) Next(p *Value) bool {
 	}
 	value := Value(MakeInt(int(it.bytes[0])))
 	if it.thread != nil {
-		if err := it.thread.AddAllocs(EstimateSize(value)); err != nil {
+		if err := it.thread.AddAllocs(EstimateSizeOld(value)); err != nil {
 			it.err = err
 			return false
 		}
@@ -2273,7 +2273,7 @@ func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		return nil, err
 	}
 	result := Value(MakeInt(strings.Count(slice, sub)))
-	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -2348,7 +2348,7 @@ func string_islower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 	if err := thread.AddSteps(int64(len(recv))); err != nil {
 		return nil, err
 	}
-	if err := thread.CheckAllocs(EstimateSize(recv)); err != nil {
+	if err := thread.CheckAllocs(EstimateSizeOld(recv)); err != nil {
 		return nil, err
 	}
 	return Bool(isCasedString(recv) && recv == strings.ToLower(recv)), nil
@@ -2444,7 +2444,7 @@ func string_isupper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 	if err := thread.AddSteps(int64(len(recv))); err != nil {
 		return nil, err
 	}
-	if err := thread.CheckAllocs(EstimateSize(recv)); err != nil {
+	if err := thread.CheckAllocs(EstimateSizeOld(recv)); err != nil {
 		return nil, err
 	}
 	return Bool(isCasedString(recv) && recv == strings.ToUpper(recv)), nil
@@ -2688,7 +2688,7 @@ func string_lower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	// them (according to unicode.ToLower implementation) is only 1 byte,
 	// which could be expected. This means that this logic must take that
 	// into account.
-	bufferSize := EstimateMakeSize([]byte{}, len(recv)*2+utf8.UTFMax)
+	bufferSize := EstimateMakeSizeOld([]byte{}, len(recv)*2+utf8.UTFMax)
 	if err := thread.AddAllocs(bufferSize + StringTypeOverhead); err != nil {
 		return nil, err
 	}
@@ -2716,8 +2716,8 @@ func string_partition(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 	}
 
 	var subStringTemplate String
-	resultSize := EstimateMakeSize(Tuple{subStringTemplate}, 3) +
-		EstimateSize(Tuple{})
+	resultSize := EstimateMakeSizeOld(Tuple{subStringTemplate}, 3) +
+		EstimateSizeOld(Tuple{})
 	if err := thread.AddAllocs(resultSize); err != nil {
 		return nil, err
 	}
@@ -2792,7 +2792,7 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 	result := Value(String(replaced)) // Avoid allocation.
-	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -2946,7 +2946,7 @@ func string_upper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	recv := string(b.Receiver().(String))
 
 	// see string_lower
-	bufferSize := EstimateMakeSize([]byte{}, len(recv)*2+utf8.UTFMax)
+	bufferSize := EstimateMakeSizeOld([]byte{}, len(recv)*2+utf8.UTFMax)
 	if err := thread.AddAllocs(bufferSize + StringTypeOverhead); err != nil {
 		return nil, err
 	}
@@ -2974,7 +2974,7 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		if err := thread.AddSteps(int64(len(recv))); err != nil {
 			return nil, err
 		}
-		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/2+1)); err != nil {
+		if err := thread.CheckAllocs(EstimateMakeSizeOld([]Value{String("")}, len(recv)/2+1)); err != nil {
 			return nil, err
 		}
 
@@ -2995,7 +2995,7 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		if err := thread.AddSteps(int64(len(recv))); err != nil {
 			return nil, err
 		}
-		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/len(sep)+1)); err != nil {
+		if err := thread.CheckAllocs(EstimateMakeSizeOld([]Value{String("")}, len(recv)/len(sep)+1)); err != nil {
 			return nil, err
 		}
 
@@ -3024,8 +3024,8 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		return nil, fmt.Errorf("split: got %s for separator, want string", sep_.Type())
 	}
 
-	listSize := EstimateMakeSize([]Value{String("")}, len(res))
-	resultSize := EstimateSize(&List{})
+	listSize := EstimateMakeSizeOld([]Value{String("")}, len(res))
+	resultSize := EstimateSizeOld(&List{})
 	if err := thread.AddAllocs(listSize + resultSize); err != nil {
 		return nil, err
 	}
@@ -3112,8 +3112,8 @@ func string_splitlines(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 		}
 	}
 	var itemTemplate String
-	resultSize := EstimateMakeSize([]Value{itemTemplate}, len(lines)) +
-		EstimateSize(&List{})
+	resultSize := EstimateMakeSizeOld([]Value{itemTemplate}, len(lines)) +
+		EstimateSizeOld(&List{})
 	if err := thread.AddAllocs(resultSize); err != nil {
 		return nil, err
 	}
@@ -3380,7 +3380,7 @@ func string_find_impl(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple, al
 			}
 		}
 	}
-	if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+	if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
 		return nil, err
 	}
 	return result, nil

@@ -63,9 +63,9 @@ func (i Int) EstimateSize() int64 {
 	size := int64(unsafe.Sizeof(Int{}))
 
 	if smallints == 0 {
-		size += EstimateSize((*big.Int)(i.impl))
+		size += EstimateSizeOld((*big.Int)(i.impl))
 	} else if _, iBig := i.get(); iBig != nil {
-		size += EstimateSize(iBig)
+		size += EstimateSizeOld(iBig)
 	}
 
 	return int64(size)

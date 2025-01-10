@@ -112,7 +112,7 @@ func TestMakeModuleResources(t *testing.T) {
 		kwargs := make([]starlark.Tuple, st.N)
 		for i := 0; i < st.N; i++ {
 			key := starlark.String(fmt.Sprintf("%012d", i))
-			if err := thread.AddAllocs(starlark.EstimateSize(key)); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateSizeOld(key)); err != nil {
 				st.Error(err)
 			}
 			pairs[i] = [2]starlark.Value{key, starlark.None}

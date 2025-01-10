@@ -881,8 +881,8 @@ func (iter *dummyRangeIterator) Err() error { return nil }
 func TestRunStringMemSafety(t *testing.T) {
 	t.Run("safety=safe", func(t *testing.T) {
 		allocateResultSize := starlark.OldSafeAdd64(
-			starlark.EstimateSize(starlark.Tuple{}),
-			starlark.EstimateMakeSize(starlark.Tuple{}, 100),
+			starlark.EstimateSizeOld(starlark.Tuple{}),
+			starlark.EstimateMakeSizeOld(starlark.Tuple{}, 100),
 		)
 		allocate := starlark.NewBuiltinWithSafety("allocate", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			if err := thread.AddAllocs(allocateResultSize); err != nil {
@@ -907,8 +907,8 @@ func TestRunStringMemSafety(t *testing.T) {
 	t.Run("safety=unsafe", func(t *testing.T) {
 		const expected = "measured memory is above declared allocations"
 
-		overallocateResultSize := starlark.EstimateSize(starlark.Tuple{}) +
-			starlark.EstimateMakeSize(starlark.Tuple{}, 100)
+		overallocateResultSize := starlark.EstimateSizeOld(starlark.Tuple{}) +
+			starlark.EstimateMakeSizeOld(starlark.Tuple{}, 100)
 		overallocate := starlark.NewBuiltinWithSafety("overallocate", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			return make(starlark.Tuple, 100), nil
 		})

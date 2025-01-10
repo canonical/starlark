@@ -532,7 +532,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				if err := json.Unmarshal([]byte(r), &r); err != nil {
 					fail("%s", err)
 				}
-				if err := thread.AddAllocs(starlark.EstimateSize(r)); err != nil {
+				if err := thread.AddAllocs(starlark.EstimateSizeOld(r)); err != nil {
 					failWith(err)
 				}
 			}
@@ -580,7 +580,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				}
 			}
 			i++ // ']'
-			if err := thread.AddAllocs(starlark.EstimateSize(&starlark.List{})); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateSizeOld(&starlark.List{})); err != nil {
 				failWith(err)
 			}
 			return starlark.NewList(elems)
@@ -588,7 +588,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 		case '{':
 			// object
 			dict := new(starlark.Dict)
-			if err := thread.AddAllocs(starlark.EstimateSize(dict)); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateSizeOld(dict)); err != nil {
 				failWith(err)
 			}
 
@@ -662,7 +662,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 						fail("invalid number: %s", num)
 					}
 					res := starlark.Value(starlark.Float(x))
-					if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSizeOld(res)); err != nil {
 						failWith(err)
 					}
 					return res
@@ -672,7 +672,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 						fail("invalid number: %s", num)
 					}
 					res := starlark.Value(starlark.MakeBigInt(x))
-					if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSizeOld(res)); err != nil {
 						failWith(err)
 					}
 					return res

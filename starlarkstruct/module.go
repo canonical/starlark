@@ -67,8 +67,8 @@ func MakeModule(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tupl
 		return nil, err
 	}
 	resultSize := starlark.OldSafeAdd64(
-		starlark.EstimateMakeSize(starlark.StringDict{}, len(kwargs)),
-		starlark.EstimateSize(&Module{}),
+		starlark.EstimateMakeSizeOld(starlark.StringDict{}, len(kwargs)),
+		starlark.EstimateSizeOld(&Module{}),
 	)
 	if err := thread.AddAllocs(resultSize); err != nil {
 		return nil, err

@@ -1924,7 +1924,7 @@ func TestSafeBinary(t *testing.T) {
 	makeString := func(thread *starlark.Thread, n int) (starlark.Value, error) {
 		if thread != nil {
 			resultSize := starlark.OldSafeAdd64(
-				starlark.EstimateMakeSize([]byte{}, n),
+				starlark.EstimateMakeSizeOld([]byte{}, n),
 				starlark.StringTypeOverhead,
 			)
 			if err := thread.AddAllocs(resultSize); err != nil {
@@ -1943,7 +1943,7 @@ func TestSafeBinary(t *testing.T) {
 	makeSmallInt := func(thread *starlark.Thread, n int) (starlark.Value, error) {
 		num := starlark.MakeInt(n)
 		if thread != nil {
-			if err := thread.AddAllocs(starlark.EstimateSize(num)); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateSizeOld(num)); err != nil {
 				return nil, err
 			}
 		}
@@ -1952,7 +1952,7 @@ func TestSafeBinary(t *testing.T) {
 	makeBigInt := func(thread *starlark.Thread, n int) (starlark.Value, error) {
 		num := starlark.MakeInt(1).Lsh(uint(n * 32))
 		if thread != nil {
-			if err := thread.AddAllocs(starlark.EstimateSize(num)); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateSizeOld(num)); err != nil {
 				return nil, err
 			}
 		}
@@ -1961,7 +1961,7 @@ func TestSafeBinary(t *testing.T) {
 	makeFloat := func(thread *starlark.Thread, n int) (starlark.Value, error) {
 		result := starlark.Float(n)
 		if thread != nil {
-			if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 				return nil, err
 			}
 		}
@@ -1970,8 +1970,8 @@ func TestSafeBinary(t *testing.T) {
 	makeTuple := func(thread *starlark.Thread, n int) (starlark.Value, error) {
 		if thread != nil {
 			resultSize := starlark.OldSafeAdd64(
-				starlark.EstimateMakeSize([]starlark.Value{}, n),
-				starlark.EstimateSize(&starlark.List{}),
+				starlark.EstimateMakeSizeOld([]starlark.Value{}, n),
+				starlark.EstimateSizeOld(&starlark.List{}),
 			)
 			if err := thread.AddAllocs(resultSize); err != nil {
 				return nil, err
@@ -1997,7 +1997,7 @@ func TestSafeBinary(t *testing.T) {
 			result.SetKey(v, v)
 		}
 		if thread != nil {
-			if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 				return nil, err
 			}
 		}
@@ -2009,7 +2009,7 @@ func TestSafeBinary(t *testing.T) {
 			result.Insert(starlark.MakeInt(i))
 		}
 		if thread != nil {
-			if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 				return nil, err
 			}
 		}
@@ -2025,7 +2025,7 @@ func TestSafeBinary(t *testing.T) {
 			}
 		}
 		if thread != nil {
-			if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 				return nil, err
 			}
 		}
@@ -2137,7 +2137,7 @@ func TestSafeBinary(t *testing.T) {
 				numBits := uint(math.Ceil(math.Pow(float64(n), 1/1.58) * 32))
 				result := starlark.MakeInt(1).Lsh(numBits)
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 						return nil, err
 					}
 				}
@@ -2261,7 +2261,7 @@ func TestSafeBinary(t *testing.T) {
 			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 				result := starlark.MakeInt(1).Lsh(uint(math.Ceil(math.Sqrt(float64(n)))) * 32)
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 						return nil, err
 					}
 				}
@@ -2309,7 +2309,7 @@ func TestSafeBinary(t *testing.T) {
 			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 				result := starlark.MakeInt(1).Lsh(uint(math.Ceil(math.Sqrt(float64(n)))) * 32)
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 						return nil, err
 					}
 				}
@@ -2318,7 +2318,7 @@ func TestSafeBinary(t *testing.T) {
 			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 				result := starlark.MakeInt(3).Lsh(uint(math.Ceil(math.Sqrt(float64(n)))) * 32)
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 						return nil, err
 					}
 				}
@@ -2362,7 +2362,7 @@ func TestSafeBinary(t *testing.T) {
 				const format = "%(k)r"
 				if thread != nil {
 					resultSize := starlark.OldSafeAdd64(
-						starlark.EstimateMakeSize([]byte{}, len(format)*n),
+						starlark.EstimateMakeSizeOld([]byte{}, len(format)*n),
 						starlark.StringTypeOverhead,
 					)
 					if err := thread.AddAllocs(resultSize); err != nil {
@@ -2388,7 +2388,7 @@ func TestSafeBinary(t *testing.T) {
 					return nil, err
 				}
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateMakeSize(starlark.Tuple{}, 2)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSizeOld(starlark.Tuple{}, 2)); err != nil {
 						return nil, err
 					}
 				}
@@ -2467,7 +2467,7 @@ func TestSafeBinary(t *testing.T) {
 			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 				result := starlark.Range(0, n, 1)
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 						return nil, err
 					}
 				}
@@ -2516,7 +2516,7 @@ func TestSafeBinary(t *testing.T) {
 					result.SetKey(v, v)
 				}
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 						return nil, err
 					}
 				}
@@ -2615,7 +2615,7 @@ func TestSafeBinary(t *testing.T) {
 					result = starlark.MakeInt(n)
 				}
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 						return nil, err
 					}
 				}
@@ -2638,7 +2638,7 @@ func TestSafeBinary(t *testing.T) {
 			left: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 				result := starlark.MakeInt(1).Lsh(uint(n * 2 * 32))
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 						return nil, err
 					}
 				}
@@ -2647,7 +2647,7 @@ func TestSafeBinary(t *testing.T) {
 			right: func(thread *starlark.Thread, n int) (starlark.Value, error) {
 				result := starlark.MakeInt(n * 32)
 				if thread != nil {
-					if err := thread.AddAllocs(starlark.EstimateSize(result)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSizeOld(result)); err != nil {
 						return nil, err
 					}
 				}

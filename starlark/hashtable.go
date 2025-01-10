@@ -59,7 +59,7 @@ func (ht *hashtable) init(thread *Thread, size int) error {
 		ht.table = ht.bucket0[:1]
 	} else {
 		if thread != nil {
-			if err := thread.AddAllocs(EstimateMakeSize([]bucket{}, nb)); err != nil {
+			if err := thread.AddAllocs(EstimateMakeSizeOld([]bucket{}, nb)); err != nil {
 				return err
 			}
 		}
@@ -146,7 +146,7 @@ retry:
 		// No space in existing buckets.  Add a new one to the bucket list.
 		b := new(bucket)
 		if thread != nil {
-			if err := thread.AddAllocs(EstimateSize(b)); err != nil {
+			if err := thread.AddAllocs(EstimateSizeOld(b)); err != nil {
 				return err
 			}
 		}
@@ -183,7 +183,7 @@ func (ht *hashtable) grow(thread *Thread) error {
 	// avoiding these steps were found to be too small to justify
 	// the extra logic: -2% on hashtable benchmark.
 	if thread != nil {
-		if err := thread.AddAllocs(EstimateMakeSize([]bucket{}, len(ht.table)<<1)); err != nil {
+		if err := thread.AddAllocs(EstimateMakeSizeOld([]bucket{}, len(ht.table)<<1)); err != nil {
 			return err
 		}
 	}
@@ -253,8 +253,8 @@ func (ht *hashtable) count(thread *Thread, iter Iterator) (int, error) {
 	// Elements are identified by their bucket number and index within the bucket.
 	// Each bitset gets one word initially, but may grow.
 	transientSize := OldSafeAdd64(
-		EstimateMakeSize([]big.Word{}, len(ht.table)),
-		EstimateMakeSize([]big.Int{}, len(ht.table)),
+		EstimateMakeSizeOld([]big.Word{}, len(ht.table)),
+		EstimateMakeSizeOld([]big.Int{}, len(ht.table)),
 	)
 	if thread != nil {
 		if err := thread.CheckAllocs(transientSize); err != nil {
