@@ -385,9 +385,11 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	n := starlark.SafeAdd(strings.Count(str, "["), strings.Count(str, "{"))
 	// Taking into account tabs and newlines and working out the algebra, the
 	// worst case can be compacted in the quadratic formula:
-	// n^2 + 2n - 1 = (n - 1)(n - 1) + 2n
-	nMinus1 := starlark.SafeSub(n, 1)
-	worstCase := starlark.SafeAdd(starlark.SafeMul(nMinus1, nMinus1), starlark.SafeMul(2, n))
+	// n^2 + 2n - 1 = n(n + 2) - 1
+	worstCase := starlark.SafeSub(
+		starlark.SafeMul(n, starlark.SafeAdd(n, 2)),
+		1,
+	)
 
 	// This worst case makes this function most likely unusable in the context
 	// of a script, but there are only two other approaches to tackle this part:
