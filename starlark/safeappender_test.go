@@ -580,7 +580,10 @@ func TestSafeAppenderAllocCounting(t *testing.T) {
 			if err := thread.AddAllocs(100); err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
-			before, _ := thread.Allocs()
+			before, ok := thread.Allocs()
+			if !ok {
+				t.Errorf("alloc count invalidated")
+			}
 
 			slice := []byte{}
 			sa := starlark.NewSafeAppender(thread, &slice)
@@ -590,7 +593,10 @@ func TestSafeAppenderAllocCounting(t *testing.T) {
 				}
 			}
 
-			after, _ := thread.Allocs()
+			after, ok := thread.Allocs()
+			if !ok {
+				t.Errorf("alloc count invalidated")
+			}
 			expected := after - before
 			if actual := sa.Allocs(); actual != expected {
 				t.Errorf("incorrect number of allocations reported: expected %d but got %d", expected, actual)
@@ -605,7 +611,10 @@ func TestSafeAppenderAllocCounting(t *testing.T) {
 			if err := thread.AddAllocs(100); err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
-			before, _ := thread.Allocs()
+			before, ok := thread.Allocs()
+			if !ok {
+				t.Errorf("alloc count invalidated")
+			}
 
 			slice := []byte{}
 			sa := starlark.NewSafeAppender(thread, &slice)
@@ -617,7 +626,10 @@ func TestSafeAppenderAllocCounting(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			after, _ := thread.Allocs()
+			after, ok := thread.Allocs()
+			if !ok {
+				t.Errorf("alloc count invalidated")
+			}
 			expected := after - before
 			if actual := sa.Allocs(); actual != expected {
 				t.Errorf("incorrect number of allocations reported: expected %d but got %d", expected, actual)
