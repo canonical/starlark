@@ -136,7 +136,7 @@ var safeties = map[string]starlark.SafetyFlags{
 	"gamma":     starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
 }
 
-var floatSize = starlark.EstimateSizeOld(starlark.Float(0))
+var floatSize = starlark.EstimateSize(starlark.Float(0))
 
 func init() {
 	for name, safety := range safeties {
@@ -229,7 +229,7 @@ func ceil(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwa
 		if err != nil {
 			return nil, err
 		}
-		if err := thread.AddAllocs(starlark.EstimateSizeOld(res)); err != nil {
+		if err := thread.AddAllocs(starlark.EstimateSize(res)); err != nil {
 			return nil, err
 		}
 		return res, nil
@@ -254,7 +254,7 @@ func floor(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kw
 		if err != nil {
 			return nil, err
 		}
-		if err := thread.AddAllocs(starlark.EstimateSizeOld(ret)); err != nil {
+		if err := thread.AddAllocs(starlark.EstimateSize(ret)); err != nil {
 			return nil, err
 		}
 		return ret, nil
