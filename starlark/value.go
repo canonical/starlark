@@ -2217,7 +2217,7 @@ func (gi *guardedIterator) Next(p *Value) bool {
 
 	ok := gi.iter.Next(p)
 	if ok {
-		if err := gi.thread.AddSteps(SafeInteger{1}); err != nil {
+		if err := gi.thread.AddSteps(SafeInt(1)); err != nil {
 			gi.err = err
 			return false
 		}

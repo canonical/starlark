@@ -104,7 +104,7 @@ retry:
 	p := &ht.table[h&(uint32(len(ht.table)-1))]
 	for {
 		if thread != nil {
-			if err := thread.AddSteps(SafeInteger{1}); err != nil {
+			if err := thread.AddSteps(SafeInt(1)); err != nil {
 				return err
 			}
 		}
@@ -219,7 +219,7 @@ func (ht *hashtable) lookup(thread *Thread, k Value) (v Value, found bool, err e
 	// Inspect each bucket in the bucket list.
 	for p := &ht.table[h&(uint32(len(ht.table)-1))]; p != nil; p = p.next {
 		if thread != nil {
-			if err := thread.AddSteps(SafeInteger{1}); err != nil {
+			if err := thread.AddSteps(SafeInt(1)); err != nil {
 				return nil, false, err
 			}
 		}
@@ -280,7 +280,7 @@ func (ht *hashtable) count(thread *Thread, iter Iterator) (int, error) {
 		i := 0
 		for p := &ht.table[bucketId]; p != nil; p = p.next {
 			if thread != nil {
-				if err := thread.AddSteps(SafeInteger{1}); err != nil {
+				if err := thread.AddSteps(SafeInt(1)); err != nil {
 					return 0, err
 				}
 			}
@@ -363,7 +363,7 @@ func (ht *hashtable) delete(thread *Thread, k Value) (v Value, found bool, err e
 	// Inspect each bucket in the bucket list.
 	for p := &ht.table[h&(uint32(len(ht.table)-1))]; p != nil; p = p.next {
 		if thread != nil {
-			if err := thread.AddSteps(SafeInteger{1}); err != nil {
+			if err := thread.AddSteps(SafeInt(1)); err != nil {
 				return nil, false, err
 			}
 		}

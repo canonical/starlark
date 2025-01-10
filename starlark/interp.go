@@ -761,9 +761,9 @@ func instuctionSteps(op compile.Opcode, arg uint32) SafeInteger {
 	switch op {
 	case compile.NOP, compile.DUP, compile.DUP2, compile.POP, compile.EXCH:
 		// Ignore stack management ops as these are setup for other instructions.
-		return SafeInteger{0}
+		return SafeInt(0)
 	default:
-		return SafeInteger{1}
+		return SafeInt(1)
 	}
 }
 

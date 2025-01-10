@@ -1550,7 +1550,7 @@ type sortSlice struct {
 
 func (s *sortSlice) Len() int { return len(s.values) }
 func (s *sortSlice) Less(i, j int) bool {
-	if err := s.thread.AddSteps(SafeInteger{1}); err != nil {
+	if err := s.thread.AddSteps(SafeInt(1)); err != nil {
 		panic(sortError{err})
 	}
 	keys := s.keys
