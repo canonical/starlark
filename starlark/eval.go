@@ -491,7 +491,7 @@ func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
 
 func (tb *SafeStringBuilder) WriteByte(b byte) error {
 	if tb.thread != nil {
-		if err := tb.thread.AddSteps(SafeInteger{1}); err != nil {
+		if err := tb.thread.AddSteps(SafeInt(1)); err != nil {
 			return err
 		}
 	}
@@ -1288,7 +1288,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		if _, iBig := i.get(); iBig != nil {
 			return SafeDiv(iBig.BitLen(), 32)
 		}
-		return SafeInteger{0}
+		return SafeInt(0)
 	}
 	max := func(a, b int64) int64 {
 		if a > b {
@@ -1836,7 +1836,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case *List:
 			for _, elem := range y.elems {
 				if thread != nil {
-					if err := thread.AddSteps(SafeInteger{1}); err != nil {
+					if err := thread.AddSteps(SafeInt(1)); err != nil {
 						return nil, err
 					}
 				}
@@ -1850,7 +1850,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Tuple:
 			for _, elem := range y {
 				if thread != nil {
-					if err := thread.AddSteps(SafeInteger{1}); err != nil {
+					if err := thread.AddSteps(SafeInt(1)); err != nil {
 						return nil, err
 					}
 				}
@@ -2065,7 +2065,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				return z, nil
 			} else {
 				if thread != nil {
-					if err := thread.AddSteps(safeMax(SafeSub(intLenSteps(x), SafeDiv(y, 32)), SafeInteger{0})); err != nil {
+					if err := thread.AddSteps(safeMax(SafeSub(intLenSteps(x), SafeDiv(y, 32)), SafeInt(0))); err != nil {
 						return nil, err
 					}
 					if err := thread.CheckAllocs(EstimateSize(x)); err != nil {
