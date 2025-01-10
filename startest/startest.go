@@ -239,7 +239,12 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 
 	mean := func(x int64) int64 { return (x + stats.nSum/2) / stats.nSum }
 	meanMeasuredAllocs := mean(stats.allocSum)
-	meanDeclaredAllocs := mean(thread.Allocs())
+	allocs64, ok := thread.Allocs()
+	if !ok {
+		st.Error("alloc counter invalidated")
+		return
+	}
+	meanDeclaredAllocs := mean(allocs64)
 	steps64, ok := thread.Steps()
 	if !ok {
 		st.Error("step counter invalidated")
@@ -256,7 +261,11 @@ func (st *ST) RunThread(fn func(*starlark.Thread)) {
 		}
 
 		// Check memory usage is safe, within mean rounding error (i.e. round(alloc error per N) == 0)
-		if stats.allocSum > thread.Allocs() && (stats.allocSum-thread.Allocs())*2 >= stats.nSum {
+		allocs, ok := thread.Allocs()
+		if !ok {
+			st.Error("alloc counter invalidated")
+		}
+		if stats.allocSum > allocs && (stats.allocSum-allocs)*2 >= stats.nSum {
 			st.Errorf("measured memory is above declared allocations (%d > %d)", meanMeasuredAllocs, meanDeclaredAllocs)
 		}
 	}

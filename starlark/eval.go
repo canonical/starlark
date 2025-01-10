@@ -68,8 +68,9 @@ type Thread struct {
 	stepsLock sync.Mutex
 
 	// allocs counts the abstract memory units claimed by this resource pool
-	allocs, maxAllocs int64
-	allocsLock        sync.Mutex
+	allocs     SafeInteger
+	maxAllocs  int64
+	allocsLock sync.Mutex
 
 	// locals holds arbitrary "thread-local" Go values belonging to the client.
 	// They are accessible to the client but not to any Starlark program.
@@ -251,11 +252,11 @@ func (thread *Thread) simulateSteps(deltas ...int64) (SafeInteger, error) {
 }
 
 // Allocs returns the total allocations reported to this thread via AddAllocs.
-func (thread *Thread) Allocs() int64 {
+func (thread *Thread) Allocs() (int64, bool) {
 	thread.allocsLock.Lock()
 	defer thread.allocsLock.Unlock()
 
-	return thread.allocs
+	return thread.allocs.Int64()
 }
 
 // SetMaxAllocs sets the maximum allocations that may be reported to this
@@ -2694,7 +2695,8 @@ func interpolate(thread *Thread, format string, x Value) (Value, error) {
 }
 
 type AllocsSafetyError struct {
-	Current, Max int64
+	Current SafeInteger
+	Max     int64
 }
 
 func (e *AllocsSafetyError) Error() string {
@@ -2753,20 +2755,21 @@ func (thread *Thread) AddAllocs(deltas ...int64) error {
 // simulateAllocs simulates a call to AddAllocs returning the new total
 // allocations associated with this thread and any error this would entail. No
 // change is recorded.
-func (thread *Thread) simulateAllocs(deltas ...int64) (int64, error) {
+func (thread *Thread) simulateAllocs(deltas ...int64) (SafeInteger, error) {
 	nextAllocs := thread.allocs
 	for _, delta := range deltas {
-		nextAllocs = OldSafeAdd64(nextAllocs, delta)
+		nextAllocs = SafeAdd(nextAllocs, delta)
 
-		if thread.maxAllocs > 0 && nextAllocs > thread.maxAllocs {
+		nextAllocs64, ok := nextAllocs.Int64()
+		if ok && thread.maxAllocs > 0 && nextAllocs64 > thread.maxAllocs {
 			return nextAllocs, &AllocsSafetyError{
 				Current: thread.allocs,
 				Max:     thread.maxAllocs,
 			}
 		}
 	}
-	if nextAllocs < 0 {
-		return 0, nil
+	if nextAllocs64, ok := nextAllocs.Int64(); ok && nextAllocs64 < 0 {
+		return SafeInteger{invalidSafeInt}, errors.New("alloc count invalidated")
 	}
 	return nextAllocs, nil
 }
