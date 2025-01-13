@@ -360,7 +360,7 @@ func abs(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		}
 
 		if _, xBig := tx.get(); xBig != nil {
-			if err := thread.AddSteps(int64(len(xBig.Bits()))); err != nil {
+			if err := thread.AddSteps(SafeInt(len(xBig.Bits()))); err != nil {
 				return nil, err
 			}
 		}
@@ -544,7 +544,7 @@ func dir(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if x, ok := args[0].(HasAttrs); ok {
 		names = x.AttrNames()
 	}
-	if err := thread.AddSteps(int64(len(names))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(names))); err != nil {
 		return nil, err
 	}
 	sort.Strings(names)
@@ -578,7 +578,7 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 
 	if n := Len(iterable); n >= 0 {
 		// common case: known length
-		if err := thread.AddSteps(int64(n)); err != nil {
+		if err := thread.AddSteps(SafeInt(n)); err != nil {
 			return nil, err
 		}
 		overhead := EstimateMakeSize([]Value{Tuple{}}, n) +
@@ -688,7 +688,7 @@ func float(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		if x == "" {
 			return nil, fmt.Errorf("float: empty string")
 		}
-		if err := thread.AddSteps(int64(len(x))); err != nil {
+		if err := thread.AddSteps(SafeInt(len(x))); err != nil {
 			return nil, err
 		}
 		// +/- NaN or Inf or Infinity (case insensitive)?
@@ -807,12 +807,12 @@ func hash(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		// String.Hash, which uses the fastest implementation
 		// available, because as varies across process restarts,
 		// and may evolve with the implementation.
-		if err := thread.AddSteps(int64(len(x))); err != nil {
+		if err := thread.AddSteps(SafeInt(len(x))); err != nil {
 			return nil, err
 		}
 		h = int64(javaStringHash(string(x)))
 	case Bytes:
-		if err := thread.AddSteps(int64(len(x))); err != nil {
+		if err := thread.AddSteps(SafeInt(len(x))); err != nil {
 			return nil, err
 		}
 		h = int64(softHashString(string(x))) // FNV32
@@ -864,7 +864,7 @@ func int_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (res Value, er
 		// Max result size is going to be base36, where each char is going to have 36 values
 		// To make things easy we will just consider each character to be max 6 bits.
 		// It's pessimistic, but easy.
-		if err := thread.AddSteps(int64(len(s))); err != nil {
+		if err := thread.AddSteps(SafeInt(len(s))); err != nil {
 			return nil, err
 		}
 		if err := thread.CheckAllocs((int64(len(s)*6) + 7) / 8); err != nil {
@@ -1126,7 +1126,7 @@ func ord(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		s := string(x)
 		r, sz := utf8.DecodeRuneInString(s)
 		if sz == 0 || sz != len(s) {
-			if err := thread.AddSteps(int64(len(s))); err != nil {
+			if err := thread.AddSteps(SafeInt(len(s))); err != nil {
 				return nil, err
 			}
 			n := utf8.RuneCountInString(s)
@@ -1550,7 +1550,7 @@ type sortSlice struct {
 
 func (s *sortSlice) Len() int { return len(s.values) }
 func (s *sortSlice) Less(i, j int) bool {
-	if err := s.thread.AddSteps(1); err != nil {
+	if err := s.thread.AddSteps(SafeInt(1)); err != nil {
 		panic(sortError{err})
 	}
 	keys := s.keys
@@ -1620,7 +1620,7 @@ func utf8Transcode(s string) string {
 }
 
 func safeUtf8Transcode(thread *Thread, s string) (string, error) {
-	if err := thread.AddSteps(int64(len(s))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(s))); err != nil {
 		return "", err
 	}
 	if utf8.ValidString(s) {
@@ -1721,7 +1721,7 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		// length known
 
 		// Equalise step cost for fast and slow path.
-		if err := thread.AddSteps(int64(rows)); err != nil {
+		if err := thread.AddSteps(SafeInt(rows)); err != nil {
 			return nil, err
 		}
 		resultSize := EstimateMakeSize([]Value{Tuple{}}, rows)
@@ -1816,7 +1816,7 @@ func dict_items(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 	}
 	receiver := b.Receiver().(*Dict)
 	len := receiver.Len()
-	if err := thread.AddSteps(int64(len)); err != nil {
+	if err := thread.AddSteps(SafeInt(len)); err != nil {
 		return nil, err
 	}
 	// dict.Items() allocates a single backing array for the tuples.
@@ -1845,7 +1845,7 @@ func dict_keys(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	}
 	recv := b.Receiver().(*Dict)
 	len := recv.Len()
-	if err := thread.AddSteps(int64(len)); err != nil {
+	if err := thread.AddSteps(SafeInt(len)); err != nil {
 		return nil, err
 	}
 	keysSize := EstimateMakeSize([]Value{}, len)
@@ -1932,7 +1932,7 @@ func dict_values(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	}
 	recv := b.Receiver().(*Dict)
 	len := recv.Len()
-	if err := thread.AddSteps(int64(len)); err != nil {
+	if err := thread.AddSteps(SafeInt(len)); err != nil {
 		return nil, err
 	}
 	valuesSize := EstimateMakeSize([]Value{}, len)
@@ -1966,7 +1966,7 @@ func list_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		return nil, err
 	}
 	recv := b.Receiver().(*List)
-	if err := thread.AddSteps(int64(recv.Len())); err != nil {
+	if err := thread.AddSteps(SafeInt(recv.Len())); err != nil {
 		return nil, err
 	}
 	if err := recv.Clear(); err != nil {
@@ -2005,7 +2005,7 @@ func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		return nil, nameErr(b, err)
 	}
 
-	if err := thread.AddSteps(int64(end - start)); err != nil {
+	if err := thread.AddSteps(SafeSub(end, start)); err != nil {
 		return nil, err
 	}
 
@@ -2014,7 +2014,7 @@ func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 			return nil, nameErr(b, err)
 		} else if eq {
 			res := Value(MakeInt(i))
-			if err := thread.AddSteps(-int64(end - i - 1)); err != nil {
+			if err := thread.AddSteps(SafeNeg(SafeSub(SafeSub(end, i), 1))); err != nil {
 				return nil, err
 			}
 			if err := thread.AddAllocs(EstimateSize(res)); err != nil {
@@ -2054,7 +2054,7 @@ func list_insert(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		}
 		// Assuming that steps were counted in the construction of `recv`, each step
 		// here also accounts for the cost of reallocation.
-		if err := thread.AddSteps(int64(len(recv.elems) - index)); err != nil {
+		if err := thread.AddSteps(SafeSub(len(recv.elems), index)); err != nil {
 			return nil, err
 		}
 		if err := appender.Append(nil); err != nil {
@@ -2076,7 +2076,7 @@ func list_remove(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	if err := recv.checkMutable("remove from"); err != nil {
 		return nil, nameErr(b, err)
 	}
-	if err := thread.AddSteps(int64(recv.Len())); err != nil {
+	if err := thread.AddSteps(SafeInt(recv.Len())); err != nil {
 		return nil, err
 	}
 	for i, elem := range recv.elems {
@@ -2109,7 +2109,7 @@ func list_pop(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	if err := list.checkMutable("pop from"); err != nil {
 		return nil, nameErr(b, err)
 	}
-	if err := thread.AddSteps(int64(n - i)); err != nil {
+	if err := thread.AddSteps(SafeSub(n, i)); err != nil {
 		return nil, err
 	}
 	res := list.elems[i]
@@ -2269,7 +2269,7 @@ func string_count(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 		slice = recv[start:end]
 	}
 
-	if err := thread.AddSteps(int64(len(slice))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(slice))); err != nil {
 		return nil, err
 	}
 	result := Value(MakeInt(strings.Count(slice, sub)))
@@ -2285,12 +2285,12 @@ func string_isalnum(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
-	if err := thread.AddSteps(int64(len(recv))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(recv))); err != nil {
 		return nil, err
 	}
 	for i, r := range recv {
 		if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
-			if err := thread.AddSteps(-int64(len(recv) - i - 1)); err != nil {
+			if err := thread.AddSteps(SafeNeg(SafeSub(SafeSub(len(recv), i), 1))); err != nil {
 				return nil, err
 			}
 			return False, nil
@@ -2305,12 +2305,12 @@ func string_isalpha(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
-	if err := thread.AddSteps(int64(len(recv))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(recv))); err != nil {
 		return nil, err
 	}
 	for i, r := range recv {
 		if !unicode.IsLetter(r) {
-			if err := thread.AddSteps(-int64(len(recv) - i - 1)); err != nil {
+			if err := thread.AddSteps(SafeNeg(SafeSub(SafeSub(len(recv), i), 1))); err != nil {
 				return nil, err
 			}
 			return False, nil
@@ -2325,12 +2325,12 @@ func string_isdigit(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
-	if err := thread.AddSteps(int64(len(recv))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(recv))); err != nil {
 		return nil, err
 	}
 	for i, r := range recv {
 		if !unicode.IsDigit(r) {
-			if err := thread.AddSteps(-int64(len(recv) - i - 1)); err != nil {
+			if err := thread.AddSteps(SafeNeg(SafeSub(SafeSub(len(recv), i), 1))); err != nil {
 				return nil, err
 			}
 			return False, nil
@@ -2345,7 +2345,7 @@ func string_islower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
-	if err := thread.AddSteps(int64(len(recv))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(recv))); err != nil {
 		return nil, err
 	}
 	if err := thread.CheckAllocs(EstimateSize(recv)); err != nil {
@@ -2376,12 +2376,12 @@ func string_isspace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
-	if err := thread.AddSteps(int64(len(recv))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(recv))); err != nil {
 		return nil, err
 	}
 	for i, r := range recv {
 		if !unicode.IsSpace(r) {
-			if err := thread.AddSteps(-int64(len(recv) - i - 1)); err != nil {
+			if err := thread.AddSteps(SafeNeg(SafeSub(SafeSub(len(recv), i), 1))); err != nil {
 				return nil, err
 			}
 			return False, nil
@@ -2397,7 +2397,7 @@ func string_istitle(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 	}
 	recv := string(b.Receiver().(String))
 
-	if err := thread.AddSteps(int64(len(recv))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(recv))); err != nil {
 		return nil, err
 	}
 	// Python semantics differ from x==strings.{To,}Title(x) in Go:
@@ -2407,7 +2407,7 @@ func string_istitle(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 	for i, r := range recv {
 		if 'A' <= r && r <= 'Z' || unicode.IsTitle(r) { // e.g. "ǅ"
 			if prevCased {
-				if err := thread.AddSteps(-int64(len(recv) - i - 1)); err != nil {
+				if err := thread.AddSteps(SafeNeg(SafeSub(SafeSub(len(recv), i), 1))); err != nil {
 					return nil, err
 				}
 				return False, nil
@@ -2416,7 +2416,7 @@ func string_istitle(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 			cased = true
 		} else if unicode.IsLower(r) {
 			if !prevCased {
-				if err := thread.AddSteps(-int64(len(recv) - i - 1)); err != nil {
+				if err := thread.AddSteps(SafeNeg(SafeSub(SafeSub(len(recv), i), 1))); err != nil {
 					return nil, err
 				}
 				return False, nil
@@ -2424,7 +2424,7 @@ func string_istitle(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 			prevCased = true
 			cased = true
 		} else if unicode.IsUpper(r) {
-			if err := thread.AddSteps(-int64(len(recv) - i - 1)); err != nil {
+			if err := thread.AddSteps(SafeNeg(SafeSub(SafeSub(len(recv), i), 1))); err != nil {
 				return nil, err
 			}
 			return False, nil
@@ -2441,7 +2441,7 @@ func string_isupper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 	recv := string(b.Receiver().(String))
-	if err := thread.AddSteps(int64(len(recv))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(recv))); err != nil {
 		return nil, err
 	}
 	if err := thread.CheckAllocs(EstimateSize(recv)); err != nil {
@@ -2680,7 +2680,7 @@ func string_lower(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	}
 
 	recv := string(b.Receiver().(String))
-	if err := thread.AddSteps(int64(len(recv))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(recv))); err != nil {
 		return nil, err
 	}
 	// There could be actually a difference between the size of the encoded
@@ -2705,7 +2705,7 @@ func string_partition(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 	if sep == "" {
 		return nil, nameErr(b, "empty separator")
 	}
-	if err := thread.AddSteps(int64(len(recv))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(recv))); err != nil {
 		return nil, err
 	}
 	var i int
@@ -2730,9 +2730,9 @@ func string_partition(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 		}
 	} else {
 		if b.Name()[0] == 'p' {
-			thread.AddSteps(-int64(len(recv) - len(sep) - i))
+			thread.AddSteps(SafeNeg(SafeSub(SafeSub(len(recv), len(sep)), i)))
 		} else {
-			thread.AddSteps(-int64(i))
+			thread.AddSteps(SafeNeg(i))
 		}
 		tuple = append(tuple, String(recv[:i]), String(recv[i:i+len(sep)]), String(recv[i+len(sep):]))
 	}
@@ -2747,7 +2747,7 @@ func string_removefix(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &fix); err != nil {
 		return nil, err
 	}
-	if err := thread.AddSteps(int64(len(fix))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(fix))); err != nil {
 		return nil, err
 	}
 	if b.name[len("remove")] == 'p' {
@@ -2770,13 +2770,7 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 
-	max := func(a, b int) int {
-		if a > b {
-			return a
-		}
-		return b
-	}
-	maxResultSize := SafeDiv(SafeMul(SafeAdd(len(recv), 1), len(new)), max(len(old), 1))
+	maxResultSize := SafeDiv(SafeMul(len(recv)+1, len(new)), safeMax(len(old), 1))
 	if err := thread.CheckSteps(maxResultSize); err != nil {
 		return nil, err
 	}
@@ -2788,7 +2782,7 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 	replaced := strings.Replace(recv, old, new, count)
-	if err := thread.AddSteps(int64(max(len(replaced), len(recv)))); err != nil {
+	if err := thread.AddSteps(safeMax(len(replaced), len(recv))); err != nil {
 		return nil, err
 	}
 	result := Value(String(replaced)) // Avoid allocation.
@@ -2841,7 +2835,7 @@ func string_startswith(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 				return nil, fmt.Errorf("%s: want string, got %s, for element %d",
 					b.Name(), x.Type(), i)
 			}
-			if err := thread.AddSteps(int64(len(prefix))); err != nil {
+			if err := thread.AddSteps(SafeInt(len(prefix))); err != nil {
 				return False, err
 			}
 			if f(s, prefix) {
@@ -2850,7 +2844,7 @@ func string_startswith(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 		}
 		return False, nil
 	case String:
-		if err := thread.AddSteps(int64(len(x))); err != nil {
+		if err := thread.AddSteps(SafeInt(len(x))); err != nil {
 			return False, err
 		}
 		return Bool(f(s, string(x))), nil
@@ -2894,7 +2888,7 @@ func string_strip(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if err := thread.AddAllocs(StringTypeOverhead); err != nil {
 		return nil, err
 	}
-	if err := thread.AddSteps(int64(len(recv) - len(s))); err != nil {
+	if err := thread.AddSteps(SafeSub(len(recv), len(s))); err != nil {
 		return nil, err
 	}
 	return String(s), nil
@@ -2911,7 +2905,7 @@ func string_title(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	// Python semantics differ from x==strings.{To,}Title(x) in Go:
 	// "uppercase characters may only follow uncased characters and
 	// lowercase characters only cased ones."
-	if err := thread.AddSteps(int64(len(s))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(s))); err != nil {
 		return nil, err
 	}
 	buf := NewSafeStringBuilder(thread)
@@ -2950,7 +2944,7 @@ func string_upper(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if err := thread.AddAllocs(bufferSize + StringTypeOverhead); err != nil {
 		return nil, err
 	}
-	if err := thread.AddSteps(int64(len(recv))); err != nil {
+	if err := thread.AddSteps(SafeInt(len(recv))); err != nil {
 		return nil, err
 	}
 	return String(strings.ToUpper(recv)), nil
@@ -2971,7 +2965,7 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	if sep_ == nil || sep_ == None {
 		// A string with many consecutive separators may need to be traversed
 		// completely, even when maxsplit >= 0.
-		if err := thread.AddSteps(int64(len(recv))); err != nil {
+		if err := thread.AddSteps(SafeInt(len(recv))); err != nil {
 			return nil, err
 		}
 		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/2+1)); err != nil {
@@ -2992,7 +2986,7 @@ func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 			return nil, fmt.Errorf("split: empty separator")
 		}
 
-		if err := thread.AddSteps(int64(len(recv))); err != nil {
+		if err := thread.AddSteps(SafeInt(len(recv))); err != nil {
 			return nil, err
 		}
 		if err := thread.CheckAllocs(EstimateMakeSize([]Value{String("")}, len(recv)/len(sep)+1)); err != nil {
@@ -3098,7 +3092,7 @@ func string_splitlines(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (
 	}
 	var lines []string
 	if s := string(b.Receiver().(String)); s != "" {
-		if err := thread.AddSteps(int64(len(s))); err != nil {
+		if err := thread.AddSteps(SafeInt(len(s))); err != nil {
 			return nil, err
 		}
 		// TODO(adonovan): handle CRLF correctly.
@@ -3371,11 +3365,11 @@ func string_find_impl(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple, al
 	} else {
 		result = MakeInt(i + start)
 		if last {
-			if err := thread.AddSteps(int64(len(slice) - i)); err != nil {
+			if err := thread.AddSteps(SafeSub(len(slice), i)); err != nil {
 				return nil, err
 			}
 		} else {
-			if err := thread.AddSteps(int64(i + len(sub))); err != nil {
+			if err := thread.AddSteps(SafeAdd(i, len(sub))); err != nil {
 				return nil, err
 			}
 		}
@@ -3394,7 +3388,7 @@ func updateDict(thread *Thread, dict *Dict, updates Tuple, kwargs []Tuple) error
 		case IterableMapping:
 			// Iterate over dict's key/value pairs, not just keys.
 			items := updates.Items()
-			if err := thread.AddSteps(int64(len(items))); err != nil {
+			if err := thread.AddSteps(SafeInt(len(items))); err != nil {
 				return err
 			}
 			for _, item := range items {

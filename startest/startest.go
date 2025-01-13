@@ -435,7 +435,7 @@ func (st *ST) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, er
 		// The steps counted to call this function is:
 		// - 1 for loading st;
 		// - 1 for getting the attr.
-		if err := thread.AddSteps(-2); err != nil {
+		if err := thread.AddSteps(starlark.SafeInt(-2)); err != nil {
 			return nil, err
 		}
 	}
@@ -496,7 +496,7 @@ func st_keep_alive(thread *starlark.Thread, b *starlark.Builtin, args starlark.T
 	}
 
 	// Remove the cost of the CALL for this function.
-	if err := thread.AddSteps(-1); err != nil {
+	if err := thread.AddSteps(starlark.SafeInt(-1)); err != nil {
 		return nil, err
 	}
 
@@ -524,7 +524,7 @@ func st_ntimes(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple
 	}
 
 	// Remove the cost of the CALL for this function.
-	if err := thread.AddSteps(-1); err != nil {
+	if err := thread.AddSteps(starlark.SafeInt(-1)); err != nil {
 		return nil, err
 	}
 
@@ -570,7 +570,6 @@ func (it *ntimes_iterator) Next(p *starlark.Value) bool {
 		// - 1 for the SET{LOCAL,GLOBAL} to record the result;
 		// - 1 for the JMP back to the loop's ITERJMP.
 		it.stepsToRemove = starlark.SafeAdd(it.stepsToRemove, 4)
-
 		it.n--
 		*p = starlark.None
 		return true
@@ -583,20 +582,8 @@ func (it *ntimes_iterator) Done() {
 		return
 	}
 
-	stepsToRemove64, ok := starlark.SafeNeg(it.stepsToRemove).Int64()
-	if !ok && it.err == nil {
-		it.err = errors.New("steps-to-remove count invalidated")
-	}
-	err := it.thread.AddSteps(stepsToRemove64)
+	err := it.thread.AddSteps(starlark.SafeNeg(it.stepsToRemove))
 	if err != nil && it.err == nil {
 		it.err = err
 	}
-}
-
-func (it *ntimes_iterator) removeIterationSteps() (ok bool) {
-	if err := it.thread.AddSteps(-4); err != nil {
-		it.err = err
-		return false
-	}
-	return true
 }

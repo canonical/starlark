@@ -247,3 +247,20 @@ func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	}
 	return SafeInteger{sa.value / sb.value}
 }
+
+func safeMax[A, B Integer | SafeInteger](a A, b B) SafeInteger {
+	sa := SafeInt(a)
+	sb := SafeInt(b)
+	a64, ok := sa.Int64()
+	if !ok {
+		return SafeInteger{invalidSafeInt}
+	}
+	b64, ok := sb.Int64()
+	if !ok {
+		return SafeInteger{invalidSafeInt}
+	}
+	if a64 > b64 {
+		return sa
+	}
+	return sb
+}

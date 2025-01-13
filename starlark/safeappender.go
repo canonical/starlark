@@ -45,7 +45,7 @@ func (sa *SafeAppender) Steps() int64 {
 
 func (sa *SafeAppender) Append(values ...interface{}) error {
 	if sa.thread != nil {
-		if err := sa.thread.AddSteps(int64(len(values))); err != nil {
+		if err := sa.thread.AddSteps(SafeInt(len(values))); err != nil {
 			return err
 		}
 	}
@@ -93,7 +93,7 @@ func (sa *SafeAppender) AppendSlice(values interface{}) error {
 		panic(fmt.Sprintf("SafeAppender.AppendSlice: expected slice, got %v", kind))
 	}
 	if sa.thread != nil {
-		if err := sa.thread.AddSteps(int64(toAppend.Len())); err != nil {
+		if err := sa.thread.AddSteps(SafeInt(toAppend.Len())); err != nil {
 			return err
 		}
 	}

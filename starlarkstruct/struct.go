@@ -58,7 +58,7 @@ func SafeFromKeywords(thread *starlark.Thread, constructor starlark.Value, kwarg
 		panic("nil constructor")
 	}
 	if thread != nil {
-		if err := thread.AddSteps(int64(len(kwargs))); err != nil {
+		if err := thread.AddSteps(starlark.SafeInt(len(kwargs))); err != nil {
 			return nil, err
 		}
 		resultSize := starlark.OldSafeAdd64(
@@ -99,7 +99,7 @@ func SafeFromStringDict(thread *starlark.Thread, constructor starlark.Value, d s
 		panic("nil constructor")
 	}
 	if thread != nil {
-		if err := thread.AddSteps(int64(len(d))); err != nil {
+		if err := thread.AddSteps(starlark.SafeInt(len(d))); err != nil {
 			return nil, err
 		}
 		resultSize := starlark.OldSafeAdd64(
@@ -285,7 +285,7 @@ func (s *Struct) SafeAttr(thread *starlark.Thread, name string) (starlark.Value,
 	i, j := 0, n
 	for i < j {
 		if thread != nil {
-			if err := thread.AddSteps(1); err != nil {
+			if err := thread.AddSteps(starlark.SafeInt(1)); err != nil {
 				return nil, err
 			}
 		}

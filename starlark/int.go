@@ -82,7 +82,7 @@ func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
 	case syntax.MINUS:
 		if thread != nil {
 			if _, iBig := i.get(); iBig != nil {
-				if err := thread.AddSteps(int64(len(iBig.Bits()))); err != nil {
+				if err := thread.AddSteps(SafeInt(len(iBig.Bits()))); err != nil {
 					return nil, err
 				}
 			}
@@ -102,7 +102,7 @@ func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
 	case syntax.TILDE:
 		if thread != nil {
 			if _, iBig := i.get(); iBig != nil {
-				if err := thread.AddSteps(int64(len(iBig.Bits()))); err != nil {
+				if err := thread.AddSteps(SafeInt(len(iBig.Bits()))); err != nil {
 					return nil, err
 				}
 			}

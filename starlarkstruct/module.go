@@ -63,7 +63,7 @@ func MakeModule(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tupl
 	if err := starlark.UnpackPositionalArgs(b.Name(), args, nil, 1, &name); err != nil {
 		return nil, err
 	}
-	if err := thread.AddSteps(int64(len(kwargs))); err != nil {
+	if err := thread.AddSteps(starlark.SafeInt(len(kwargs))); err != nil {
 		return nil, err
 	}
 	resultSize := starlark.OldSafeAdd64(
