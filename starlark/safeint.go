@@ -253,19 +253,40 @@ func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	return SafeInteger{sa.value / sb.value}
 }
 
-func safeMax[A, B Integer | SafeInteger](a A, b B) SafeInteger {
-	sa := SafeInt(a)
-	sb := SafeInt(b)
-	a64, ok := sa.Int64()
-	if !ok {
+func SafeMax[I Integer | SafeInteger](i I, is ...I) SafeInteger {
+	si := SafeInt(i)
+	if !si.Valid() {
 		return SafeInteger{invalidSafeInt}
 	}
-	b64, ok := sb.Int64()
-	if !ok {
+
+	max := si
+	for _, i := range is {
+		si := SafeInt(i)
+		if !si.Valid() {
+			return SafeInteger{invalidSafeInt}
+		}
+		if si.value > max.value {
+			max = si
+		}
+	}
+	return max
+}
+
+func SafeMin[I Integer | SafeInteger](i I, is ...I) SafeInteger {
+	si := SafeInt(i)
+	if !si.Valid() {
 		return SafeInteger{invalidSafeInt}
 	}
-	if a64 > b64 {
-		return sa
+
+	min := si
+	for _, i := range is {
+		si := SafeInt(i)
+		if !si.Valid() {
+			return SafeInteger{invalidSafeInt}
+		}
+		if si.value < min.value {
+			min = si
+		}
 	}
-	return sb
+	return min
 }

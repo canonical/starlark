@@ -2778,7 +2778,7 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 
-	maxResultSize := SafeDiv(SafeMul(len(recv)+1, len(new)), safeMax(len(old), 1))
+	maxResultSize := SafeDiv(SafeMul(len(recv)+1, len(new)), SafeMax(len(old), 1))
 	if err := thread.CheckSteps(maxResultSize); err != nil {
 		return nil, err
 	}
@@ -2786,7 +2786,7 @@ func string_replace(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Val
 		return nil, err
 	}
 	replaced := strings.Replace(recv, old, new, count)
-	if err := thread.AddSteps(safeMax(len(replaced), len(recv))); err != nil {
+	if err := thread.AddSteps(SafeMax(len(replaced), len(recv))); err != nil {
 		return nil, err
 	}
 	result := Value(String(replaced)) // Avoid allocation.

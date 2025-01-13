@@ -880,3 +880,57 @@ func TestSafeDiv(t *testing.T) {
 		})
 	}
 }
+
+func TestSafeMax(t *testing.T) {
+	tests := []struct {
+		name     string
+		max      starlark.SafeInteger
+		expected starlark.SafeInteger
+	}{{
+		name:     "both-valid",
+		max:      starlark.SafeMax(1000, -10),
+		expected: starlark.SafeInt(1000),
+	}, {
+		name:     "invalid-initial",
+		max:      starlark.SafeMax(starlark.InvalidSafeInt, starlark.SafeInt(-10)),
+		expected: starlark.InvalidSafeInt,
+	}, {
+		name:     "invalid-tail",
+		max:      starlark.SafeMax(starlark.SafeInt(1000), starlark.SafeInt(-10), starlark.InvalidSafeInt),
+		expected: starlark.InvalidSafeInt,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.max != test.expected {
+				t.Errorf("incorrect result: expected %v but got %v", test.expected, test.max)
+			}
+		})
+	}
+}
+
+func TestSafeMin(t *testing.T) {
+	tests := []struct {
+		name     string
+		min      starlark.SafeInteger
+		expected starlark.SafeInteger
+	}{{
+		name:     "both-valid",
+		min:      starlark.SafeMin(1000, -10),
+		expected: starlark.SafeInt(-10),
+	}, {
+		name:     "invalid-initial",
+		min:      starlark.SafeMin(starlark.InvalidSafeInt, starlark.SafeInt(-10)),
+		expected: starlark.InvalidSafeInt,
+	}, {
+		name:     "invalid-tail",
+		min:      starlark.SafeMin(starlark.SafeInt(1000), starlark.SafeInt(-10), starlark.InvalidSafeInt),
+		expected: starlark.InvalidSafeInt,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.min != test.expected {
+				t.Errorf("incorrect result: expected %v but got %v", test.expected, test.min)
+			}
+		})
+	}
+}
