@@ -1366,6 +1366,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case *List:
 			if y, ok := y.(*List); ok {
 				resultLen := SafeAdd(x.Len(), y.Len())
+				resultLen64, ok := resultLen.Int64()
+				if !ok {
+					return nil, errors.New("result len overflowed")
+				}
+
 				if thread != nil {
 					if err := thread.AddSteps(resultLen); err != nil {
 						return nil, err
@@ -1376,10 +1381,6 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					}
 				}
 
-				resultLen64, ok := resultLen.Int64()
-				if !ok {
-					return nil, errors.New("result len overflowed")
-				}
 				z := make([]Value, 0, resultLen64)
 				z = append(z, x.elems...)
 				z = append(z, y.elems...)
@@ -1388,6 +1389,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Tuple:
 			if y, ok := y.(Tuple); ok {
 				resultLen := SafeAdd(len(x), len(y))
+				resultLen64, ok := resultLen.Int64()
+				if !ok {
+					return nil, errors.New("result len overflowed")
+				}
+
 				if thread != nil {
 					if err := thread.AddSteps(resultLen); err != nil {
 						return nil, err
@@ -1398,10 +1404,6 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					}
 				}
 
-				resultLen64, ok := resultLen.Int64()
-				if !ok {
-					return nil, errors.New("result len overflowed")
-				}
 				z := make(Tuple, 0, resultLen64)
 				z = append(z, x...)
 				z = append(z, y...)
