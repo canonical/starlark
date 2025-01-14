@@ -421,7 +421,7 @@ func (tsf *testSetField) SafeSetField(thread *starlark.Thread, name string, val 
 		return err
 	}
 	if thread != nil {
-		if err := thread.AddAllocs(tsf.allocs); err != nil {
+		if err := thread.AddAllocs(starlark.SafeInt(tsf.allocs)); err != nil {
 			return err
 		}
 		if err := thread.AddSteps(starlark.SafeInt(tsf.steps)); err != nil {
@@ -669,7 +669,7 @@ func TestFunctionCall(t *testing.T) {
 			"stack_frame",
 			starlark.MemSafe,
 			func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-				frameSize := starlark.EstimateSizeOld(starlark.StackFrameCapture{})
+				frameSize := starlark.EstimateSize(starlark.StackFrameCapture{})
 				if err := thread.AddAllocs(frameSize); err != nil {
 					return nil, err
 				}
@@ -727,7 +727,7 @@ func TestFunctionCall(t *testing.T) {
 			return starlark.NewBuiltinWithSafety("keep_alive_args", starlark.MemSafe,
 				func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 					if args != nil {
-						argsSize := starlark.EstimateSizeOld(starlark.Tuple{})
+						argsSize := starlark.EstimateSize(starlark.Tuple{})
 						if err := thread.AddAllocs(argsSize); err != nil {
 							return nil, err
 						}
@@ -735,7 +735,7 @@ func TestFunctionCall(t *testing.T) {
 					}
 
 					if kwargs != nil {
-						kwargsSize := starlark.EstimateSizeOld([]starlark.Tuple{})
+						kwargsSize := starlark.EstimateSize([]starlark.Tuple{})
 						if err := thread.AddAllocs(kwargsSize); err != nil {
 							return nil, err
 						}
