@@ -410,7 +410,7 @@ type StringBuilder interface {
 type SafeStringBuilder struct {
 	builder       strings.Builder
 	thread        *Thread
-	allocs, steps int64
+	allocs, steps SafeInteger
 	err           error
 }
 
@@ -424,12 +424,12 @@ func NewSafeStringBuilder(thread *Thread) *SafeStringBuilder {
 
 // Allocs returns the total allocations reported to this SafeStringBuilder's
 // thread.
-func (tb *SafeStringBuilder) Allocs() int64 {
+func (tb *SafeStringBuilder) Allocs() SafeInteger {
 	return tb.allocs
 }
 
 // Steps returns the total steps reported to this SafeStringBuilder's thread.
-func (tb *SafeStringBuilder) Steps() int64 {
+func (tb *SafeStringBuilder) Steps() SafeInteger {
 	return tb.steps
 }
 
@@ -440,10 +440,10 @@ func (tb *SafeStringBuilder) safeGrow(n int) error {
 
 	if tb.Cap()-tb.Len() < n {
 		// Make sure that we can allocate more
-		newCap := tb.Cap()*2 + n
-		newBufferSize := EstimateMakeSizeOld([]byte{}, newCap)
+		newCap := SafeAdd(SafeMul(tb.Cap(), 2), n)
+		newBufferSize := EstimateMakeSize([]byte{}, newCap)
 		if tb.thread != nil {
-			if err := tb.thread.AddAllocs(newBufferSize - int64(tb.allocs)); err != nil {
+			if err := tb.thread.AddAllocs(SafeSub(newBufferSize, tb.allocs)); err != nil {
 				tb.err = err
 				return err
 			}
@@ -453,7 +453,14 @@ func (tb *SafeStringBuilder) safeGrow(n int) error {
 		// difference between the real buffer size and the
 		// target capacity, so that every allocated byte
 		// is available to the user.
-		tb.builder.Grow(n + int(newBufferSize) - newCap)
+		growAmount := SafeSub(SafeAdd(n, newBufferSize), newCap)
+		growAmount64, ok := growAmount.Int()
+		if !ok {
+			err := errors.New("string length overflow")
+			tb.err = err
+			return err
+		}
+		tb.builder.Grow(growAmount64)
 		tb.allocs = newBufferSize
 	}
 	return nil
