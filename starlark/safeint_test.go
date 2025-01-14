@@ -282,6 +282,30 @@ func TestSafeIntRoundtrip(t *testing.T) {
 		}
 	})
 
+	t.Run("uintptr", func(t *testing.T) {
+		tests := []struct{
+			name string
+			value uintptr
+			expected starlark.SafeInteger
+		}{{
+			name:      "valid",
+			value:     100,
+			expected: starlark.SafeInt(100),
+		}, {
+			name:       "invalid",
+			value:      math.MaxUint64,
+			expected: starlark.InvalidSafeInt,
+		}}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				actual := starlark.SafeInt(test.value)
+				if actual != test.expected {
+					t.Errorf("unexpected value: want %v, got %v", test.expected, actual)
+				}
+			})
+		}
+	})
+
 	t.Run("float32", func(t *testing.T) {
 		const (
 			qNaN = 0x7FF80001
