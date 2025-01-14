@@ -434,11 +434,11 @@ func (tb *SafeStringBuilder) Steps() SafeInteger {
 }
 
 func (tb *SafeStringBuilder) declareAllocs() error {
-	currentAllocs := roundAllocSize(int64(tb.Cap()))
-	if currentAllocs <= tb.allocs {
+	currentAllocs := SafeInt(roundAllocSize(int64(tb.Cap())))
+	if currentAllocs == tb.allocs {
 		return nil
 	}
-	if err := tb.thread.AddAllocs(currentAllocs - tb.allocs); err != nil {
+	if err := tb.thread.AddAllocs(SafeSub(currentAllocs, tb.allocs)); err != nil {
 		tb.err = err
 		return err
 	}
@@ -450,6 +450,7 @@ func (tb *SafeStringBuilder) Grow(n int) {
 	if tb.err != nil {
 		return
 	}
+
 	if tb.thread != nil && tb.Cap()-tb.Len() < n {
 		if err := tb.thread.CheckAllocs(SafeInt(roundAllocSize(int64(tb.Cap()*2 + n)))); err != nil {
 			tb.err = err
@@ -466,6 +467,10 @@ func (tb *SafeStringBuilder) Grow(n int) {
 }
 
 func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
+	if tb.err != nil {
+		return 0, tb.err
+	}
+
 	if tb.thread != nil {
 		if tb.builder.Cap()-tb.builder.Len() < len(b) {
 			if err := tb.thread.CheckAllocs(SafeInt(roundAllocSize(int64(tb.builder.Len() + len(b))))); err != nil {
@@ -493,6 +498,10 @@ func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
 }
 
 func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
+	if tb.err != nil {
+		return 0, tb.err
+	}
+
 	if tb.thread != nil {
 		if tb.builder.Cap()-tb.builder.Len() < len(s) {
 			if err := tb.thread.CheckAllocs(SafeInt(roundAllocSize(int64(tb.builder.Len() + len(s))))); err != nil {
@@ -518,6 +527,10 @@ func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
 }
 
 func (tb *SafeStringBuilder) WriteByte(b byte) error {
+	if tb.err != nil {
+		return tb.err
+	}
+
 	if tb.thread != nil {
 		if tb.builder.Cap()-tb.builder.Len() < 1 {
 			if err := tb.thread.CheckAllocs(SafeInt(roundAllocSize(int64(tb.builder.Len() + 1)))); err != nil {
@@ -542,6 +555,10 @@ func (tb *SafeStringBuilder) WriteByte(b byte) error {
 }
 
 func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
+	if tb.err != nil {
+		return 0, tb.err
+	}
+
 	if tb.thread != nil {
 		var growAmount int
 		if r < utf8.RuneSelf {
@@ -1335,23 +1352,17 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		}
 		return SafeInt(0)
 	}
-	max := func(a, b int64) int64 {
-		if a > b {
-			return a
-		}
-		return b
-	}
 	switch op {
 	case syntax.PLUS:
 		switch x := x.(type) {
 		case String:
 			if y, ok := y.(String); ok {
 				if thread != nil {
-					resultLen := len(x) + len(y)
-					if err := thread.AddSteps(SafeInt(resultLen)); err != nil {
+					resultLen := SafeAdd(len(x), len(y))
+					if err := thread.AddSteps(resultLen); err != nil {
 						return nil, err
 					}
-					resultSize := SafeAdd(EstimateMakeSizeOld([]byte{}, resultLen), StringTypeOverhead)
+					resultSize := SafeAdd(EstimateMakeSize([]byte{}, resultLen), StringTypeOverhead)
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
@@ -1369,7 +1380,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 						return nil, err
 					}
 					result := Value(x.Add(y))
-					if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 						return nil, err
 					}
 					return result, nil
@@ -1420,7 +1431,10 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					if err := thread.AddSteps(resultLen); err != nil {
 						return nil, err
 					}
-					resultSize := EstimateMakeSizeOld([]Value{}, x.Len()+y.Len()) + EstimateSizeOld(&List{})
+					resultSize := SafeAdd(
+						EstimateMakeSize([]Value{}, SafeAdd(x.Len(), y.Len())),
+						EstimateSize(&List{}),
+					)
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
@@ -1443,7 +1457,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					if err := thread.AddSteps(resultLen); err != nil {
 						return nil, err
 					}
-					zSize := SafeAdd(EstimateMakeSize(Tuple{}, len(x)+len(y)), SliceTypeOverhead)
+					zSize := SafeAdd(EstimateMakeSize(Tuple{}, resultLen), SliceTypeOverhead)
 					if err := thread.AddAllocs(zSize); err != nil {
 						return nil, err
 					}
@@ -1469,7 +1483,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 						return nil, err
 					}
 					result := Value(x.Sub(y))
-					if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 						return nil, err
 					}
 					return result, nil
@@ -1545,7 +1559,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 						return nil, err
 					}
 					result := Value(x.Mul(y))
-					if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 						return nil, err
 					}
 					return result, nil
@@ -1582,7 +1596,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					return nil, err
 				}
 				if thread != nil {
-					if err := thread.AddAllocs(EstimateSizeOld(&List{})); err != nil {
+					if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
 						return nil, err
 					}
 				}
@@ -1641,7 +1655,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					return nil, err
 				}
 				if thread != nil {
-					if err := thread.AddAllocs(EstimateSizeOld(&List{})); err != nil {
+					if err := thread.AddAllocs(EstimateSize(&List{})); err != nil {
 						return nil, err
 					}
 				}
@@ -1739,16 +1753,12 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					if err := thread.AddSteps(resultSteps); err != nil {
 						return nil, err
 					}
-					resultSizeEstimate := SafeSub(EstimateSize(x), EstimateSize(y))
-					if resultSizeEstimate64, ok := resultSizeEstimate.Int64(); !ok {
-						return nil, errors.New("result size overflow")
-					} else if resultSizeEstimate64 > 0 {
-						if err := thread.CheckAllocs(resultSizeEstimate); err != nil {
-							return nil, err
-						}
+					resultSizeEstimate := safeMax(SafeSub(EstimateSize(x), EstimateSize(y)), SafeInt(0))
+					if err := thread.CheckAllocs(resultSizeEstimate); err != nil {
+						return nil, err
 					}
 					result := Value(x.Div(y))
-					if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 						return nil, err
 					}
 					return result, nil
@@ -1823,7 +1833,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				}
 				result := Value(x.Mod(y))
 				if thread != nil {
-					if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 						return nil, err
 					}
 				}
@@ -1989,7 +1999,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				}
 				result := Value(x.Or(y))
 				if thread != nil {
-					if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
+					if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 						return nil, err
 					}
 				}
@@ -2027,7 +2037,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					if err := thread.AddSteps(safeMax(intLenSteps(x), intLenSteps(y))); err != nil {
 						return nil, err
 					}
-					resultSize := max(EstimateSizeOld(x), EstimateSizeOld(y))
+					resultSize := safeMax(EstimateSize(x), EstimateSize(y))
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
@@ -2060,7 +2070,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					if err := thread.AddSteps(safeMax(intLenSteps(x), intLenSteps(y))); err != nil {
 						return nil, err
 					}
-					resultSize := max(EstimateSizeOld(x), EstimateSizeOld(y))
+					resultSize := safeMax(EstimateSize(x), EstimateSize(y))
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
@@ -2108,7 +2118,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				}
 				z := x.Lsh(uint(y))
 				if thread != nil {
-					if err := thread.AddAllocs(EstimateSizeOld(z)); err != nil {
+					if err := thread.AddAllocs(EstimateSize(z)); err != nil {
 						return nil, err
 					}
 				}
@@ -2124,7 +2134,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				}
 				z := x.Rsh(uint(y))
 				if thread != nil {
-					if err := thread.AddAllocs(EstimateSizeOld(z)); err != nil {
+					if err := thread.AddAllocs(EstimateSize(z)); err != nil {
 						return nil, err
 					}
 				}
@@ -2186,7 +2196,7 @@ func tupleRepeat(thread *Thread, elems Tuple, n Int) (Tuple, error) {
 		if err := thread.AddSteps(SafeInt(sz)); err != nil {
 			return nil, err
 		}
-		if err := thread.AddAllocs(EstimateMakeSizeOld([]Value{}, int(sz))); err != nil {
+		if err := thread.AddAllocs(EstimateMakeSize([]Value{}, SafeInt(sz))); err != nil {
 			return nil, err
 		}
 	}
@@ -2226,7 +2236,7 @@ func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 		if err := thread.AddSteps(SafeInt(sz)); err != nil {
 			return "", err
 		}
-		if err := thread.AddAllocs(EstimateMakeSizeOld([]byte{}, int(sz))); err != nil {
+		if err := thread.AddAllocs(EstimateMakeSize([]byte{}, SafeInt(sz))); err != nil {
 			return "", err
 		}
 	}
@@ -2271,7 +2281,7 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		fr = thread.stack[n : n+1][0]
 	}
 	if fr == nil {
-		if err := thread.AddAllocs(EstimateSizeOld(&frame{})); err != nil {
+		if err := thread.AddAllocs(EstimateSize(&frame{})); err != nil {
 			return nil, err
 		}
 		fr = new(frame)
@@ -2287,9 +2297,9 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	prevStackCap := cap(thread.stack)
 	thread.stack = append(thread.stack, fr)
 	if newStackCap := cap(thread.stack); prevStackCap != newStackCap {
-		prevStackSize := EstimateMakeSizeOld([]*frame{}, prevStackCap)
-		newStackSize := EstimateMakeSizeOld([]*frame{}, newStackCap)
-		delta := newStackSize - prevStackSize
+		prevStackSize := EstimateMakeSize([]*frame{}, SafeInt(prevStackCap))
+		newStackSize := EstimateMakeSize([]*frame{}, SafeInt(newStackCap))
+		delta := SafeSub(newStackSize, prevStackSize)
 		if err := thread.AddAllocs(delta); err != nil {
 			return nil, err
 		}
@@ -2793,7 +2803,7 @@ func (e *StepsSafetyError) Is(err error) bool {
 //
 // It is safe to call CheckAllocs from any goroutine, even if the thread is
 // actively executing.
-func (thread *Thread) CheckAllocs(deltas ...int64) error {
+func (thread *Thread) CheckAllocs(deltas ...SafeInteger) error {
 	thread.allocsLock.Lock()
 	defer thread.allocsLock.Unlock()
 
@@ -2807,7 +2817,7 @@ func (thread *Thread) CheckAllocs(deltas ...int64) error {
 //
 // It is safe to call AddAllocs from any goroutine, even if the thread is
 // actively executing.
-func (thread *Thread) AddAllocs(deltas ...int64) error {
+func (thread *Thread) AddAllocs(deltas ...SafeInteger) error {
 	thread.allocsLock.Lock()
 	defer thread.allocsLock.Unlock()
 
@@ -2823,7 +2833,7 @@ func (thread *Thread) AddAllocs(deltas ...int64) error {
 // simulateAllocs simulates a call to AddAllocs returning the new total
 // allocations associated with this thread and any error this would entail. No
 // change is recorded.
-func (thread *Thread) simulateAllocs(deltas ...int64) (SafeInteger, error) {
+func (thread *Thread) simulateAllocs(deltas ...SafeInteger) (SafeInteger, error) {
 	nextAllocs := thread.allocs
 	for _, delta := range deltas {
 		nextAllocs = SafeAdd(nextAllocs, delta)
