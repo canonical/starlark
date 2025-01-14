@@ -195,7 +195,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				return err
 			}
 			items := x.Items()
-			if err := thread.AddSteps(int64(len(items))); err != nil {
+			if err := thread.AddSteps(starlark.SafeInt(len(items))); err != nil {
 				return err
 			}
 			for _, item := range items {
@@ -263,7 +263,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			var names []string
 			names = append(names, x.AttrNames()...)
 			sort.Strings(names)
-			if err := thread.AddSteps(int64(len(names))); err != nil {
+			if err := thread.AddSteps(starlark.SafeInt(len(names))); err != nil {
 				return err
 			}
 			for i, name := range names {
@@ -413,7 +413,7 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	if err := json.Indent(buf, []byte(str), prefix, indent); err != nil {
 		return nil, fmt.Errorf("%s: %v", b.Name(), err)
 	}
-	if err := thread.AddSteps(int64(buf.Len())); err != nil {
+	if err := thread.AddSteps(starlark.SafeInt(buf.Len())); err != nil {
 		return nil, err
 	}
 	if err := thread.AddAllocs(starlark.SafeAdd(buf.Cap(), starlark.StringTypeOverhead)); err != nil {
@@ -500,7 +500,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 			closed := false
 			j := i + 1
 			for ; j < len(s); j++ {
-				if err := thread.AddSteps(1); err != nil {
+				if err := thread.AddSteps(starlark.SafeInt(1)); err != nil {
 					failWith(err)
 				}
 				b := s[j]

@@ -212,7 +212,7 @@ func (thread *Thread) CheckSteps(deltas ...SafeInteger) error {
 //
 // It is safe to call AddSteps from any goroutine, even if the thread
 // is actively executing.
-func (thread *Thread) AddSteps(deltas ...int64) error {
+func (thread *Thread) AddSteps(deltas ...SafeInteger) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
@@ -465,7 +465,7 @@ func (tb *SafeStringBuilder) Grow(n int) {
 
 func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
 	if tb.thread != nil {
-		if err := tb.thread.AddSteps(int64(len(b))); err != nil {
+		if err := tb.thread.AddSteps(SafeInt(len(b))); err != nil {
 			return 0, err
 		}
 	}
@@ -478,7 +478,7 @@ func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
 
 func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
 	if tb.thread != nil {
-		if err := tb.thread.AddSteps(int64(len(s))); err != nil {
+		if err := tb.thread.AddSteps(SafeInt(len(s))); err != nil {
 			return 0, err
 		}
 	}
@@ -491,7 +491,7 @@ func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
 
 func (tb *SafeStringBuilder) WriteByte(b byte) error {
 	if tb.thread != nil {
-		if err := tb.thread.AddSteps(1); err != nil {
+		if err := tb.thread.AddSteps(SafeInt(1)); err != nil {
 			return err
 		}
 	}
@@ -523,7 +523,7 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 		return 0, err
 	}
 	if tb.thread != nil {
-		if err := tb.thread.AddSteps(int64(n)); err != nil {
+		if err := tb.thread.AddSteps(SafeInt(n)); err != nil {
 			return 0, err
 		}
 	}
@@ -1037,7 +1037,7 @@ func safeListExtend(thread *Thread, x *List, y Iterable) error {
 		// fast path: list += list
 
 		// Equalise step cost for fast and slow path.
-		if err := thread.AddSteps(int64(len(ylist.elems))); err != nil {
+		if err := thread.AddSteps(SafeInt(len(ylist.elems))); err != nil {
 			return err
 		}
 		if err := elemsAppender.AppendSlice(ylist.elems); err != nil {
@@ -1284,11 +1284,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		return nil, err
 	}
 
-	intLenSteps := func(i Int) int64 {
+	intLenSteps := func(i Int) SafeInteger {
 		if _, iBig := i.get(); iBig != nil {
-			return int64(iBig.BitLen() / 32)
+			return SafeDiv(iBig.BitLen(), 32)
 		}
-		return 0
+		return SafeInt(0)
 	}
 	max := func(a, b int64) int64 {
 		if a > b {
@@ -1303,7 +1303,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			if y, ok := y.(String); ok {
 				if thread != nil {
 					resultLen := len(x) + len(y)
-					if err := thread.AddSteps(int64(resultLen)); err != nil {
+					if err := thread.AddSteps(SafeInt(resultLen)); err != nil {
 						return nil, err
 					}
 					resultSize := EstimateMakeSizeOld([]byte{}, resultLen) + StringTypeOverhead
@@ -1317,7 +1317,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			switch y := y.(type) {
 			case Int:
 				if thread != nil {
-					if err := thread.AddSteps(max(intLenSteps(x), intLenSteps(y))); err != nil {
+					if err := thread.AddSteps(safeMax(intLenSteps(x), intLenSteps(y))); err != nil {
 						return nil, err
 					}
 					if err := thread.CheckAllocs(max(EstimateSizeOld(x), EstimateSizeOld(y))); err != nil {
@@ -1365,9 +1365,14 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *List:
 			if y, ok := y.(*List); ok {
-				resultLen := x.Len() + y.Len()
+				resultLen := SafeAdd(x.Len(), y.Len())
+				resultLen64, ok := resultLen.Int64()
+				if !ok {
+					return nil, errors.New("result len overflowed")
+				}
+
 				if thread != nil {
-					if err := thread.AddSteps(int64(resultLen)); err != nil {
+					if err := thread.AddSteps(resultLen); err != nil {
 						return nil, err
 					}
 					resultSize := EstimateMakeSizeOld([]Value{}, x.Len()+y.Len()) + EstimateSizeOld(&List{})
@@ -1375,16 +1380,22 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 						return nil, err
 					}
 				}
-				z := make([]Value, 0, resultLen)
+
+				z := make([]Value, 0, resultLen64)
 				z = append(z, x.elems...)
 				z = append(z, y.elems...)
 				return NewList(z), nil
 			}
 		case Tuple:
 			if y, ok := y.(Tuple); ok {
-				resultLen := len(x) + len(y)
+				resultLen := SafeAdd(len(x), len(y))
+				resultLen64, ok := resultLen.Int64()
+				if !ok {
+					return nil, errors.New("result len overflowed")
+				}
+
 				if thread != nil {
-					if err := thread.AddSteps(int64(resultLen)); err != nil {
+					if err := thread.AddSteps(resultLen); err != nil {
 						return nil, err
 					}
 					zSize := EstimateMakeSizeOld(Tuple{}, len(x)+len(y)) + SliceTypeOverhead
@@ -1392,7 +1403,8 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 						return nil, err
 					}
 				}
-				z := make(Tuple, 0, resultLen)
+
+				z := make(Tuple, 0, resultLen64)
 				z = append(z, x...)
 				z = append(z, y...)
 				return z, nil
@@ -1405,7 +1417,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			switch y := y.(type) {
 			case Int:
 				if thread != nil {
-					if err := thread.AddSteps(max(intLenSteps(x), intLenSteps(y))); err != nil {
+					if err := thread.AddSteps(safeMax(intLenSteps(x), intLenSteps(y))); err != nil {
 						return nil, err
 					}
 					if err := thread.CheckAllocs(max(EstimateSizeOld(x), EstimateSizeOld(y))); err != nil {
@@ -1476,7 +1488,11 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			case Int:
 				if thread != nil {
 					// In the worse case, Karatsuba's algorithm is used.
-					resultSteps := int64(math.Pow(float64(max(intLenSteps(x), intLenSteps(y))), 1.58))
+					lenSteps64, ok := safeMax(intLenSteps(x), intLenSteps(y)).Int64()
+					if !ok {
+						return nil, errors.New("result len overflowed")
+					}
+					resultSteps := SafeInt(math.Pow(float64(lenSteps64), 1.58))
 					if err := thread.AddSteps(resultSteps); err != nil {
 						return nil, err
 					}
@@ -1673,8 +1689,8 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					// Although implementations exist which turn division into
 					// multiplication, making this cost same as `STAR` operator,
 					// Go does not yet do this.
-					resultSteps := max(intLenSteps(x), intLenSteps(y))
-					resultSteps *= resultSteps
+					resultSteps := safeMax(intLenSteps(x), intLenSteps(y))
+					resultSteps = SafeMul(resultSteps, resultSteps)
 					if err := thread.AddSteps(resultSteps); err != nil {
 						return nil, err
 					}
@@ -1748,8 +1764,8 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					// Although implementations exist which turn division into
 					// multiplication, making this cost same as `STAR` operator,
 					// Go does not yet do this.
-					resultSteps := max(intLenSteps(x), intLenSteps(y))
-					resultSteps *= resultSteps
+					resultSteps := safeMax(intLenSteps(x), intLenSteps(y))
+					resultSteps = SafeMul(resultSteps, resultSteps)
 					if err := thread.AddSteps(resultSteps); err != nil {
 						return nil, err
 					}
@@ -1822,7 +1838,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case *List:
 			for _, elem := range y.elems {
 				if thread != nil {
-					if err := thread.AddSteps(1); err != nil {
+					if err := thread.AddSteps(SafeInt(1)); err != nil {
 						return nil, err
 					}
 				}
@@ -1836,7 +1852,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Tuple:
 			for _, elem := range y {
 				if thread != nil {
-					if err := thread.AddSteps(1); err != nil {
+					if err := thread.AddSteps(SafeInt(1)); err != nil {
 						return nil, err
 					}
 				}
@@ -1875,7 +1891,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				return nil, fmt.Errorf("'in <string>' requires string as left operand, not %s", x.Type())
 			}
 			if thread != nil {
-				if err := thread.AddSteps(int64(len(y))); err != nil {
+				if err := thread.AddSteps(SafeInt(len(y))); err != nil {
 					return nil, err
 				}
 			}
@@ -1884,7 +1900,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			switch needle := x.(type) {
 			case Bytes:
 				if thread != nil {
-					if err := thread.AddSteps(int64(len(y))); err != nil {
+					if err := thread.AddSteps(SafeInt(len(y))); err != nil {
 						return nil, err
 					}
 				}
@@ -1895,7 +1911,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					return nil, fmt.Errorf("int in bytes: %s", err)
 				}
 				if thread != nil {
-					if err := thread.AddSteps(int64(len(y))); err != nil {
+					if err := thread.AddSteps(SafeInt(len(y))); err != nil {
 						return nil, err
 					}
 				}
@@ -1916,7 +1932,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Int:
 			if y, ok := y.(Int); ok {
 				if thread != nil {
-					if err := thread.AddSteps(max(intLenSteps(x), intLenSteps(y))); err != nil {
+					if err := thread.AddSteps(safeMax(intLenSteps(x), intLenSteps(y))); err != nil {
 						return nil, err
 					}
 					if err := thread.CheckAllocs(max(EstimateSizeOld(x), EstimateSizeOld(y))); err != nil {
@@ -1960,7 +1976,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Int:
 			if y, ok := y.(Int); ok {
 				if thread != nil {
-					if err := thread.AddSteps(max(intLenSteps(x), intLenSteps(y))); err != nil {
+					if err := thread.AddSteps(safeMax(intLenSteps(x), intLenSteps(y))); err != nil {
 						return nil, err
 					}
 					resultSize := max(EstimateSizeOld(x), EstimateSizeOld(y))
@@ -1993,7 +2009,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Int:
 			if y, ok := y.(Int); ok {
 				if thread != nil {
-					if err := thread.AddSteps(max(intLenSteps(x), intLenSteps(y))); err != nil {
+					if err := thread.AddSteps(safeMax(intLenSteps(x), intLenSteps(y))); err != nil {
 						return nil, err
 					}
 					resultSize := max(EstimateSizeOld(x), EstimateSizeOld(y))
@@ -2035,7 +2051,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					return nil, fmt.Errorf("shift count too large: %v", y)
 				}
 				if thread != nil {
-					if err := thread.AddSteps(intLenSteps(x) + int64(y/32)); err != nil {
+					if err := thread.AddSteps(SafeAdd(intLenSteps(x), SafeDiv(y, 32))); err != nil {
 						return nil, err
 					}
 					if err := thread.CheckAllocs(EstimateSizeOld(x)); err != nil {
@@ -2051,7 +2067,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				return z, nil
 			} else {
 				if thread != nil {
-					if err := thread.AddSteps(max(intLenSteps(x)-int64(y/32), 0)); err != nil {
+					if err := thread.AddSteps(safeMax(SafeSub(intLenSteps(x), SafeDiv(y, 32)), SafeInt(0))); err != nil {
 						return nil, err
 					}
 					if err := thread.CheckAllocs(EstimateSizeOld(x)); err != nil {
@@ -2119,7 +2135,7 @@ func tupleRepeat(thread *Thread, elems Tuple, n Int) (Tuple, error) {
 		return nil, fmt.Errorf("excessive repeat (%d * %d elements)", len(elems), i)
 	}
 	if thread != nil {
-		if err := thread.AddSteps(int64(sz)); err != nil {
+		if err := thread.AddSteps(SafeInt(sz)); err != nil {
 			return nil, err
 		}
 		if err := thread.AddAllocs(EstimateMakeSizeOld([]Value{}, int(sz))); err != nil {
@@ -2159,7 +2175,7 @@ func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 		return "", fmt.Errorf("excessive repeat (%d * %d elements)", len(s), i)
 	}
 	if thread != nil {
-		if err := thread.AddSteps(int64(sz)); err != nil {
+		if err := thread.AddSteps(SafeInt(sz)); err != nil {
 			return "", err
 		}
 		if err := thread.AddAllocs(EstimateMakeSizeOld([]byte{}, int(sz))); err != nil {

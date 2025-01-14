@@ -1813,7 +1813,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead int64, shouldFail b
 			dict.SetKey(starlark.MakeInt(2), &testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddSteps(100)
+					return thread.AddSteps(starlark.SafeInt(100))
 				},
 			})
 			return dict
@@ -1850,7 +1850,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead int64, shouldFail b
 			&testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddSteps(100)
+					return thread.AddSteps(starlark.SafeInt(100))
 				},
 			},
 		}),
@@ -1867,7 +1867,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead int64, shouldFail b
 			set.Insert(&testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddSteps(100)
+					return thread.AddSteps(starlark.SafeInt(100))
 				},
 			})
 			return set
@@ -1880,7 +1880,7 @@ func testWriteValueSteps(t *testing.T, name string, overhead int64, shouldFail b
 			&testSafeStringer{
 				safeString: func(thread *starlark.Thread, _ starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddSteps(100)
+					return thread.AddSteps(starlark.SafeInt(100))
 				},
 			},
 		},
@@ -2360,7 +2360,7 @@ func TestGetattrSteps(t *testing.T) {
 		value := &testSafeAttr{
 			safety: starlark.Safe,
 			attr: func(thread *starlark.Thread, attr string) (starlark.Value, error) {
-				if err := thread.AddSteps(int64(len(attr))); err != nil {
+				if err := thread.AddSteps(starlark.SafeInt(len(attr))); err != nil {
 					return nil, err
 				}
 				return starlark.MakeInt(utf8.RuneCountInString(attr)), nil
