@@ -393,3 +393,8 @@ func roundAllocSize(size int64) int64 {
 		return int64(rounded)
 	}
 }
+
+func roundupsize(size uintptr) uintptr {
+	newsize := size + ((size + 4) / 5)
+	return (newsize + 7) &^ (8 - 1)
+}

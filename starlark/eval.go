@@ -439,21 +439,15 @@ func (tb *SafeStringBuilder) safeGrow(n int) error {
 	}
 
 	if tb.Cap()-tb.Len() < n {
-		// Make sure that we can allocate more
-		newCap := tb.Cap()*2 + n
-		newBufferSize := EstimateMakeSize([]byte{}, newCap)
+		newBufferSize := roundAllocSize(int64(tb.Cap()*2 + n))
 		if tb.thread != nil {
+			// Make sure that we can allocate more
 			if err := tb.thread.AddAllocs(newBufferSize - int64(tb.allocs)); err != nil {
 				tb.err = err
 				return err
 			}
 		}
-		// The real size of the allocated buffer might be
-		// bigger than expected. For this reason, add the
-		// difference between the real buffer size and the
-		// target capacity, so that every allocated byte
-		// is available to the user.
-		tb.builder.Grow(n + int(newBufferSize) - newCap)
+		tb.builder.Grow(n)
 		tb.allocs = newBufferSize
 	}
 	return nil
