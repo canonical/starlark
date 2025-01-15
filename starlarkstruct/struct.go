@@ -61,9 +61,9 @@ func SafeFromKeywords(thread *starlark.Thread, constructor starlark.Value, kwarg
 		if err := thread.AddSteps(starlark.SafeInt(len(kwargs))); err != nil {
 			return nil, err
 		}
-		resultSize := starlark.OldSafeAdd64(
-			starlark.EstimateSizeOld(&Struct{}),
-			starlark.EstimateMakeSizeOld(entries{}, len(kwargs)),
+		resultSize := starlark.SafeAdd(
+			starlark.EstimateSize(&Struct{}),
+			starlark.EstimateMakeSize(entries{}, len(kwargs)),
 		)
 		if err := thread.AddAllocs(resultSize); err != nil {
 			return nil, err
@@ -102,9 +102,9 @@ func SafeFromStringDict(thread *starlark.Thread, constructor starlark.Value, d s
 		if err := thread.AddSteps(starlark.SafeInt(len(d))); err != nil {
 			return nil, err
 		}
-		resultSize := starlark.OldSafeAdd64(
-			starlark.EstimateSizeOld(&Struct{}),
-			starlark.EstimateMakeSizeOld(entries{}, len(d)),
+		resultSize := starlark.SafeAdd(
+			starlark.EstimateSize(&Struct{}),
+			starlark.EstimateMakeSize(entries{}, len(d)),
 		)
 		if err := thread.AddAllocs(resultSize); err != nil {
 			return nil, err
