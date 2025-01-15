@@ -10,9 +10,9 @@ type SafeInteger struct {
 	value int64
 }
 
-var _ fmt.Stringer = &SafeInteger{}
+var _ fmt.Stringer = SafeInteger{}
 
-func (si *SafeInteger) String() string {
+func (si SafeInteger) String() string {
 	if si.value == invalidSafeInt {
 		return "SafeInt(invalid)"
 	}
