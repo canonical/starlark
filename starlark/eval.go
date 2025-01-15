@@ -433,83 +433,104 @@ func (tb *SafeStringBuilder) Steps() int64 {
 	return tb.steps
 }
 
-func (tb *SafeStringBuilder) safeGrow(n int) error {
-	if tb.err != nil {
-		return tb.err
+func (tb *SafeStringBuilder) checkAllocs(n int) error {
+	if tb.thread == nil {
+		return nil
+	}
+	if tb.builder.Cap()-tb.builder.Len() >= n {
+		return nil
 	}
 
-	if tb.Cap()-tb.Len() < n {
-		newBufferSize := roundAllocSize(int64(tb.Cap()*2 + n))
-		if tb.thread != nil {
-			// Make sure that we can allocate more
-			if err := tb.thread.AddAllocs(newBufferSize - int64(tb.allocs)); err != nil {
-				tb.err = err
-				return err
-			}
-		}
-		tb.builder.Grow(n)
-		tb.allocs = newBufferSize
+	return tb.thread.CheckAllocs(roundAllocSize(int64(tb.builder.Len() + n)))
+}
+
+func (tb *SafeStringBuilder) syncAllocs() error {
+	allocs := roundAllocSize(int64(tb.Cap()))
+	if allocs <= tb.allocs {
+		return nil
 	}
+	if tb.thread != nil {
+		if err := tb.thread.AddAllocs(allocs - tb.allocs); err != nil {
+			tb.err = err
+			return err
+		}
+	}
+	tb.allocs = allocs
 	return nil
 }
 
 func (tb *SafeStringBuilder) Grow(n int) {
-	tb.safeGrow(n)
+	if tb.err != nil {
+		return
+	}
+	if tb.Cap()-tb.Len() < n {
+		defer tb.syncAllocs()
+		if err := tb.checkAllocs(tb.Cap() + n); err != nil {
+			tb.err = err
+			return
+		}
+	}
+	tb.builder.Grow(n)
+	return
 }
 
 func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
+	defer tb.syncAllocs()
 	if tb.thread != nil {
 		if err := tb.thread.AddSteps(SafeInt(len(b))); err != nil {
 			return 0, err
 		}
-	}
-	if err := tb.safeGrow(len(b)); err != nil {
-		return 0, err
+		if err := tb.checkAllocs(len(b)); err != nil {
+			return 0, err
+		}
 	}
 
 	return tb.builder.Write(b)
 }
 
 func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
+	defer tb.syncAllocs()
 	if tb.thread != nil {
 		if err := tb.thread.AddSteps(SafeInt(len(s))); err != nil {
 			return 0, err
 		}
-	}
-	if err := tb.safeGrow(len(s)); err != nil {
-		return 0, err
+		if err := tb.checkAllocs(len(s)); err != nil {
+			return 0, err
+		}
 	}
 
 	return tb.builder.WriteString(s)
 }
 
 func (tb *SafeStringBuilder) WriteByte(b byte) error {
+	defer tb.syncAllocs()
 	if tb.thread != nil {
 		if err := tb.thread.AddSteps(SafeInt(1)); err != nil {
 			return err
 		}
-	}
-	if err := tb.safeGrow(1); err != nil {
-		return err
+		if err := tb.checkAllocs(1); err != nil {
+			return err
+		}
 	}
 
 	return tb.builder.WriteByte(b)
 }
 
 func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
-	var growAmount int
-	if r < utf8.RuneSelf {
-		growAmount = 1
-	} else {
-		growAmount = utf8.UTFMax
-	}
+	defer tb.syncAllocs()
 	if tb.thread != nil {
+		var growAmount int
+		if r < utf8.RuneSelf {
+			growAmount = 1
+		} else {
+			growAmount = utf8.UTFMax
+		}
 		if err := tb.thread.CheckSteps(SafeInt(growAmount)); err != nil {
 			return 0, err
 		}
-	}
-	if err := tb.safeGrow(growAmount); err != nil {
-		return 0, err
+		if err := tb.checkAllocs(growAmount); err != nil {
+			return 0, err
+		}
 	}
 
 	n, err := tb.builder.WriteRune(r)
