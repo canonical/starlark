@@ -281,14 +281,14 @@ func TestSafeString(t *testing.T) {
 func TestSafeUnary(t *testing.T) {
 	makeInt := func(thread *starlark.Thread, n int) (starlark.Value, error) {
 		num := starlark.Value(starlark.MakeInt(1).Lsh(uint(n)))
-		if err := thread.AddAllocs(starlark.EstimateSizeOld(num)); err != nil {
+		if err := thread.AddAllocs(starlark.EstimateSize(num)); err != nil {
 			return nil, err
 		}
 		return num, nil
 	}
 	makeFloat := func(thread *starlark.Thread, n int) (starlark.Value, error) {
 		num := starlark.Value(starlark.Float(n) * starlark.Float(n))
-		if err := thread.AddAllocs(starlark.EstimateSizeOld(num)); err != nil {
+		if err := thread.AddAllocs(starlark.EstimateSize(num)); err != nil {
 			return nil, err
 		}
 		return num, nil
