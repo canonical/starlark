@@ -12,6 +12,14 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+func mustInt64(si starlark.SafeInteger) int64 {
+	i, ok := si.Int64()
+	if !ok {
+		panic("cannot convert integer to int64")
+	}
+	return i
+}
+
 type dummyBase struct {
 	failed bool
 	errors *strings.Builder
@@ -129,7 +137,7 @@ func TestKeepAlive(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.KeepAlive(new(int32))
-				thread.AddAllocs(4)
+				thread.AddAllocs(starlark.SafeInt(4))
 			}
 		})
 	})
@@ -145,7 +153,7 @@ func TestKeepAlive(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.KeepAlive(new(int32))
-				thread.AddAllocs(20)
+				thread.AddAllocs(starlark.SafeInt(20))
 			}
 		})
 		if errLog := dummy.Errors(); errLog != expected {
@@ -164,7 +172,7 @@ func TestKeepAlive(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.KeepAlive(make([]int32, 10))
-				if err := thread.AddAllocs(4); err != nil {
+				if err := thread.AddAllocs(starlark.SafeInt(4)); err != nil {
 					t.Errorf("unexpected error: %v", err)
 					return
 				}
@@ -185,7 +193,7 @@ func TestKeepAlive(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
 				st.KeepAlive(new(int32))
-				thread.AddAllocs(1)
+				thread.AddAllocs(starlark.SafeInt(1))
 			}
 		})
 		if errLog := dummy.Errors(); errLog != expected {
@@ -880,9 +888,9 @@ func (iter *dummyRangeIterator) Err() error { return nil }
 
 func TestRunStringMemSafety(t *testing.T) {
 	t.Run("safety=safe", func(t *testing.T) {
-		allocateResultSize := starlark.OldSafeAdd64(
-			starlark.EstimateSizeOld(starlark.Tuple{}),
-			starlark.EstimateMakeSizeOld(starlark.Tuple{}, 100),
+		allocateResultSize := starlark.SafeAdd(
+			starlark.EstimateSize(starlark.Tuple{}),
+			starlark.EstimateMakeSize(starlark.Tuple{}, 100),
 		)
 		allocate := starlark.NewBuiltinWithSafety("allocate", startest.STSafe, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			if err := thread.AddAllocs(allocateResultSize); err != nil {
@@ -893,7 +901,7 @@ func TestRunStringMemSafety(t *testing.T) {
 
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(allocateResultSize)
+		st.SetMaxAllocs(mustInt64(allocateResultSize))
 		st.AddBuiltin(allocate)
 		ok := st.RunString(`
 			for _ in st.ntimes():

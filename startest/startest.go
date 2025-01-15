@@ -503,8 +503,8 @@ func st_keep_alive(thread *starlark.Thread, b *starlark.Builtin, args starlark.T
 	// keep_alive does not capture the backing array for args. Hence
 	// the allocation is removed aligning declared allocations with
 	// user expectations.
-	argsSize := starlark.EstimateMakeSizeOld(starlark.Tuple{}, cap(args))
-	if err := thread.AddAllocs(-argsSize); err != nil {
+	argsSize := starlark.EstimateMakeSize(starlark.Tuple{}, cap(args))
+	if err := thread.AddAllocs(starlark.SafeNeg(argsSize)); err != nil {
 		return nil, err
 	}
 	recv := b.Receiver().(*ST)
