@@ -1313,7 +1313,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					if err := thread.AddSteps(SafeInt(resultLen)); err != nil {
 						return nil, err
 					}
-					resultSize := EstimateMakeSizeOld([]byte{}, resultLen) + StringTypeOverhead
+					resultSize := SafeAdd(EstimateMakeSizeOld([]byte{}, resultLen), StringTypeOverhead)
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
@@ -1405,7 +1405,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					if err := thread.AddSteps(resultLen); err != nil {
 						return nil, err
 					}
-					zSize := EstimateMakeSizeOld(Tuple{}, len(x)+len(y)) + SliceTypeOverhead
+					zSize := SafeAdd(EstimateMakeSize(Tuple{}, len(x)+len(y)), SliceTypeOverhead)
 					if err := thread.AddAllocs(zSize); err != nil {
 						return nil, err
 					}

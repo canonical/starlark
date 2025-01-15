@@ -592,7 +592,7 @@ func TestEstimateMakeSize(t *testing.T) {
 }
 
 func TestSizeConstants(t *testing.T) {
-	constantTest := func(t *testing.T, constant int64, value func() interface{}) {
+	constantTest := func(t *testing.T, constant starlark.SafeInteger, value func() interface{}) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
