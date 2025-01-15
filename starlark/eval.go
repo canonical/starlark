@@ -1283,7 +1283,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 	return safeBinary(nil, op, x, y)
 }
 
-var floatSize = EstimateSizeOld(Float(0))
+var floatSize = EstimateSize(Float(0))
 
 func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 	const safety = CPUSafe | MemSafe | TimeSafe | IOSafe

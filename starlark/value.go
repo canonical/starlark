@@ -800,7 +800,7 @@ func (si stringElems) SafeIndex(thread *Thread, i int) (Value, error) {
 	if si.ords {
 		result := Value(MakeInt(int(si.s[i])))
 		if thread != nil {
-			if err := thread.AddAllocs(EstimateSizeOld(result)); err != nil {
+			if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 				return nil, err
 			}
 		}
@@ -892,7 +892,7 @@ func (it *stringCodepointsIterator) BindThread(thread *Thread) {
 	it.thread = thread
 }
 
-var runeSize = EstimateSizeOld(ord)
+var runeSize = EstimateSize(ord)
 
 func (it *stringCodepointsIterator) Next(p *Value) bool {
 	if it.err != nil {
@@ -1141,7 +1141,7 @@ func SafeNewDict(thread *Thread, size int) (*Dict, error) {
 				return nil, err
 			}
 		}
-		if err := thread.AddAllocs(EstimateSizeOld(&Dict{})); err != nil {
+		if err := thread.AddAllocs(EstimateSize(&Dict{})); err != nil {
 			return nil, err
 		}
 	}
@@ -1622,7 +1622,7 @@ func setFromIterator(iter Iterator) (*Set, error) {
 func (s *Set) clone(thread *Thread) (*Set, error) {
 	set := new(Set)
 	if thread != nil {
-		if err := thread.AddAllocs(EstimateSizeOld(set)); err != nil {
+		if err := thread.AddAllocs(EstimateSize(set)); err != nil {
 			return nil, err
 		}
 	}
@@ -1715,7 +1715,7 @@ func (s *Set) safeIntersection(thread *Thread, other Iterator) (*Set, error) {
 
 	intersect := new(Set)
 	if thread != nil {
-		if err := thread.AddAllocs(EstimateSizeOld(intersect)); err != nil {
+		if err := thread.AddAllocs(EstimateSize(intersect)); err != nil {
 			return nil, err
 		}
 	}
