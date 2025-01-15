@@ -69,7 +69,7 @@ func TestSafeAppenderAppend(t *testing.T) {
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					slice := []int{1, 3, 5}
-					if err := thread.AddAllocs(starlark.EstimateSizeOld(slice)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
 						st.Error(err)
 					}
 
@@ -95,7 +95,7 @@ func TestSafeAppenderAppend(t *testing.T) {
 			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
 				slice := []int{1, 3, 5}
-				if err := thread.AddAllocs(starlark.EstimateSizeOld(slice)); err != nil {
+				if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
 					st.Error(err)
 				}
 				expected := slice
@@ -145,7 +145,7 @@ func TestSafeAppenderAppend(t *testing.T) {
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					slice := []interface{}{false, 0, ""}
-					if err := thread.AddAllocs(starlark.EstimateSizeOld(slice)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
 						st.Error(err)
 					}
 					sa := starlark.NewSafeAppender(thread, &slice)
@@ -169,7 +169,7 @@ func TestSafeAppenderAppend(t *testing.T) {
 			st.SetMinSteps(1)
 			st.SetMaxSteps(1)
 			st.RunThread(func(thread *starlark.Thread) {
-				if err := thread.AddAllocs(starlark.OldSafeMul64(starlark.EstimateSizeOld(0), int64(st.N))); err != nil {
+				if err := thread.AddAllocs(starlark.SafeMul(starlark.EstimateSize(0), st.N)); err != nil {
 					st.Error(err)
 				}
 				toAppend := make([]interface{}, st.N)
@@ -179,7 +179,7 @@ func TestSafeAppenderAppend(t *testing.T) {
 				expected := append(initialSlice, toAppend...)
 
 				slice := initialSlice
-				if err := thread.AddAllocs(starlark.EstimateSizeOld(slice)); err != nil {
+				if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
 					st.Error(err)
 				}
 
@@ -262,7 +262,7 @@ func TestSafeAppenderAppendSlice(t *testing.T) {
 			st.RunThread(func(thread *starlark.Thread) {
 				for i := 0; i < st.N; i++ {
 					slice := []int{1, 3, 5}
-					if err := thread.AddAllocs(starlark.EstimateSizeOld(slice)); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
 						st.Error(err)
 					}
 					sa := starlark.NewSafeAppender(thread, &slice)
@@ -358,7 +358,7 @@ func TestSafeAppenderAppendSlice(t *testing.T) {
 				expected := append(initialSlice, toAppend...)
 
 				slice := initialSlice
-				if err := thread.AddAllocs(starlark.EstimateSizeOld(slice)); err != nil {
+				if err := thread.AddAllocs(starlark.EstimateSize(slice)); err != nil {
 					st.Error(err)
 				}
 
@@ -577,7 +577,7 @@ func TestSafeAppenderAllocCounting(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
-			if err := thread.AddAllocs(100); err != nil {
+			if err := thread.AddAllocs(starlark.SafeInt(100)); err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
 			before, ok := thread.Allocs()
@@ -597,7 +597,7 @@ func TestSafeAppenderAllocCounting(t *testing.T) {
 			if !ok {
 				t.Errorf("alloc count invalidated")
 			}
-			expected := after - before
+			expected := starlark.SafeSub(after, before)
 			if actual := sa.Allocs(); actual != expected {
 				t.Errorf("incorrect number of allocations reported: expected %d but got %d", expected, actual)
 			}
@@ -608,7 +608,7 @@ func TestSafeAppenderAllocCounting(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
-			if err := thread.AddAllocs(100); err != nil {
+			if err := thread.AddAllocs(starlark.SafeInt(100)); err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
 			before, ok := thread.Allocs()
@@ -630,7 +630,7 @@ func TestSafeAppenderAllocCounting(t *testing.T) {
 			if !ok {
 				t.Errorf("alloc count invalidated")
 			}
-			expected := after - before
+			expected := starlark.SafeSub(after, before)
 			if actual := sa.Allocs(); actual != expected {
 				t.Errorf("incorrect number of allocations reported: expected %d but got %d", expected, actual)
 			}
