@@ -1,6 +1,7 @@
 package starlark_test
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"testing"
@@ -24,7 +25,7 @@ func TestSafeIntString(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if repr := test.safeInt.String(); repr != test.expected {
+			if repr := fmt.Sprintf("%v", test.safeInt); repr != test.expected {
 				t.Errorf("incorrect string representation: expected %q but got %q", test.expected, repr)
 			}
 		})
