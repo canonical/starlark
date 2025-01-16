@@ -10,7 +10,6 @@ package json // import "github.com/canonical/starlark/lib/json"
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -403,11 +402,7 @@ func indent(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 	if err := thread.CheckSteps(worstCase); err != nil {
 		return nil, err
 	}
-	worstCaseBound64, ok := starlark.SafeMul(2, worstCase).Int64()
-	if !ok {
-		return nil, errors.New("worst case bound invalidated")
-	}
-	if err := thread.CheckAllocs(int64(len(str)) + worstCaseBound64); err != nil {
+	if err := thread.CheckAllocs(starlark.SafeAdd(len(str), starlark.SafeMul(2, worstCase))); err != nil {
 		return nil, err
 	}
 	if err := json.Indent(buf, []byte(str), prefix, indent); err != nil {

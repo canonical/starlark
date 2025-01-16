@@ -15,7 +15,7 @@ import (
 func TestDefaultAllocMaxIsUnbounded(t *testing.T) {
 	thread := &starlark.Thread{}
 
-	if err := thread.CheckAllocs(1); err != nil {
+	if err := thread.CheckAllocs(starlark.SafeInt(1)); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -35,7 +35,7 @@ func TestCheckAllocs(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(1000)
 
-	if err := thread.CheckAllocs(500); err != nil {
+	if err := thread.CheckAllocs(starlark.SafeInt(500)); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	} else if allocs, ok := thread.Allocs(); !ok {
 		t.Errorf("alloc count invalidated")
@@ -43,7 +43,7 @@ func TestCheckAllocs(t *testing.T) {
 		t.Errorf("CheckAllocs recorded allocations: expected 0 but got %v", allocs)
 	}
 
-	if err := thread.CheckAllocs(2000); err == nil {
+	if err := thread.CheckAllocs(starlark.SafeInt(2000)); err == nil {
 		t.Errorf("expected error")
 	} else {
 		expected := &starlark.AllocsSafetyError{}
@@ -66,9 +66,9 @@ func TestAllocDeclAndCheckBoundary(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(allocCap)
 
-	if err := thread.CheckAllocs(allocCap); err != nil {
+	if err := thread.CheckAllocs(starlark.SafeInt(allocCap)); err != nil {
 		t.Errorf("unexpected error: %v", err)
-	} else if err := thread.CheckAllocs(starlark.OldSafeAdd64(allocCap, 1)); err == nil {
+	} else if err := thread.CheckAllocs(starlark.SafeAdd(allocCap, 1)); err == nil {
 		t.Errorf("expected error checking too-many allocations")
 	}
 
@@ -252,7 +252,7 @@ func TestConcurrentCheckAllocsUsage(t *testing.T) {
 	go func() {
 		for i := 0; i < repetitions; i++ {
 			// Check 1000...01 not exceeded
-			if err := thread.CheckAllocs(1); err != nil {
+			if err := thread.CheckAllocs(starlark.SafeInt(1)); err != nil {
 				t.Errorf("unexpected error: %v", err)
 				break
 			}
@@ -555,7 +555,7 @@ func TestSafeStringBuilder(t *testing.T) {
 				t.Errorf("SafeStringBuilder did not allocate")
 			}
 
-			expected := allocsAfter - allocsBefore
+			expected := starlark.SafeSub(allocsAfter, allocsBefore)
 			if actual := sb.Allocs(); actual != expected {
 				t.Errorf("incorrect number of allocs reported: expected %d but got %d", expected, actual)
 			}

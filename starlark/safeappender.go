@@ -55,7 +55,7 @@ func (sa *SafeAppender) Append(values ...interface{}) error {
 	cap := sa.slice.Cap()
 	newSize := sa.slice.Len() + len(values)
 	if newSize > cap && sa.thread != nil {
-		if err := sa.thread.CheckAllocs(OldSafeMul64(int64(newSize), int64(sa.elemType.Size()))); err != nil {
+		if err := sa.thread.CheckAllocs(SafeMul(newSize, sa.elemType.Size())); err != nil {
 			return err
 		}
 	}
@@ -106,8 +106,8 @@ func (sa *SafeAppender) AppendSlice(values interface{}) error {
 	toAppendLen := toAppend.Len()
 	if newLen := OldSafeAdd(len, toAppendLen); newLen > cap && sa.thread != nil {
 		// Consider up to twice the size for the allocation overshoot
-		allocation := OldSafeAdd64(OldSafeMul64(int64(newLen), 2), -int64(cap))
-		if err := sa.thread.CheckAllocs(int64(OldSafeMul64(allocation, int64(sa.elemType.Size())))); err != nil {
+		allocation := SafeSub(SafeMul(newLen, 2), cap)
+		if err := sa.thread.CheckAllocs(SafeMul(allocation, sa.elemType.Size())); err != nil {
 			return err
 		}
 	}

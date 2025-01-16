@@ -252,9 +252,9 @@ func (ht *hashtable) count(thread *Thread, iter Iterator) (int, error) {
 	// Use a bitset per table entry to record seen elements of ht.
 	// Elements are identified by their bucket number and index within the bucket.
 	// Each bitset gets one word initially, but may grow.
-	transientSize := OldSafeAdd64(
-		EstimateMakeSizeOld([]big.Word{}, len(ht.table)),
-		EstimateMakeSizeOld([]big.Int{}, len(ht.table)),
+	transientSize := SafeAdd(
+		EstimateMakeSize([]big.Word{}, len(ht.table)),
+		EstimateMakeSize([]big.Int{}, len(ht.table)),
 	)
 	if thread != nil {
 		if err := thread.CheckAllocs(transientSize); err != nil {
