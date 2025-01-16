@@ -434,15 +434,15 @@ func (tb *SafeStringBuilder) Steps() int64 {
 }
 
 func (tb *SafeStringBuilder) declareAllocs() error {
-	allocs := roundAllocSize(int64(tb.Cap()))
-	if allocs <= tb.allocs {
+	currentAllocs := roundAllocSize(int64(tb.Cap()))
+	if currentAllocs <= tb.allocs {
 		return nil
 	}
-	if err := tb.thread.AddAllocs(allocs - tb.allocs); err != nil {
+	if err := tb.thread.AddAllocs(currentAllocs - tb.allocs); err != nil {
 		tb.err = err
 		return err
 	}
-	tb.allocs = allocs
+	tb.allocs = currentAllocs
 	return nil
 }
 
