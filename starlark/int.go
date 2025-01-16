@@ -90,7 +90,7 @@ func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
 				return nil, err
 			}
 		}
-		var result Value = zero.Sub(i)
+		result := Value(zero.Sub(i))
 		if thread != nil {
 			if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 				return nil, err
@@ -116,7 +116,7 @@ func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
 				return nil, err
 			}
 		}
-		var result Value = i.Not()
+		result := Value(i.Not())
 		if thread != nil {
 			if err := thread.AddAllocs(EstimateSize(result)); err != nil {
 				return nil, err
