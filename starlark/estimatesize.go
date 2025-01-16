@@ -409,3 +409,14 @@ func roundAllocSize(size int64) int64 {
 		return int64(rounded)
 	}
 }
+
+func roundupsize(size uintptr) uintptr {
+	sizeWithOverhead := size + ((size + 4) / 5) // ~20% overhead
+	return alignUp(sizeWithOverhead, 8)
+}
+
+// alignUp rounds n up to a multiple of size. Size is expected
+// to be a power of 2.
+func alignUp(n, size uintptr) uintptr {
+	return (n + size - 1) &^ (size - 1)
+}

@@ -86,11 +86,17 @@ func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
 					return nil, err
 				}
 			}
-			if err := thread.AddAllocs(EstimateSize(i)); err != nil {
+			if err := thread.CheckAllocs(EstimateSize(i)); err != nil {
 				return nil, err
 			}
 		}
-		return zero.Sub(i), nil
+		result := Value(zero.Sub(i))
+		if thread != nil {
+			if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+				return nil, err
+			}
+		}
+		return result, nil
 	case syntax.PLUS:
 		// The pointed-to content is shared
 		if thread != nil {
@@ -106,11 +112,17 @@ func (i Int) SafeUnary(thread *Thread, op syntax.Token) (Value, error) {
 					return nil, err
 				}
 			}
-			if err := thread.AddAllocs(EstimateSize(i)); err != nil {
+			if err := thread.CheckAllocs(EstimateSize(i)); err != nil {
 				return nil, err
 			}
 		}
-		return i.Not(), nil
+		result := Value(i.Not())
+		if thread != nil {
+			if err := thread.AddAllocs(EstimateSize(result)); err != nil {
+				return nil, err
+			}
+		}
+		return result, nil
 	}
 	return nil, nil
 }

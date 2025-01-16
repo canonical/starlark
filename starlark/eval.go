@@ -433,96 +433,130 @@ func (tb *SafeStringBuilder) Steps() SafeInteger {
 	return tb.steps
 }
 
-func (tb *SafeStringBuilder) safeGrow(n int) error {
-	if tb.err != nil {
-		return tb.err
+func (tb *SafeStringBuilder) declareAllocs() error {
+	currentAllocs := roundAllocSize(int64(tb.Cap()))
+	if currentAllocs <= tb.allocs {
+		return nil
 	}
-
-	if tb.Cap()-tb.Len() < n {
-		// Make sure that we can allocate more
-		newCap := SafeAdd(SafeMul(tb.Cap(), 2), n)
-		newBufferSize := EstimateMakeSize([]byte{}, newCap)
-		if tb.thread != nil {
-			if err := tb.thread.AddAllocs(SafeSub(newBufferSize, tb.allocs)); err != nil {
-				tb.err = err
-				return err
-			}
-		}
-		// The real size of the allocated buffer might be
-		// bigger than expected. For this reason, add the
-		// difference between the real buffer size and the
-		// target capacity, so that every allocated byte
-		// is available to the user.
-		growAmount := SafeSub(SafeAdd(n, newBufferSize), newCap)
-		growAmount64, ok := growAmount.Int()
-		if !ok {
-			err := errors.New("string length overflow")
-			tb.err = err
-			return err
-		}
-		tb.builder.Grow(growAmount64)
-		tb.allocs = newBufferSize
+	if err := tb.thread.AddAllocs(currentAllocs - tb.allocs); err != nil {
+		tb.err = err
+		return err
 	}
+	tb.allocs = currentAllocs
 	return nil
 }
 
 func (tb *SafeStringBuilder) Grow(n int) {
-	tb.safeGrow(n)
+	if tb.err != nil {
+		return
+	}
+	if tb.thread != nil && tb.Cap()-tb.Len() < n {
+		if err := tb.thread.CheckAllocs(roundAllocSize(int64(tb.Cap()*2 + n))); err != nil {
+			tb.err = err
+			return
+		}
+	}
+	tb.builder.Grow(n)
+	if tb.thread != nil {
+		if err := tb.declareAllocs(); err != nil {
+			tb.err = err
+		}
+	}
 }
 
 func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
 	if tb.thread != nil {
+		if tb.builder.Cap()-tb.builder.Len() < len(b) {
+			if err := tb.thread.CheckAllocs(roundAllocSize(int64(tb.builder.Len() + len(b)))); err != nil {
+				tb.err = err
+				return 0, err
+			}
+		}
 		if err := tb.thread.AddSteps(SafeInt(len(b))); err != nil {
+			tb.err = err
 			return 0, err
 		}
 	}
-	if err := tb.safeGrow(len(b)); err != nil {
+
+	n, err := tb.builder.Write(b)
+	if err != nil {
+		tb.err = err
 		return 0, err
 	}
-
-	return tb.builder.Write(b)
+	if tb.thread != nil {
+		if err := tb.declareAllocs(); err != nil {
+			return 0, err
+		}
+	}
+	return n, nil
 }
 
 func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
 	if tb.thread != nil {
+		if tb.builder.Cap()-tb.builder.Len() < len(s) {
+			if err := tb.thread.CheckAllocs(roundAllocSize(int64(tb.builder.Len() + len(s)))); err != nil {
+				tb.err = err
+				return 0, err
+			}
+		}
 		if err := tb.thread.AddSteps(SafeInt(len(s))); err != nil {
 			return 0, err
 		}
 	}
-	if err := tb.safeGrow(len(s)); err != nil {
+
+	n, err := tb.builder.WriteString(s)
+	if err != nil {
 		return 0, err
 	}
-
-	return tb.builder.WriteString(s)
+	if tb.thread != nil {
+		if err := tb.declareAllocs(); err != nil {
+			return 0, err
+		}
+	}
+	return n, nil
 }
 
 func (tb *SafeStringBuilder) WriteByte(b byte) error {
 	if tb.thread != nil {
+		if tb.builder.Cap()-tb.builder.Len() < 1 {
+			if err := tb.thread.CheckAllocs(roundAllocSize(int64(tb.builder.Len() + 1))); err != nil {
+				tb.err = err
+				return err
+			}
+		}
 		if err := tb.thread.AddSteps(SafeInt(1)); err != nil {
 			return err
 		}
 	}
-	if err := tb.safeGrow(1); err != nil {
+
+	if err := tb.builder.WriteByte(b); err != nil {
 		return err
 	}
-
-	return tb.builder.WriteByte(b)
+	if tb.thread != nil {
+		if err := tb.declareAllocs(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
-	var growAmount int
-	if r < utf8.RuneSelf {
-		growAmount = 1
-	} else {
-		growAmount = utf8.UTFMax
-	}
 	if tb.thread != nil {
+		var growAmount int
+		if r < utf8.RuneSelf {
+			growAmount = 1
+		} else {
+			growAmount = utf8.UTFMax
+		}
+		if tb.builder.Cap()-tb.builder.Len() < growAmount {
+			if err := tb.thread.CheckAllocs(roundAllocSize(int64(tb.builder.Len() + growAmount))); err != nil {
+				tb.err = err
+				return 0, err
+			}
+		}
 		if err := tb.thread.CheckSteps(SafeInt(growAmount)); err != nil {
 			return 0, err
 		}
-	}
-	if err := tb.safeGrow(growAmount); err != nil {
-		return 0, err
 	}
 
 	n, err := tb.builder.WriteRune(r)
@@ -531,6 +565,9 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 	}
 	if tb.thread != nil {
 		if err := tb.thread.AddSteps(SafeInt(n)); err != nil {
+			return 0, err
+		}
+		if err := tb.declareAllocs(); err != nil {
 			return 0, err
 		}
 	}
@@ -2194,7 +2231,7 @@ func stringRepeat(thread *Thread, s String, n Int) (String, error) {
 
 // Max depth of a Starlark stack. This is significantly less than Go's own hard
 // limit and greater than startest's maximum st.N.
-const maxStackDepth = 200_000
+const maxStackDepth = 110_000
 
 // Call calls the function fn with the specified positional and keyword arguments.
 func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {

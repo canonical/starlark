@@ -10,9 +10,9 @@ type SafeInteger struct {
 	value int64
 }
 
-var _ fmt.Stringer = &SafeInteger{}
+var _ fmt.Stringer = SafeInteger{}
 
-func (si *SafeInteger) String() string {
+func (si SafeInteger) String() string {
 	if si.value == invalidSafeInt {
 		return "SafeInt(invalid)"
 	}
@@ -26,7 +26,7 @@ const invalidSafeInt = math.MinInt64
 
 type Integer interface {
 	int | int8 | int16 | int32 | int64 |
-		uint | uint8 | uint16 | uint32 | uint64
+		uint | uint8 | uint16 | uint32 | uint64 | uintptr
 }
 
 type Floating interface {
@@ -67,6 +67,11 @@ func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 		return SafeInteger{int64(i)}
 	case uint64:
 		if i > math.MaxInt64 {
+			return SafeInteger{invalidSafeInt}
+		}
+		return SafeInteger{int64(i)}
+	case uintptr:
+		if uint64(i) > math.MaxInt64 {
 			return SafeInteger{invalidSafeInt}
 		}
 		return SafeInteger{int64(i)}

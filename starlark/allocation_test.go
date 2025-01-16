@@ -403,8 +403,11 @@ func TestSafeStringBuilder(t *testing.T) {
 				if !ok {
 					t.Errorf("alloc count invalidated")
 				}
-				if int64(builder.Cap()) != (allocsAfter - allocsBefore) {
+				if int64(builder.Allocs()) != (allocsAfter - allocsBefore) {
 					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
+				}
+				if int64(builder.Cap()) > (allocsAfter - allocsBefore) {
+					t.Errorf("capacity grew beyond allocated (%v > %v)", builder.Cap(), (allocsAfter - allocsBefore))
 				}
 				st.KeepAlive(builder.String())
 			})
@@ -428,8 +431,11 @@ func TestSafeStringBuilder(t *testing.T) {
 				if !ok {
 					t.Errorf("alloc count invalidated")
 				}
-				if int64(builder.Cap()) != (allocsAfter - allocsBefore) {
+				if int64(builder.Allocs()) != (allocsAfter - allocsBefore) {
 					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
+				}
+				if int64(builder.Cap()) > (allocsAfter - allocsBefore) {
+					t.Errorf("capacity grew beyond allocated (%v > %v)", builder.Cap(), (allocsAfter - allocsBefore))
 				}
 				st.KeepAlive(builder.String())
 			})
@@ -453,8 +459,11 @@ func TestSafeStringBuilder(t *testing.T) {
 				if !ok {
 					t.Errorf("alloc count invalidated")
 				}
-				if int64(builder.Cap()) != (allocsAfter - allocsBefore) {
+				if int64(builder.Allocs()) != (allocsAfter - allocsBefore) {
 					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
+				}
+				if int64(builder.Cap()) > (allocsAfter - allocsBefore) {
+					t.Errorf("capacity grew beyond allocated (%v > %v)", builder.Cap(), (allocsAfter - allocsBefore))
 				}
 				st.KeepAlive(builder.String())
 			})
@@ -480,8 +489,11 @@ func TestSafeStringBuilder(t *testing.T) {
 				if !ok {
 					t.Errorf("alloc count invalidated")
 				}
-				if int64(builder.Cap()) != (allocsAfter - allocsBefore) {
+				if int64(builder.Allocs()) != (allocsAfter - allocsBefore) {
 					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
+				}
+				if int64(builder.Cap()) > (allocsAfter - allocsBefore) {
+					t.Errorf("capacity grew beyond allocated (%v > %v)", builder.Cap(), (allocsAfter - allocsBefore))
 				}
 				st.KeepAlive(builder.String())
 			})
@@ -510,8 +522,11 @@ func TestSafeStringBuilder(t *testing.T) {
 				if !ok {
 					t.Errorf("alloc count invalidated")
 				}
-				if int64(builder.Cap()) != (allocsAfter - allocsBefore) {
+				if int64(builder.Allocs()) != (allocsAfter - allocsBefore) {
 					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
+				}
+				if int64(builder.Cap()) > (allocsAfter - allocsBefore) {
+					t.Errorf("capacity grew beyond allocated (%v > %v)", builder.Cap(), (allocsAfter - allocsBefore))
 				}
 				st.KeepAlive(builder.String())
 			})
