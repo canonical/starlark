@@ -746,11 +746,11 @@ func TestSafeAdd(t *testing.T) {
 		expected: starlark.InvalidSafeInt,
 	}, {
 		name:     "overflow",
-		sum:      starlark.SafeAdd(math.MaxInt64, math.MaxInt64),
+		sum:      starlark.SafeAdd(int64(math.MaxInt64), int64(math.MaxInt64)),
 		expected: starlark.InvalidSafeInt,
 	}, {
 		name:     "underflow",
-		sum:      starlark.SafeAdd(math.MinInt64, math.MinInt64),
+		sum:      starlark.SafeAdd(int64(math.MinInt64), int64(math.MinInt64)),
 		expected: starlark.InvalidSafeInt,
 	}}
 	for _, test := range tests {
@@ -781,11 +781,11 @@ func TestSafeSub(t *testing.T) {
 		expected:   starlark.InvalidSafeInt,
 	}, {
 		name:       "overflow",
-		difference: starlark.SafeSub(math.MaxInt64, -math.MaxInt64),
+		difference: starlark.SafeSub(int64(math.MaxInt64), int64(-math.MaxInt64)),
 		expected:   starlark.InvalidSafeInt,
 	}, {
 		name:       "underflow",
-		difference: starlark.SafeSub(math.MinInt64, math.MaxInt64),
+		difference: starlark.SafeSub(int64(math.MinInt64), int64(math.MaxInt64)),
 		expected:   starlark.InvalidSafeInt,
 	}}
 	for _, test := range tests {
@@ -824,11 +824,11 @@ func TestSafeMul(t *testing.T) {
 		expected: starlark.InvalidSafeInt,
 	}, {
 		name:     "overflow",
-		product:  starlark.SafeMul(math.MaxInt64/2, 4),
+		product:  starlark.SafeMul(int64(math.MaxInt64/2), 4),
 		expected: starlark.InvalidSafeInt,
 	}, {
 		name:     "underflow",
-		product:  starlark.SafeMul(math.MinInt64/2, 4),
+		product:  starlark.SafeMul(int64(math.MinInt64/2), 4),
 		expected: starlark.InvalidSafeInt,
 	}}
 	for _, test := range tests {
