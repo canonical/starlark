@@ -53,12 +53,17 @@ func (ht *hashtable) init(thread *Thread, size int) error {
 		panic("size < 0")
 	}
 	nb := SafeInt(1)
-	for overloaded(size, nb) {
+	for {
+		if over, err := overloaded(size, nb); err != nil {
+			return err
+		} else if !over {
+			break
+		}
 		nb = SafeMul(nb, 2)
 	}
 	nbInt, ok := nb.Int()
 	if !ok {
-		return errors.New("hashtable size too large")
+		return errors.New("hashtable size overflow")
 	}
 	if nbInt < 2 {
 		ht.table = ht.bucket0[:1]
@@ -140,7 +145,9 @@ retry:
 	// Key not found.  p points to the last bucket.
 
 	// Does the number of elements exceed the buckets' load factor?
-	if overloaded(int(ht.len), SafeInt(len(ht.table))) {
+	if overloaded, err := overloaded(int(ht.len), SafeInt(len(ht.table))); err != nil {
+		return err
+	} else if overloaded {
 		if err := ht.grow(thread); err != nil {
 			return err
 		}
@@ -174,13 +181,13 @@ retry:
 	return nil
 }
 
-func overloaded(elems int, buckets SafeInteger) bool {
+func overloaded(elems int, buckets SafeInteger) (bool, error) {
 	const loadFactor = 6.5 // just a guess
 	bucketsInt, ok := buckets.Int()
 	if !ok {
-		return false
+		return false, errors.New("hashtable bucket count invalidated")
 	}
-	return elems >= bucketSize && float64(elems) >= loadFactor*float64(bucketsInt)
+	return elems >= bucketSize && float64(elems) >= loadFactor*float64(bucketsInt), nil
 }
 
 func (ht *hashtable) grow(thread *Thread) error {
@@ -199,7 +206,7 @@ func (ht *hashtable) grow(thread *Thread) error {
 	}
 	nextLenInt, ok := nextLen.Int()
 	if !ok {
-		return errors.New("hashtable size too large")
+		return errors.New("hashtable size overflow")
 	}
 	ht.table = make([]bucket, nextLenInt)
 	oldhead := ht.head

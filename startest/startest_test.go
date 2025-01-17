@@ -15,7 +15,7 @@ import (
 func mustInt64(si starlark.SafeInteger) int64 {
 	i, ok := si.Int64()
 	if !ok {
-		panic("cannot convert integer to int64")
+		panic("cannot convert invalid safe integer to int64")
 	}
 	return i
 }
@@ -925,13 +925,9 @@ func TestRunStringMemSafety(t *testing.T) {
 
 		dummy := &dummyBase{}
 		st := startest.From(dummy)
-		maxAllocs64, ok := starlark.SafeMul(overallocateResultSize, 2).Int64()
-		if !ok {
-			t.Fatal("max allocs invalidated")
-		}
-		st.SetMaxAllocs(maxAllocs64) // test correct error when within max
+		st.SetMaxAllocs(mustInt64(starlark.SafeMul(overallocateResultSize, 2))) // test correct error when within max
 		st.AddBuiltin(overallocate)
-		ok = st.RunString(`
+		ok := st.RunString(`
 			for _ in st.ntimes():
 				st.keep_alive(overallocate())
 		`)

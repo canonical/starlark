@@ -14,6 +14,14 @@ import (
 	"github.com/canonical/starlark/syntax"
 )
 
+func mustInt64(si starlark.SafeInteger) int64 {
+	i, ok := si.Int64()
+	if !ok {
+		panic("cannot convert invalid safe integer to int64")
+	}
+	return i
+}
+
 func TestUniverseSafeties(t *testing.T) {
 	for name, value := range starlark.Universe {
 		builtin, ok := value.(*starlark.Builtin)
@@ -986,8 +994,7 @@ func TestBytesAllocs(t *testing.T) {
 	t.Run("small-valid-string", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-		overhead, _ := starlark.StringTypeOverhead.Int64()
-		st.SetMaxAllocs(overhead)
+		st.SetMaxAllocs(mustInt64(starlark.StringTypeOverhead))
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("hello, world!")
 			for i := 0; i < st.N; i++ {

@@ -510,7 +510,7 @@ func TestEstimateMakeSize(t *testing.T) {
 				st := startest.From(t)
 				st.RequireSafety(starlark.MemSafe)
 				st.RunThread(func(thread *starlark.Thread) {
-					if err := thread.AddAllocs(starlark.EstimateMakeSize(chan int(nil), starlark.SafeInt(st.N))); err != nil {
+					if err := thread.AddAllocs(starlark.EstimateMakeSize((chan int)(nil), starlark.SafeInt(st.N))); err != nil {
 						st.Error(err)
 					}
 					st.KeepAlive(make(chan int, st.N))

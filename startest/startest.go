@@ -303,7 +303,20 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 
 	startTime := time.Now()
 	prevN, elapsed := int64(0), time.Duration(0)
-	for less(allocSum, starlark.SafeAdd(memoryMax, valueTrackerAllocs)) && prevN < nMax && elapsed < timeMax {
+	for {
+		if allocSum64, ok := allocSum.Int64(); !ok {
+			st.Error("memory limit invalidated")
+			return runStats{}
+		} else if memoryLimit64, ok := starlark.SafeAdd(memoryMax, valueTrackerAllocs).Int64(); !ok {
+			st.Error("memory limit invalidated")
+			return runStats{}
+		} else if allocSum64 >= memoryLimit64 {
+			break
+		}
+		if prevN >= nMax && elapsed >= timeMax {
+			break
+		}
+
 		var n int64
 		if nSum != 0 {
 			n = prevN * 2
@@ -370,7 +383,13 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		st.alive = nil
 	}
 
-	if less(allocSum, valueTrackerAllocs) {
+	if allocSum64, ok := allocSum.Int64(); !ok {
+		st.Error("alloc count invalidated")
+		return runStats{}
+	} else if valueTrackerAllocs64, ok := valueTrackerAllocs.Int64(); !ok {
+		st.Error("value tracker alloc count invalidated")
+		return runStats{}
+	} else if allocSum64 < valueTrackerAllocs64 {
 		allocSum = starlark.SafeInt(0)
 	} else {
 		allocSum = starlark.SafeSub(allocSum, valueTrackerAllocs)
@@ -387,18 +406,6 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		allocSum:      allocSum64,
 		stepsRequired: stepsRequired,
 	}
-}
-
-func less(sa, sb starlark.SafeInteger) bool {
-	a, ok := sa.Int64()
-	if !ok {
-		return false
-	}
-	b, ok := sb.Int64()
-	if !ok {
-		return false
-	}
-	return a < b
 }
 
 // readMemoryUsage returns the number of bytes in use by the Go runtime. If
