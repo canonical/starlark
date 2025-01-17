@@ -176,37 +176,37 @@ func TestEstimateDuplicateIndirects(t *testing.T) {
 }
 
 func TestNil(t *testing.T) {
-	if starlark.EstimateSizeOld(nil) != 0 {
+	if starlark.EstimateSize(nil) != starlark.SafeInt(0) {
 		t.Errorf("estimateSize for nil must be 0")
 	}
 
 	var nilMap map[int]int
-	if starlark.EstimateSizeOld(nilMap) != 0 {
+	if starlark.EstimateSize(nilMap) != starlark.SafeInt(0) {
 		t.Errorf("EstimateSize for nil must be 0")
 	}
 
 	var nilPtrMap *map[int]int
-	if starlark.EstimateSizeOld(nilPtrMap) != 0 {
+	if starlark.EstimateSize(nilPtrMap) != starlark.SafeInt(0) {
 		t.Errorf("EstimateSize for nil must be 0")
 	}
 
 	var nilChan chan int
-	if starlark.EstimateSizeOld(nilChan) != 0 {
+	if starlark.EstimateSize(nilChan) != starlark.SafeInt(0) {
 		t.Errorf("EstimateSize for nil must be 0")
 	}
 
 	var nilPtrChan *chan int
-	if starlark.EstimateSizeOld(nilPtrChan) != 0 {
+	if starlark.EstimateSize(nilPtrChan) != starlark.SafeInt(0) {
 		t.Errorf("EstimateSize for nil must be 0")
 	}
 
 	var nilSlice *[]int
-	if starlark.EstimateSizeOld(nilSlice) != 0 {
+	if starlark.EstimateSize(nilSlice) != starlark.SafeInt(0) {
 		t.Errorf("EstimateSize for nil must be 0")
 	}
 
 	var nilPtr *int
-	if starlark.EstimateSizeOld(nilPtr) != 0 {
+	if starlark.EstimateSize(nilPtr) != starlark.SafeInt(0) {
 		t.Errorf("EstimateSize for nil must be 0")
 	}
 
@@ -218,8 +218,10 @@ func TestNil(t *testing.T) {
 		e *int
 		s *[]int
 	}
-
-	if s := starlark.EstimateSizeOld(emptyStruct); s < int64(unsafe.Sizeof(emptyStruct)) {
+	s := starlark.EstimateSize(emptyStruct)
+	if s, ok := s.Int64(); !ok {
+		t.Errorf("unexpected ivalid size")
+	} else if s < int64(unsafe.Sizeof(emptyStruct)) {
 		t.Errorf("expected at least size %d got %d", unsafe.Sizeof(emptyStruct), s)
 	}
 }
@@ -338,12 +340,12 @@ func TestEstimateString(t *testing.T) {
 
 func TestEstimateMakeSize(t *testing.T) {
 	t.Run("overflow", func(t *testing.T) {
-		if starlark.EstimateMakeSizeOld([]interface{}{}, math.MaxInt) < 0 {
-			t.Errorf("unexpected overflow")
+		if starlark.EstimateMakeSize([]interface{}{}, starlark.SafeInt(int64(math.MaxInt))).Valid() {
+			t.Errorf("unexpected valid size")
 		}
 
-		if starlark.EstimateMakeSizeOld([]interface{}{byte(0)}, math.MaxInt) < 0 {
-			t.Errorf("unexpected overflow")
+		if starlark.EstimateMakeSize([]interface{}{byte(0)}, starlark.SafeInt(int64(math.MaxInt))).Valid() {
+			t.Errorf("unexpected valid size")
 		}
 	})
 
@@ -578,7 +580,7 @@ func TestEstimateMakeSize(t *testing.T) {
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
 				err, panicked := catch(func() {
-					starlark.EstimateMakeSizeOld(test.template, 25)
+					starlark.EstimateMakeSize(test.template, starlark.SafeInt(25))
 				})
 				if !panicked {
 					t.Error("invalid MakeSizeInput did not cause panic")
@@ -654,8 +656,15 @@ func TestSizeAware(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			objSize := starlark.EstimateSizeOld(test.obj)
-			composedSize := starlark.EstimateSizeOld(test.composed)
+			objSize, ok := starlark.EstimateSize(test.obj).Int64()
+			if !ok {
+				t.Fatal("unexpected ivalid size")
+			}
+			composedSize, ok := starlark.EstimateSize(test.composed).Int64()
+			if !ok {
+				t.Fatal("unexpected ivalid size")
+			}
+
 			if composedSize < objSize {
 				t.Errorf("unaccounted memory: expected at least %d bytes, got %d", objSize, composedSize)
 			}
