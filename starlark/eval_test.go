@@ -1422,23 +1422,17 @@ func TestOverflowingPositiveDeltaStep(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxSteps(0)
 
-	maxNonInfiniteSteps := int64(math.MaxInt64)
+	maxNonInfiniteSteps := starlark.SafeInt(int64(math.MaxInt64))
 
-	// One-line addition is fine on overflow if the result is not overflowing
-	if err := thread.AddSteps(
-		starlark.SafeInt(maxNonInfiniteSteps),
-		starlark.SafeNeg(maxNonInfiniteSteps),
-		starlark.SafeInt(maxNonInfiniteSteps),
-		starlark.SafeNeg(maxNonInfiniteSteps),
-		starlark.SafeInt(10)); err != nil {
+	if err := thread.AddSteps(starlark.SafeInt(maxNonInfiniteSteps)); err != nil {
 		t.Errorf("unexpected error when declaring steps increase: %v", err)
 	}
 	if steps, ok := thread.Steps(); !ok {
 		t.Fatal("step count invalidated")
-	} else if steps != 10 {
+	} else if steps != mustInt64(maxNonInfiniteSteps) {
 		t.Errorf("incorrect steps stored: expected %d but got %d", 10, steps)
 	}
-	if err := thread.AddSteps(starlark.SafeInt(-10)); err != nil {
+	if err := thread.AddSteps(starlark.SafeNeg(maxNonInfiniteSteps)); err != nil {
 		t.Errorf("unexpected error when declaring steps decrease: %v", err)
 	}
 	if steps, ok := thread.Steps(); !ok {
@@ -1452,7 +1446,7 @@ func TestOverflowingPositiveDeltaStep(t *testing.T) {
 		t.Errorf("unexpected error when declaring steps increase: %v", err)
 	} else if steps, ok := thread.Steps(); !ok {
 		t.Fatal("step count invalidated")
-	} else if steps != maxNonInfiniteSteps {
+	} else if steps != mustInt64(maxNonInfiniteSteps) {
 		t.Errorf("incorrect steps stored: expected %d but got %d", int64(math.MaxInt64-1), steps)
 	}
 
@@ -1471,7 +1465,7 @@ func TestOverflowingPositiveDeltaStep(t *testing.T) {
 	}
 
 	// Check overflow is sticky
-	if err := thread.AddSteps(starlark.SafeInt(int64(math.MinInt64)), starlark.SafeInt(int64(math.MinInt64))); err != nil {
+	if err := thread.AddSteps(starlark.SafeInt(int64(math.MinInt64))); err != nil {
 		t.Errorf("unexpected error when repeatedly overflowing steps: %v", err)
 	} else if _, ok := thread.Steps(); ok {
 		t.Fatal("step count invalidated")
@@ -1488,7 +1482,7 @@ func TestDefaultStepMaxIsUnbounded(t *testing.T) {
 	if _, err := starlark.ExecFile(thread, "default_allocs_test", "", nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if err := thread.AddSteps(starlark.SafeInt(int64(math.MaxInt64)), starlark.SafeInt(int64(math.MaxInt64)), starlark.SafeInt(int64(math.MaxInt64))); err != nil {
+	if err := thread.AddSteps(starlark.SafeInt(int64(math.MaxInt64))); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if _, ok := thread.Steps(); ok {

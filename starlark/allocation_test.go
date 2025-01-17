@@ -144,16 +144,16 @@ func TestOverflowingPositiveDeltaAllocation(t *testing.T) {
 
 	maxNonInfiniteAllocs := starlark.SafeInt(int64(math.MaxInt64))
 
-	if err := thread.AddAllocs(maxNonInfiniteAllocs, starlark.SafeNeg(maxNonInfiniteAllocs), maxNonInfiniteAllocs, starlark.SafeNeg(maxNonInfiniteAllocs), starlark.SafeInt(10)); err != nil {
+	if err := thread.AddAllocs(maxNonInfiniteAllocs); err != nil {
 		t.Errorf("unexpected error when declaring allocation increase: %v", err)
 	}
 	if allocs, ok := thread.Allocs(); !ok {
 		t.Errorf("alloc count invalidated")
-	} else if allocs != 10 {
+	} else if allocs != mustInt64(maxNonInfiniteAllocs) {
 		t.Errorf("incorrect allocations stored: expected %d but got %d", 10, allocs)
 	}
 
-	if err := thread.AddAllocs(starlark.SafeNeg(10)); err != nil {
+	if err := thread.AddAllocs(starlark.SafeNeg(maxNonInfiniteAllocs)); err != nil {
 		t.Errorf("unexpected error when declaring allocation decrease: %v", err)
 	}
 	if allocs, ok := thread.Allocs(); !ok {
@@ -168,7 +168,7 @@ func TestOverflowingPositiveDeltaAllocation(t *testing.T) {
 	}
 
 	// Check overflow detected
-	if err := thread.AddAllocs(starlark.SafeInt(2)); err != nil {
+	if err := thread.AddAllocs(starlark.SafeInt(1)); err != nil {
 		t.Errorf("unexpected error when overflowing allocations: %v", err)
 	} else if allocs, ok := thread.Allocs(); ok {
 		t.Errorf("incorrect allocations stored: expected invalid but got %d", allocs)

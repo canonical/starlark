@@ -198,11 +198,11 @@ func (thread *Thread) SetMaxSteps(max int64) {
 //
 // It is safe to call CheckSteps from any goroutine, even if the thread
 // is actively executing.
-func (thread *Thread) CheckSteps(deltas ...SafeInteger) error {
+func (thread *Thread) CheckSteps(delta SafeInteger) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
-	_, err := thread.simulateSteps(deltas...)
+	_, err := thread.simulateSteps(delta)
 	return err
 }
 
@@ -212,15 +212,11 @@ func (thread *Thread) CheckSteps(deltas ...SafeInteger) error {
 //
 // It is safe to call AddSteps from any goroutine, even if the thread
 // is actively executing.
-func (thread *Thread) AddSteps(deltas ...SafeInteger) error {
+func (thread *Thread) AddSteps(delta SafeInteger) error {
 	thread.stepsLock.Lock()
 	defer thread.stepsLock.Unlock()
 
-	deltas2 := make([]SafeInteger, len(deltas))
-	for i, delta := range deltas {
-		deltas2[i] = SafeInt(delta)
-	}
-	nextSteps, err := thread.simulateSteps(deltas2...)
+	nextSteps, err := thread.simulateSteps(delta)
 	thread.steps = nextSteps
 	if err != nil {
 		thread.cancel(err)
@@ -232,25 +228,24 @@ func (thread *Thread) AddSteps(deltas ...SafeInteger) error {
 // simulateSteps simulates a call to AddSteps returning the
 // new total step-count and any error this would entail. No change is
 // recorded.
-func (thread *Thread) simulateSteps(deltas ...SafeInteger) (SafeInteger, error) {
+func (thread *Thread) simulateSteps(delta SafeInteger) (SafeInteger, error) {
 	if err := thread.cancelled(); err != nil {
 		return thread.steps, err
 	}
 
-	nextSteps := thread.steps
-	for _, delta := range deltas {
-		nextSteps = SafeAdd(nextSteps, delta)
-
-		nextSteps64, ok := nextSteps.Int64()
-		if ok && thread.maxSteps > 0 && nextSteps64 > thread.maxSteps {
+	nextSteps := SafeAdd(thread.steps, delta)
+	nextSteps64, ok := nextSteps.Int64()
+	if ok {
+		if thread.maxSteps > 0 && nextSteps64 > thread.maxSteps {
 			return nextSteps, &StepsSafetyError{
 				Current: thread.steps,
 				Max:     thread.maxSteps,
 			}
 		}
-	}
-	if nextSteps64, ok := nextSteps.Int64(); ok && nextSteps64 < 0 {
-		return SafeInteger{invalidSafeInt}, errors.New("step count invalidated")
+
+		if nextSteps64 < 0 {
+			return SafeInteger{invalidSafeInt}, errors.New("step count invalidated")
+		}
 	}
 	return nextSteps, nil
 }
@@ -2803,11 +2798,11 @@ func (e *StepsSafetyError) Is(err error) bool {
 //
 // It is safe to call CheckAllocs from any goroutine, even if the thread is
 // actively executing.
-func (thread *Thread) CheckAllocs(deltas ...SafeInteger) error {
+func (thread *Thread) CheckAllocs(delta SafeInteger) error {
 	thread.allocsLock.Lock()
 	defer thread.allocsLock.Unlock()
 
-	_, err := thread.simulateAllocs(deltas...)
+	_, err := thread.simulateAllocs(delta)
 	return err
 }
 
@@ -2817,11 +2812,11 @@ func (thread *Thread) CheckAllocs(deltas ...SafeInteger) error {
 //
 // It is safe to call AddAllocs from any goroutine, even if the thread is
 // actively executing.
-func (thread *Thread) AddAllocs(deltas ...SafeInteger) error {
+func (thread *Thread) AddAllocs(delta SafeInteger) error {
 	thread.allocsLock.Lock()
 	defer thread.allocsLock.Unlock()
 
-	next, err := thread.simulateAllocs(deltas...)
+	next, err := thread.simulateAllocs(delta)
 	thread.allocs = next
 	if err != nil {
 		thread.cancel(err)
@@ -2833,21 +2828,20 @@ func (thread *Thread) AddAllocs(deltas ...SafeInteger) error {
 // simulateAllocs simulates a call to AddAllocs returning the new total
 // allocations associated with this thread and any error this would entail. No
 // change is recorded.
-func (thread *Thread) simulateAllocs(deltas ...SafeInteger) (SafeInteger, error) {
-	nextAllocs := thread.allocs
-	for _, delta := range deltas {
-		nextAllocs = SafeAdd(nextAllocs, delta)
-
-		nextAllocs64, ok := nextAllocs.Int64()
-		if ok && thread.maxAllocs > 0 && nextAllocs64 > thread.maxAllocs {
+func (thread *Thread) simulateAllocs(delta SafeInteger) (SafeInteger, error) {
+	nextAllocs := SafeAdd(thread.allocs, delta)
+	nextAllocs64, ok := nextAllocs.Int64()
+	if ok {
+		if thread.maxAllocs > 0 && nextAllocs64 > thread.maxAllocs {
 			return nextAllocs, &AllocsSafetyError{
 				Current: thread.allocs,
 				Max:     thread.maxAllocs,
 			}
 		}
-	}
-	if nextAllocs64, ok := nextAllocs.Int64(); ok && nextAllocs64 < 0 {
-		return SafeInteger{invalidSafeInt}, errors.New("alloc count invalidated")
+
+		if nextAllocs64 < 0 {
+			return SafeInteger{invalidSafeInt}, errors.New("alloc count invalidated")
+		}
 	}
 	return nextAllocs, nil
 }
