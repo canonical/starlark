@@ -340,11 +340,11 @@ func TestEstimateString(t *testing.T) {
 
 func TestEstimateMakeSize(t *testing.T) {
 	t.Run("overflow", func(t *testing.T) {
-		if starlark.EstimateMakeSize([]interface{}{}, starlark.SafeInt(int64(math.MaxInt))).Valid() {
+		if starlark.EstimateMakeSize([]interface{}{}, starlark.SafeInt(int64(math.MaxInt64))).Valid() {
 			t.Errorf("unexpected valid size")
 		}
 
-		if starlark.EstimateMakeSize([]interface{}{byte(0)}, starlark.SafeInt(int64(math.MaxInt))).Valid() {
+		if starlark.EstimateMakeSize([]interface{}{byte(0)}, starlark.SafeInt(int64(math.MaxInt64))).Valid() {
 			t.Errorf("unexpected valid size")
 		}
 	})
