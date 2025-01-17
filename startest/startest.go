@@ -310,10 +310,7 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		} else if memoryLimit64, ok := starlark.SafeAdd(memoryMax, valueTrackerAllocs).Int64(); !ok {
 			st.Error("memory limit invalidated")
 			return runStats{}
-		} else if allocSum64 >= memoryLimit64 {
-			break
-		}
-		if prevN >= nMax && elapsed >= timeMax {
+		} else if allocSum64 >= memoryLimit64 || prevN >= nMax || elapsed >= timeMax {
 			break
 		}
 
