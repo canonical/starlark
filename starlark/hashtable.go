@@ -5,6 +5,7 @@
 package starlark
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 )
@@ -51,11 +52,20 @@ func (ht *hashtable) init(thread *Thread, size int) error {
 	if size < 0 {
 		panic("size < 0")
 	}
-	nb := 1
-	for overloaded(size, nb) {
-		nb = nb << 1
+	nb := SafeInt(1)
+	for {
+		if over, err := overloaded(size, nb); err != nil {
+			return err
+		} else if !over {
+			break
+		}
+		nb = SafeMul(nb, 2)
 	}
-	if nb < 2 {
+	nbInt, ok := nb.Int()
+	if !ok {
+		return errors.New("hashtable size overflow")
+	}
+	if nbInt < 2 {
 		ht.table = ht.bucket0[:1]
 	} else {
 		if thread != nil {
@@ -63,7 +73,7 @@ func (ht *hashtable) init(thread *Thread, size int) error {
 				return err
 			}
 		}
-		ht.table = make([]bucket, nb)
+		ht.table = make([]bucket, nbInt)
 	}
 	ht.tailLink = &ht.head
 	return nil
@@ -135,7 +145,9 @@ retry:
 	// Key not found.  p points to the last bucket.
 
 	// Does the number of elements exceed the buckets' load factor?
-	if overloaded(int(ht.len), len(ht.table)) {
+	if overloaded, err := overloaded(int(ht.len), SafeInt(len(ht.table))); err != nil {
+		return err
+	} else if overloaded {
 		if err := ht.grow(thread); err != nil {
 			return err
 		}
@@ -169,9 +181,13 @@ retry:
 	return nil
 }
 
-func overloaded(elems, buckets int) bool {
+func overloaded(elems int, buckets SafeInteger) (bool, error) {
 	const loadFactor = 6.5 // just a guess
-	return elems >= bucketSize && float64(elems) >= loadFactor*float64(buckets)
+	bucketsInt, ok := buckets.Int()
+	if !ok {
+		return false, errors.New("hashtable bucket count invalidated")
+	}
+	return elems >= bucketSize && float64(elems) >= loadFactor*float64(bucketsInt), nil
 }
 
 func (ht *hashtable) grow(thread *Thread) error {
@@ -182,12 +198,17 @@ func (ht *hashtable) grow(thread *Thread) error {
 	// and recomputes the hash unnecessarily, the gains from
 	// avoiding these steps were found to be too small to justify
 	// the extra logic: -2% on hashtable benchmark.
+	nextLen := SafeMul(len(ht.table), 2)
 	if thread != nil {
-		if err := thread.AddAllocs(EstimateMakeSize([]bucket{}, len(ht.table)<<1)); err != nil {
+		if err := thread.AddAllocs(EstimateMakeSize([]bucket{}, nextLen)); err != nil {
 			return err
 		}
 	}
-	ht.table = make([]bucket, len(ht.table)<<1)
+	nextLenInt, ok := nextLen.Int()
+	if !ok {
+		return errors.New("hashtable size overflow")
+	}
+	ht.table = make([]bucket, nextLenInt)
 	oldhead := ht.head
 	ht.head = nil
 	ht.tailLink = &ht.head
@@ -252,9 +273,9 @@ func (ht *hashtable) count(thread *Thread, iter Iterator) (int, error) {
 	// Use a bitset per table entry to record seen elements of ht.
 	// Elements are identified by their bucket number and index within the bucket.
 	// Each bitset gets one word initially, but may grow.
-	transientSize := OldSafeAdd64(
-		EstimateMakeSize([]big.Word{}, len(ht.table)),
-		EstimateMakeSize([]big.Int{}, len(ht.table)),
+	transientSize := SafeAdd(
+		EstimateMakeSize([]big.Word{}, SafeInt(len(ht.table))),
+		EstimateMakeSize([]big.Int{}, SafeInt(len(ht.table))),
 	)
 	if thread != nil {
 		if err := thread.CheckAllocs(transientSize); err != nil {

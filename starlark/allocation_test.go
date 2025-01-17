@@ -15,7 +15,7 @@ import (
 func TestDefaultAllocMaxIsUnbounded(t *testing.T) {
 	thread := &starlark.Thread{}
 
-	if err := thread.CheckAllocs(1); err != nil {
+	if err := thread.CheckAllocs(starlark.SafeInt(1)); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -24,7 +24,7 @@ func TestDefaultAllocMaxIsUnbounded(t *testing.T) {
 	}
 
 	for i := 0; i < 3; i++ {
-		if err := thread.AddAllocs(math.MaxInt64); err != nil {
+		if err := thread.AddAllocs(starlark.SafeInt(int64(math.MaxInt64))); err != nil {
 			t.Errorf("unexpected error: %v", err)
 			break
 		}
@@ -35,7 +35,7 @@ func TestCheckAllocs(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(1000)
 
-	if err := thread.CheckAllocs(500); err != nil {
+	if err := thread.CheckAllocs(starlark.SafeInt(500)); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	} else if allocs, ok := thread.Allocs(); !ok {
 		t.Errorf("alloc count invalidated")
@@ -43,7 +43,7 @@ func TestCheckAllocs(t *testing.T) {
 		t.Errorf("CheckAllocs recorded allocations: expected 0 but got %v", allocs)
 	}
 
-	if err := thread.CheckAllocs(2000); err == nil {
+	if err := thread.CheckAllocs(starlark.SafeInt(2000)); err == nil {
 		t.Errorf("expected error")
 	} else {
 		expected := &starlark.AllocsSafetyError{}
@@ -66,17 +66,17 @@ func TestAllocDeclAndCheckBoundary(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(allocCap)
 
-	if err := thread.CheckAllocs(allocCap); err != nil {
+	if err := thread.CheckAllocs(starlark.SafeInt(allocCap)); err != nil {
 		t.Errorf("unexpected error: %v", err)
-	} else if err := thread.CheckAllocs(starlark.OldSafeAdd64(allocCap, 1)); err == nil {
+	} else if err := thread.CheckAllocs(starlark.SafeAdd(allocCap, 1)); err == nil {
 		t.Errorf("expected error checking too-many allocations")
 	}
 
-	if err := thread.AddAllocs(allocCap); err != nil {
+	if err := thread.AddAllocs(starlark.SafeInt(allocCap)); err != nil {
 		t.Errorf("could not allocate entire quota: %v", err)
 	} else {
-		thread.AddAllocs(-allocCap)
-		if err := thread.AddAllocs(starlark.OldSafeAdd64(allocCap, 1)); err == nil {
+		thread.AddAllocs(starlark.SafeNeg(allocCap))
+		if err := thread.AddAllocs(starlark.SafeAdd(allocCap, 1)); err == nil {
 			t.Errorf("expected error when exceeding quota")
 		}
 	}
@@ -93,7 +93,7 @@ func TestPositiveDeltaDeclaration(t *testing.T) {
 	if !ok {
 		t.Errorf("alloc count invalidated")
 	}
-	if err := thread.AddAllocs(intendedAllocIncrease); err != nil {
+	if err := thread.AddAllocs(starlark.SafeInt(intendedAllocIncrease)); err != nil {
 		t.Errorf("unexpected cancellation: %v", err)
 	}
 	allocs1, ok := thread.Allocs()
@@ -118,7 +118,7 @@ func TestPositiveDeltaDeclarationExceedingMax(t *testing.T) {
 	thread.SetMaxAllocs(maxAllocs)
 
 	// Error when too much memory is required
-	if err := thread.AddAllocs(allocationIncrease); err == nil {
+	if err := thread.AddAllocs(starlark.SafeInt(allocationIncrease)); err == nil {
 		t.Errorf("expected allocation failure!")
 	}
 
@@ -142,9 +142,9 @@ func TestOverflowingPositiveDeltaAllocation(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
 
-	const maxNonInfiniteAllocs = math.MaxInt64 - 1
+	maxNonInfiniteAllocs := starlark.SafeInt(int64(math.MaxInt64))
 
-	if err := thread.AddAllocs(maxNonInfiniteAllocs, -maxNonInfiniteAllocs, maxNonInfiniteAllocs, -maxNonInfiniteAllocs, 10); err != nil {
+	if err := thread.AddAllocs(maxNonInfiniteAllocs, starlark.SafeNeg(maxNonInfiniteAllocs), maxNonInfiniteAllocs, starlark.SafeNeg(maxNonInfiniteAllocs), starlark.SafeInt(10)); err != nil {
 		t.Errorf("unexpected error when declaring allocation increase: %v", err)
 	}
 	if allocs, ok := thread.Allocs(); !ok {
@@ -153,7 +153,7 @@ func TestOverflowingPositiveDeltaAllocation(t *testing.T) {
 		t.Errorf("incorrect allocations stored: expected %d but got %d", 10, allocs)
 	}
 
-	if err := thread.AddAllocs(-10); err != nil {
+	if err := thread.AddAllocs(starlark.SafeNeg(10)); err != nil {
 		t.Errorf("unexpected error when declaring allocation decrease: %v", err)
 	}
 	if allocs, ok := thread.Allocs(); !ok {
@@ -168,21 +168,21 @@ func TestOverflowingPositiveDeltaAllocation(t *testing.T) {
 	}
 
 	// Check overflow detected
-	if err := thread.AddAllocs(2); err != nil {
+	if err := thread.AddAllocs(starlark.SafeInt(2)); err != nil {
 		t.Errorf("unexpected error when overflowing allocations: %v", err)
 	} else if allocs, ok := thread.Allocs(); ok {
 		t.Errorf("incorrect allocations stored: expected invalid but got %d", allocs)
 	}
 
 	// Check repeated overflow
-	if err := thread.AddAllocs(100); err != nil {
+	if err := thread.AddAllocs(starlark.SafeInt(100)); err != nil {
 		t.Errorf("unexpected error when repeatedly overflowing allocations: %v", err)
 	} else if allocs, ok := thread.Allocs(); ok {
 		t.Errorf("incorrect allocations stored: expected invalid but got %d", allocs)
 	}
 
 	// Check overflow is sticky
-	if err := thread.AddAllocs(math.MinInt64); err != nil {
+	if err := thread.AddAllocs(starlark.SafeInt(int64(math.MinInt64))); err != nil {
 		t.Errorf("unexpected error when repeatedly overflowing allocations: %v", err)
 	} else if allocs, ok := thread.Allocs(); ok {
 		t.Errorf("incorrect allocations stored: expected invalid but got %d", allocs)
@@ -197,10 +197,10 @@ func TestNegativeDeltaDeclaration(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
 
-	if err := thread.AddAllocs(allocGreatest); err != nil {
+	if err := thread.AddAllocs(starlark.SafeInt(allocGreatest)); err != nil {
 		t.Errorf("unexpected error when declaring allocation increase: %v", err)
 	}
-	if err := thread.AddAllocs(-allocReduction); err != nil {
+	if err := thread.AddAllocs(starlark.SafeNeg(allocReduction)); err != nil {
 		t.Errorf("unexpected error when declaring allocation reduction: %v", err)
 	}
 	if allocs, ok := thread.Allocs(); !ok {
@@ -218,10 +218,10 @@ func TestOverzealousNegativeDeltaDeclaration(t *testing.T) {
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(0)
 
-	if err := thread.AddAllocs(allocGreatest); err != nil {
+	if err := thread.AddAllocs(starlark.SafeInt(allocGreatest)); err != nil {
 		t.Errorf("unexpected error when declaring allocation increase: %v", err)
 	}
-	if err := thread.AddAllocs(-allocReduction); err == nil {
+	if err := thread.AddAllocs(starlark.SafeNeg(allocReduction)); err == nil {
 		t.Errorf("unexpected success when declaring allocation reduction")
 	}
 	if allocs, ok := thread.Allocs(); ok {
@@ -236,7 +236,7 @@ func TestConcurrentCheckAllocsUsage(t *testing.T) {
 
 	thread := &starlark.Thread{}
 	thread.SetMaxAllocs(maxAllocs)
-	thread.AddAllocs(allocPeak - 1)
+	thread.AddAllocs(starlark.SafeSub(int64(allocPeak), 1))
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
@@ -244,15 +244,15 @@ func TestConcurrentCheckAllocsUsage(t *testing.T) {
 	go func() {
 		// Flip between 1000...00 and 0111...11 allocations
 		for i := 0; i < repetitions; i++ {
-			thread.AddAllocs(1)
-			thread.AddAllocs(-1)
+			thread.AddAllocs(starlark.SafeInt(1))
+			thread.AddAllocs(starlark.SafeInt(-1))
 		}
 		wg.Done()
 	}()
 	go func() {
 		for i := 0; i < repetitions; i++ {
 			// Check 1000...01 not exceeded
-			if err := thread.CheckAllocs(1); err != nil {
+			if err := thread.CheckAllocs(starlark.SafeInt(1)); err != nil {
 				t.Errorf("unexpected error: %v", err)
 				break
 			}
@@ -274,7 +274,7 @@ func TestConcurrentAddAllocsUsage(t *testing.T) {
 
 	callAddAlloc := func(n uint) {
 		for i := uint(0); i < n; i++ {
-			thread.AddAllocs(1)
+			thread.AddAllocs(starlark.SafeInt(1))
 		}
 		wg.Done()
 	}
@@ -403,7 +403,11 @@ func TestSafeStringBuilder(t *testing.T) {
 				if !ok {
 					t.Errorf("alloc count invalidated")
 				}
-				if int64(builder.Allocs()) != (allocsAfter - allocsBefore) {
+				stringAllocs, ok := builder.Allocs().Int64()
+				if !ok {
+					t.Errorf("alloc count invalidated")
+				}
+				if stringAllocs != (allocsAfter - allocsBefore) {
 					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
 				}
 				if int64(builder.Cap()) > (allocsAfter - allocsBefore) {
@@ -431,7 +435,11 @@ func TestSafeStringBuilder(t *testing.T) {
 				if !ok {
 					t.Errorf("alloc count invalidated")
 				}
-				if int64(builder.Allocs()) != (allocsAfter - allocsBefore) {
+				stringAllocs, ok := builder.Allocs().Int64()
+				if !ok {
+					t.Errorf("alloc count invalidated")
+				}
+				if stringAllocs != (allocsAfter - allocsBefore) {
 					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
 				}
 				if int64(builder.Cap()) > (allocsAfter - allocsBefore) {
@@ -459,7 +467,11 @@ func TestSafeStringBuilder(t *testing.T) {
 				if !ok {
 					t.Errorf("alloc count invalidated")
 				}
-				if int64(builder.Allocs()) != (allocsAfter - allocsBefore) {
+				stringAllocs, ok := builder.Allocs().Int64()
+				if !ok {
+					t.Errorf("alloc count invalidated")
+				}
+				if stringAllocs != (allocsAfter - allocsBefore) {
 					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
 				}
 				if int64(builder.Cap()) > (allocsAfter - allocsBefore) {
@@ -489,7 +501,11 @@ func TestSafeStringBuilder(t *testing.T) {
 				if !ok {
 					t.Errorf("alloc count invalidated")
 				}
-				if int64(builder.Allocs()) != (allocsAfter - allocsBefore) {
+				stringAllocs, ok := builder.Allocs().Int64()
+				if !ok {
+					t.Errorf("alloc count invalidated")
+				}
+				if stringAllocs != (allocsAfter - allocsBefore) {
 					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
 				}
 				if int64(builder.Cap()) > (allocsAfter - allocsBefore) {
@@ -522,7 +538,11 @@ func TestSafeStringBuilder(t *testing.T) {
 				if !ok {
 					t.Errorf("alloc count invalidated")
 				}
-				if int64(builder.Allocs()) != (allocsAfter - allocsBefore) {
+				stringAllocs, ok := builder.Allocs().Int64()
+				if !ok {
+					t.Errorf("alloc count invalidated")
+				}
+				if stringAllocs != (allocsAfter - allocsBefore) {
 					t.Errorf("allocation size mismatch: expected %v got %v", allocsAfter, builder.Cap())
 				}
 				if int64(builder.Cap()) > (allocsAfter - allocsBefore) {
@@ -555,7 +575,7 @@ func TestSafeStringBuilder(t *testing.T) {
 				t.Errorf("SafeStringBuilder did not allocate")
 			}
 
-			expected := allocsAfter - allocsBefore
+			expected := starlark.SafeSub(allocsAfter, allocsBefore)
 			if actual := sb.Allocs(); actual != expected {
 				t.Errorf("incorrect number of allocs reported: expected %d but got %d", expected, actual)
 			}

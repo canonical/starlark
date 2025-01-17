@@ -3,6 +3,7 @@ package starlark_test
 import (
 	"fmt"
 	"math"
+	"math/bits"
 	"reflect"
 	"testing"
 
@@ -284,19 +285,24 @@ func TestSafeIntRoundtrip(t *testing.T) {
 	})
 
 	t.Run("uintptr", func(t *testing.T) {
-		tests := []struct{
-			name string
-			value uintptr
+		type test struct {
+			name     string
+			value    uintptr
 			expected starlark.SafeInteger
-		}{{
-			name:      "valid",
-			value:     100,
+		}
+
+		tests := []test{{
+			name:     "valid",
+			value:    100,
 			expected: starlark.SafeInt(100),
-		}, {
-			name:       "invalid",
-			value:      math.MaxUint64,
-			expected: starlark.InvalidSafeInt,
 		}}
+		if bits.UintSize == 64 {
+			tests = append(tests, test{
+				name:     "max-value",
+				value:    math.MaxUint,
+				expected: starlark.InvalidSafeInt,
+			})
+		}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
 				actual := starlark.SafeInt(test.value)

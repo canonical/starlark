@@ -60,15 +60,16 @@ func (i Int) get() (int64, *big.Int) {
 }
 
 func (i Int) EstimateSize() int64 {
-	size := int64(unsafe.Sizeof(Int{}))
+	size := SafeInt(unsafe.Sizeof(Int{}))
 
 	if smallints == 0 {
-		size += EstimateSize((*big.Int)(i.impl))
+		size = SafeAdd(size, EstimateSize((*big.Int)(i.impl)))
 	} else if _, iBig := i.get(); iBig != nil {
-		size += EstimateSize(iBig)
+		size = SafeAdd(size, EstimateSize(iBig))
 	}
 
-	return int64(size)
+	size64, _ := size.Int64()
+	return size64 // FIXME return the SafeInt once the interface changed
 }
 
 // Precondition: math.MinInt32 <= x && x <= math.MaxInt32

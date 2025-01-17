@@ -5,7 +5,6 @@
 package starlark
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -234,11 +233,7 @@ func (i Int) SafeString(thread *Thread, sb StringBuilder) error {
 			if err := thread.CheckSteps(maxDigits); err != nil {
 				return err
 			}
-			maxDigits64, ok := maxDigits.Int64()
-			if !ok {
-				return errors.New("step count invalidated")
-			}
-			if err := thread.CheckAllocs(maxDigits64); err != nil {
+			if err := thread.CheckAllocs(maxDigits); err != nil {
 				return err
 			}
 		}

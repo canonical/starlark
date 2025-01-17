@@ -43,7 +43,15 @@ var SliceTypeOverhead = EstimateSize([]struct{}{})
 // into account the whole object tree. Where necessary to avoid estimating the
 // size of values not controlled by Starlark, objects should implement the
 // optional SizeAware interface to override the default exploration.
-func EstimateSize(obj interface{}) int64 {
+func EstimateSize(obj interface{}) SafeInteger {
+	size := estimateSizeOld(obj)
+	if size == math.MaxInt64 {
+		return SafeInteger{invalidSafeInt}
+	}
+	return SafeInteger{size}
+}
+
+func estimateSizeOld(obj interface{}) int64 {
 	if obj == nil {
 		return 0
 	}
@@ -63,7 +71,19 @@ func EstimateSize(obj interface{}) int64 {
 
 // EstimateMakeSize estimates the cost of calling make to build a slice, map or
 // chan of n elements as specified by template.
-func EstimateMakeSize(template interface{}, n int) int64 {
+func EstimateMakeSize(template interface{}, n SafeInteger) SafeInteger {
+	ni, ok := n.Int()
+	if !ok {
+		return SafeInteger{invalidSafeInt}
+	}
+	size := estimateMakeSizeOld(template, ni)
+	if size == math.MaxInt64 {
+		return SafeInteger{invalidSafeInt}
+	}
+	return SafeInteger{size}
+}
+
+func estimateMakeSizeOld(template interface{}, n int) int64 {
 	v := reflect.ValueOf(template)
 	switch v.Kind() {
 	case reflect.Slice:

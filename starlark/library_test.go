@@ -14,6 +14,14 @@ import (
 	"github.com/canonical/starlark/syntax"
 )
 
+func mustInt64(si starlark.SafeInteger) int64 {
+	i, ok := si.Int64()
+	if !ok {
+		panic("cannot convert invalid safe integer to int64")
+	}
+	return i
+}
+
 func TestUniverseSafeties(t *testing.T) {
 	for name, value := range starlark.Universe {
 		builtin, ok := value.(*starlark.Builtin)
@@ -503,8 +511,8 @@ func TestAnyAllocs(t *testing.T) {
 			args := starlark.Tuple{&testIterable{
 				maxN: st.N,
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					overheadSize := starlark.OldSafeAdd64(
-						starlark.EstimateMakeSize([]starlark.Value{}, 16),
+					overheadSize := starlark.SafeAdd(
+						starlark.EstimateMakeSize([]starlark.Value{}, starlark.SafeInt(16)),
 						starlark.EstimateSize(starlark.List{}),
 					)
 					if err := thread.AddAllocs(overheadSize); err != nil {
@@ -986,7 +994,7 @@ func TestBytesAllocs(t *testing.T) {
 	t.Run("small-valid-string", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
-		st.SetMaxAllocs(starlark.StringTypeOverhead)
+		st.SetMaxAllocs(mustInt64(starlark.StringTypeOverhead))
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String("hello, world!")
 			for i := 0; i < st.N; i++ {
@@ -2453,8 +2461,8 @@ func TestGetattrAllocs(t *testing.T) {
 			safety: starlark.Safe,
 			attr: func(thread *starlark.Thread, attr string) (starlark.Value, error) {
 				const repetitions = 5
-				resultSize := starlark.OldSafeAdd64(
-					starlark.EstimateMakeSize([]byte{}, len(attr)*repetitions),
+				resultSize := starlark.SafeAdd(
+					starlark.EstimateMakeSize([]byte{}, starlark.SafeMul(len(attr), repetitions)),
 					starlark.StringTypeOverhead,
 				)
 				if err := thread.AddAllocs(resultSize); err != nil {
@@ -3745,8 +3753,8 @@ func TestReversedAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			const tupleCount = 100
-			itemSize := starlark.OldSafeAdd64(
-				starlark.EstimateMakeSize(starlark.Tuple{}, tupleCount),
+			itemSize := starlark.SafeAdd(
+				starlark.EstimateMakeSize(starlark.Tuple{}, starlark.SafeInt(tupleCount)),
 				starlark.EstimateSize(starlark.Tuple{}),
 			)
 			iter := &testIterable{
@@ -6700,9 +6708,9 @@ func TestListExtendAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-					resultSize := starlark.OldSafeAdd64(
+					resultSize := starlark.SafeAdd(
 						starlark.EstimateSize(&starlark.List{}),
-						starlark.EstimateMakeSize([]starlark.Value{}, 16),
+						starlark.EstimateMakeSize([]starlark.Value{}, starlark.SafeInt(16)),
 					)
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
@@ -6745,9 +6753,9 @@ func TestListExtendAllocs(t *testing.T) {
 			}
 			iter := &testIterable{
 				nth: func(thread *starlark.Thread, _ int) (starlark.Value, error) {
-					resultSize := starlark.OldSafeAdd64(
+					resultSize := starlark.SafeAdd(
 						starlark.EstimateSize(&starlark.List{}),
-						starlark.EstimateMakeSize([]starlark.Value{}, 16),
+						starlark.EstimateMakeSize([]starlark.Value{}, starlark.SafeInt(16)),
 					)
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
@@ -9048,7 +9056,7 @@ func TestStringRsplitAllocs(t *testing.T) {
 			// I must count the string content as well since it will
 			// be kept alive by the slices taken by the delimeter.
 			str := starlark.String(strings.Repeat("deadbeef", st.N))
-			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, len(str))); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, starlark.SafeInt(len(str)))); err != nil {
 				st.Error(err)
 			}
 
@@ -9070,7 +9078,7 @@ func TestStringRsplitAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("go    go", st.N))
-			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, len(str))); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, starlark.SafeInt(len(str)))); err != nil {
 				st.Error(err)
 			}
 
@@ -9113,7 +9121,7 @@ func TestStringSplitAllocs(t *testing.T) {
 			// I must count the string content as well since it will
 			// be kept alive by the slices taken by the delimeter.
 			str := starlark.String(strings.Repeat("deadbeef", st.N))
-			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, len(str))); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, starlark.SafeInt(len(str)))); err != nil {
 				st.Error(err)
 			}
 
@@ -9135,7 +9143,7 @@ func TestStringSplitAllocs(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe)
 		st.RunThread(func(thread *starlark.Thread) {
 			str := starlark.String(strings.Repeat("go    go", st.N))
-			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, len(str))); err != nil {
+			if err := thread.AddAllocs(starlark.EstimateMakeSize([]byte{}, starlark.SafeInt(len(str)))); err != nil {
 				st.Error(err)
 			}
 
@@ -11386,8 +11394,8 @@ func TestSafeIterateAllocs(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			allocating := &testIterable{
 				nth: func(thread *starlark.Thread, n int) (starlark.Value, error) {
-					tupleSize := starlark.OldSafeAdd64(
-						starlark.EstimateMakeSize(starlark.Tuple{}, 16),
+					tupleSize := starlark.SafeAdd(
+						starlark.EstimateMakeSize(starlark.Tuple{}, starlark.SafeInt(16)),
 						starlark.SliceTypeOverhead,
 					)
 					if err := thread.AddAllocs(tupleSize); err != nil {

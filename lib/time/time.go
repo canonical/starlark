@@ -641,7 +641,7 @@ func timeFormat(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tupl
 	if err := thread.AddSteps(starlark.SafeInt(len(x))); err != nil {
 		return nil, err
 	}
-	if err := thread.CheckAllocs(int64(len(x))); err != nil {
+	if err := thread.CheckAllocs(starlark.SafeInt(len(x))); err != nil {
 		return nil, err
 	}
 	recv := time.Time(b.Receiver().(Time))

@@ -298,20 +298,35 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 	const memoryMax = 200 * (1 << 20)
 	const timeMax = time.Second
 
-	nSum, allocSum, valueTrackerAllocs := int64(0), int64(0), int64(0)
+	nSum := int64(0)
+	allocSum, valueTrackerAllocs := starlark.SafeInt(0), starlark.SafeInt(0)
 
 	startTime := time.Now()
 	prevN, elapsed := int64(0), time.Duration(0)
-	for allocSum < memoryMax+valueTrackerAllocs && prevN < nMax && elapsed < timeMax {
+	for {
+		if allocSum64, ok := allocSum.Int64(); !ok {
+			st.Error("memory limit invalidated")
+			return runStats{}
+		} else if memoryLimit64, ok := starlark.SafeAdd(memoryMax, valueTrackerAllocs).Int64(); !ok {
+			st.Error("memory limit invalidated")
+			return runStats{}
+		} else if allocSum64 >= memoryLimit64 || prevN >= nMax || elapsed >= timeMax {
+			break
+		}
+
 		var n int64
 		if nSum != 0 {
 			n = prevN * 2
 
-			allocsPerN := allocSum / nSum
-			if allocsPerN <= 0 {
-				allocsPerN = 1
+			allocsPerN := starlark.SafeDiv(allocSum, nSum)
+			if allocsPerN == starlark.SafeInt(0) {
+				allocsPerN = starlark.SafeInt(1)
 			}
-			memoryLimitN := (memoryMax - allocSum) / allocsPerN
+			memoryLimitN, ok := starlark.SafeDiv(starlark.SafeSub(memoryMax, allocSum), allocsPerN).Int64()
+			if !ok {
+				st.Error("memory limit invalidated")
+				return runStats{}
+			}
 			if n > memoryLimitN {
 				n = memoryLimitN
 			}
@@ -353,10 +368,10 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		// included in the measurement. This overhead must be discounted
 		// when reasoning about the measurement.
 		if cap(st.alive) != cap(alive) {
-			valueTrackerAllocs += starlark.EstimateMakeSize([]interface{}{}, cap(st.alive))
+			valueTrackerAllocs = starlark.SafeAdd(valueTrackerAllocs, starlark.EstimateMakeSize([]interface{}{}, starlark.SafeInt(cap(st.alive))))
 		}
 		if afterAllocs > beforeAllocs {
-			allocSum += afterAllocs - beforeAllocs
+			allocSum = starlark.SafeAdd(allocSum, starlark.SafeSub(afterAllocs, beforeAllocs))
 		}
 
 		nSum += n
@@ -365,17 +380,27 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		st.alive = nil
 	}
 
-	if valueTrackerAllocs > allocSum {
-		allocSum = 0
+	if allocSum64, ok := allocSum.Int64(); !ok {
+		st.Error("alloc count invalidated")
+		return runStats{}
+	} else if valueTrackerAllocs64, ok := valueTrackerAllocs.Int64(); !ok {
+		st.Error("value tracker alloc count invalidated")
+		return runStats{}
+	} else if allocSum64 < valueTrackerAllocs64 {
+		allocSum = starlark.SafeInt(0)
 	} else {
-		allocSum -= valueTrackerAllocs
+		allocSum = starlark.SafeSub(allocSum, valueTrackerAllocs)
 	}
 
 	timePerN := elapsed / time.Duration(nSum)
 	stepsRequired := timePerN > time.Millisecond
+	allocSum64, ok := allocSum.Int64()
+	if !ok {
+		st.Error("alloc count invalidated")
+	}
 	return runStats{
 		nSum:          nSum,
-		allocSum:      allocSum,
+		allocSum:      allocSum64,
 		stepsRequired: stepsRequired,
 	}
 }
@@ -503,8 +528,8 @@ func st_keep_alive(thread *starlark.Thread, b *starlark.Builtin, args starlark.T
 	// keep_alive does not capture the backing array for args. Hence
 	// the allocation is removed aligning declared allocations with
 	// user expectations.
-	argsSize := starlark.EstimateMakeSize(starlark.Tuple{}, cap(args))
-	if err := thread.AddAllocs(-argsSize); err != nil {
+	argsSize := starlark.EstimateMakeSize(starlark.Tuple{}, starlark.SafeInt(cap(args)))
+	if err := thread.AddAllocs(starlark.SafeNeg(argsSize)); err != nil {
 		return nil, err
 	}
 	recv := b.Receiver().(*ST)

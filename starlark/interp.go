@@ -47,12 +47,16 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (_ 
 	// by allocating stack by slicing an array held by the Thread
 	// that is expanded in chunks of min(k, nspace), for k=256 or 1024.
 	nlocals := len(f.Locals)
-	nspace := nlocals + f.MaxStack
+	nspace := SafeAdd(nlocals, f.MaxStack)
 
 	if err := thread.AddAllocs(EstimateMakeSize([]Value{}, nspace)); err != nil {
 		return nil, err
 	}
-	space := make([]Value, nspace)
+	nspaceInt, ok := nspace.Int()
+	if !ok {
+		return nil, fmt.Errorf("locals length overflow")
+	}
+	space := make([]Value, nspaceInt)
 	locals := space[:nlocals:nlocals] // local variables, starting with parameters
 	stack := space[nlocals:]          // operand stack
 
@@ -74,7 +78,7 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (_ 
 
 	// Spill indicated locals to cells.
 	// Each cell is a separate alloc to avoid spurious liveness.
-	if err := thread.AddAllocs(EstimateSize(&cell{}) * int64(len(f.Cells))); err != nil {
+	if err := thread.AddAllocs(SafeMul(EstimateSize(&cell{}), len(f.Cells))); err != nil {
 		return nil, err
 	}
 	for _, index := range f.Cells {
@@ -287,7 +291,7 @@ loop:
 			pc = arg
 
 		case compile.CALL, compile.CALL_VAR, compile.CALL_KW, compile.CALL_VAR_KW:
-			var argsAllocs int64
+			var argsAllocs SafeInteger
 			var kwargs Value
 			if op == compile.CALL_KW || op == compile.CALL_VAR_KW {
 				kwargs = stack[sp-1]
@@ -303,9 +307,11 @@ loop:
 			// named args (pairs)
 			var kvpairs []Tuple
 			if nkvpairs := int(arg & 0xff); nkvpairs > 0 {
-				kvpairsSize := EstimateMakeSize([]Tuple{}, nkvpairs) +
-					EstimateMakeSize(Tuple{}, 2*nkvpairs)
-				argsAllocs += kvpairsSize
+				kvpairsSize := SafeAdd(
+					EstimateMakeSize([]Tuple{}, SafeInt(nkvpairs)),
+					EstimateMakeSize(Tuple{}, SafeMul(2, nkvpairs)),
+				)
+				argsAllocs = SafeAdd(argsAllocs, kvpairsSize)
 				if err2 := thread.AddAllocs(kvpairsSize); err2 != nil {
 					err = err2
 					break loop
@@ -329,8 +335,8 @@ loop:
 					break loop
 				}
 				items := dict.Items()
-				tuplesSize := EstimateMakeSize([]Value{}, 2) * int64(len(items))
-				argsAllocs += tuplesSize
+				tuplesSize := SafeMul(EstimateMakeSize([]Value{}, SafeInt(2)), len(items))
+				argsAllocs = SafeAdd(argsAllocs, tuplesSize)
 				if err2 := thread.AddAllocs(tuplesSize); err2 != nil {
 					err = err2
 					break loop
@@ -342,8 +348,8 @@ loop:
 					}
 				}
 				if len(kvpairs) == 0 {
-					itemsSize := EstimateMakeSize([]Tuple{}, len(items))
-					argsAllocs += itemsSize
+					itemsSize := EstimateMakeSize([]Tuple{}, SafeInt(len(items)))
+					argsAllocs = SafeAdd(argsAllocs, itemsSize)
 					if err2 := thread.AddAllocs(itemsSize); err2 != nil {
 						err = err2
 						break loop
@@ -355,7 +361,7 @@ loop:
 						err = err2
 						break loop
 					}
-					argsAllocs += int64(kvpairsAppender.Allocs())
+					argsAllocs = SafeAdd(argsAllocs, kvpairsAppender.Allocs())
 				}
 			}
 
@@ -370,13 +376,13 @@ loop:
 				// unless the callee is another Starlark function,
 				// in which case it can be trusted not to mutate them.
 				if _, ok := stack[sp-1].(*Function); !ok || args != nil {
-					positionalSize := EstimateMakeSize(Tuple{}, npos)
+					positionalSize := EstimateMakeSize(Tuple{}, SafeInt(npos))
 					if err2 := thread.AddAllocs(positionalSize); err2 != nil {
 						err = err2
 						break loop
 					}
 					positional = append(Tuple(nil), positional...)
-					argsAllocs += positionalSize
+					argsAllocs = SafeAdd(argsAllocs, positionalSize)
 				}
 			}
 			if args != nil {
@@ -402,7 +408,7 @@ loop:
 					err = err2
 					break loop
 				}
-				argsAllocs += int64(positionalAppender.Allocs())
+				argsAllocs = SafeAdd(argsAllocs, positionalAppender.Allocs())
 			}
 
 			function := stack[sp-1]
@@ -411,7 +417,7 @@ loop:
 				// that the backing memory for args and kwargs is only kept
 				// alive for the duration of the call. See setArgs call at
 				// the beginning of this function.
-				thread.AddAllocs(-argsAllocs)
+				thread.AddAllocs(SafeNeg(argsAllocs))
 			}
 
 			if vmdebug {
@@ -604,7 +610,7 @@ loop:
 
 		case compile.MAKETUPLE:
 			n := int(arg)
-			tupleSize := EstimateMakeSize(Tuple{}, n) + SliceTypeOverhead
+			tupleSize := SafeAdd(EstimateMakeSize(Tuple{}, SafeInt(n)), SliceTypeOverhead)
 			if err2 := thread.AddAllocs(tupleSize); err2 != nil {
 				err = err2
 				break loop
@@ -617,9 +623,9 @@ loop:
 
 		case compile.MAKELIST:
 			n := int(arg)
-			elemsSize := EstimateMakeSize([]Value{}, n)
+			elemsSize := EstimateMakeSize([]Value{}, SafeInt(n))
 			listSize := EstimateSize(&List{})
-			if err2 := thread.AddAllocs(elemsSize + listSize); err2 != nil {
+			if err2 := thread.AddAllocs(SafeAdd(elemsSize, listSize)); err2 != nil {
 				err = err2
 				break loop
 			}
