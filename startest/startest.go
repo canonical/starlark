@@ -394,7 +394,7 @@ func less(sa, sb starlark.SafeInteger) bool {
 	if !ok {
 		return false
 	}
-	b, ok := sa.Int64()
+	b, ok := sb.Int64()
 	if !ok {
 		return false
 	}

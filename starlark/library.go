@@ -1727,8 +1727,8 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 			return nil, err
 		}
 		resultSize := EstimateMakeSize([]Value{Tuple{}}, SafeInt(rows))
-		arraySize := EstimateMakeSize(Tuple{}, SafeMul(cols, rows))
-		if err := thread.AddAllocs(SafeAdd(resultSize, arraySize)); err != nil {
+		arraySize := SafeMul(cols, rows)
+		if err := thread.AddAllocs(SafeAdd(resultSize, EstimateMakeSize(Tuple{}, arraySize))); err != nil {
 			return nil, err
 		}
 		arraySize64, ok := arraySize.Int64()
