@@ -231,6 +231,7 @@ func TestOverzealousNegativeDeltaDeclaration(t *testing.T) {
 
 func TestInvalidDeltaAllocs(t *testing.T) {
 	thread := &starlark.Thread{}
+	thread.SetMaxAllocs(math.MaxInt64)
 	if err := thread.CheckAllocs(starlark.InvalidSafeInt); err == nil {
 		t.Errorf("expected an error when checking invalid number of allocs: got nil")
 	}

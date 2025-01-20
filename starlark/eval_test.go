@@ -1515,6 +1515,7 @@ func TestCheckSteps(t *testing.T) {
 
 func TestInvalidDeltaSteps(t *testing.T) {
 	thread := &starlark.Thread{}
+	thread.SetMaxSteps(math.MaxInt64)
 	if err := thread.CheckSteps(starlark.InvalidSafeInt); err == nil {
 		t.Errorf("expected an error when checking invalid number of steps: got nil")
 	}
