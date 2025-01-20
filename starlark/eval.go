@@ -225,6 +225,8 @@ func (thread *Thread) AddSteps(delta SafeInteger) error {
 	return err
 }
 
+var errStepCountInvalidated = errors.New("step count invalidated")
+
 // simulateSteps simulates a call to AddSteps returning the
 // new total step-count and any error this would entail. No change is
 // recorded.
@@ -237,7 +239,7 @@ func (thread *Thread) simulateSteps(delta SafeInteger) (SafeInteger, error) {
 	nextSteps64, ok := nextSteps.Int64()
 	if !ok {
 		if thread.maxSteps > 0 {
-			return SafeInteger{invalidSafeInt}, errors.New("step count invalidated")
+			return SafeInteger{invalidSafeInt}, errStepCountInvalidated
 		}
 		return SafeInteger{invalidSafeInt}, nil
 	}
@@ -250,7 +252,7 @@ func (thread *Thread) simulateSteps(delta SafeInteger) (SafeInteger, error) {
 	}
 
 	if nextSteps64 < 0 {
-		return SafeInteger{invalidSafeInt}, errors.New("step count invalidated")
+		return SafeInteger{invalidSafeInt}, errStepCountInvalidated
 	}
 	return nextSteps, nil
 }
@@ -2830,6 +2832,8 @@ func (thread *Thread) AddAllocs(delta SafeInteger) error {
 	return err
 }
 
+var errAllocCountInvalidated = errors.New("alloc count invalidated")
+
 // simulateAllocs simulates a call to AddAllocs returning the new total
 // allocations associated with this thread and any error this would entail. No
 // change is recorded.
@@ -2838,7 +2842,7 @@ func (thread *Thread) simulateAllocs(delta SafeInteger) (SafeInteger, error) {
 	nextAllocs64, ok := nextAllocs.Int64()
 	if !ok {
 		if thread.maxAllocs > 0 {
-			return SafeInteger{invalidSafeInt}, errors.New("alloc count invalidated")
+			return SafeInteger{invalidSafeInt}, errAllocCountInvalidated
 		}
 		return SafeInteger{invalidSafeInt}, nil
 	}
@@ -2851,7 +2855,7 @@ func (thread *Thread) simulateAllocs(delta SafeInteger) (SafeInteger, error) {
 	}
 
 	if nextAllocs64 < 0 {
-		return SafeInteger{invalidSafeInt}, errors.New("alloc count invalidated")
+		return SafeInteger{invalidSafeInt}, errAllocCountInvalidated
 	}
 	return nextAllocs, nil
 }
