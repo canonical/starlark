@@ -1459,14 +1459,14 @@ func TestOverflowingPositiveDeltaStep(t *testing.T) {
 
 	// Check repeated overflow
 	if err := thread.AddSteps(starlark.SafeInt(100)); err == nil {
-		t.Errorf("expected an error when repeatefly overflowing steps: got nil")
+		t.Errorf("expected an error when repeatedly overflowing steps: got nil")
 	} else if _, ok := thread.Steps(); ok {
 		t.Error("step count unexpectedly valid")
 	}
 
 	// Check overflow is sticky
 	if err := thread.AddSteps(starlark.SafeInt(int64(math.MinInt64))); err == nil {
-		t.Errorf("unexpected error when repeatedly overflowing steps: %v", err)
+		t.Errorf("unexpected error when repeatedly overflowing steps: got nil")
 	} else if _, ok := thread.Steps(); ok {
 		t.Fatal("step count invalidated")
 	}
