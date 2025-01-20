@@ -269,3 +269,13 @@ func safeMax[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	}
 	return sb
 }
+
+//go:inline
+func sameSign(a, b int) bool {
+	return a^b >= 0
+}
+
+//go:inline
+func sameSign64(a, b int64) bool {
+	return a^b >= 0
+}

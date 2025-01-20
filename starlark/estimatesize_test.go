@@ -621,7 +621,7 @@ type dummySizeAware struct{}
 var _ starlark.SizeAware = dummySizeAware{}
 var _ starlark.SizeAware = &dummySizeAware{}
 
-func (dummySizeAware) EstimateSize() int64 { return 1000 }
+func (dummySizeAware) EstimateSize() starlark.SafeInteger { return starlark.SafeInt(1000) }
 
 func TestSizeAware(t *testing.T) {
 	sizeAware := dummySizeAware{}

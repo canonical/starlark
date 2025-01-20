@@ -109,7 +109,7 @@ type Value interface {
 
 // SizeAware allows an object to declare its own size
 type SizeAware interface {
-	EstimateSize() int64
+	EstimateSize() SafeInteger
 }
 
 type SafeStringer interface {

@@ -2,7 +2,6 @@ package starlark
 
 import (
 	"fmt"
-	"math"
 	"reflect"
 	"unsafe"
 )
@@ -44,16 +43,8 @@ var SliceTypeOverhead = EstimateSize([]struct{}{})
 // size of values not controlled by Starlark, objects should implement the
 // optional SizeAware interface to override the default exploration.
 func EstimateSize(obj interface{}) SafeInteger {
-	size := estimateSizeOld(obj)
-	if size == math.MaxInt64 {
-		return SafeInteger{invalidSafeInt}
-	}
-	return SafeInteger{size}
-}
-
-func estimateSizeOld(obj interface{}) int64 {
 	if obj == nil {
-		return 0
+		return SafeInt(0)
 	}
 
 	if sizeAware, ok := obj.(SizeAware); ok {
@@ -72,26 +63,18 @@ func estimateSizeOld(obj interface{}) int64 {
 // EstimateMakeSize estimates the cost of calling make to build a slice, map or
 // chan of n elements as specified by template.
 func EstimateMakeSize(template interface{}, n SafeInteger) SafeInteger {
-	ni, ok := n.Int()
+	n64, ok := n.Int64()
 	if !ok {
 		return SafeInteger{invalidSafeInt}
 	}
-	size := estimateMakeSizeOld(template, ni)
-	if size == math.MaxInt64 {
-		return SafeInteger{invalidSafeInt}
-	}
-	return SafeInteger{size}
-}
-
-func estimateMakeSizeOld(template interface{}, n int) int64 {
 	v := reflect.ValueOf(template)
 	switch v.Kind() {
 	case reflect.Slice:
-		return estimateMakeSliceSize(v, n)
+		return estimateMakeSliceSize(v, n64)
 	case reflect.Map:
-		return estimateMakeMapSize(v, n)
+		return estimateMakeMapSize(v, n64)
 	case reflect.Chan:
-		return estimateMakeChanSize(v, n)
+		return estimateMakeChanSize(v, n64)
 	default:
 		panic(fmt.Sprintf("template must be a slice, map or chan: got %s", v.Kind()))
 	}
@@ -99,21 +82,21 @@ func estimateMakeSizeOld(template interface{}, n int) int64 {
 
 const templateTooLong = "template length must be at most 1: got length %d"
 
-func estimateMakeSliceSize(template reflect.Value, n int) int64 {
+func estimateMakeSliceSize(template reflect.Value, n int64) SafeInteger {
 	len := template.Len()
 	if len > 1 {
 		panic(fmt.Sprintf(templateTooLong, len))
 	}
 
-	size := roundAllocSize(OldSafeMul64(int64(n), int64(template.Type().Elem().Size())))
+	size := roundAllocSize(SafeMul(n, template.Type().Elem().Size()))
 	if len > 0 {
 		elemSize := estimateSizeIndirect(template.Index(0), make(map[uintptr]struct{}))
-		size = OldSafeAdd64(size, OldSafeMul64(int64(n), elemSize))
+		size = SafeAdd(size, SafeMul(n, elemSize))
 	}
 	return size
 }
 
-func estimateMakeMapSize(template reflect.Value, n int) int64 {
+func estimateMakeMapSize(template reflect.Value, n int64) SafeInteger {
 	len := template.Len()
 	if len > 1 {
 		panic(fmt.Sprintf(templateTooLong, len))
@@ -125,21 +108,21 @@ func estimateMakeMapSize(template reflect.Value, n int) int64 {
 		iter.Next()
 
 		seen := map[uintptr]struct{}{}
-		keysSize := OldSafeMul64(int64(n), estimateSizeIndirect(iter.Key(), seen))
-		valuesSize := OldSafeMul64(int64(n), estimateSizeIndirect(iter.Value(), seen))
-		size = OldSafeAdd64(size, OldSafeAdd64(keysSize, valuesSize))
+		keysSize := SafeMul(n, estimateSizeIndirect(iter.Key(), seen))
+		valuesSize := SafeMul(n, estimateSizeIndirect(iter.Value(), seen))
+		size = SafeAdd(size, SafeAdd(keysSize, valuesSize))
 	}
 	return size
 }
 
-func estimateMakeChanSize(template reflect.Value, n int) int64 {
+func estimateMakeChanSize(template reflect.Value, n int64) SafeInteger {
 	if len := template.Len(); len > 1 {
 		panic(fmt.Sprintf(templateTooLong, len))
 	}
 	return estimateChanDirectWithCap(template.Type(), n)
 }
 
-func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) int64 {
+func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) SafeInteger {
 	switch v.Kind() {
 	case reflect.String:
 		return estimateStringAll(v, seen)
@@ -148,15 +131,15 @@ func estimateSizeAll(v reflect.Value, seen map[uintptr]struct{}) int64 {
 	case reflect.Map:
 		return estimateMapAll(v, seen)
 	default:
-		return OldSafeAdd64(estimateSizeDirect(v), estimateSizeIndirect(v, seen))
+		return SafeAdd(estimateSizeDirect(v), estimateSizeIndirect(v, seen))
 	}
 }
 
-func estimateSizeDirect(v reflect.Value) int64 {
-	return roundAllocSize(int64(v.Type().Size()))
+func estimateSizeDirect(v reflect.Value) SafeInteger {
+	return roundAllocSize(SafeInt(v.Type().Size()))
 }
 
-func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) int64 {
+func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) SafeInteger {
 	// This adds the address of the value or the field to the `seen`
 	// list. It is important to still consider the memory **pointed
 	// by** this memory, so that we don't miss anything (e.g. pointers
@@ -178,7 +161,7 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) int64 {
 	// direct and indirect memory of the pointed-to value.
 	case reflect.Interface:
 		if v.IsNil() {
-			return 0
+			return SafeInt(0)
 		}
 
 		elem := v.Elem()
@@ -193,7 +176,7 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) int64 {
 				return estimateSizeAll(v.Elem(), seen)
 			}
 		}
-		return 0
+		return SafeInt(0)
 	case reflect.Map:
 		return estimateMapAll(v, seen)
 	case reflect.Slice:
@@ -210,11 +193,11 @@ func estimateSizeIndirect(v reflect.Value, seen map[uintptr]struct{}) int64 {
 	case reflect.String:
 		return estimateStringIndirect(v, seen)
 	default:
-		return 0
+		return SafeInt(0)
 	}
 }
 
-func estimateStringAll(v reflect.Value, seen map[uintptr]struct{}) int64 {
+func estimateStringAll(v reflect.Value, seen map[uintptr]struct{}) SafeInteger {
 	// There are misuses of strings.Builder that may lead
 	// to some assumptions in this functions being false, for example:
 	//
@@ -225,14 +208,14 @@ func estimateStringAll(v reflect.Value, seen map[uintptr]struct{}) int64 {
 	// it is not possible to get the capacity of the buffer
 	// holding the string.
 
-	return OldSafeAdd64(estimateSizeDirect(v), estimateStringIndirect(v, seen))
+	return SafeAdd(estimateSizeDirect(v), estimateStringIndirect(v, seen))
 }
 
-func estimateStringIndirect(v reflect.Value, _ map[uintptr]struct{}) int64 {
-	return roundAllocSize(int64(v.Len()))
+func estimateStringIndirect(v reflect.Value, _ map[uintptr]struct{}) SafeInteger {
+	return roundAllocSize(SafeInt(v.Len()))
 }
 
-func estimateChanAll(v reflect.Value, seen map[uintptr]struct{}) int64 {
+func estimateChanAll(v reflect.Value, seen map[uintptr]struct{}) SafeInteger {
 	if !v.IsNil() {
 		ptr := v.Pointer()
 		if _, ok := seen[ptr]; !ok {
@@ -243,45 +226,47 @@ func estimateChanAll(v reflect.Value, seen map[uintptr]struct{}) int64 {
 		}
 	}
 
-	return 0
+	return SafeInt(0)
 }
 
-func estimateChanDirect(v reflect.Value) int64 {
-	return estimateChanDirectWithCap(v.Type(), v.Cap())
+func estimateChanDirect(v reflect.Value) SafeInteger {
+	return estimateChanDirectWithCap(v.Type(), int64(v.Cap()))
 }
 
-func estimateChanDirectWithCap(t reflect.Type, cap int) int64 {
+func estimateChanDirectWithCap(t reflect.Type, cap int64) SafeInteger {
+	const chanHeaderSize = 10 * unsafe.Sizeof(int(0))
+
 	// This is a very rough approximation of the size of
 	// the chan header.
-	headerSize := roundAllocSize(int64(10 * unsafe.Sizeof(int(0))))
-	elemSize := int64(t.Elem().Size())
+	headerSize := roundAllocSize(SafeInt(chanHeaderSize))
+	elemSize := t.Elem().Size()
 
 	// The two calls provide a pessimistic view since in case of
 	// an elementType that doesn't contain any pointer it
 	// will be allocated in a single bigger block (leading
 	// to a single getAllocSize call).
-	return OldSafeAdd64(headerSize, roundAllocSize(OldSafeMul64(int64(cap), elemSize)))
+	return SafeAdd(headerSize, roundAllocSize(SafeMul(cap, elemSize)))
 }
 
-func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) int64 {
+func estimateMapAll(v reflect.Value, seen map[uintptr]struct{}) SafeInteger {
 	if v.IsNil() {
-		return 0
+		return SafeInt(0)
 	}
 
 	ptr := v.Pointer()
 	if _, ok := seen[ptr]; ok {
-		return 0
+		return SafeInt(0)
 	}
 
 	seen[ptr] = struct{}{}
-	return OldSafeAdd64(estimateMapDirect(v), estimateMapIndirect(v, seen))
+	return SafeAdd(estimateMapDirect(v), estimateMapIndirect(v, seen))
 }
 
-func estimateMapDirect(v reflect.Value) int64 {
-	return estimateMapDirectWithLen(v.Type(), v.Len())
+func estimateMapDirect(v reflect.Value) SafeInteger {
+	return estimateMapDirectWithLen(v.Type(), int64(v.Len()))
 }
 
-func estimateMapDirectWithLen(t reflect.Type, len int) int64 {
+func estimateMapDirectWithLen(t reflect.Type, len int64) SafeInteger {
 	// Maps are hard to measure because we don't have access
 	// to the internal capacity (whatever that means). That is
 	// the first problem: "capacity" is a fuzzy concept in hash
@@ -309,43 +294,49 @@ func estimateMapDirectWithLen(t reflect.Type, len int) int64 {
 
 	const k2 = int64(204*unsafe.Sizeof(uintptr(0)) + 280)
 
-	return OldSafeAdd64(roundAllocSize(OldSafeMul64(int64(len), k1)), k2)
+	return SafeAdd(roundAllocSize(SafeMul(len, k1)), k2)
 }
 
 // getMapKVPairSize returns the estimated size a key-value pair
 // would take when used inside a go map.
-func getMapKVPairSize(k, v int64) int64 {
+func getMapKVPairSize(k, v int64) SafeInteger {
 	// There is a little complexity here: if the key and the
 	// value are too big they get allocated separately and only
 	// the pointer is stored.
 	const maxElemSize = 128
 	if k < maxElemSize && v < maxElemSize {
-		return (k+v+1)*4 + int64(unsafe.Sizeof(uintptr(0)))
+		return SafeAdd(
+			SafeMul(
+				SafeAdd(SafeAdd(k, v), 1),
+				4,
+			),
+			unsafe.Sizeof(uintptr(0)),
+		)
 	} else if k < maxElemSize {
-		return OldSafeAdd64(getMapKVPairSize(k, 8), v)
+		return SafeAdd(getMapKVPairSize(k, 8), v)
 	} else if v < maxElemSize {
-		return OldSafeAdd64(getMapKVPairSize(8, v), k)
+		return SafeAdd(getMapKVPairSize(8, v), k)
 	} else {
-		return OldSafeAdd64(getMapKVPairSize(8, 8), OldSafeAdd64(k, v))
+		return SafeAdd(getMapKVPairSize(8, 8), SafeAdd(k, v))
 	}
 }
 
-func estimateMapIndirect(v reflect.Value, seen map[uintptr]struct{}) int64 {
-	result := int64(0)
+func estimateMapIndirect(v reflect.Value, seen map[uintptr]struct{}) SafeInteger {
+	result := SafeInt(0)
 
 	iter := v.MapRange()
 	for iter.Next() {
 		keySize := estimateSizeIndirect(iter.Key(), seen)
 		valueSize := estimateSizeIndirect(iter.Value(), seen)
-		result = OldSafeAdd64(result, OldSafeAdd64(keySize, valueSize))
+		result = SafeAdd(result, SafeAdd(keySize, valueSize))
 	}
 
 	return result
 }
 
-func estimateSliceAll(v reflect.Value, seen map[uintptr]struct{}) int64 {
+func estimateSliceAll(v reflect.Value, seen map[uintptr]struct{}) SafeInteger {
 	if v.IsNil() {
-		return 0
+		return SafeInt(0)
 	}
 
 	// FIXME slices are counted multiple times.
@@ -358,38 +349,38 @@ func estimateSliceAll(v reflect.Value, seen map[uintptr]struct{}) int64 {
 	// as "seen" while visiting b[0] will make the function miss all the
 	// memory pointed by b. It is better in this case to just be pessimistic
 	// and estimate more memory than it actually is allocated.
-	return OldSafeAdd64(estimateSliceDirect(v), estimateSliceIndirect(v, seen))
+	return SafeAdd(estimateSliceDirect(v), estimateSliceIndirect(v, seen))
 }
 
-func estimateSliceDirect(v reflect.Value) int64 {
-	return roundAllocSize(OldSafeMul64(int64(v.Type().Elem().Size()), int64(v.Cap())))
+func estimateSliceDirect(v reflect.Value) SafeInteger {
+	return roundAllocSize(SafeMul(v.Type().Elem().Size(), v.Cap()))
 }
 
-func estimateSliceIndirect(v reflect.Value, seen map[uintptr]struct{}) int64 {
-	result := int64(0)
+func estimateSliceIndirect(v reflect.Value, seen map[uintptr]struct{}) SafeInteger {
+	result := SafeInt(0)
 
 	for i := 0; i < v.Len(); i++ {
-		result = OldSafeAdd64(result, estimateSizeIndirect(v.Index(i), seen))
+		result = SafeAdd(result, estimateSizeIndirect(v.Index(i), seen))
 	}
 
 	return result
 }
 
-func estimateArrayIndirect(v reflect.Value, seen map[uintptr]struct{}) int64 {
-	result := int64(0)
+func estimateArrayIndirect(v reflect.Value, seen map[uintptr]struct{}) SafeInteger {
+	result := SafeInt(0)
 
 	for i := 0; i < v.Len(); i++ {
-		result = OldSafeAdd64(result, estimateSizeIndirect(v.Index(i), seen))
+		result = SafeAdd(result, estimateSizeIndirect(v.Index(i), seen))
 	}
 
 	return result
 }
 
-func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) int64 {
-	result := int64(0)
+func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) SafeInteger {
+	result := SafeInt(0)
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
-		result = OldSafeAdd64(result, estimateSizeIndirect(field, seen))
+		result = SafeAdd(result, estimateSizeIndirect(field, seen))
 	}
 	return result
 }
@@ -397,30 +388,32 @@ func estimateStructIndirect(v reflect.Value, seen map[uintptr]struct{}) int64 {
 // roundAllocSize rounds an intended allocation amount to an allocation
 // amount which can be made by Go. This function returns at least 16
 // bytes due to how small allocations are grouped.
-func roundAllocSize(size int64) int64 {
+func roundAllocSize(size SafeInteger) SafeInteger {
 	const tinyAllocMaxSize = 16
-	const maxSafeUintptr = uintptr(math.MaxInt64 & uint64(^uintptr(0)))
 
-	if size == 0 {
-		return 0
-	} else if size <= tinyAllocMaxSize {
-		return tinyAllocMaxSize
-	} else if size == math.MaxInt64 {
-		return math.MaxInt64
-	} else if rounded := roundupsize(uintptr(size)); rounded > maxSafeUintptr {
-		return math.MaxInt64
-	} else {
-		return int64(rounded)
+	size64, ok := size.Int64()
+	if !ok {
+		return SafeInteger{invalidSafeInt}
 	}
+	if size64 <= 0 {
+		return SafeInt(0)
+	}
+	if size64 <= tinyAllocMaxSize {
+		return SafeInt(tinyAllocMaxSize)
+	}
+	if rounded := roundupsize(size64); rounded >= size64 {
+		return SafeInt(rounded)
+	}
+	return SafeInteger{invalidSafeInt}
 }
 
-func roundupsize(size uintptr) uintptr {
+func roundupsize(size int64) int64 {
 	sizeWithOverhead := size + ((size + 4) / 5) // ~20% overhead
 	return alignUp(sizeWithOverhead, 8)
 }
 
 // alignUp rounds n up to a multiple of size. Size is expected
 // to be a power of 2.
-func alignUp(n, size uintptr) uintptr {
+func alignUp(n, size int64) int64 {
 	return (n + size - 1) &^ (size - 1)
 }

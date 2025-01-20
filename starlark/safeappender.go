@@ -1,16 +1,16 @@
 package starlark
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 )
 
 type SafeAppender struct {
-	thread   *Thread
-	slice    reflect.Value
-	elemType reflect.Type
-	allocs   SafeInteger
-	steps    int64
+	thread        *Thread
+	slice         reflect.Value
+	elemType      reflect.Type
+	allocs, steps SafeInteger
 }
 
 func NewSafeAppender(thread *Thread, slicePtr interface{}) *SafeAppender {
@@ -40,7 +40,7 @@ func (sa *SafeAppender) Allocs() SafeInteger {
 }
 
 // Steps returns the total steps reported to this SafeAppender's thread.
-func (sa *SafeAppender) Steps() int64 {
+func (sa *SafeAppender) Steps() SafeInteger {
 	return sa.steps
 }
 
@@ -50,7 +50,7 @@ func (sa *SafeAppender) Append(values ...interface{}) error {
 			return err
 		}
 	}
-	sa.steps = OldSafeAdd64(sa.steps, int64(len(values)))
+	sa.steps = SafeAdd(sa.steps, len(values))
 
 	cap := sa.slice.Cap()
 	newSize := sa.slice.Len() + len(values)
@@ -73,9 +73,8 @@ func (sa *SafeAppender) Append(values ...interface{}) error {
 		}
 	}
 	if slice.Cap() != cap && sa.thread != nil {
-		// TODO(kcza): Compute roundAllocSize arguments safely.
-		oldSize := roundAllocSize(int64(cap) * int64(sa.elemType.Size()))
-		newSize := roundAllocSize(int64(slice.Cap()) * int64(sa.elemType.Size()))
+		oldSize := roundAllocSize(SafeMul(cap, sa.elemType.Size()))
+		newSize := roundAllocSize(SafeMul(slice.Cap(), sa.elemType.Size()))
 		delta := SafeSub(newSize, oldSize)
 		sa.allocs = SafeAdd(sa.allocs, delta)
 		if err := sa.thread.AddAllocs(delta); err != nil {
@@ -99,12 +98,16 @@ func (sa *SafeAppender) AppendSlice(values interface{}) error {
 			return err
 		}
 	}
-	sa.steps = OldSafeAdd64(sa.steps, int64(toAppend.Len()))
+	sa.steps = SafeAdd(sa.steps, toAppend.Len())
 
 	len := sa.slice.Len()
 	cap := sa.slice.Cap()
 	toAppendLen := toAppend.Len()
-	if newLen := OldSafeAdd(len, toAppendLen); newLen > cap && sa.thread != nil {
+	newLen, ok := SafeAdd(len, toAppendLen).Int()
+	if !ok {
+		return errors.New("slice length overflow")
+	}
+	if newLen > cap && sa.thread != nil {
 		// Consider up to twice the size for the allocation overshoot
 		allocation := SafeSub(SafeMul(newLen, 2), cap)
 		if err := sa.thread.CheckAllocs(SafeMul(allocation, sa.elemType.Size())); err != nil {
@@ -114,9 +117,8 @@ func (sa *SafeAppender) AppendSlice(values interface{}) error {
 
 	slice := reflect.AppendSlice(sa.slice, toAppend)
 	if slice.Cap() != cap && sa.thread != nil {
-		// TODO(kcza): Compute roundAllocSize arguments safely.
-		oldSize := roundAllocSize(OldSafeMul64(int64(cap), int64(sa.elemType.Size())))
-		newSize := roundAllocSize(OldSafeMul64(int64(slice.Cap()), int64(sa.elemType.Size())))
+		oldSize := roundAllocSize(SafeMul(cap, sa.elemType.Size()))
+		newSize := roundAllocSize(SafeMul(slice.Cap(), sa.elemType.Size()))
 		delta := SafeSub(newSize, oldSize)
 		sa.allocs = SafeAdd(sa.allocs, delta)
 		if err := sa.thread.AddAllocs(delta); err != nil {
