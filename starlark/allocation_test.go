@@ -168,22 +168,22 @@ func TestOverflowingPositiveDeltaAllocation(t *testing.T) {
 	}
 
 	// Check overflow detected
-	if err := thread.AddAllocs(starlark.SafeInt(1)); err != nil {
-		t.Errorf("unexpected error when overflowing allocations: %v", err)
+	if err := thread.AddAllocs(starlark.SafeInt(1)); err == nil {
+		t.Errorf("expected an error when overflowing allocations: got nil")
 	} else if allocs, ok := thread.Allocs(); ok {
 		t.Errorf("incorrect allocations stored: expected invalid but got %d", allocs)
 	}
 
 	// Check repeated overflow
-	if err := thread.AddAllocs(starlark.SafeInt(100)); err != nil {
-		t.Errorf("unexpected error when repeatedly overflowing allocations: %v", err)
+	if err := thread.AddAllocs(starlark.SafeInt(100)); err == nil {
+		t.Errorf("expected an error when repeatly overflowing allocations: got nil")
 	} else if allocs, ok := thread.Allocs(); ok {
 		t.Errorf("incorrect allocations stored: expected invalid but got %d", allocs)
 	}
 
 	// Check overflow is sticky
-	if err := thread.AddAllocs(starlark.SafeInt(int64(math.MinInt64))); err != nil {
-		t.Errorf("unexpected error when repeatedly overflowing allocations: %v", err)
+	if err := thread.AddAllocs(starlark.SafeInt(int64(math.MinInt64))); err == nil {
+		t.Errorf("expected an error when repeatly overflowing allocations: got nil")
 	} else if allocs, ok := thread.Allocs(); ok {
 		t.Errorf("incorrect allocations stored: expected invalid but got %d", allocs)
 	}
