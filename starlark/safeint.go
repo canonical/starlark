@@ -214,7 +214,7 @@ func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	}
 
 	ret := sa.value + sb.value
-	if sameSign64(sa.value, sb.value) && !sameSign64(ret, sa.value) {
+	if sameSign(sa.value, sb.value) && !sameSign(ret, sa.value) {
 		// An overflow occurred.
 		return SafeInteger{invalidSafeInt}
 	}
@@ -268,4 +268,9 @@ func safeMax[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 		return sa
 	}
 	return sb
+}
+
+//go:inline
+func sameSign(a, b int64) bool {
+	return a^b >= 0
 }

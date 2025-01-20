@@ -434,7 +434,7 @@ func (tb *SafeStringBuilder) Steps() SafeInteger {
 }
 
 func (tb *SafeStringBuilder) declareAllocs() error {
-	currentAllocs := SafeInt(roundAllocSize(int64(tb.Cap())))
+	currentAllocs := roundAllocSize(SafeInt(tb.Cap()))
 	if currentAllocs == tb.allocs {
 		return nil
 	}
@@ -452,7 +452,7 @@ func (tb *SafeStringBuilder) Grow(n int) {
 	}
 
 	if tb.thread != nil && tb.Cap()-tb.Len() < n {
-		if err := tb.thread.CheckAllocs(SafeInt(roundAllocSize(int64(tb.Cap()*2 + n)))); err != nil {
+		if err := tb.thread.CheckAllocs(roundAllocSize(SafeAdd(SafeMul(tb.Cap(), 2), n))); err != nil {
 			tb.err = err
 			return
 		}
@@ -473,7 +473,7 @@ func (tb *SafeStringBuilder) Write(b []byte) (int, error) {
 
 	if tb.thread != nil {
 		if tb.builder.Cap()-tb.builder.Len() < len(b) {
-			if err := tb.thread.CheckAllocs(SafeInt(roundAllocSize(int64(tb.builder.Len() + len(b))))); err != nil {
+			if err := tb.thread.CheckAllocs(roundAllocSize(SafeAdd(tb.builder.Len(), len(b)))); err != nil {
 				tb.err = err
 				return 0, err
 			}
@@ -504,7 +504,7 @@ func (tb *SafeStringBuilder) WriteString(s string) (int, error) {
 
 	if tb.thread != nil {
 		if tb.builder.Cap()-tb.builder.Len() < len(s) {
-			if err := tb.thread.CheckAllocs(SafeInt(roundAllocSize(int64(tb.builder.Len() + len(s))))); err != nil {
+			if err := tb.thread.CheckAllocs(roundAllocSize(SafeAdd(tb.builder.Len(), len(s)))); err != nil {
 				tb.err = err
 				return 0, err
 			}
@@ -533,7 +533,7 @@ func (tb *SafeStringBuilder) WriteByte(b byte) error {
 
 	if tb.thread != nil {
 		if tb.builder.Cap()-tb.builder.Len() < 1 {
-			if err := tb.thread.CheckAllocs(SafeInt(roundAllocSize(int64(tb.builder.Len() + 1)))); err != nil {
+			if err := tb.thread.CheckAllocs(roundAllocSize(SafeAdd(tb.builder.Len(), 1))); err != nil {
 				tb.err = err
 				return err
 			}
@@ -567,7 +567,7 @@ func (tb *SafeStringBuilder) WriteRune(r rune) (int, error) {
 			growAmount = utf8.UTFMax
 		}
 		if tb.builder.Cap()-tb.builder.Len() < growAmount {
-			if err := tb.thread.CheckAllocs(SafeInt(roundAllocSize(int64(tb.builder.Len() + growAmount)))); err != nil {
+			if err := tb.thread.CheckAllocs(roundAllocSize(SafeAdd(tb.builder.Len(), growAmount))); err != nil {
 				tb.err = err
 				return 0, err
 			}

@@ -42,6 +42,8 @@ import (
 // See int_generic.go for the basic representation concepts.
 type intImpl unsafe.Pointer
 
+var _ SizeAware = Int{}
+
 // get returns the (small, big) arms of the union.
 func (i Int) get() (int64, *big.Int) {
 	if smallints == 0 {
@@ -59,7 +61,7 @@ func (i Int) get() (int64, *big.Int) {
 	return 0, (*big.Int)(i.impl)
 }
 
-func (i Int) EstimateSize() int64 {
+func (i Int) EstimateSize() SafeInteger {
 	size := SafeInt(unsafe.Sizeof(Int{}))
 
 	if smallints == 0 {
@@ -68,8 +70,7 @@ func (i Int) EstimateSize() int64 {
 		size = SafeAdd(size, EstimateSize(iBig))
 	}
 
-	size64, _ := size.Int64()
-	return size64 // FIXME return the SafeInt once the interface changed
+	return size
 }
 
 // Precondition: math.MinInt32 <= x && x <= math.MaxInt32
