@@ -1420,7 +1420,7 @@ func TestCancelConsistency(t *testing.T) {
 
 func TestOverflowingPositiveDeltaStep(t *testing.T) {
 	thread := &starlark.Thread{}
-	thread.SetMaxSteps(0)
+	thread.SetMaxSteps(math.MaxInt64)
 
 	maxNonInfiniteSteps := starlark.SafeInt(int64(math.MaxInt64))
 

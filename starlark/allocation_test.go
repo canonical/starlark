@@ -140,7 +140,7 @@ func TestPositiveDeltaDeclarationExceedingMax(t *testing.T) {
 
 func TestOverflowingPositiveDeltaAllocation(t *testing.T) {
 	thread := &starlark.Thread{}
-	thread.SetMaxAllocs(0)
+	thread.SetMaxAllocs(math.MaxInt64)
 
 	maxNonInfiniteAllocs := starlark.SafeInt(int64(math.MaxInt64))
 
