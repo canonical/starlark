@@ -229,6 +229,19 @@ func TestOverzealousNegativeDeltaDeclaration(t *testing.T) {
 	}
 }
 
+func TestInvalidDeltaAllocs(t *testing.T) {
+	thread := &starlark.Thread{}
+	if err := thread.CheckAllocs(starlark.InvalidSafeInt); err == nil {
+		t.Errorf("expected an error when checking invalid number of allocs: got nil")
+	}
+	if err := thread.CheckAllocs(starlark.SafeInt(1)); err != nil {
+		t.Errorf("unexpected error when checking valid number of allocs: %v", err)
+	}
+	if err := thread.AddAllocs(starlark.InvalidSafeInt); err == nil {
+		t.Errorf("expected an error when adding invalid number of allocs: got nil")
+	}
+}
+
 func TestConcurrentCheckAllocsUsage(t *testing.T) {
 	const allocPeak = 1 << 62
 	const maxAllocs = allocPeak + 1
