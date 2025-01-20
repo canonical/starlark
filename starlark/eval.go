@@ -1373,10 +1373,10 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			switch y := y.(type) {
 			case Int:
 				if thread != nil {
-					if err := thread.AddSteps(safeMax(intLenSteps(x), intLenSteps(y))); err != nil {
+					if err := thread.AddSteps(SafeMax(intLenSteps(x), intLenSteps(y))); err != nil {
 						return nil, err
 					}
-					if err := thread.CheckAllocs(safeMax(EstimateSize(x), EstimateSize(y))); err != nil {
+					if err := thread.CheckAllocs(SafeMax(EstimateSize(x), EstimateSize(y))); err != nil {
 						return nil, err
 					}
 					result := Value(x.Add(y))
@@ -1476,10 +1476,10 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			switch y := y.(type) {
 			case Int:
 				if thread != nil {
-					if err := thread.AddSteps(safeMax(intLenSteps(x), intLenSteps(y))); err != nil {
+					if err := thread.AddSteps(SafeMax(intLenSteps(x), intLenSteps(y))); err != nil {
 						return nil, err
 					}
-					if err := thread.CheckAllocs(safeMax(EstimateSize(x), EstimateSize(y))); err != nil {
+					if err := thread.CheckAllocs(SafeMax(EstimateSize(x), EstimateSize(y))); err != nil {
 						return nil, err
 					}
 					result := Value(x.Sub(y))
@@ -1547,7 +1547,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			case Int:
 				if thread != nil {
 					// In the worse case, Karatsuba's algorithm is used.
-					lenSteps64, ok := safeMax(intLenSteps(x), intLenSteps(y)).Int64()
+					lenSteps64, ok := SafeMax(intLenSteps(x), intLenSteps(y)).Int64()
 					if !ok {
 						return nil, errors.New("result len overflowed")
 					}
@@ -1748,12 +1748,12 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					// Although implementations exist which turn division into
 					// multiplication, making this cost same as `STAR` operator,
 					// Go does not yet do this.
-					resultSteps := safeMax(intLenSteps(x), intLenSteps(y))
+					resultSteps := SafeMax(intLenSteps(x), intLenSteps(y))
 					resultSteps = SafeMul(resultSteps, resultSteps)
 					if err := thread.AddSteps(resultSteps); err != nil {
 						return nil, err
 					}
-					resultSizeEstimate := safeMax(SafeSub(EstimateSize(x), EstimateSize(y)), SafeInt(0))
+					resultSizeEstimate := SafeMax(SafeSub(EstimateSize(x), EstimateSize(y)), SafeInt(0))
 					if err := thread.CheckAllocs(resultSizeEstimate); err != nil {
 						return nil, err
 					}
@@ -1822,7 +1822,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 					// Although implementations exist which turn division into
 					// multiplication, making this cost same as `STAR` operator,
 					// Go does not yet do this.
-					resultSteps := safeMax(intLenSteps(x), intLenSteps(y))
+					resultSteps := SafeMax(intLenSteps(x), intLenSteps(y))
 					resultSteps = SafeMul(resultSteps, resultSteps)
 					if err := thread.AddSteps(resultSteps); err != nil {
 						return nil, err
@@ -1990,10 +1990,10 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Int:
 			if y, ok := y.(Int); ok {
 				if thread != nil {
-					if err := thread.AddSteps(safeMax(intLenSteps(x), intLenSteps(y))); err != nil {
+					if err := thread.AddSteps(SafeMax(intLenSteps(x), intLenSteps(y))); err != nil {
 						return nil, err
 					}
-					if err := thread.CheckAllocs(safeMax(EstimateSize(x), EstimateSize(y))); err != nil {
+					if err := thread.CheckAllocs(SafeMax(EstimateSize(x), EstimateSize(y))); err != nil {
 						return nil, err
 					}
 				}
@@ -2034,10 +2034,10 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Int:
 			if y, ok := y.(Int); ok {
 				if thread != nil {
-					if err := thread.AddSteps(safeMax(intLenSteps(x), intLenSteps(y))); err != nil {
+					if err := thread.AddSteps(SafeMax(intLenSteps(x), intLenSteps(y))); err != nil {
 						return nil, err
 					}
-					resultSize := safeMax(EstimateSize(x), EstimateSize(y))
+					resultSize := SafeMax(EstimateSize(x), EstimateSize(y))
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
@@ -2067,10 +2067,10 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 		case Int:
 			if y, ok := y.(Int); ok {
 				if thread != nil {
-					if err := thread.AddSteps(safeMax(intLenSteps(x), intLenSteps(y))); err != nil {
+					if err := thread.AddSteps(SafeMax(intLenSteps(x), intLenSteps(y))); err != nil {
 						return nil, err
 					}
-					resultSize := safeMax(EstimateSize(x), EstimateSize(y))
+					resultSize := SafeMax(EstimateSize(x), EstimateSize(y))
 					if err := thread.AddAllocs(resultSize); err != nil {
 						return nil, err
 					}
@@ -2125,7 +2125,7 @@ func safeBinary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 				return z, nil
 			} else {
 				if thread != nil {
-					if err := thread.AddSteps(safeMax(SafeSub(intLenSteps(x), SafeDiv(y, 32)), SafeInt(0))); err != nil {
+					if err := thread.AddSteps(SafeMax(SafeSub(intLenSteps(x), SafeDiv(y, 32)), SafeInt(0))); err != nil {
 						return nil, err
 					}
 					if err := thread.CheckAllocs(EstimateSize(x)); err != nil {
