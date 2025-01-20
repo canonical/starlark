@@ -342,6 +342,8 @@ func (st *ST) measureExecution(thread *starlark.Thread, fn func(*starlark.Thread
 		}
 		if n <= 0 {
 			n = 1
+		} else if n > nMax {
+			n = nMax
 		}
 
 		var alive []interface{}
