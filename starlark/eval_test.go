@@ -1513,6 +1513,20 @@ func TestCheckSteps(t *testing.T) {
 	}
 }
 
+func TestInvalidDeltaSteps(t *testing.T) {
+	thread := &starlark.Thread{}
+	thread.SetMaxSteps(math.MaxInt64)
+	if err := thread.CheckSteps(starlark.InvalidSafeInt); err == nil {
+		t.Errorf("expected an error when checking invalid number of steps: got nil")
+	}
+	if err := thread.CheckSteps(starlark.SafeInt(1)); err != nil {
+		t.Errorf("unexpected error when checking valid number of steps: %v", err)
+	}
+	if err := thread.AddSteps(starlark.InvalidSafeInt); err == nil {
+		t.Errorf("expected an error when adding invalid number of steps: got nil")
+	}
+}
+
 func TestConcurrentCheckStepsUsage(t *testing.T) {
 	const stepPeak = int64(math.MaxInt64 ^ (math.MaxInt64 >> 1))
 	const maxSteps = stepPeak + 1
