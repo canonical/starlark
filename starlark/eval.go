@@ -84,6 +84,10 @@ type Thread struct {
 	requiredSafety SafetyFlags
 }
 
+// ThreadCtxKey can be used to retrieve the Thread from the context returned
+// by Thread.Context() or a context derived from it.
+type ThreadCtxKey struct{}
+
 type threadContext Thread
 
 var _ context.Context = &threadContext{}
@@ -134,6 +138,9 @@ func (tc *threadContext) Err() error {
 
 func (tc *threadContext) Value(key interface{}) interface{} {
 	thread := (*Thread)(tc)
+	if key == (ThreadCtxKey{}) {
+		return thread
+	}
 	if stringKey, ok := key.(string); ok {
 		if local, ok := thread.locals[stringKey]; ok {
 			return local

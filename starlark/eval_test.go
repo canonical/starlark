@@ -1150,6 +1150,27 @@ func TestUnpackArgsOptionalInference(t *testing.T) {
 	}
 }
 
+func TestThreadContext(t *testing.T) {
+	thread := &starlark.Thread{}
+	threadCtx := thread.Context()
+
+	if value := threadCtx.Value(starlark.ThreadCtxKey{}); value != thread {
+		t.Errorf("unexpected value from context: expected %v but got %v", thread, value)
+	}
+
+	intermediateCtx := context.WithValue(threadCtx, "foo", "bar")
+	if value := intermediateCtx.Value(starlark.ThreadCtxKey{}); value != thread {
+		t.Errorf("unexpected value from context: expected %v but got %v", thread, value)
+	}
+
+	derivedThread := &starlark.Thread{}
+	derivedThread.SetParentContext(intermediateCtx)
+	derivedThreadCtx := derivedThread.Context()
+	if value := derivedThreadCtx.Value(starlark.ThreadCtxKey{}); value != derivedThread {
+		t.Errorf("unexpected value from context: expected %v but got %v", thread, value)
+	}
+}
+
 func TestThreadCancel(t *testing.T) {
 	key := "E major"
 	value := "The Four Seasons, Spring"
