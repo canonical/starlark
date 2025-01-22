@@ -24,11 +24,13 @@ func (si SafeInteger) String() string {
 // safe integers is closed under negation.
 const invalidSafeInt = math.MinInt64
 
+// Integer represents any primitive integer type.
 type Integer interface {
 	int | int8 | int16 | int32 | int64 |
 		uint | uint8 | uint16 | uint32 | uint64 | uintptr
 }
 
+// Floating represents any primitive floating point type.
 type Floating interface {
 	float32 | float64
 }
@@ -40,6 +42,8 @@ var (
 	maxValidFloat64 = math.Nextafter(math.MaxInt64, 0)
 )
 
+// SafeInt returns an overflow-safe integer. If the passed i is outside of the
+// range of int64s, an invalid safe int is returned instead.
 func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 	switch i := any(i).(type) {
 	case SafeInteger:
@@ -90,6 +94,8 @@ func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 	}
 }
 
+// Int tries to convert this safe int into an int, returning its inner value
+// and true if valid and within the range of ints, otherwise false.
 func (si SafeInteger) Int() (int, bool) {
 	i64, ok := si.Int64()
 	if !ok {
@@ -101,6 +107,8 @@ func (si SafeInteger) Int() (int, bool) {
 	return int(i64), true
 }
 
+// Int8 tries to convert this safe int into an int8, returning its inner value
+// and true if valid and within the range of int8s, otherwise false.
 func (i SafeInteger) Int8() (int8, bool) {
 	i64, ok := i.Int64()
 	if !ok {
@@ -112,6 +120,8 @@ func (i SafeInteger) Int8() (int8, bool) {
 	return int8(i64), true
 }
 
+// Int16 tries to convert this safe int into an int16, returning its inner
+// value and true if valid and within the range of int16s, otherwise false.
 func (si SafeInteger) Int16() (int16, bool) {
 	i64, ok := si.Int64()
 	if !ok {
@@ -123,6 +133,8 @@ func (si SafeInteger) Int16() (int16, bool) {
 	return int16(i64), true
 }
 
+// Int32 tries to convert this safe int into an int32, returning its inner
+// value and true if valid and within the range of int32s, otherwise false.
 func (si SafeInteger) Int32() (int32, bool) {
 	i64, ok := si.Int64()
 	if !ok {
@@ -134,6 +146,8 @@ func (si SafeInteger) Int32() (int32, bool) {
 	return int32(i64), true
 }
 
+// Int16 tries to convert this safe int into an int16, returning its inner
+// value and true if valid, otherwise false.
 func (si SafeInteger) Int64() (int64, bool) {
 	if si.value == invalidSafeInt {
 		return 0, false
@@ -141,6 +155,8 @@ func (si SafeInteger) Int64() (int64, bool) {
 	return si.value, true
 }
 
+// Uint tries to convert this safe int into a uint, returning its inner value
+// and true if valid and within the range of uints, otherwise false.
 func (si SafeInteger) Uint() (uint, bool) {
 	i64, ok := si.Int64()
 	if !ok {
@@ -152,6 +168,8 @@ func (si SafeInteger) Uint() (uint, bool) {
 	return uint(i64), true
 }
 
+// Uint8 tries to convert this safe int into a uint8, returning its inner value
+// and true if valid and within the range of uint8s, otherwise false.
 func (i SafeInteger) Uint8() (uint8, bool) {
 	i64, ok := i.Int64()
 	if !ok {
@@ -163,6 +181,8 @@ func (i SafeInteger) Uint8() (uint8, bool) {
 	return uint8(i64), true
 }
 
+// Uint16 tries to convert this safe int into a uint16, returning its inner
+// value and true if valid and within the range of uint16s, otherwise false.
 func (i SafeInteger) Uint16() (uint16, bool) {
 	i64, ok := i.Int64()
 	if !ok {
@@ -174,6 +194,8 @@ func (i SafeInteger) Uint16() (uint16, bool) {
 	return uint16(i64), true
 }
 
+// Uint32 tries to convert this safe int into a uint32, returning its inner
+// value and true if valid and within the range of uint32s, otherwise false.
 func (si SafeInteger) Uint32() (uint32, bool) {
 	i64, ok := si.Int64()
 	if !ok {
@@ -185,6 +207,8 @@ func (si SafeInteger) Uint32() (uint32, bool) {
 	return uint32(i64), true
 }
 
+// Uint64 tries to convert this safe int into a uint64, returning its inner
+// value and true if valid and within the range of uint64s, otherwise false.
 func (si SafeInteger) Uint64() (uint64, bool) {
 	i64, ok := si.Int64()
 	if !ok {
