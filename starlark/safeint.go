@@ -224,6 +224,8 @@ func (si SafeInteger) Valid() bool {
 	return si.value != invalidSafeInt
 }
 
+// SafeNeg returns the negation of the given int or safe int. An invalid
+// argument or an overflow result in an invalidated safe int.
 func SafeNeg[I Integer | SafeInteger](i I) SafeInteger {
 	si := SafeInt(i)
 	// Note: as invalidSafeInt == math.MinInt64 and as -math.MinInt64 ==
@@ -231,6 +233,8 @@ func SafeNeg[I Integer | SafeInteger](i I) SafeInteger {
 	return SafeInteger{-si.value}
 }
 
+// SafeAdd returns the sum of the given integers. Invalid arguments or an
+// overflow result in an invalidated safe int.
 func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	sa, sb := SafeInt(a), SafeInt(b)
 	if !sa.Valid() || !sb.Valid() {
@@ -245,10 +249,14 @@ func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	return SafeInteger{ret}
 }
 
+// SafeSub returns the difference of the given integers. Invalid arguments or
+// an overflow result in an invalidated safe int.
 func SafeSub[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	return SafeAdd(a, SafeNeg(b))
 }
 
+// SafeMul returns the product of the given integers. Invalid arguments or an
+// overflow result in an invalidated safe int.
 func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	sa, sb := SafeInt(a), SafeInt(b)
 	if !sa.Valid() || !sb.Valid() {
@@ -265,6 +273,8 @@ func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	return SafeInteger{invalidSafeInt}
 }
 
+// SafeDiv returns the quotient of the given integers. Invalid arguments or an
+// overflow result in an invalidated safe int.
 func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	sa, sb := SafeInt(a), SafeInt(b)
 	if !sa.Valid() || !sb.Valid() {
@@ -277,6 +287,8 @@ func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	return SafeInteger{sa.value / sb.value}
 }
 
+// SafeMax returns the greatest of the given integers. If any argument is
+// invalid or would cause an overflow, an invalidated safe int is returned.
 func SafeMax[I Integer | SafeInteger](i I, is ...I) SafeInteger {
 	si := SafeInt(i)
 	if !si.Valid() {
@@ -296,6 +308,8 @@ func SafeMax[I Integer | SafeInteger](i I, is ...I) SafeInteger {
 	return max
 }
 
+// SafeMin returns the least of the given integers. If any argument is
+// invalid or would cause an overflow, an invalidated safe int is returned.
 func SafeMin[I Integer | SafeInteger](i I, is ...I) SafeInteger {
 	si := SafeInt(i)
 	if !si.Valid() {
