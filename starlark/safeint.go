@@ -5,7 +5,8 @@ import (
 	"math"
 )
 
-// SafeInteger represents an overflow-safe integer.
+// SafeInteger represents an overflow-safe integer. Operations which would
+// result in an overflow return an invalidated safe integer.
 type SafeInteger struct {
 	value int64
 }
