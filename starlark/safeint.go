@@ -13,7 +13,7 @@ type SafeInteger struct {
 var _ fmt.Stringer = SafeInteger{}
 
 func (si SafeInteger) String() string {
-	if si.value == invalidSafeInt {
+	if !si.Valid() {
 		return "SafeInt(invalid)"
 	}
 	return fmt.Sprintf("SafeInt(%d)", si.value)
@@ -137,7 +137,7 @@ func (si SafeInteger) Int32() (int32, bool) {
 }
 
 func (si SafeInteger) Int64() (int64, bool) {
-	if si.value == invalidSafeInt {
+	if !si.Valid() {
 		return 0, false
 	}
 	return si.value, true
@@ -198,6 +198,7 @@ func (si SafeInteger) Uint64() (uint64, bool) {
 	return uint64(i64), true
 }
 
+//go:inline
 func (si SafeInteger) Valid() bool {
 	return si.value != invalidSafeInt
 }
