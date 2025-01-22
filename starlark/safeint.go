@@ -24,6 +24,8 @@ func (si SafeInteger) String() string {
 // safe integers is closed under negation.
 const invalidSafeInt = math.MinInt64
 
+var InvalidSafeInt = SafeInteger{math.MinInt64}
+
 type Integer interface {
 	int | int8 | int16 | int32 | int64 |
 		uint | uint8 | uint16 | uint32 | uint64 | uintptr
