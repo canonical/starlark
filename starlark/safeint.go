@@ -22,9 +22,9 @@ func (si SafeInteger) String() string {
 // Marker value to indicate that an overflow has occurred,
 // NB: As this value is equal to MinInt64, the space of valid
 // safe integers is closed under negation.
-const invalidSafeInt = math.MinInt64
+const invalidSafeIntValue = math.MinInt64
 
-var InvalidSafeInt = SafeInteger{math.MinInt64}
+var InvalidSafeInt = SafeInteger{invalidSafeIntValue}
 
 type Integer interface {
 	int | int8 | int16 | int32 | int64 |
@@ -200,12 +200,12 @@ func (si SafeInteger) Uint64() (uint64, bool) {
 
 //go:inline
 func (si SafeInteger) Valid() bool {
-	return si.value != invalidSafeInt
+	return si.value != invalidSafeIntValue
 }
 
 func SafeNeg[I Integer | SafeInteger](i I) SafeInteger {
 	si := SafeInt(i)
-	// Note: as invalidSafeInt == math.MinInt64 and as -math.MinInt64 ==
+	// Note: as invalidSafeIntValue == math.MinInt64 and as -math.MinInt64 ==
 	// math.MinInt64 within the space of int64s, negation is always valid.
 	return SafeInteger{-si.value}
 }
