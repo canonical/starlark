@@ -58,7 +58,7 @@ func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 		return SafeInteger{i}
 	case uint:
 		if uint64(i) > math.MaxInt64 {
-			return SafeInteger{invalidSafeInt}
+			return InvalidSafeInt
 		}
 		return SafeInteger{int64(i)}
 	case uint8:
@@ -69,24 +69,24 @@ func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 		return SafeInteger{int64(i)}
 	case uint64:
 		if i > math.MaxInt64 {
-			return SafeInteger{invalidSafeInt}
+			return InvalidSafeInt
 		}
 		return SafeInteger{int64(i)}
 	case uintptr:
 		if uint64(i) > math.MaxInt64 {
-			return SafeInteger{invalidSafeInt}
+			return InvalidSafeInt
 		}
 		return SafeInteger{int64(i)}
 	case float32:
 		if minValidFloat32 <= i && i <= maxValidFloat32 {
 			return SafeInteger{int64(i)}
 		}
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	case float64:
 		if minValidFloat64 <= i && i <= maxValidFloat64 {
 			return SafeInteger{int64(i)}
 		}
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	default:
 		panic("unreachable")
 	}
@@ -213,13 +213,13 @@ func SafeNeg[I Integer | SafeInteger](i I) SafeInteger {
 func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	sa, sb := SafeInt(a), SafeInt(b)
 	if !sa.Valid() || !sb.Valid() {
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 
 	ret := sa.value + sb.value
 	if sameSign(sa.value, sb.value) && !sameSign(ret, sa.value) {
 		// An overflow occurred.
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 	return SafeInteger{ret}
 }
@@ -231,7 +231,7 @@ func SafeSub[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	sa, sb := SafeInt(a), SafeInt(b)
 	if !sa.Valid() || !sb.Valid() {
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 
 	if sa.value == 0 {
@@ -241,17 +241,17 @@ func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 		// No overflow occurred.
 		return SafeInteger{ab}
 	}
-	return SafeInteger{invalidSafeInt}
+	return InvalidSafeInt
 }
 
 func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	sa, sb := SafeInt(a), SafeInt(b)
 	if !sa.Valid() || !sb.Valid() {
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 
 	if sb.value == 0 {
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 	return SafeInteger{sa.value / sb.value}
 }
@@ -259,14 +259,14 @@ func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 func SafeMax[I Integer | SafeInteger](i I, is ...I) SafeInteger {
 	si := SafeInt(i)
 	if !si.Valid() {
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 
 	max := si
 	for _, i := range is {
 		si := SafeInt(i)
 		if !si.Valid() {
-			return SafeInteger{invalidSafeInt}
+			return InvalidSafeInt
 		}
 		if si.value > max.value {
 			max = si
@@ -278,14 +278,14 @@ func SafeMax[I Integer | SafeInteger](i I, is ...I) SafeInteger {
 func SafeMin[I Integer | SafeInteger](i I, is ...I) SafeInteger {
 	si := SafeInt(i)
 	if !si.Valid() {
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 
 	min := si
 	for _, i := range is {
 		si := SafeInt(i)
 		if !si.Valid() {
-			return SafeInteger{invalidSafeInt}
+			return InvalidSafeInt
 		}
 		if si.value < min.value {
 			min = si
