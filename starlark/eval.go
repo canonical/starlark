@@ -239,9 +239,9 @@ func (thread *Thread) simulateSteps(delta SafeInteger) (SafeInteger, error) {
 	nextSteps64, ok := nextSteps.Int64()
 	if !ok {
 		if thread.maxSteps > 0 {
-			return SafeInteger{invalidSafeInt}, errStepCountInvalidated
+			return InvalidSafeInt, errStepCountInvalidated
 		}
-		return SafeInteger{invalidSafeInt}, nil
+		return InvalidSafeInt, nil
 	}
 
 	if thread.maxSteps > 0 && nextSteps64 > thread.maxSteps {
@@ -252,7 +252,7 @@ func (thread *Thread) simulateSteps(delta SafeInteger) (SafeInteger, error) {
 	}
 
 	if nextSteps64 < 0 {
-		return SafeInteger{invalidSafeInt}, errStepCountInvalidated
+		return InvalidSafeInt, errStepCountInvalidated
 	}
 	return nextSteps, nil
 }
@@ -2842,9 +2842,9 @@ func (thread *Thread) simulateAllocs(delta SafeInteger) (SafeInteger, error) {
 	nextAllocs64, ok := nextAllocs.Int64()
 	if !ok {
 		if thread.maxAllocs > 0 {
-			return SafeInteger{invalidSafeInt}, errAllocCountInvalidated
+			return InvalidSafeInt, errAllocCountInvalidated
 		}
-		return SafeInteger{invalidSafeInt}, nil
+		return InvalidSafeInt, nil
 	}
 
 	if thread.maxAllocs > 0 && nextAllocs64 > thread.maxAllocs {
@@ -2855,7 +2855,7 @@ func (thread *Thread) simulateAllocs(delta SafeInteger) (SafeInteger, error) {
 	}
 
 	if nextAllocs64 < 0 {
-		return SafeInteger{invalidSafeInt}, errAllocCountInvalidated
+		return InvalidSafeInt, errAllocCountInvalidated
 	}
 	return nextAllocs, nil
 }
