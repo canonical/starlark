@@ -2,7 +2,7 @@
 
 Starlark's capabilities are enhanced by exposing new builtins (functions callable from Starlark, written in Go) or new types (types implementing Starlark interfaces, written in Go). Clearly, allowing users unlimited access to run code on the host can be problematic, hence safety constraints must be enforced. Unfortunately, the Go interpreter doesn't offer a good basis for such hard enforcement of constraints, so what is implemented is a best effort system via a contract: the host declares the safety properties it cares about and all code run on it must then respect these properties. The contract is upheld through testing.
 
-Safety properties are specified through the use of starlark.SafetyFlags. These are:
+Safety properties are specified through the use of `starlark.SafetyFlags`. These are:
  - `CPUSafe`: when significant work is done, such a function will count the number of arbitrary 'steps' and compare this to its budget.
  - `MemSafe`: when persistent or significant transient allocations are made, such a function will count the number of bytes used and compare this to its budget
  - `TimeSafe`: when the executing thread is cancelled, such a function will stop within a reasonable amount of time
@@ -81,7 +81,7 @@ So you've found an allocation and you want to account for it. What should you us
 if err := thread.AddAllocs(starlark.EstimateSize(myValue)); err != nil { ... }
 ```
 
-When using `EstimateSize`, care should be taken in not counting values more than once. For example:
+When using `EstimateSize`, care should be taken to not count values more than once. For example:
 
 ```go
 a, err := MakeA(thread) // Expect this to count the cost of a
@@ -105,7 +105,7 @@ A nice side effect of this pattern is that the allocation check can be finer-gra
 
 Estimating the cost of an entire structure can be expensive, for example when a map, slice or array is passed, every key and every value will also be traversed, along with their children!
 
-Although this function can slightly (and safely) overestimate, in the case of channels and maps it may also underestimate! As Go does not expose the content of channels for reflection, only the size of the channel buffer can be accounted for. Similarly, Go does not expose the capacity of a map, only its length, hence if a map is created, many items added then many removed, len(map) might be low, but its capacity could be much higher! Care must be taken if Starlark is given access to such values.
+Although this function can slightly (and safely) overestimate, in the case of channels and maps it may also underestimate! As Go does not expose the content of channels for reflection, only the size of the channel buffer can be accounted for. Similarly, Go does not expose the capacity of a map, only its length, hence if a map is created, many items added then many removed, `len(map)` might be low, but its capacity could be much higher! Care must be taken if Starlark is given access to such values.
 
 #### How to estimate slices
 
@@ -211,7 +211,7 @@ func TestMyAwesomeBuiltinAllocs(t *testing.T) {
 Then, use the `st.RunThread` method to make a workload to benchmark. This must allocate an amount of memory proportional to the provided `st.N`. Make sure this has no side-effects as this logic may be run many times. Finally, call `st.KeepAlive` with the value to be measured which in our case is the result of our builtin
 
 ```go
-   st.RunThread(func(thread *starlark.Thread) {
+    st.RunThread(func(thread *starlark.Thread) {
         // (The existing code copy-pasted)
         for i := 0; i < st.N; i++ {
             result, err := starlark.Call(thread, beAwesomeBuiltin, nil, nil)
