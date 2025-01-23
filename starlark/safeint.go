@@ -5,7 +5,8 @@ import (
 	"math"
 )
 
-// SafeInteger represents an overflow-safe integer.
+// SafeInteger represents an overflow-safe integer. Operations which would
+// result in an overflow return an invalidated safe integer.
 type SafeInteger struct {
 	value int64
 }
@@ -26,11 +27,13 @@ const invalidSafeIntegerValue = math.MinInt64
 
 var InvalidSafeInt = SafeInteger{invalidSafeIntegerValue}
 
+// Integer represents any primitive integer type.
 type Integer interface {
 	int | int8 | int16 | int32 | int64 |
 		uint | uint8 | uint16 | uint32 | uint64 | uintptr
 }
 
+// Floating represents any primitive floating point type.
 type Floating interface {
 	float32 | float64
 }
@@ -42,6 +45,7 @@ var (
 	maxValidFloat64 = math.Nextafter(math.MaxInt64, 0)
 )
 
+// SafeInt converts the input i to a SafeInteger.
 func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 	switch i := any(i).(type) {
 	case SafeInteger:
@@ -92,6 +96,8 @@ func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 	}
 }
 
+// Int tries to convert this safe int into an int, returning its inner value
+// and true if valid and within the range of ints, otherwise false.
 func (si SafeInteger) Int() (int, bool) {
 	i64, ok := si.Int64()
 	if !ok {
@@ -103,6 +109,8 @@ func (si SafeInteger) Int() (int, bool) {
 	return int(i64), true
 }
 
+// Int8 tries to convert this safe int into an int8, returning its inner value
+// and true if valid and within the range of int8s, otherwise false.
 func (si SafeInteger) Int8() (int8, bool) {
 	i64, ok := si.Int64()
 	if !ok {
@@ -114,6 +122,8 @@ func (si SafeInteger) Int8() (int8, bool) {
 	return int8(i64), true
 }
 
+// Int16 tries to convert this safe int into an int16, returning its inner
+// value and true if valid and within the range of int16s, otherwise false.
 func (si SafeInteger) Int16() (int16, bool) {
 	i64, ok := si.Int64()
 	if !ok {
@@ -125,6 +135,8 @@ func (si SafeInteger) Int16() (int16, bool) {
 	return int16(i64), true
 }
 
+// Int32 tries to convert this safe int into an int32, returning its inner
+// value and true if valid and within the range of int32s, otherwise false.
 func (si SafeInteger) Int32() (int32, bool) {
 	i64, ok := si.Int64()
 	if !ok {
@@ -136,6 +148,8 @@ func (si SafeInteger) Int32() (int32, bool) {
 	return int32(i64), true
 }
 
+// Int16 tries to convert this safe int into an int16, returning its inner
+// value and true if valid, otherwise false.
 func (si SafeInteger) Int64() (int64, bool) {
 	if !si.Valid() {
 		return 0, false
@@ -143,6 +157,8 @@ func (si SafeInteger) Int64() (int64, bool) {
 	return si.value, true
 }
 
+// Uint tries to convert this safe int into a uint, returning its inner value
+// and true if valid and within the range of uints, otherwise false.
 func (si SafeInteger) Uint() (uint, bool) {
 	i64, ok := si.Int64()
 	if !ok {
@@ -154,6 +170,8 @@ func (si SafeInteger) Uint() (uint, bool) {
 	return uint(i64), true
 }
 
+// Uint8 tries to convert this safe int into a uint8, returning its inner value
+// and true if valid and within the range of uint8s, otherwise false.
 func (si SafeInteger) Uint8() (uint8, bool) {
 	i64, ok := si.Int64()
 	if !ok {
@@ -165,6 +183,8 @@ func (si SafeInteger) Uint8() (uint8, bool) {
 	return uint8(i64), true
 }
 
+// Uint16 tries to convert this safe int into a uint16, returning its inner
+// value and true if valid and within the range of uint16s, otherwise false.
 func (si SafeInteger) Uint16() (uint16, bool) {
 	i64, ok := si.Int64()
 	if !ok {
@@ -176,6 +196,8 @@ func (si SafeInteger) Uint16() (uint16, bool) {
 	return uint16(i64), true
 }
 
+// Uint32 tries to convert this safe int into a uint32, returning its inner
+// value and true if valid and within the range of uint32s, otherwise false.
 func (si SafeInteger) Uint32() (uint32, bool) {
 	i64, ok := si.Int64()
 	if !ok {
@@ -187,6 +209,8 @@ func (si SafeInteger) Uint32() (uint32, bool) {
 	return uint32(i64), true
 }
 
+// Uint64 tries to convert this safe int into a uint64, returning its inner
+// value and true if valid and within the range of uint64s, otherwise false.
 func (si SafeInteger) Uint64() (uint64, bool) {
 	i64, ok := si.Int64()
 	if !ok {
@@ -203,6 +227,8 @@ func (si SafeInteger) Valid() bool {
 	return si.value != invalidSafeIntegerValue
 }
 
+// SafeNeg returns the negation of the given int or safe int. An invalid
+// argument or an overflow result in an invalidated safe int.
 func SafeNeg[I Integer | SafeInteger](i I) SafeInteger {
 	si := SafeInt(i)
 	// Note: as invalidSafeIntegerValue == math.MinInt64 and as -math.MinInt64 ==
@@ -210,6 +236,8 @@ func SafeNeg[I Integer | SafeInteger](i I) SafeInteger {
 	return SafeInteger{-si.value}
 }
 
+// SafeAdd returns the sum of the given integers. Invalid arguments or an
+// overflow result in an invalidated safe int.
 func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	sa, sb := SafeInt(a), SafeInt(b)
 	if !sa.Valid() || !sb.Valid() {
@@ -224,10 +252,14 @@ func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	return SafeInteger{ret}
 }
 
+// SafeSub returns the difference of the given integers. Invalid arguments or
+// an overflow result in an invalidated safe int.
 func SafeSub[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	return SafeAdd(a, SafeNeg(b))
 }
 
+// SafeMul returns the product of the given integers. Invalid arguments or an
+// overflow result in an invalidated safe int.
 func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	sa, sb := SafeInt(a), SafeInt(b)
 	if !sa.Valid() || !sb.Valid() {
@@ -244,6 +276,8 @@ func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	return InvalidSafeInt
 }
 
+// SafeDiv returns the quotient of the given integers. Invalid arguments or an
+// overflow result in an invalidated safe int.
 func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	sa, sb := SafeInt(a), SafeInt(b)
 	if !sa.Valid() || !sb.Valid() {
@@ -256,6 +290,8 @@ func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	return SafeInteger{sa.value / sb.value}
 }
 
+// SafeMax returns the greatest of the given integers. If any argument is
+// invalid or would cause an overflow, an invalidated safe int is returned.
 func SafeMax[I Integer | SafeInteger](i I, is ...I) SafeInteger {
 	si := SafeInt(i)
 	if !si.Valid() {
@@ -275,6 +311,8 @@ func SafeMax[I Integer | SafeInteger](i I, is ...I) SafeInteger {
 	return max
 }
 
+// SafeMin returns the least of the given integers. If any argument is
+// invalid or would cause an overflow, an invalidated safe int is returned.
 func SafeMin[I Integer | SafeInteger](i I, is ...I) SafeInteger {
 	si := SafeInt(i)
 	if !si.Valid() {
