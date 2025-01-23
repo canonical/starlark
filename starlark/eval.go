@@ -84,8 +84,8 @@ type Thread struct {
 	requiredSafety SafetyFlags
 }
 
-// ThreadCtxKey can be used to retrieve the Thread from the context returned
-// by Thread.Context() or a context derived from it.
+// ThreadCtxKey is the type of keys used to retrieve the thread
+// in calls to thread.Context().Value().
 type ThreadCtxKey struct{}
 
 type threadContext Thread
