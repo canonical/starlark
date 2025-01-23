@@ -101,8 +101,8 @@ func (si SafeInteger) Int() (int, bool) {
 	return int(i64), true
 }
 
-func (i SafeInteger) Int8() (int8, bool) {
-	i64, ok := i.Int64()
+func (si SafeInteger) Int8() (int8, bool) {
+	i64, ok := si.Int64()
 	if !ok {
 		return 0, false
 	}
@@ -152,8 +152,8 @@ func (si SafeInteger) Uint() (uint, bool) {
 	return uint(i64), true
 }
 
-func (i SafeInteger) Uint8() (uint8, bool) {
-	i64, ok := i.Int64()
+func (si SafeInteger) Uint8() (uint8, bool) {
+	i64, ok := si.Int64()
 	if !ok {
 		return 0, false
 	}
@@ -163,8 +163,8 @@ func (i SafeInteger) Uint8() (uint8, bool) {
 	return uint8(i64), true
 }
 
-func (i SafeInteger) Uint16() (uint16, bool) {
-	i64, ok := i.Int64()
+func (si SafeInteger) Uint16() (uint16, bool) {
+	i64, ok := si.Int64()
 	if !ok {
 		return 0, false
 	}
