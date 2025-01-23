@@ -148,7 +148,8 @@ As a last note, when converting a slice to an interface, the space for its *head
 
 Accounting for every single allocation Go makes during a computation is prohibitively complex, so some spikes in memory usage e.g. for scratch space when computing some value are somewhat inevitable. The key to making these safe is to prevent these spikes getting so large that they can take down the entire embedding application.
 
-Easiest and most natural one is to use the `CheckAllocs` function to ask the current Starlark thread whether there is enough memory in its budget to account for the spike. The total counted memory remains unchanged in this case. For example:
+Easiest and most natural one is to use the `CheckAllocs` function to ask the current Starlark thread whether there is enough memory in its budget to account for the spike. The total counted memory remains unchanged in this case as demonstrated in the following snippet.
+For now, consider the calls to `starlark.SafeInt` as necessary boilerplate, these are [explained later](#how-to-count-safely).
 
 ```go
 scratchBufferSize := starlark.SafeInt(307_200) // 300 KiB
