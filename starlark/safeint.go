@@ -43,8 +43,7 @@ var (
 	maxValidFloat64 = math.Nextafter(math.MaxInt64, 0)
 )
 
-// SafeInt returns an overflow-safe integer. If the passed i is outside of the
-// range of int64s, an invalid safe int is returned instead.
+// SafeInt converts the input i to a SafeInteger.
 func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 	switch i := any(i).(type) {
 	case SafeInteger:
