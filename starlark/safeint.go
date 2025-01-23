@@ -205,7 +205,7 @@ func (si SafeInteger) Valid() bool {
 
 func SafeNeg[I Integer | SafeInteger](i I) SafeInteger {
 	si := SafeInt(i)
-	// Note: as invalidSafeIntValue == math.MinInt64 and as -math.MinInt64 ==
+	// Note: as invalidSafeIntegerValue == math.MinInt64 and as -math.MinInt64 ==
 	// math.MinInt64 within the space of int64s, negation is always valid.
 	return SafeInteger{-si.value}
 }
