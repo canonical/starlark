@@ -13,7 +13,7 @@ type SafeInteger struct {
 var _ fmt.Stringer = SafeInteger{}
 
 func (si SafeInteger) String() string {
-	if si.value == invalidSafeInt {
+	if !si.Valid() {
 		return "SafeInt(invalid)"
 	}
 	return fmt.Sprintf("SafeInt(%d)", si.value)
@@ -22,7 +22,9 @@ func (si SafeInteger) String() string {
 // Marker value to indicate that an overflow has occurred,
 // NB: As this value is equal to MinInt64, the space of valid
 // safe integers is closed under negation.
-const invalidSafeInt = math.MinInt64
+const invalidSafeIntegerValue = math.MinInt64
+
+var InvalidSafeInt = SafeInteger{invalidSafeIntegerValue}
 
 type Integer interface {
 	int | int8 | int16 | int32 | int64 |
@@ -56,7 +58,7 @@ func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 		return SafeInteger{i}
 	case uint:
 		if uint64(i) > math.MaxInt64 {
-			return SafeInteger{invalidSafeInt}
+			return InvalidSafeInt
 		}
 		return SafeInteger{int64(i)}
 	case uint8:
@@ -67,24 +69,24 @@ func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 		return SafeInteger{int64(i)}
 	case uint64:
 		if i > math.MaxInt64 {
-			return SafeInteger{invalidSafeInt}
+			return InvalidSafeInt
 		}
 		return SafeInteger{int64(i)}
 	case uintptr:
 		if uint64(i) > math.MaxInt64 {
-			return SafeInteger{invalidSafeInt}
+			return InvalidSafeInt
 		}
 		return SafeInteger{int64(i)}
 	case float32:
 		if minValidFloat32 <= i && i <= maxValidFloat32 {
 			return SafeInteger{int64(i)}
 		}
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	case float64:
 		if minValidFloat64 <= i && i <= maxValidFloat64 {
 			return SafeInteger{int64(i)}
 		}
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	default:
 		panic("unreachable")
 	}
@@ -135,7 +137,7 @@ func (si SafeInteger) Int32() (int32, bool) {
 }
 
 func (si SafeInteger) Int64() (int64, bool) {
-	if si.value == invalidSafeInt {
+	if !si.Valid() {
 		return 0, false
 	}
 	return si.value, true
@@ -196,13 +198,14 @@ func (si SafeInteger) Uint64() (uint64, bool) {
 	return uint64(i64), true
 }
 
+//go:inline
 func (si SafeInteger) Valid() bool {
-	return si.value != invalidSafeInt
+	return si.value != invalidSafeIntegerValue
 }
 
 func SafeNeg[I Integer | SafeInteger](i I) SafeInteger {
 	si := SafeInt(i)
-	// Note: as invalidSafeInt == math.MinInt64 and as -math.MinInt64 ==
+	// Note: as invalidSafeIntegerValue == math.MinInt64 and as -math.MinInt64 ==
 	// math.MinInt64 within the space of int64s, negation is always valid.
 	return SafeInteger{-si.value}
 }
@@ -210,13 +213,13 @@ func SafeNeg[I Integer | SafeInteger](i I) SafeInteger {
 func SafeAdd[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	sa, sb := SafeInt(a), SafeInt(b)
 	if !sa.Valid() || !sb.Valid() {
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 
 	ret := sa.value + sb.value
 	if sameSign(sa.value, sb.value) && !sameSign(ret, sa.value) {
 		// An overflow occurred.
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 	return SafeInteger{ret}
 }
@@ -228,7 +231,7 @@ func SafeSub[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	sa, sb := SafeInt(a), SafeInt(b)
 	if !sa.Valid() || !sb.Valid() {
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 
 	if sa.value == 0 {
@@ -238,17 +241,17 @@ func SafeMul[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 		// No overflow occurred.
 		return SafeInteger{ab}
 	}
-	return SafeInteger{invalidSafeInt}
+	return InvalidSafeInt
 }
 
 func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 	sa, sb := SafeInt(a), SafeInt(b)
 	if !sa.Valid() || !sb.Valid() {
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 
 	if sb.value == 0 {
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 	return SafeInteger{sa.value / sb.value}
 }
@@ -256,14 +259,14 @@ func SafeDiv[A, B Integer | SafeInteger](a A, b B) SafeInteger {
 func SafeMax[I Integer | SafeInteger](i I, is ...I) SafeInteger {
 	si := SafeInt(i)
 	if !si.Valid() {
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 
 	max := si
 	for _, i := range is {
 		si := SafeInt(i)
 		if !si.Valid() {
-			return SafeInteger{invalidSafeInt}
+			return InvalidSafeInt
 		}
 		if si.value > max.value {
 			max = si
@@ -275,14 +278,14 @@ func SafeMax[I Integer | SafeInteger](i I, is ...I) SafeInteger {
 func SafeMin[I Integer | SafeInteger](i I, is ...I) SafeInteger {
 	si := SafeInt(i)
 	if !si.Valid() {
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 
 	min := si
 	for _, i := range is {
 		si := SafeInt(i)
 		if !si.Valid() {
-			return SafeInteger{invalidSafeInt}
+			return InvalidSafeInt
 		}
 		if si.value < min.value {
 			min = si

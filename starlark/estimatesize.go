@@ -65,7 +65,7 @@ func EstimateSize(obj interface{}) SafeInteger {
 func EstimateMakeSize(template interface{}, n SafeInteger) SafeInteger {
 	n64, ok := n.Int64()
 	if !ok {
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 	v := reflect.ValueOf(template)
 	switch v.Kind() {
@@ -393,7 +393,7 @@ func roundAllocSize(size SafeInteger) SafeInteger {
 
 	size64, ok := size.Int64()
 	if !ok {
-		return SafeInteger{invalidSafeInt}
+		return InvalidSafeInt
 	}
 	if size64 <= 0 {
 		return SafeInt(0)
@@ -404,7 +404,7 @@ func roundAllocSize(size SafeInteger) SafeInteger {
 	if rounded := roundupsize(size64); rounded >= size64 {
 		return SafeInt(rounded)
 	}
-	return SafeInteger{invalidSafeInt}
+	return InvalidSafeInt
 }
 
 func roundupsize(size int64) int64 {

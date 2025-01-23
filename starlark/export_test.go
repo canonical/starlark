@@ -83,5 +83,3 @@ func (s String) Codepoints(ords bool) Value {
 func (s String) Elems(ords bool) Value {
 	return stringElems{s, ords}
 }
-
-var InvalidSafeInt = SafeInteger{invalidSafeInt}
