@@ -151,7 +151,7 @@ Accounting for every single allocation Go makes during a computation is prohibit
 Easiest and most natural one is to use the `CheckAllocs` function to ask the current Starlark thread whether there is enough memory in its budget to account for the spike. The total counted memory remains unchanged in this case. For example:
 
 ```go
-scratchBufferSize := starlark.SafeMul(300, 1024) // 300 KiB
+scratchBufferSize := starlark.SafeInt(307_200) // 300 KiB
 if err := thread.CheckAllocs(scratchBufferSize); err != nil {
     return nil, err
 }
