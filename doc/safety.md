@@ -152,7 +152,7 @@ Easiest and most natural one is to use the `CheckAllocs` function to ask the cur
 For now, consider the calls to `starlark.SafeInt` as necessary boilerplate, these are [explained later](#how-to-count-safely).
 
 ```go
-scratchBufferSize := starlark.SafeInt(307_200) // 300 KiB
+scratchBufferSize := starlark.SafeInt(300_000) // 300KB
 if err := thread.CheckAllocs(scratchBufferSize); err != nil {
     return nil, err
 }
@@ -427,7 +427,7 @@ if err := mySliceAppender.AppendSlice(values); err != nil {
 
 Especially when counting resources, arbitrary arithmetic is surprisingly dangerous.
 Operations such as division must check whether the divisor is zero and addition, subtraction, multiplication and even negation can lead to overflows.
-Many exhaustive and easily-forgotten checks, required to avoid these causing panics.
+Many exhaustive and easily-forgotten checks are required to avoid these operations causing panics.
 To mitigate this, Starlark provides the notion of a 'safe int,' that is, an integer which is automatically marked as invalid when runtime arithmetic issues occur.
 
 Consider multiplying a list, `['a', 'a', 'a']`, by a number, `n`, which in reasonable circumstances will result in a list will containing `3*n` elements `'a'`, in a slice allocated by calling `make`.
@@ -438,7 +438,8 @@ There are three problems to mitigate here:
 
 To safely compute `len(list) * n`, simply call the `SafeMul` function.
 This will multiply the two values together, marking the result as invalid should an overflow occur.
-If an invalidated safe int is passed to one of the resource-declaring methods such as `thread.AddAllocs()`, an error is automatically returned, meaning that for typical resource-bounding usage, overflows are handled implicitly:
+If an invalidated safe int is passed to one of the resource-declaring methods, such as `thread.AddAllocs()`, then that method will handle error generation.
+As such, for typical resource-bounding usage, overflows are handled implicitly:
 ```go
 if err := thread.AddAllocs(starlark.SafeMul(len(list), n)); err != nil {
     return nil, err
