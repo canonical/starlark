@@ -84,6 +84,18 @@ type Thread struct {
 	requiredSafety SafetyFlags
 }
 
+// threadContextKey is the type of keys used to retrieve the thread
+// in calls to thread.Context().Value().
+type threadContextKey struct{}
+
+// ContextThread returns the thread associated with the given context, if any.
+func ContextThread(ctx context.Context) *Thread {
+	if value := ctx.Value(threadContextKey{}); value != nil {
+		return value.(*Thread)
+	}
+	return nil
+}
+
 type threadContext Thread
 
 var _ context.Context = &threadContext{}
@@ -134,6 +146,9 @@ func (tc *threadContext) Err() error {
 
 func (tc *threadContext) Value(key interface{}) interface{} {
 	thread := (*Thread)(tc)
+	if key == (threadContextKey{}) {
+		return thread
+	}
 	if stringKey, ok := key.(string); ok {
 		if local, ok := thread.locals[stringKey]; ok {
 			return local
