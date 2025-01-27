@@ -1154,12 +1154,12 @@ func TestThreadContext(t *testing.T) {
 	thread := &starlark.Thread{}
 	threadCtx := thread.Context()
 
-	if value := threadCtx.Value(starlark.ThreadCtxKey{}); value != thread {
+	if value := starlark.ContextThread(threadCtx); value != thread {
 		t.Errorf("unexpected value from context: expected %v but got %v", thread, value)
 	}
 
 	intermediateCtx := context.WithValue(threadCtx, "foo", "bar")
-	if value := intermediateCtx.Value(starlark.ThreadCtxKey{}); value != thread {
+	if value := starlark.ContextThread(intermediateCtx); value != thread {
 		t.Errorf("unexpected value from context: expected %v but got %v", thread, value)
 	}
 
@@ -1169,7 +1169,7 @@ func TestThreadContext(t *testing.T) {
 	if value := childThreadCtx.Value("foo"); value != "bar" {
 		t.Errorf("unexpected value from context: expected %v but got %v", thread, value)
 	}
-	if value := childThreadCtx.Value(starlark.ThreadCtxKey{}); value != childThread {
+	if value := starlark.ContextThread(childThreadCtx); value != childThread {
 		t.Errorf("unexpected value from context: expected %v but got %v", thread, value)
 	}
 }
