@@ -148,14 +148,19 @@ As a last note, when converting a slice to an interface, the space for its *head
 
 Accounting for every single allocation Go makes during a computation is prohibitively complex, so some spikes in memory usage e.g. for scratch space when computing some value are somewhat inevitable. The key to making these safe is to prevent these spikes getting so large that they can take down the entire embedding application.
 
-Easiest and most natural one is to use the `CheckAllocs` function to ask the current Starlark thread whether there is enough memory in its budget to account for the spike. The total counted memory remains unchanged in this case. For example:
+Easiest and most natural one is to use the `CheckAllocs` function to ask the current Starlark thread whether there is enough memory in its budget to account for the spike. The total counted memory remains unchanged in this case as demonstrated in the following snippet.
+For now, consider the calls to `starlark.SafeInt` as necessary boilerplate, these are [explained later](#how-to-count-safely).
 
 ```go
-spikeSize := 300 * 1024 // 300 KiB
-if err := thread.CheckAllocs(spikeSize); err != nil {
+scratchBufferSize := starlark.SafeInt(300_000) // 300KB
+if err := thread.CheckAllocs(scratchBufferSize); err != nil {
     return nil, err
 }
-scratchBuffer := make([]byte, allocationSize)
+scratchBufferSizeInt, ok := scratchBufferSize.Int()
+if !ok {
+    return nil, errors.New("spike size invalidated")
+}
+scratchBuffer := make([]byte, scratchBufferSizeInt)
 ```
 
 This, however, would not work if two or more transient allocation are declared separately. Consider the following example:
@@ -163,12 +168,12 @@ This, however, would not work if two or more transient allocation are declared s
 ```go
 thread.SetMaxAllocs(1000)
 ...
-if err := thread.CheckAllocs(900); err != nil { // OK, budget is enough
+if err := thread.CheckAllocs(starlark.SafeInt(900)); err != nil { // OK, budget is enough
     return nil, err
 }
 storage1 := make([]byte, 900)
 
-if err := thread.CheckAllocs(600); err != nil { // Not ok, it should fail!
+if err := thread.CheckAllocs(starlark.SafeInt(600)); err != nil { // Not ok, it should fail!
     return nil, err
 }
 storage2 := make([]byte, 600)
@@ -179,17 +184,19 @@ In this case, the *total* spike size was around `1500` bytes which is above the 
 ```go
 thread.SetMaxAllocs(1000)
 ...
-if err := thread.AddAllocs(900); err != nil {
+spikeSize := starlark.SafeInt(900)
+if err := thread.AddAllocs(starlark.SafeInt(900)); err != nil {
     return nil, err
 }
 storage1 := make([]byte, 900)
-if err := thread.AddAllocs(600); err != nil {
+
+spikeSize = starlark.SafeAdd(spikeSize, 600)
+if err := thread.AddAllocs(starlark.SafeInt(600)); err != nil {
     return nil, err
 }
 storage2 := make([]byte, 600)
 ...
-spikeSize := 900 + 600
-if err := thread.AddAllocs(-spikeSize); err != nil {
+if err := thread.AddAllocs(starlark.SafeNeg(spikeSize)); err != nil {
     return nil, err
 }
 ```
@@ -285,7 +292,7 @@ To prevent too much work being done, declare a number of steps proportional to t
 In this case, we may add the following lines are added before the `strings.HasPrefix` call:
 
 ```go
-    if err := thread.AddSteps(int64(len(prefix))); err != nil {
+    if err := thread.AddSteps(starlark.SafeInt(len(prefix))); err != nil {
         return "", err
     }
 ```
@@ -413,5 +420,38 @@ For example, to safely perform `mySlice = append(mySlice, other...)`, use the fo
 mySliceAppender := NewSafeAppender(thread, &mySlice)
 if err := mySliceAppender.AppendSlice(values); err != nil {
     return nil, err
+}
+```
+
+## How to count safely
+
+Especially when counting resources, arbitrary arithmetic is surprisingly dangerous.
+Operations such as division must check whether the divisor is zero and addition, subtraction, multiplication and even negation can lead to overflows.
+Many exhaustive and easily-forgotten checks are required to avoid these operations causing panics.
+To mitigate this, Starlark provides the notion of a 'safe int,' that is, an integer which is automatically marked as invalid when runtime arithmetic issues occur.
+
+Consider multiplying a list, `['a', 'a', 'a']`, by a number, `n`, which in reasonable circumstances will result in a list will containing `3*n` elements `'a'`, in a slice allocated by calling `make`.
+There are three problems to mitigate here:
+1. If `n` is large, calling `make` would cause a large number of allocations. This is prevented by calling declaring allocations ahead of time with `thread.CheckAllocs()` or `thread.AddAllocs()`, as seen in previous sections.
+2. If `n` is very large, then on some systems, it may not be possible to allocate enough space for the result due to a lack of address space (e.g. many 64-bit machines only use 48 bits for addresses). This is prevented by calling `thread.SetMaxAllocs()` with a reasonable value, as seen in previous sections.
+3. If `n` is extremely large, then it may cause the multiplication to overflow, either causing `make` to allocate the wrong size of slice or panic due to a negative requested length. This is prevented by safe arithmetic.
+
+To safely compute `len(list) * n`, simply call the `SafeMul` function.
+This will multiply the two values together, marking the result as invalid should an overflow occur.
+If an invalidated safe int is passed to one of the resource-declaring methods, such as `thread.AddAllocs()`, then that method will handle error generation.
+As such, for typical resource-bounding usage, overflows are handled implicitly:
+```go
+if err := thread.AddAllocs(starlark.SafeMul(len(list), n)); err != nil {
+    return nil, err
+}
+```
+
+If the underlying value of the safe int is required, for example to pass to a function which does not accept safe ints, use one of the converter methods, such as `Int32()`.
+Calling `Int32()` attempts to convert the contained value into the requested type, returning `!ok` if the conversion failed, allowing this case to be acknowledged.
+```go
+if delta32, ok := delta.Int32(); !ok {
+    return errors.New("delta invalidated")
+} else if delta32 >= limit {
+    return errors.New("limit reached")
 }
 ```
