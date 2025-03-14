@@ -1,11 +1,9 @@
-- Detail the constraints, addd a link to the doc
-
 # Starlark in Go
 
 [![Go Tests](https://github.com/canonical/starlark/actions/workflows/tests.yml/badge.svg)](https://github.com/canonical/starlark/actions/workflows/tests.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/canonical/starlark.svg)](https://pkg.go.dev/github.com/canonical/starlark)
 
-This is a fork of Google's _Starlark in Go_ project, maintained by Canonical, which adds safety constaints to the language.
+This is a fork of Google's _Starlark in Go_ project, maintained by Canonical, which adds safety constraints to the language.
 It is developed to be a mostly-drop-in replacement for upstream Starlark, with a small number of reasonable [breaking changes](#breaking-changes).
 
 Starlark in Go is an interpreter for Starlark, implemented in Go.
@@ -96,7 +94,7 @@ Interact with the read-eval-print loop (REPL):
 
 ```pycon
 $ starlark
->>> def fibonacc(range(n))
+>>> def fibonacci(range(n))
 ...    for i in res[2:]:
 ...        res[i] = res[i-2] + res[i-1]
 ...    return res
@@ -153,7 +151,7 @@ its Go implementation proceed.
 
 We use GitHub pull requests for contributions.
 
-<!-- TODO(kcza): update to our CLA... and theirs too?! -->
+<!-- TODO(kcza): update to our CLA... and theirs too? -->
 Please complete Google's contributor license agreement (CLA) before
 sending your first change to the project.  If you are the copyright
 holder, you will need to agree to the
