@@ -1,15 +1,15 @@
-
-<!-- This file is the project homepage for go.starlark.net -->
+- Detail the constraints, addd a link to the doc
 
 # Starlark in Go
 
 [![Go Tests](https://github.com/canonical/starlark/actions/workflows/tests.yml/badge.svg)](https://github.com/canonical/starlark/actions/workflows/tests.yml)
-[![Go Reference](https://pkg.go.dev/badge/go.starlark.net/starlark.svg)](https://pkg.go.dev/go.starlark.net/starlark)
+[![Go Reference](https://pkg.go.dev/badge/github.com/canonical/starlark.svg)](https://pkg.go.dev/github.com/canonical/starlark)
 
-This is the home of the _Starlark in Go_ project.
+This is a fork of Google's _Starlark in Go_ project, maintained by Canonical, which adds safety constaints to the language.
+It is developed to be a mostly-drop-in replacement for upstream Starlark, with a small number of reasonable [breaking changes](#breaking-changes).
+
 Starlark in Go is an interpreter for Starlark, implemented in Go.
 Starlark was formerly known as Skylark.
-The new import path for Go packages is `"go.starlark.net/starlark"`.
 
 Starlark is a dialect of Python intended for use as a configuration language.
 Like Python, it is an untyped dynamic language with high-level data
@@ -33,6 +33,21 @@ language](https://docs.bazel.build/versions/master/skylark/language.html),
 through which Bazel is extended with custom logic to support new
 languages and compilers.
 
+## Differences with Google's Starlark in Go
+
+### Additions
+
+- [Safety constraints and helpers](doc/safety.md) to abide by them
+- [`Context`](https://pkg.go.dev/context) integration with the execution `Thread`
+- Project-wide overflow protection
+- Fallable iterators with the new `Err()` method
+
+### Breaking changes
+
+- The maximum Starlark stack depth is now limited to avoid stack overflows. The limit is extremely high so will likely not affect any reasonable recursive application
+- `thread.Uncancel` has been removed as it is exceedingly difficult to uncancel a thread in a concurrent environment whilst still maintaining safety guarantees
+- `thread.Cancel` now accepts format args, allowing errors to be wrapped. The type of this function has changed different; existing calls are unaffected
+- `thread.OnMaxSteps` has been removed to discourage changing limits
 
 ## Documentation
 
@@ -40,11 +55,13 @@ languages and compilers.
 
 * About the Go implementation: [doc/impl.md](doc/impl.md)
 
-* API documentation: [pkg.go.dev/go.starlark.net/starlark](https://pkg.go.dev/go.starlark.net/starlark)
+* About safety constraints: [doc/safety.md](doc/safety.md)
 
-* Mailing list: [starlark-go](https://groups.google.com/forum/#!forum/starlark-go)
+* About breaking changes with upstream: [doc/breaking.md](doc/breaking.md)
 
-* Issue tracker: [https://github.com/google/starlark-go/issues](https://github.com/google/starlark-go/issues)
+* API documentation: [pkg.go.dev/github.com/canonical/starlark](https://pkg.go.dev/github.com/canonical/starlark)
+
+* Issue tracker: [github.com/canonical/starlark/issues](https://github.com/canonical/starlark/issues)
 
 ### Getting started
 
@@ -53,8 +70,9 @@ Build the code:
 ```shell
 # check out the code and dependencies,
 # and install interpreter in $GOPATH/bin
-$ go install go.starlark.net/cmd/starlark@latest
+$ go install github.com/canonical/starlark@latest
 ```
+<!-- TODO(kcza): update the package version above -->
 
 Run the interpreter:
 
@@ -78,8 +96,7 @@ Interact with the read-eval-print loop (REPL):
 
 ```pycon
 $ starlark
->>> def fibonacci(n):
-...    res = list(range(n))
+>>> def fibonacc(range(n))
 ...    for i in res[2:]:
 ...        res[i] = res[i-2] + res[i-1]
 ...    return res
@@ -94,7 +111,7 @@ When you have finished, type `Ctrl-D` to close the REPL's input stream.
 Embed the interpreter in your Go program:
 
 ```go
-import "go.starlark.net/starlark"
+import "github.com/canonical/starlark"
 
 // Execute Starlark program in a file.
 thread := &starlark.Thread{Name: "my thread"}
@@ -136,6 +153,7 @@ its Go implementation proceed.
 
 We use GitHub pull requests for contributions.
 
+<!-- TODO(kcza): update to our CLA... and theirs too?! -->
 Please complete Google's contributor license agreement (CLA) before
 sending your first change to the project.  If you are the copyright
 holder, you will need to agree to the
@@ -179,6 +197,6 @@ Starlark in Go is Copyright (c) 2018 The Bazel Authors.
 All rights reserved.
 
 It is provided under a 3-clause BSD license:
-[LICENSE](https://github.com/google/starlark-go/blob/master/LICENSE).
+[LICENSE](https://github.com/canonical/starlark/blob/main/LICENSE).
 
 Starlark in Go is not an official Google product.
