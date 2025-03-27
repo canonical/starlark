@@ -3,8 +3,8 @@
 [![Go Tests](https://github.com/canonical/starlark/actions/workflows/tests.yml/badge.svg)](https://github.com/canonical/starlark/actions/workflows/tests.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/canonical/starlark.svg)](https://pkg.go.dev/github.com/canonical/starlark)
 
-This is a fork of Google's _Starlark in Go_ project, maintained by Canonical, which adds safety constraints to the language.
-It is developed to be a mostly-drop-in replacement for upstream Starlark, with a small number of reasonable [breaking changes](#breaking-changes).
+This is a patch on Google's _Starlark in Go_ project, maintained by Canonical, which adds safety constraints to the language.
+It is developed to be a mostly-drop-in replacement for upstream Starlark and as such has small number of trivial breaking changes.
 
 Starlark in Go is an interpreter for Starlark, implemented in Go.
 Starlark was formerly known as Skylark.
@@ -33,19 +33,20 @@ languages and compilers.
 
 ## Differences with Google's Starlark in Go
 
-### Additions
-
-- [Safety constraints and helpers](doc/safety.md) to abide by them
+- [Safety constraints](doc/safety.md):
+    - `MemSafe` – scripts respect a given memory budget
+    - `CPUSafe` – scripts respect a CPU-time budget
+    - `TimeSafe` – scripts respect deadlines and cancellation
+    - `IOSafe` – scripts respect access to the host system
+- A new safety-testing framework, [`startest`](https://pkg.go.dev/github.com/canonical/starlark/startest)
+- [Safe helpers for common operations](doc/safety.md#common-patterns)
+- Memory-usage estimation for arbitrary values
 - [`Context`](https://pkg.go.dev/context) integration with the execution `Thread`
-- Project-wide overflow protection
+- Starlark-wide overflow protection
 - Fallable iterators with the new `Err()` method
-
-### Breaking changes
-
-- The maximum Starlark stack depth is now limited to avoid stack overflows. The limit is extremely high so will likely not affect any reasonable recursive application
-- `thread.Uncancel` has been removed as it is exceedingly difficult to uncancel a thread in a concurrent environment whilst still maintaining safety guarantees
-- `thread.Cancel` now accepts format args, allowing errors to be wrapped. The type of this function has changed different; existing calls are unaffected
-- `thread.OnMaxSteps` has been removed to discourage changing limits
+- Starlark recursion now has a hard limit
+- Threads cannot be uncancelled
+- A small number of trivial breaking changes
 
 ## Documentation
 
