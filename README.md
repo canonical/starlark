@@ -151,17 +151,8 @@ its Go implementation proceed.
 
 We use GitHub pull requests for contributions.
 
-<!-- TODO(kcza): update to our CLA... and theirs too? -->
-Please complete Google's contributor license agreement (CLA) before
-sending your first change to the project.  If you are the copyright
-holder, you will need to agree to the
-[individual contributor license agreement](https://cla.developers.google.com/about/google-individual),
-which can be completed online.
-If your organization is the copyright holder, the organization will
-need to agree to the [corporate contributor license agreement](https://cla.developers.google.com/about/google-corporate).
-If the copyright holder for your contribution has already completed
-the agreement in connection with another Google open source project,
-it does not need to be completed again.
+Please complete [Canonical's contributor license agreement (CLA)](https://ubuntu.com/legal/contributors) before
+sending your first change to the project.
 
 ### Stability
 
@@ -189,12 +180,7 @@ standing on the shoulders of the Python community.
 The Go implementation was written by Alan Donovan and Jay Conrod;
 its scanner was derived from one written by Russ Cox.
 
-### Legal
+### License
 
-Starlark in Go is Copyright (c) 2018 The Bazel Authors.
-All rights reserved.
-
-It is provided under a 3-clause BSD license:
+Canonical's Starlark patch is provided under the same 3-clause BSD license as its upstream:
 [LICENSE](https://github.com/canonical/starlark/blob/main/LICENSE).
-
-Starlark in Go is not an official Google product.
