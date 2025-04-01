@@ -110,7 +110,7 @@ When you have finished, type `Ctrl-D` to close the REPL's input stream.
 Embed the interpreter in your Go program:
 
 ```go
-import "github.com/canonical/starlark"
+import "github.com/canonical/starlark/starlark"
 
 // Execute Starlark program in a file.
 thread := &starlark.Thread{Name: "my thread"}
