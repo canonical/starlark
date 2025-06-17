@@ -69,7 +69,7 @@ Build the code:
 ```shell
 # check out the code and dependencies,
 # and install interpreter in $GOPATH/bin
-$ go install github.com/canonical/starlark@latest
+$ go install github.com/canonical/starlark/cmd/starlark@latest
 ```
 <!-- TODO(kcza): update the package version above -->
 
