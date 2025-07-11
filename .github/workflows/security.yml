@@ -72,7 +72,21 @@ jobs:
         id: gosec
         continue-on-error: true
         run: |
-          gosec -severity medium -fmt markdown -out gosec-report.md ./...
+          gosec -severity medium -fmt json -out gosec-report.json ./...
+
+      - name: Format report
+        run: |
+          count=$(jq '.Issues | length' gosec-report.json)
+          echo "## Total issues found: **$count**" > gosec-report.md
+
+          jq -r '.Issues[] | "In `\(.file):\(.line)`
+          | Severity | Confidence | Rule |
+          |-|-|-|
+          |\(.severity)|\(.confidence)|\(.rule_id)|
+
+          *\(.details)*\n
+          ```go\n\(.code)```\n---\n\n"' gosec-report.json >> gosec-report.md
+
 
       - name: Comment gosec scan on PR
         if: github.event_name == 'pull_request'
