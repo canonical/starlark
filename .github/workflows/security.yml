@@ -30,12 +30,12 @@ jobs:
       - name: Run Trivy scan
         id: trivy
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           scan-type: 'fs'
           scanners: 'vuln,secret'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
-          exit-code: '0'  # Always pass so we can control failure logic
           format: 'table'
           output: 'trivy-report.txt'
           timeout: '5m'
@@ -53,6 +53,12 @@ jobs:
           path: trivy-report.txt
           header: trivy-scan
 
+      - name: Fail if Trivy found high/critical issues
+        if: steps.trivy.outputs.exit-code == '1'
+        run: |
+          echo "High or critical vulnerabilities found by Trivy."
+          exit 1
+
   security-scan:
     name: Gosec scan
     runs-on: ubuntu-latest
@@ -68,6 +74,8 @@ jobs:
         run: go install github.com/securego/gosec/v2/cmd/gosec@latest
 
       - name: Run gosec
+        id: gosec
+        continue-on-error: true
         run: |
           gosec -severity medium -fmt markdown -out gosec-report.md ./...
 
@@ -83,3 +91,9 @@ jobs:
         with:
           path: gosec-report.md
           header: gosec-scan
+
+      - name: Fail if gosec found high/critical issues
+        if: steps.gosec.outputs.exit-code == '1'
+        run: |
+          echo "High or critical vulnerabilities found by gosec."
+          exit 1
