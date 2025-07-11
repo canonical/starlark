@@ -41,6 +41,11 @@ jobs:
           output: 'trivy-report.md'
           timeout: '5m'
 
+      - name: Check
+        run: |
+          ls -l
+          cat trivy-report.md || cat trivy-report.txt
+
       - name: Comment Trivy scan on PR
         if: github.event_name == 'pull_request'
         uses: marocchino/sticky-pull-request-comment@v2
@@ -73,12 +78,6 @@ jobs:
         continue-on-error: true
         run: |
           gosec -severity medium -fmt markdown -out gosec-report.md ./...
-
-      - name: Upload gosec report
-        uses: actions/upload-artifact@v4
-        with:
-          name: gosec-report
-          path: gosec-report.md
 
       - name: Comment gosec scan on PR
         if: github.event_name == 'pull_request'
