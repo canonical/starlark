@@ -82,7 +82,7 @@ jobs:
 
           echo "## Gosec scan" > gosec-report.md
           echo "<details><summary>" >> gosec-report.md
-          echo "Total issues found: $total (\$\${\color{red}$high HIGH}\$\$ | \$\${\color{red}$medium MEDIUM}\$\$)" >> gosec-report.md
+          echo "Total issues found: $total ($high HIGH | $medium MEDIUM)" >> gosec-report.md
           echo "</summary>" >> gosec-report.md
           echo "" >> gosec-report.md
           echo "## Details" >> gosec-report.md
