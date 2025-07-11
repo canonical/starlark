@@ -41,11 +41,6 @@ jobs:
           output: 'trivy-report.md'
           timeout: '5m'
 
-      - name: Check
-        run: |
-          ls -l
-          cat trivy-report.md || cat trivy-report.txt
-
       - name: Comment Trivy scan on PR
         if: github.event_name == 'pull_request'
         uses: marocchino/sticky-pull-request-comment@v2
