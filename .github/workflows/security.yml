@@ -76,16 +76,24 @@ jobs:
 
       - name: Format report
         run: |
-          count=$(jq '.Issues | length' gosec-report.json)
-          echo "## Total issues found: **$count**" > gosec-report.md
+          total=$(jq '.Issues | length' gosec-report.json)
+          high=$(jq '.Issues | map(select(.severity == "HIGH")) | length' gosec-report.json)
+          medium=$(jq '.Issues | map(select(.severity == "MEDIUM")) | length' gosec-report.json)
 
-          jq -r '.Issues[] | "In `\(.file):\(.line)`
+          echo "## Gosec scan" > gosec-report.md
+          echo "<details><summary>" >> gosec-report.md
+          echo "Total issues found: $total (<span style='color: red;font-weight: bold'>$high HIGH</span> | <span style='color: yellow'>$medium HIGH</span>)" >> gosec-report.md
+          echo "</summary>" >> gosec-report.md
+          jq -r '.Issues[] | 
+            "\n\nIn `\(.file):\(.line)`
           | Severity | Confidence | Rule |
           |-|-|-|
           |\(.severity)|\(.confidence)|\(.rule_id)|
 
           *\(.details)*\n
           ```go\n\(.code)```\n---\n\n"' gosec-report.json >> gosec-report.md
+
+          echo "</details>" >> gosec-report.md
 
 
       - name: Comment gosec scan on PR
