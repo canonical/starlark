@@ -82,8 +82,10 @@ jobs:
 
           echo "## Gosec scan" > gosec-report.md
           echo "<details><summary>" >> gosec-report.md
-          echo "Total issues found: $total (<span style='color: red;font-weight: bold'>$high HIGH</span> | <span style='color: yellow'>$medium HIGH</span>)" >> gosec-report.md
+          echo "Total issues found: $total (\$\${\color{red}$high HIGH}\$\$ | \$\${\color{red}$medium MEDIUM}\$\$)" >> gosec-report.md
           echo "</summary>" >> gosec-report.md
+          echo "" >> gosec-report.md
+          echo "## Details" >> gosec-report.md
           jq -r '.Issues[] | 
             "\n\nIn `\(.file):\(.line)`
           | Severity | Confidence | Rule |
@@ -94,7 +96,6 @@ jobs:
           ```go\n\(.code)```\n---\n\n"' gosec-report.json >> gosec-report.md
 
           echo "</details>" >> gosec-report.md
-
 
       - name: Comment gosec scan on PR
         if: github.event_name == 'pull_request'
