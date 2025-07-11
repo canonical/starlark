@@ -36,21 +36,16 @@ jobs:
           scanners: 'vuln,secret'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
-          format: 'table'
-          output: 'trivy-report.txt'
+          format: 'template'
+          template: '@/github/workspace/.github/workflows/trivy-template.md.tpl'
+          output: 'trivy-report.md'
           timeout: '5m'
-
-      - name: Upload Trivy scan report
-        uses: actions/upload-artifact@v4
-        with:
-          name: trivy-report
-          path: trivy-report.txt
 
       - name: Comment Trivy scan on PR
         if: github.event_name == 'pull_request'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
-          path: trivy-report.txt
+          path: trivy-report.md
           header: trivy-scan
 
       - name: Fail if Trivy found high/critical issues
