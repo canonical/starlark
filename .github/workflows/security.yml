@@ -37,7 +37,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
           format: 'template'
-          template: '@/home/runner/work/starlark/starlark/.github/workflows/trivy-template.md.tpl'
+          template: '@.github/workflows/trivy-template.md.tpl'
           output: 'trivy-report.md'
           timeout: '5m'
 
