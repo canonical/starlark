@@ -54,7 +54,7 @@ jobs:
           header: trivy-scan
 
       - name: Fail if Trivy found high/critical issues
-        if: steps.trivy.outputs.exit-code == '1'
+        if: steps.trivy.outcome != 'success'
         run: |
           echo "High or critical vulnerabilities found by Trivy."
           exit 1
@@ -93,7 +93,7 @@ jobs:
           header: gosec-scan
 
       - name: Fail if gosec found high/critical issues
-        if: steps.gosec.outputs.exit-code == '1'
+        if: steps.gosec.outcome != 'success'
         run: |
           echo "High or critical vulnerabilities found by gosec."
           exit 1
