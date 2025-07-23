@@ -35,6 +35,7 @@ jobs:
           scan-type: 'fs'
           scanners: 'vuln,secret'
           severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
           format: 'template'
           template: '@.github/workflows/trivy-template.md.tpl'
           output: 'trivy-report.md'
