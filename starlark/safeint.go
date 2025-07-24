@@ -64,6 +64,7 @@ func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 		if uint64(i) > math.MaxInt64 {
 			return InvalidSafeInt
 		}
+		//gosec:disable G115 -- This is checked.
 		return SafeInteger{int64(i)}
 	case uint8:
 		return SafeInteger{int64(i)}
@@ -75,11 +76,13 @@ func SafeInt[I Integer | SafeInteger | Floating](i I) SafeInteger {
 		if i > math.MaxInt64 {
 			return InvalidSafeInt
 		}
+		//gosec:disable G115 -- This is checked.
 		return SafeInteger{int64(i)}
 	case uintptr:
 		if uint64(i) > math.MaxInt64 {
 			return InvalidSafeInt
 		}
+		//gosec:disable G115 -- This is checked.
 		return SafeInteger{int64(i)}
 	case float32:
 		if minValidFloat32 <= i && i <= maxValidFloat32 {
@@ -106,6 +109,7 @@ func (si SafeInteger) Int() (int, bool) {
 	if i64 < math.MinInt || math.MaxInt < i64 {
 		return 0, false
 	}
+	//gosec:disable G115 -- This is checked.
 	return int(i64), true
 }
 
@@ -119,6 +123,7 @@ func (si SafeInteger) Int8() (int8, bool) {
 	if i64 < math.MinInt8 || math.MaxInt8 < i64 {
 		return 0, false
 	}
+	//gosec:disable G115 -- This is checked.
 	return int8(i64), true
 }
 
@@ -132,6 +137,7 @@ func (si SafeInteger) Int16() (int16, bool) {
 	if i64 < math.MinInt16 || math.MaxInt16 < i64 {
 		return 0, false
 	}
+	//gosec:disable G115 -- This is checked.
 	return int16(i64), true
 }
 
@@ -145,6 +151,7 @@ func (si SafeInteger) Int32() (int32, bool) {
 	if i64 < math.MinInt32 || math.MaxInt32 < i64 {
 		return 0, false
 	}
+	//gosec:disable G115 -- This is checked.
 	return int32(i64), true
 }
 
@@ -167,6 +174,7 @@ func (si SafeInteger) Uint() (uint, bool) {
 	if i64 < 0 || math.MaxUint < uint64(i64) {
 		return 0, false
 	}
+	//gosec:disable G115 -- This is checked.
 	return uint(i64), true
 }
 
@@ -180,6 +188,7 @@ func (si SafeInteger) Uint8() (uint8, bool) {
 	if i64 < 0 || math.MaxUint8 < i64 {
 		return 0, false
 	}
+	//gosec:disable G115 -- This is checked.
 	return uint8(i64), true
 }
 
@@ -193,6 +202,7 @@ func (si SafeInteger) Uint16() (uint16, bool) {
 	if i64 < 0 || math.MaxUint16 < i64 {
 		return 0, false
 	}
+	//gosec:disable G115 -- This is checked.
 	return uint16(i64), true
 }
 
@@ -206,6 +216,7 @@ func (si SafeInteger) Uint32() (uint32, bool) {
 	if i64 < 0 || math.MaxUint32 < i64 {
 		return 0, false
 	}
+	//gosec:disable G115 -- This is checked.
 	return uint32(i64), true
 }
 

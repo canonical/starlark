@@ -158,6 +158,7 @@ loop:
 			stack[sp-2], stack[sp-1] = stack[sp-1], stack[sp-2]
 
 		case compile.EQL, compile.NEQ, compile.GT, compile.LT, compile.LE, compile.GE:
+			//gosec:disable G115 -- This is a false-positive.
 			op := syntax.Token(op-compile.EQL) + syntax.EQL
 			y := stack[sp-1]
 			x := stack[sp-2]
@@ -182,6 +183,7 @@ loop:
 			compile.LTLT,
 			compile.GTGT,
 			compile.IN:
+			//gosec:disable G115 -- This is a false-positive.
 			binop := syntax.Token(op-compile.PLUS) + syntax.PLUS
 			if op == compile.IN {
 				binop = syntax.IN // IN token is out of order
@@ -203,6 +205,7 @@ loop:
 			if op == compile.TILDE {
 				unop = syntax.TILDE
 			} else {
+				//gosec:disable G115 -- This is a false-positive.
 				unop = syntax.Token(op-compile.UPLUS) + syntax.PLUS
 			}
 			x := stack[sp-1]
@@ -257,7 +260,9 @@ loop:
 					if err = xdict.ht.checkMutable("apply |= to"); err != nil {
 						break loop
 					}
-					xdict.ht.addAll(thread, &ydict.ht) // can't fail
+					if err = xdict.ht.addAll(thread, &ydict.ht); err != nil {
+						break loop
+					}
 					z = xdict
 				}
 			}
@@ -417,7 +422,7 @@ loop:
 				// that the backing memory for args and kwargs is only kept
 				// alive for the duration of the call. See setArgs call at
 				// the beginning of this function.
-				thread.AddAllocs(SafeNeg(argsAllocs))
+				_ = thread.AddAllocs(SafeNeg(argsAllocs))
 			}
 
 			if vmdebug {

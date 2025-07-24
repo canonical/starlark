@@ -134,6 +134,7 @@ func (prog *Program) Encode() []byte {
 	e.int(b2i(prog.Recursion))
 
 	// Patch in the offset of the string data section.
+	//gosec:disable G115 -- This is within expected bounds.
 	binary.LittleEndian.PutUint32(e.p[4:8], uint32(len(e.p)))
 
 	return append(e.p, e.s...)
@@ -325,6 +326,7 @@ func (d *decoder) string() (s string) {
 			data *byte
 			len  int
 		}
+		//gosec:disable G103 -- This is fine.
 		ptr := (*string)(unsafe.Pointer(&s))
 		ptr.data = &slice[0]
 		ptr.len = len(slice)
@@ -341,7 +343,9 @@ func (d *decoder) bytes() []byte {
 
 func (d *decoder) binding() Binding {
 	name := d.string()
+	//gosec:disable G115 -- Convesion errors here are not problematic.
 	line := int32(d.int())
+	//gosec:disable G115 -- Convesion errors here are not problematic.
 	col := int32(d.int())
 	return Binding{Name: name, Pos: syntax.MakePosition(d.filename, line, col)}
 }
@@ -370,6 +374,7 @@ func (d *decoder) function() *Funcode {
 	code := d.bytes()
 	pclinetab := make([]uint16, d.int())
 	for i := range pclinetab {
+		//gosec:disable -- This is within expected bounds.
 		pclinetab[i] = uint16(d.int())
 	}
 	locals := d.bindings()

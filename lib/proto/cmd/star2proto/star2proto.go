@@ -65,6 +65,7 @@ func main() {
 	if *descriptors != "" {
 		var fdset descriptorpb.FileDescriptorSet
 		for i, filename := range strings.Split(*descriptors, ",") {
+			//gosec:disable G304 -- This is an expected property of this command.
 			data, err := os.ReadFile(filename)
 			if err != nil {
 				log.Fatalf("--descriptors[%d]: %s", i, err)
@@ -132,7 +133,7 @@ func main() {
 	if err != nil {
 		fatalf("%s", err)
 	}
-	os.Stdout.Write(data)
+	_, _ = os.Stdout.Write(data)
 }
 
 func fatalf(format string, args ...interface{}) {

@@ -215,10 +215,12 @@ func MakePosition(file *string, line, col int32) Position { return Position{file
 // add returns the position at the end of s, assuming it starts at p.
 func (p Position) add(s string) Position {
 	if n := strings.Count(s, "\n"); n > 0 {
+		//gosec:disable G115 -- This is not problematic in non-theoretical circumstances.
 		p.Line += int32(n)
 		s = s[strings.LastIndex(s, "\n")+1:]
 		p.Col = 1
 	}
+	//gosec:disable G115 -- This is not problematic in non-theoretical circumstances.
 	p.Col += int32(utf8.RuneCountInString(s))
 	return p
 }
@@ -295,6 +297,7 @@ func readSource(filename string, src interface{}) ([]byte, error) {
 	case FilePortion:
 		return src.Content, nil
 	case nil:
+		//gosec:disable G304 -- This is an expected property of this entire function.
 		return os.ReadFile(filename)
 	default:
 		return nil, fmt.Errorf("invalid source: %T", src)
