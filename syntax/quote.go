@@ -238,7 +238,7 @@ func indexByte(s string, b byte) int {
 func Quote(s string, b bool) string {
 	buf := new(bytes.Buffer)
 	buf.Grow(3 * len(s) / 2)
-	QuoteWriter(buf, s, b)
+	_ = QuoteWriter(buf, s, b)
 	return string(buf.Bytes())
 }
 

@@ -414,6 +414,7 @@ func (fn *Funcode) Position(pc uint32) syntax.Position {
 	n := len(fn.lnt)
 	i, j := 0, n
 	for i < j {
+		//gosec:disable G115 -- This conversion does not fail in non-theoretical applications.
 		h := int(uint(i+j) >> 1)
 		if !(h >= n-1 || fn.lnt[h+1].pc > pc) {
 			i = h + 1
@@ -467,8 +468,10 @@ func (fn *Funcode) decodeLNT() {
 	}
 	for _, x := range fn.pclinetab {
 		entry.pc += uint32(x) >> 12
+		//gosec:disable G115 -- This is a false-positive.
 		entry.line += int32((int16(x) << 4) >> (16 - 5)) // sign extend Δline
-		entry.col += int32((int16(x) << 9) >> (16 - 6))  // sign extend Δcol
+		//gosec:disable G115 -- This is a false-positive.
+		entry.col += int32((int16(x) << 9) >> (16 - 6)) // sign extend Δcol
 		if (x & 1) == 0 {
 			fn.lnt = append(fn.lnt, entry)
 		}
@@ -590,6 +593,7 @@ func (pcomp *pcomp) function(name string, pos syntax.Position, stmts []syntax.St
 					cjmpAddr = &b.insns[i].arg
 					pc += 4
 				default:
+					//gosec:disable -- This is within expected bounds.
 					pc += uint32(argLen(insn.arg))
 				}
 			}
@@ -776,6 +780,7 @@ func (fcomp *fcomp) generate(blocks []*block, codelen uint32) {
 					}
 					prev.col += deltacol
 
+					//gosec:disable G115 -- This is a false-positive.
 					entry := uint16(deltapc<<12) | uint16(deltaline&0x1f)<<7 | uint16(deltacol&0x3f)<<1 | incomplete
 					pclinetab = append(pclinetab, entry)
 					if incomplete == 0 {
@@ -799,6 +804,7 @@ func (fcomp *fcomp) generate(blocks []*block, codelen uint32) {
 				} else {
 					code = addUint32(code, insn.arg, 0)
 				}
+				//gosec:disable -- This is within expected bounds.
 				pc = uint32(len(code))
 			}
 		}
@@ -900,6 +906,7 @@ func PrintOp(fn *Funcode, pc uint32, op Opcode, arg uint32) {
 		fmt.Fprint(&buf, "\t; ", comment)
 	}
 	fmt.Fprintln(&buf)
+	//gosec:disable G104 -- This is fine.
 	os.Stderr.Write(buf.Bytes())
 }
 
@@ -958,6 +965,7 @@ func (fcomp *fcomp) condjump(op Opcode, t, f *block) {
 func (pcomp *pcomp) nameIndex(name string) uint32 {
 	index, ok := pcomp.names[name]
 	if !ok {
+		//gosec:disable -- This is within expected bounds.
 		index = uint32(len(pcomp.prog.Names))
 		pcomp.names[name] = index
 		pcomp.prog.Names = append(pcomp.prog.Names, name)
@@ -970,6 +978,7 @@ func (pcomp *pcomp) nameIndex(name string) uint32 {
 func (pcomp *pcomp) constantIndex(v interface{}) uint32 {
 	index, ok := pcomp.constants[v]
 	if !ok {
+		//gosec:disable -- This is within expected bounds.
 		index = uint32(len(pcomp.prog.Constants))
 		pcomp.constants[v] = index
 		pcomp.prog.Constants = append(pcomp.prog.Constants, v)
@@ -982,6 +991,7 @@ func (pcomp *pcomp) constantIndex(v interface{}) uint32 {
 func (pcomp *pcomp) functionIndex(fn *Funcode) uint32 {
 	index, ok := pcomp.functions[fn]
 	if !ok {
+		//gosec:disable -- This is within expected bounds.
 		index = uint32(len(pcomp.prog.Functions))
 		pcomp.functions[fn] = index
 		pcomp.prog.Functions = append(pcomp.prog.Functions, fn)
@@ -1007,10 +1017,13 @@ func (fcomp *fcomp) set(id *syntax.Ident) {
 	bind := id.Binding.(*resolve.Binding)
 	switch bind.Scope {
 	case resolve.Local:
+		//gosec:disable -- This is within expected bounds.
 		fcomp.emit1(SETLOCAL, uint32(bind.Index))
 	case resolve.Cell:
+		//gosec:disable -- This is within expected bounds.
 		fcomp.emit1(SETLOCALCELL, uint32(bind.Index))
 	case resolve.Global:
+		//gosec:disable -- This is within expected bounds.
 		fcomp.emit1(SETGLOBAL, uint32(bind.Index))
 	default:
 		log.Panicf("%s: set(%s): not global/local/cell (%d)", id.NamePos, id.Name, bind.Scope)
@@ -1025,16 +1038,22 @@ func (fcomp *fcomp) lookup(id *syntax.Ident) {
 	}
 	switch bind.Scope {
 	case resolve.Local:
+		//gosec:disable -- This is within expected bounds.
 		fcomp.emit1(LOCAL, uint32(bind.Index))
 	case resolve.Free:
+		//gosec:disable -- This is within expected bounds.
 		fcomp.emit1(FREECELL, uint32(bind.Index))
 	case resolve.Cell:
+		//gosec:disable -- This is within expected bounds.
 		fcomp.emit1(LOCALCELL, uint32(bind.Index))
 	case resolve.Global:
+		//gosec:disable -- This is within expected bounds.
 		fcomp.emit1(GLOBAL, uint32(bind.Index))
 	case resolve.Predeclared:
+		//gosec:disable -- This is within expected bounds.
 		fcomp.emit1(PREDECLARED, fcomp.pcomp.nameIndex(id.Name))
 	case resolve.Universal:
+		//gosec:disable -- This is within expected bounds.
 		fcomp.emit1(UNIVERSAL, fcomp.pcomp.nameIndex(id.Name))
 	default:
 		log.Panicf("%s: compiler.lookup(%s): scope = %d", id.NamePos, id.Name, bind.Scope)
@@ -1231,6 +1250,7 @@ func (fcomp *fcomp) stmt(stmt syntax.Stmt) {
 		})
 		fcomp.string(module)
 		fcomp.setPos(stmt.Load)
+		//gosec:disable -- This is covered by reasonable bounds.
 		fcomp.emit1(LOAD, uint32(len(stmt.From)))
 		for i := range stmt.To {
 			fcomp.set(stmt.To[len(stmt.To)-1-i])
@@ -1285,6 +1305,7 @@ func (fcomp *fcomp) assign(pos syntax.Position, lhs syntax.Expr) {
 
 func (fcomp *fcomp) assignSequence(pos syntax.Position, lhs []syntax.Expr) {
 	fcomp.setPos(pos)
+	//gosec:disable -- This is covered by reasonable bounds.
 	fcomp.emit1(UNPACK, uint32(len(lhs)))
 	for i := range lhs {
 		fcomp.assign(pos, lhs[i])
@@ -1311,6 +1332,7 @@ func (fcomp *fcomp) expr(e syntax.Expr) {
 		for _, x := range e.List {
 			fcomp.expr(x)
 		}
+		//gosec:disable G115 -- This is within expected bounds.
 		fcomp.emit1(MAKELIST, uint32(len(e.List)))
 
 	case *syntax.CondExpr:
@@ -1640,6 +1662,7 @@ func (fcomp *fcomp) binop(pos syntax.Position, op syntax.Token) {
 		syntax.LT,
 		syntax.LE,
 		syntax.GE:
+		//gosec:disable G115 -- This is a false-positive.
 		fcomp.emit(Opcode(op-syntax.EQL) + EQL)
 
 	default:
@@ -1732,6 +1755,7 @@ func (fcomp *fcomp) args(call *syntax.CallExpr) (op Opcode, arg uint32) {
 		panic("too many arguments in call")
 	}
 
+	//gosec:disable G115 -- This is guaranteed by reasonable program size bounds.
 	return CALL + Opcode(callmode), uint32(p<<8 | n)
 }
 
@@ -1739,6 +1763,7 @@ func (fcomp *fcomp) tuple(elems []syntax.Expr) {
 	for _, elem := range elems {
 		fcomp.expr(elem)
 	}
+	//gosec:disable G115 -- This is guaranteed by reasonable program size bounds.
 	fcomp.emit1(MAKETUPLE, uint32(len(elems)))
 }
 
@@ -1841,12 +1866,15 @@ func (fcomp *fcomp) function(f *resolve.Function) {
 		// the cell itself, not its content.
 		switch freevar.Scope {
 		case resolve.Free:
+			//gosec:disable G115 -- This is guaranteed by reasonable program size bounds.
 			fcomp.emit1(FREE, uint32(freevar.Index))
 		case resolve.Cell:
+			//gosec:disable G115 -- This is guaranteed by reasonable program size bounds.
 			fcomp.emit1(LOCAL, uint32(freevar.Index))
 		}
 	}
 
+	//gosec:disable G115 -- This is guaranteed by reasonable program size bounds.
 	fcomp.emit1(MAKETUPLE, uint32(ndefaults+len(f.FreeVars)))
 
 	funcode := fcomp.pcomp.function(f.Name, f.Pos, f.Body, f.Locals, f.FreeVars)

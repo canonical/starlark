@@ -503,10 +503,13 @@ func (b Bool) String() string {
 		return "False"
 	}
 }
-func (b Bool) Type() string          { return "bool" }
-func (b Bool) Freeze()               {} // immutable
-func (b Bool) Truth() Bool           { return b }
-func (b Bool) Hash() (uint32, error) { return uint32(b2i(bool(b))), nil }
+func (b Bool) Type() string { return "bool" }
+func (b Bool) Freeze()      {} // immutable
+func (b Bool) Truth() Bool  { return b }
+func (b Bool) Hash() (uint32, error) {
+	//gosec:disable G115 -- This is fine.
+	return uint32(b2i(bool(b))), nil
+}
 func (x Bool) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(Bool)
 	return threeway(op, b2i(bool(x))-b2i(bool(y))), nil
@@ -1130,7 +1133,7 @@ type Dict struct {
 // at least size insertions before rehashing.
 func NewDict(size int) *Dict {
 	dict := new(Dict)
-	dict.ht.init(nil, size)
+	_ = dict.ht.init(nil, size)
 	return dict
 }
 
@@ -1481,6 +1484,7 @@ func (t Tuple) Hash() (uint32, error) {
 			return 0, err
 		}
 		x = x ^ y*mult
+		//gosec:disable G115 -- This is fine.
 		mult += 82520 + uint32(len(t)+len(t))
 	}
 	return x, nil
@@ -1517,7 +1521,7 @@ type Set struct {
 // at least size insertions before rehashing.
 func NewSet(size int) *Set {
 	set := new(Set)
-	set.ht.init(nil, size)
+	_ = set.ht.init(nil, size)
 	return set
 }
 
@@ -1626,7 +1630,9 @@ func (s *Set) clone(thread *Thread) (*Set, error) {
 			return nil, err
 		}
 	}
-	set.ht.init(thread, int(s.ht.len))
+	if err := set.ht.init(thread, int(s.ht.len)); err != nil {
+		return nil, err
+	}
 	for e := s.ht.head; e != nil; e = e.next {
 		if err := set.ht.insert(thread, e.key, None); err != nil {
 			return nil, err
@@ -1767,7 +1773,7 @@ func (s *Set) safeSymmetricDifference(thread *Thread, other Iterator) (Value, er
 // It may be more efficient than v.String() for larger values.
 func toString(v Value) string {
 	buf := new(strings.Builder)
-	writeValue(nil, buf, v, nil)
+	_ = writeValue(nil, buf, v, nil)
 	return buf.String()
 }
 

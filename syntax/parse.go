@@ -672,6 +672,7 @@ func init() {
 	}
 	for level, tokens := range preclevels {
 		for _, tok := range tokens {
+			//gosec:disable G115 -- This is fine.
 			precedence[tok] = int8(level)
 		}
 	}
