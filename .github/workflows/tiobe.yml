@@ -17,8 +17,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  tics:
-    name: Tiobe TICS
+  test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -45,6 +45,28 @@ jobs:
           mkdir -p cover
           gocov convert coverage.out > cover/coverage.json
           gocov-xml < cover/coverage.json > cover/coverage-go.xml
+      
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: cover/
+
+  tics:
+    name: Tiobe TICS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.head_ref || '' }}
+          repository: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name || '' }}
+      
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: cover/
 
       - name: Run TiCS client analysis
         uses: tiobe/tics-github-action@v3
