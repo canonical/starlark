@@ -663,7 +663,7 @@ func (d StringDict) SafeString(thread *Thread, sb StringBuilder) error {
 
 func (d StringDict) String() string {
 	buf := new(strings.Builder)
-	d.SafeString(nil, buf)
+	_ = d.SafeString(nil, buf)
 	return buf.String()
 }
 
@@ -2421,8 +2421,11 @@ func slice(x, lo, hi, step_ Value) (Value, error) {
 }
 
 // From Hacker's Delight, section 2.8.
-func signum64(x int64) int { return int(uint64(x>>63) | uint64(-x)>>63) }
-func signum(x int) int     { return signum64(int64(x)) }
+func signum64(x int64) int {
+	//gosec:disable G115 -- This is a false-positive.
+	return int(uint64(x>>63) | uint64(-x)>>63)
+}
+func signum(x int) int { return signum64(int64(x)) }
 
 // indices converts start_ and end_ to indices in the range [0:len].
 // The start index defaults to 0 and the end index defaults to len.
@@ -2567,7 +2570,9 @@ func setArgs(locals []Value, fn *Function, args Tuple, kwargs []Tuple) error {
 			return fmt.Errorf("function %s got an unexpected keyword argument %s", fn.Name(), k)
 		}
 		oldlen := kwdict.Len()
-		kwdict.SetKey(k, v)
+		if err := kwdict.SetKey(k, v); err != nil {
+			return err
+		}
 		if kwdict.Len() == oldlen {
 			return fmt.Errorf("function %s got multiple values for parameter %s", fn.Name(), k)
 		}

@@ -228,7 +228,9 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 
 		case starlark.Iterable:
 			// e.g. tuple, list
-			buf.WriteByte('[')
+			if err := buf.WriteByte('['); err != nil {
+				return err
+			}
 			iter, err := starlark.SafeIterate(thread, x)
 			if err != nil {
 				return err
@@ -321,6 +323,7 @@ func pointer(i interface{}) unsafe.Pointer {
 	switch v.Kind() {
 	case reflect.Ptr, reflect.Chan, reflect.Map, reflect.UnsafePointer, reflect.Slice:
 		// TODO(adonovan): use v.Pointer() when we drop go1.17.
+		//gosec:disable G103 -- This is fine.
 		return unsafe.Pointer(v.Pointer())
 	default:
 		return nil

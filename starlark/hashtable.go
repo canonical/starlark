@@ -97,7 +97,9 @@ func (ht *hashtable) insert(thread *Thread, k, v Value) error {
 		return err
 	}
 	if ht.table == nil {
-		ht.init(thread, 1)
+		if err := ht.init(thread, 1); err != nil {
+			return err
+		}
 	}
 	h, err := k.Hash()
 	if err != nil {
@@ -111,6 +113,7 @@ retry:
 	var insert *entry
 
 	// Inspect each bucket in the bucket list.
+	//gosec:disable G115 -- This is fine.
 	p := &ht.table[h&(uint32(len(ht.table)-1))]
 	for {
 		if thread != nil {
@@ -238,6 +241,7 @@ func (ht *hashtable) lookup(thread *Thread, k Value) (v Value, found bool, err e
 	}
 
 	// Inspect each bucket in the bucket list.
+	//gosec:disable G115 -- This is fine.
 	for p := &ht.table[h&(uint32(len(ht.table)-1))]; p != nil; p = p.next {
 		if thread != nil {
 			if err := thread.AddSteps(SafeInt(1)); err != nil {
@@ -297,6 +301,7 @@ func (ht *hashtable) count(thread *Thread, iter Iterator) (int, error) {
 		}
 
 		// Inspect each bucket in the bucket list.
+		//gosec:disable G115 -- This is fine.
 		bucketId := h & (uint32(len(ht.table) - 1))
 		i := 0
 		for p := &ht.table[bucketId]; p != nil; p = p.next {
@@ -382,6 +387,7 @@ func (ht *hashtable) delete(thread *Thread, k Value) (v Value, found bool, err e
 	}
 
 	// Inspect each bucket in the bucket list.
+	//gosec:disable G115 -- This is fine.
 	for p := &ht.table[h&(uint32(len(ht.table)-1))]; p != nil; p = p.next {
 		if thread != nil {
 			if err := thread.AddSteps(SafeInt(1)); err != nil {
