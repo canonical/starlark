@@ -1,50 +1,30 @@
 name: Tiobe TICS
 on:
-  # Running on pull_request_target instead of pull_request because this workflow
-  # uses secrets, and thus we need to ensure it runs under this project's code base.
-  pull_request_target:
-    branches: 
-      - main
-  workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * *'  # Test TICS daily
+  workflow_run:
+    workflows: ["Coverage"]
+    types:
+      - completed
 
 permissions:
   contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
+  actions: read
 
 jobs:
   tics:
     name: Tiobe TICS
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
         with:
-          ref: ${{ github.event_name == 'pull_request_target' && github.head_ref || '' }}
-          repository: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name || '' }}
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
+          ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Install Go
-        uses: actions/setup-go@v5
-
-      - name: Setup dependencies
-        run: |
-          go install github.com/axw/gocov/gocov@latest
-          go install github.com/AlekSi/gocov-xml@latest
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-
-      - name: Test
-        run: |
-          go test -v -p 1 -coverprofile=coverage.out ./...
-      
-      - name: Convert coverage files
-        run: |
-          mkdir -p cover
-          gocov convert coverage.out > cover/coverage.json
-          gocov-xml < cover/coverage.json > cover/coverage-go.xml
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53  # v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          name: coverage
+          path: cover/
 
       - name: Run TiCS client analysis
         uses: tiobe/tics-github-action@v3
