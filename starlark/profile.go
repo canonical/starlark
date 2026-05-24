@@ -396,6 +396,7 @@ func profFuncAddr(fn Callable) uintptr {
 	case *Builtin:
 		return reflect.ValueOf(fn.fn).Pointer()
 	case *Function:
+		//gosec:disable G103 -- This is fine.
 		return uintptr(unsafe.Pointer(fn.funcode))
 	}
 
@@ -428,23 +429,24 @@ type protoEncoder struct {
 
 func (e *protoEncoder) uvarint(x uint64) {
 	n := binary.PutUvarint(e.tmp[:], x)
-	e.w.Write(e.tmp[:n])
+	_, _ = e.w.Write(e.tmp[:n])
 }
 
 func (e *protoEncoder) tag(field, wire uint) {
+	//gosec:disable G104 -- This is fine.
 	e.uvarint(uint64(field<<3 | wire))
 }
 
 func (e *protoEncoder) string(field uint, s string) {
 	e.tag(field, 2) // length-delimited
 	e.uvarint(uint64(len(s)))
-	io.WriteString(e.w, s)
+	_, _ = io.WriteString(e.w, s)
 }
 
 func (e *protoEncoder) bytes(field uint, b []byte) {
 	e.tag(field, 2) // length-delimited
 	e.uvarint(uint64(len(b)))
-	e.w.Write(b)
+	_, _ = e.w.Write(b)
 }
 
 func (e *protoEncoder) uint(field uint, x uint64) {
@@ -454,5 +456,6 @@ func (e *protoEncoder) uint(field uint, x uint64) {
 
 func (e *protoEncoder) int(field uint, x int64) {
 	e.tag(field, 0) // varint
+	//gosec:disable G115 -- This is fine.
 	e.uvarint(uint64(x))
 }

@@ -326,7 +326,9 @@ func (is *intset) init(n int) {
 
 func (is *intset) set(i int) (prev bool) {
 	if is.large == nil {
+		//gosec:disable G115 -- When using this branch, it is assumed that i < 64.
 		prev = is.small&(1<<uint(i)) != 0
+		//gosec:disable G115 -- When using this branch, it is assumed that i < 64.
 		is.small |= 1 << uint(i)
 	} else {
 		prev = is.large[i]
@@ -337,6 +339,7 @@ func (is *intset) set(i int) (prev bool) {
 
 func (is *intset) get(i int) bool {
 	if is.large == nil {
+		//gosec:disable G115 -- When using this branch, it is assumed that i < 64.
 		return is.small&(1<<uint(i)) != 0
 	}
 	return is.large[i]
@@ -347,6 +350,7 @@ func (is *intset) len() int {
 		// Suboptimal, but used only for error reporting.
 		len := 0
 		for i := 0; i < 64; i++ {
+			//gosec:disable G115 -- When using this branch, it is assumed that i < 64.
 			if is.small&(1<<uint(i)) != 0 {
 				len++
 			}

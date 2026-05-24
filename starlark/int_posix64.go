@@ -99,5 +99,6 @@ func reserveAddresses(len int) uintptr {
 		log.Printf("Starlark failed to allocate 4GB address space: %v. Integer performance may suffer.", err)
 		return 0 // optimization disabled
 	}
+	//gosec:disable G103 -- This is fine.
 	return uintptr(unsafe.Pointer(&b[0]))
 }

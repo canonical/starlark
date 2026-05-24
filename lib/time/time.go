@@ -261,6 +261,7 @@ func (d Duration) Freeze() {}
 // Hash returns a function of x such that Equals(x, y) => Hash(x) == Hash(y)
 // required by starlark.Value interface.
 func (d Duration) Hash() (uint32, error) {
+	//gosec:disable G115 -- This is fine.
 	return uint32(d) ^ uint32(int64(d)>>32), nil
 }
 
@@ -510,6 +511,7 @@ func (t Time) Freeze() {}
 // Hash returns a function of x such that Equals(x, y) => Hash(x) == Hash(y)
 // required by starlark.Value interface.
 func (t Time) Hash() (uint32, error) {
+	//gosec:disable G115 -- This is fine.
 	return uint32(time.Time(t).UnixNano()) ^ uint32(int64(time.Time(t).UnixNano())>>32), nil
 }
 

@@ -56,6 +56,7 @@ type Reporter interface {
 // by a newline so that the Go source position added by (*testing.T).Errorf
 // appears on a separate line so as not to confused editors.
 func Read(filename string, report Reporter) (chunks []Chunk) {
+	//gosec:disable G304 -- This is an expected property of this entire function.
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		report.Errorf("%s", err)

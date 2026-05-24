@@ -1188,7 +1188,7 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if thread.Print != nil {
 		thread.Print(thread, s)
 	} else {
-		thread.AddAllocs(SafeNeg(buf.Allocs()))
+		_ = thread.AddAllocs(SafeNeg(buf.Allocs()))
 		fmt.Fprintln(os.Stderr, s)
 	}
 	return None, nil
@@ -2738,9 +2738,9 @@ func string_partition(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (V
 		}
 	} else {
 		if b.Name()[0] == 'p' {
-			thread.AddSteps(SafeNeg(SafeSub(SafeSub(len(recv), len(sep)), i)))
+			_ = thread.AddSteps(SafeNeg(SafeSub(SafeSub(len(recv), len(sep)), i)))
 		} else {
-			thread.AddSteps(SafeNeg(i))
+			_ = thread.AddSteps(SafeNeg(i))
 		}
 		tuple = append(tuple, String(recv[:i]), String(recv[i:i+len(sep)]), String(recv[i+len(sep):]))
 	}

@@ -499,6 +499,7 @@ func toProto(fdesc protoreflect.FieldDescriptor, v starlark.Value) (protoreflect
 		protoreflect.Uint32Kind:
 		// uint32
 		if i, ok := v.(starlark.Int); ok {
+			//gosec:disable G115 -- This is a false-positive.
 			if u, ok := i.Uint64(); ok && uint64(uint32(u)) == u {
 				return protoreflect.ValueOfUint32(uint32(u)), nil
 			}
@@ -510,7 +511,9 @@ func toProto(fdesc protoreflect.FieldDescriptor, v starlark.Value) (protoreflect
 		protoreflect.Sint32Kind:
 		// int32
 		if i, ok := v.(starlark.Int); ok {
+			//gosec:disable G115 -- This is a false-positive.
 			if i, ok := i.Int64(); ok && int64(int32(i)) == i {
+				//gosec:disable G115 -- This is fine.
 				return protoreflect.ValueOfInt32(int32(i)), nil
 			}
 			return noValue, fmt.Errorf("invalid %s: %v", typeString(fdesc), i)
@@ -755,10 +758,13 @@ func (m *Message) String() string {
 	return buf.String()
 }
 
-func (m *Message) Type() string                { return "proto.Message" }
-func (m *Message) Truth() starlark.Bool        { return true }
-func (m *Message) Freeze()                     { *m.frozen = true }
-func (m *Message) Hash() (h uint32, err error) { return uint32(uintptr(unsafe.Pointer(m))), nil } // identity hash
+func (m *Message) Type() string         { return "proto.Message" }
+func (m *Message) Truth() starlark.Bool { return true }
+func (m *Message) Freeze()              { *m.frozen = true }
+func (m *Message) Hash() (h uint32, err error) {
+	//gosec:disable G103 -- This is fine.
+	return uint32(uintptr(unsafe.Pointer(m))), nil // identity hash
+}
 
 // Attr returns the value of this message's field of the specified name.
 // Extension fields are not accessible this way as their names are not unique.
@@ -1215,6 +1221,7 @@ func enumValueOf(enum protoreflect.EnumDescriptor, x starlark.Value) (protorefle
 		if err != nil {
 			return nil, fmt.Errorf("invalid number %s for %s enum", x, enum.Name())
 		}
+		//gosec:disable G115 -- This is not problematic in non-theoretical circumstances.
 		desc := enum.Values().ByNumber(protoreflect.EnumNumber(i))
 		if desc == nil {
 			return nil, fmt.Errorf("invalid number %d for %s enum", i, enum.Name())
@@ -1265,10 +1272,13 @@ func (e EnumValueDescriptor) String() string {
 	enum := e.Desc.Parent()
 	return string(enum.Name() + "." + e.Desc.Name()) // "Enum.EnumValue"
 }
-func (e EnumValueDescriptor) Type() string                { return "proto.EnumValueDescriptor" }
-func (e EnumValueDescriptor) Truth() starlark.Bool        { return true }
-func (e EnumValueDescriptor) Freeze()                     {} // immutable
-func (e EnumValueDescriptor) Hash() (h uint32, err error) { return uint32(e.Desc.Number()), nil }
+func (e EnumValueDescriptor) Type() string         { return "proto.EnumValueDescriptor" }
+func (e EnumValueDescriptor) Truth() starlark.Bool { return true }
+func (e EnumValueDescriptor) Freeze()              {} // immutable
+func (e EnumValueDescriptor) Hash() (h uint32, err error) {
+	//gosec:disable G115 -- This is fine.
+	return uint32(e.Desc.Number()), nil
+}
 func (e EnumValueDescriptor) AttrNames() []string {
 	return []string{"index", "name", "number", "type"}
 }

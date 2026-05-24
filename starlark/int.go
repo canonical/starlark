@@ -260,8 +260,10 @@ func (i Int) Hash() (uint32, error) {
 	if iBig != nil {
 		lo = iBig.Bits()[0]
 	} else {
+		//gosec:disable G115 -- As iSmall is at most 1<<31, this cast will never change the value.
 		lo = big.Word(iSmall)
 	}
+	//gosec:disable G115 -- This is not problematic.
 	return 12582917 * uint32(lo+3), nil
 }
 
@@ -460,14 +462,19 @@ func AsInt(x Value, ptr interface{}) error {
 		}
 		switch ptr := ptr.(type) {
 		case *int:
+			//gosec:disable G115 -- This is expected behaviour.
 			*ptr = int(i)
 		case *int8:
+			//gosec:disable G115 -- This is expected behaviour.
 			*ptr = int8(i)
 		case *int16:
+			//gosec:disable G115 -- This is expected behaviour.
 			*ptr = int16(i)
 		case *int32:
+			//gosec:disable G115 -- This is expected behaviour.
 			*ptr = int32(i)
 		case *int64:
+			//gosec:disable G115 -- This is expected behaviour.
 			*ptr = int64(i)
 		}
 
@@ -478,16 +485,22 @@ func AsInt(x Value, ptr interface{}) error {
 		}
 		switch ptr := ptr.(type) {
 		case *uint:
+			//gosec:disable G115 -- This is expected behaviour.
 			*ptr = uint(i)
 		case *uint8:
+			//gosec:disable G115 -- This is expected behaviour.
 			*ptr = uint8(i)
 		case *uint16:
+			//gosec:disable G115 -- This is expected behaviour.
 			*ptr = uint16(i)
 		case *uint32:
+			//gosec:disable G115 -- This is expected behaviour.
 			*ptr = uint32(i)
 		case *uint64:
+			//gosec:disable G115 -- This is expected behaviour.
 			*ptr = uint64(i)
 		case *uintptr:
+			//gosec:disable G115 -- This is expected behaviour.
 			*ptr = uintptr(i)
 		}
 	default:

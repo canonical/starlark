@@ -417,6 +417,7 @@ func readMemoryUsage(precise bool) int64 {
 
 		var stats runtime.MemStats
 		runtime.ReadMemStats(&stats)
+		//gosec:disable G115 -- This conversion does not fail in non-theoretical applications.
 		return int64(stats.Alloc)
 	}
 
@@ -427,6 +428,7 @@ func readMemoryUsage(precise bool) int64 {
 	if sample[0].Value.Kind() == metrics.KindBad {
 		return 0
 	}
+	//gosec:disable G115 -- This conversion does not fail in non-theoretical applications.
 	return int64(sample[0].Value.Uint64())
 }
 

@@ -216,7 +216,7 @@ func (s *Struct) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) 
 
 func (s *Struct) String() string {
 	buf := new(strings.Builder)
-	s.SafeString(nil, buf)
+	_ = s.SafeString(nil, buf)
 	return buf.String()
 }
 
@@ -289,6 +289,7 @@ func (s *Struct) SafeAttr(thread *starlark.Thread, name string) (starlark.Value,
 				return nil, err
 			}
 		}
+		//gosec:disable G115 -- This conversion does not fail in non-theoretical applications.
 		h := int(uint(i+j) >> 1)
 		if s.entries[h].name < name {
 			i = h + 1
@@ -316,6 +317,7 @@ func (s *Struct) Attr(name string) (starlark.Value, error) {
 	n := len(s.entries)
 	i, j := 0, n
 	for i < j {
+		//gosec:disable G115 -- This conversion does not fail in non-theoretical applications.
 		h := int(uint(i+j) >> 1)
 		if s.entries[h].name < name {
 			i = h + 1
