@@ -1,0 +1,12 @@
+name: starlark-dev
+base: ubuntu@24.04
+connections:
+  - plug: omp:omp-home
+    slot: system:mount
+sdks:
+  - name: direnvrc
+  - name: go
+  - name: omp
+actions:
+  omp: direnv exec /project omp "$@"
+  go: direnv exec /project go "$@"
