@@ -27,7 +27,7 @@ jobs:
           path: cover/
 
       - name: Run TiCS client analysis
-        uses: tiobe/tics-github-action@v3
+        uses: tiobe/tics-github-action@v4
         if: github.event_name == 'pull_request_target'
         with:
           mode: client
@@ -38,7 +38,7 @@ jobs:
           calc: ALL
 
       - name: Run TiCS server analysis
-        uses: tiobe/tics-github-action@v3
+        uses: tiobe/tics-github-action@v4
         if: github.event_name != 'pull_request_target'
         with:
           mode: qserver
